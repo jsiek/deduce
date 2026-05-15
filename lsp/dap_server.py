@@ -42,7 +42,7 @@ import sys
 import threading
 import traceback as _traceback
 from pathlib import Path
-from typing import IO, Optional
+from typing import IO, Any, Optional, TypeAlias, cast
 
 
 # ---------------------------------------------------------------------------
@@ -84,6 +84,8 @@ from lsp.debugger import (  # noqa: E402
 )
 from lsp.library import check_file  # noqa: E402
 
+JSONDict: TypeAlias = dict[str, Any]
+
 
 def _compute_default_prelude() -> tuple[str, ...]:
     if os.environ.get("DEDUCE_NO_STDLIB") == "1":
@@ -109,10 +111,10 @@ def _default_prelude() -> tuple[str, ...]:
 # ---------------------------------------------------------------------------
 
 
-def read_message(stream: IO[bytes]) -> Optional[dict]:
+def read_message(stream: IO[bytes]) -> Optional[JSONDict]:
     """Read one DAP message from ``stream``.  Returns ``None`` on
     EOF (the editor closed the connection)."""
-    headers: dict = {}
+    headers: dict[str, str] = {}
     while True:
         raw = stream.readline()
         if not raw:
@@ -128,10 +130,10 @@ def read_message(stream: IO[bytes]) -> Optional[dict]:
     body = stream.read(n)
     if len(body) < n:
         return None
-    return json.loads(body.decode("utf-8"))
+    return cast(JSONDict, json.loads(body.decode("utf-8")))
 
 
-def write_message(stream: IO[bytes], msg: dict, lock: threading.Lock) -> None:
+def write_message(stream: IO[bytes], msg: JSONDict, lock: threading.Lock) -> None:
     """Send a DAP message.  ``lock`` serialises writes -- the
     program thread can emit ``stopped`` / ``output`` events while
     the reader thread is sending responses."""
@@ -178,7 +180,7 @@ class _DAPDebugger(Debugger):
     # Override the trap entry points so we can label the stop reason
     # before delegating to the base-class pause machinery.
 
-    def on_statement(self, stmt, env) -> None:
+    def on_statement(self, stmt: Any, env: Any) -> None:
         # If the upcoming pause is breakpoint-driven, the base class
         # decides that via ``_should_pause_at_statement``.  Pick the
         # reason here based on which decision will fire.
@@ -191,13 +193,13 @@ class _DAPDebugger(Debugger):
     def on_function(
         self,
         name: str,
-        location,
-        env,
-        params: Optional[list] = None,
-        args: Optional[list] = None,
-        subst: Optional[dict] = None,
-        defn_loc=None,
-        display_args: Optional[list] = None,
+        location: Any,
+        env: Any,
+        params: Optional[list[Any]] = None,
+        args: Optional[list[Any]] = None,
+        subst: Optional[dict[Any, Any]] = None,
+        defn_loc: Any = None,
+        display_args: Optional[list[Any]] = None,
     ) -> None:
         self._stop_reason = self._reason_for_function(name, location, defn_loc)
         super().on_function(
@@ -206,7 +208,7 @@ class _DAPDebugger(Debugger):
             defn_loc=defn_loc, display_args=display_args,
         )
 
-    def after_function(self, name, env, return_value=None) -> None:
+    def after_function(self, name: Any, env: Any, return_value: Any = None) -> None:
         # The return-trap (Step 22) is always a step event from the
         # DAP point of view; no breakpoint fires on returns.
         self._stop_reason = "step"
@@ -223,12 +225,12 @@ class _DAPDebugger(Debugger):
             "output": text,
         })
 
-    def _reason_for_statement(self, stmt, env) -> str:
+    def _reason_for_statement(self, stmt: Any, env: Any) -> str:
         if any(bp.hits_at_statement(stmt, env, self) for bp in self.breakpoints):
             return "breakpoint"
         return "step"
 
-    def _reason_for_function(self, name, location, defn_loc) -> str:
+    def _reason_for_function(self, name: str, location: Any, defn_loc: Any) -> str:
         if any(bp.hits_at_function(name, location, None, self)
                for bp in self.breakpoints):
             return "breakpoint"
@@ -271,7 +273,7 @@ class _DAPDebugger(Debugger):
     # Accessors used by the DAP server when answering DAP requests
     # while the program is paused inside ``_repl``.
 
-    def stack_trace(self) -> list[dict]:
+    def stack_trace(self) -> list[JSONDict]:
         """Convert ``self.stack`` to DAP stack frames.  Frame 0 is
         the innermost call -- gdb / DAP convention.
 
@@ -281,12 +283,12 @@ class _DAPDebugger(Debugger):
         ``stackTrace`` response is an empty array and the editor
         silently resumes.  Synthesize a single ``<top-level>`` frame
         pointing at ``_current_loc``."""
-        frames: list[dict] = []
+        frames: list[JSONDict] = []
         for i in range(len(self.stack) - 1, -1, -1):
             f = self.stack[i]
             depth = len(self.stack) - 1 - i
             loc = f.location
-            entry: dict = {
+            entry: JSONDict = {
                 "id": depth,
                 "name": base_name(f.name) if isinstance(f.name, str) else str(f.name),
                 "line": getattr(loc, "line", 0) or 0,
@@ -300,7 +302,7 @@ class _DAPDebugger(Debugger):
                 }
             frames.append(entry)
         if not frames and self._current_loc is not None:
-            entry = {
+            top_entry: JSONDict = {
                 "id": 0,
                 "name": "<top-level>",
                 "line": getattr(self._current_loc, "line", 0) or 0,
@@ -308,14 +310,14 @@ class _DAPDebugger(Debugger):
             }
             src_path = getattr(self._current_loc, "filename", None)
             if src_path:
-                entry["source"] = {
+                top_entry["source"] = {
                     "name": Path(src_path).name,
                     "path": src_path,
                 }
-            frames.append(entry)
+            frames.append(top_entry)
         return frames
 
-    def variables_for_frame(self, frame_id: int) -> list[dict]:
+    def variables_for_frame(self, frame_id: int) -> list[JSONDict]:
         """Locals visible in the frame numbered ``frame_id`` (gdb
         convention, 0 = innermost)."""
         if frame_id < 0 or frame_id >= len(self.stack):
@@ -333,7 +335,9 @@ class _DAPDebugger(Debugger):
             raise RuntimeError("no current scope")
         return str(self._eval_expr(expr, self._current_env))
 
-    def set_file_breakpoints(self, path: str, dap_bps: list[dict]) -> list[dict]:
+    def set_file_breakpoints(
+        self, path: str, dap_bps: list[JSONDict],
+    ) -> list[JSONDict]:
         """Replace existing file:line breakpoints for ``path`` with
         the new set.  Returns a list of ``{verified, line}`` dicts
         in the same order as the input.
@@ -342,7 +346,7 @@ class _DAPDebugger(Debugger):
         # file path -- DAP's contract is that ``setBreakpoints`` is
         # the canonical set for the given source.
         from os.path import basename as _bn
-        keep = []
+        keep: list[_Breakpoint] = []
         target_basename = _bn(path)
         for bp in self.breakpoints:
             if ":" in bp.spec:
@@ -351,7 +355,7 @@ class _DAPDebugger(Debugger):
                     continue
             keep.append(bp)
         self.breakpoints = keep
-        result: list[dict] = []
+        result: list[JSONDict] = []
         for entry in dap_bps:
             line = entry.get("line")
             if line is None:
@@ -369,12 +373,12 @@ class _DAPDebugger(Debugger):
             })
         return result
 
-    def set_function_breakpoints(self, dap_bps: list[dict]) -> list[dict]:
+    def set_function_breakpoints(self, dap_bps: list[JSONDict]) -> list[JSONDict]:
         """Replace existing function-name breakpoints with the new
         set.  Returns one ``{verified}`` entry per input."""
         # Drop existing bare-name breakpoints; line ones stay.
         self.breakpoints = [bp for bp in self.breakpoints if ":" in bp.spec]
-        result: list[dict] = []
+        result: list[JSONDict] = []
         for entry in dap_bps:
             name = entry.get("name")
             if not name:
@@ -459,7 +463,7 @@ class DAPServer:
         # program thread.  ``_DAPDebugger._repl`` consumes one per
         # pause.  Capacity 16 is plenty -- the editor doesn't
         # double-queue under normal use.
-        self._steps: queue.Queue = queue.Queue(maxsize=16)
+        self._steps: queue.Queue[str] = queue.Queue(maxsize=16)
         # The debugger and program thread are created on ``launch``.
         self.debugger: Optional[_DAPDebugger] = None
         self._program_thread: Optional[threading.Thread] = None
@@ -477,10 +481,10 @@ class DAPServer:
         return self._seq
 
     def _send_response(
-        self, req: dict, body: Optional[dict] = None,
+        self, req: JSONDict, body: Optional[JSONDict] = None,
         success: bool = True, message: Optional[str] = None,
     ) -> None:
-        resp: dict = {
+        resp: JSONDict = {
             "type": "response",
             "seq": self._next_seq(),
             "request_seq": req.get("seq", 0),
@@ -493,8 +497,8 @@ class DAPServer:
             resp["body"] = body
         write_message(self._out, resp, self._write_lock)
 
-    def _send_event(self, event: str, body: Optional[dict] = None) -> None:
-        msg: dict = {
+    def _send_event(self, event: str, body: Optional[JSONDict] = None) -> None:
+        msg: JSONDict = {
             "type": "event",
             "seq": self._next_seq(),
             "event": event,
@@ -536,7 +540,7 @@ class DAPServer:
             except queue.Full:
                 pass
 
-    def _dispatch(self, req: dict) -> None:
+    def _dispatch(self, req: JSONDict) -> None:
         cmd = req.get("command", "")
         handler = getattr(self, f"_h_{cmd}", None)
         if handler is None:
@@ -554,7 +558,7 @@ class DAPServer:
 
     # --- request handlers ---
 
-    def _h_initialize(self, req: dict) -> None:
+    def _h_initialize(self, req: JSONDict) -> None:
         body = {
             "supportsConditionalBreakpoints": True,
             "supportsFunctionBreakpoints": True,
@@ -566,7 +570,7 @@ class DAPServer:
         # setBreakpoints / setFunctionBreakpoints / configurationDone.
         self._send_event("initialized")
 
-    def _h_launch(self, req: dict) -> None:
+    def _h_launch(self, req: JSONDict) -> None:
         args = req.get("arguments", {}) or {}
         program = args.get("program")
         if not program:
@@ -582,7 +586,7 @@ class DAPServer:
         )
         self._program_thread.start()
 
-    def _h_setBreakpoints(self, req: dict) -> None:
+    def _h_setBreakpoints(self, req: JSONDict) -> None:
         args = req.get("arguments", {}) or {}
         source = args.get("source", {}) or {}
         path = source.get("path", "")
@@ -593,7 +597,7 @@ class DAPServer:
         result = self.debugger.set_file_breakpoints(path, bps)
         self._send_response(req, body={"breakpoints": result})
 
-    def _h_setFunctionBreakpoints(self, req: dict) -> None:
+    def _h_setFunctionBreakpoints(self, req: JSONDict) -> None:
         args = req.get("arguments", {}) or {}
         bps = args.get("breakpoints", []) or []
         if self.debugger is None:
@@ -602,43 +606,43 @@ class DAPServer:
         result = self.debugger.set_function_breakpoints(bps)
         self._send_response(req, body={"breakpoints": result})
 
-    def _h_configurationDone(self, req: dict) -> None:
+    def _h_configurationDone(self, req: JSONDict) -> None:
         self._send_response(req)
         self._config_done.set()
 
-    def _h_continue(self, req: dict) -> None:
+    def _h_continue(self, req: JSONDict) -> None:
         self._steps.put("continue")
         self._send_response(req, body={"allThreadsContinued": True})
 
-    def _h_next(self, req: dict) -> None:
+    def _h_next(self, req: JSONDict) -> None:
         self._steps.put("next")
         self._send_response(req)
 
-    def _h_stepIn(self, req: dict) -> None:
+    def _h_stepIn(self, req: JSONDict) -> None:
         self._steps.put("stepIn")
         self._send_response(req)
 
-    def _h_stepOut(self, req: dict) -> None:
+    def _h_stepOut(self, req: JSONDict) -> None:
         self._steps.put("stepOut")
         self._send_response(req)
 
-    def _h_pause(self, req: dict) -> None:
+    def _h_pause(self, req: JSONDict) -> None:
         self._steps.put("pause")
         self._send_response(req)
 
-    def _h_threads(self, req: dict) -> None:
+    def _h_threads(self, req: JSONDict) -> None:
         self._send_response(req, body={
             "threads": [{"id": 1, "name": "main"}],
         })
 
-    def _h_stackTrace(self, req: dict) -> None:
+    def _h_stackTrace(self, req: JSONDict) -> None:
         frames = self.debugger.stack_trace() if self.debugger else []
         self._send_response(req, body={
             "stackFrames": frames,
             "totalFrames": len(frames),
         })
 
-    def _h_scopes(self, req: dict) -> None:
+    def _h_scopes(self, req: JSONDict) -> None:
         # One "Locals" scope per frame.  ``variablesReference`` ==
         # ``frameId`` so the editor's follow-up ``variables`` request
         # arrives with enough info to look up the right frame.
@@ -652,7 +656,7 @@ class DAPServer:
             }],
         })
 
-    def _h_variables(self, req: dict) -> None:
+    def _h_variables(self, req: JSONDict) -> None:
         args = req.get("arguments", {}) or {}
         var_ref = args.get("variablesReference", 0)
         if self.debugger is None or var_ref == 0:
@@ -662,7 +666,7 @@ class DAPServer:
         vars_ = self.debugger.variables_for_frame(var_ref - 1)
         self._send_response(req, body={"variables": vars_})
 
-    def _h_evaluate(self, req: dict) -> None:
+    def _h_evaluate(self, req: JSONDict) -> None:
         args = req.get("arguments", {}) or {}
         expr = args.get("expression", "")
         if self.debugger is None:
@@ -678,7 +682,7 @@ class DAPServer:
             "variablesReference": 0,
         })
 
-    def _h_disconnect(self, req: dict) -> None:
+    def _h_disconnect(self, req: JSONDict) -> None:
         self._send_response(req)
         self._terminated = True
         # Wake the program thread if it's blocked in ``_repl``.
@@ -687,7 +691,7 @@ class DAPServer:
         except queue.Full:
             pass
 
-    def _h_terminate(self, req: dict) -> None:
+    def _h_terminate(self, req: JSONDict) -> None:
         self._h_disconnect(req)
 
     # --- program thread ---
