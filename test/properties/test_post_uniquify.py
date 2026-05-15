@@ -38,12 +38,18 @@ if str(REPO_ROOT) not in sys.path:
 
 from abstract_syntax import (  # noqa: E402
     AST,
+    All,
     Bool,
+    BoolType,
     Call,
+    FunctionType,
     Int,
+    IntType,
     Lambda,
     OverloadedVar,
     ResolvedVar,
+    Some,
+    TLet,
     Var,
     alpha_equiv,
     reset_reduced_defs,
@@ -60,27 +66,93 @@ def _m() -> Meta:
     return Meta()
 
 
+# ---------- Type generators --------------------------------------------
+
+int_type_st = st.builds(lambda: IntType(_m()))
+bool_type_st = st.builds(lambda: BoolType(_m()))
+ground_type_st = st.one_of(int_type_st, bool_type_st)
+
+type_st = st.recursive(
+    ground_type_st,
+    lambda children: st.builds(
+        lambda params, ret: FunctionType(_m(), [], list(params), ret),
+        st.lists(children, min_size=1, max_size=2),
+        children,
+    ),
+    max_leaves=4,
+)
+
+optional_type_st = st.one_of(st.none(), type_st)
+
+
 # ---------- Post-uniquify generators ------------------------------------
 
 ovar_st = st.builds(
-    lambda n: OverloadedVar(_m(), None, [n]),
+    lambda n, ty: OverloadedVar(_m(), ty, [n]),
     st.sampled_from(POST_NAMES),
+    optional_type_st,
 )
 rvar_st = st.builds(
-    lambda n: ResolvedVar(_m(), None, n),
+    lambda n, ty: ResolvedVar(_m(), ty, n),
     st.sampled_from(POST_NAMES),
+    optional_type_st,
 )
-int_st = st.builds(lambda n: Int(_m(), None, n), st.integers(-5, 5))
-bool_st = st.builds(lambda b: Bool(_m(), None, b), st.booleans())
+int_st = st.builds(
+    lambda n, ty: Int(_m(), ty, n),
+    st.integers(-5, 5),
+    optional_type_st,
+)
+bool_st = st.builds(
+    lambda b, ty: Bool(_m(), ty, b),
+    st.booleans(),
+    optional_type_st,
+)
 
 post_leaf_st = st.one_of(ovar_st, rvar_st, int_st, bool_st)
 
 post_term_st = st.recursive(
     post_leaf_st,
-    lambda children: st.builds(
-        lambda rator, args: Call(_m(), None, rator, list(args)),
-        children,
-        st.lists(children, min_size=1, max_size=3),
+    lambda children: st.one_of(
+        st.builds(
+            lambda rator, args, ty: Call(_m(), ty, rator, list(args)),
+            children,
+            st.lists(children, min_size=1, max_size=3),
+            optional_type_st,
+        ),
+        st.builds(
+            lambda binder, binder_ty, body, ty: Lambda(
+                _m(), ty, [(binder, binder_ty)], body
+            ),
+            st.sampled_from(POST_NAMES),
+            optional_type_st,
+            children,
+            optional_type_st,
+        ),
+        st.builds(
+            lambda binder, rhs, body, ty: TLet(_m(), ty, binder, rhs, body),
+            st.sampled_from(POST_NAMES),
+            children,
+            children,
+            optional_type_st,
+        ),
+        st.builds(
+            lambda binder, binder_ty, body, ty: All(
+                _m(), ty, (binder, binder_ty), (0, 1), body
+            ),
+            st.sampled_from(POST_NAMES),
+            type_st,
+            children,
+            optional_type_st,
+        ),
+        st.builds(
+            lambda binder, binder_ty, body, ty: Some(
+                _m(), ty, [(binder, binder_ty)], body
+            ),
+            st.sampled_from(POST_NAMES),
+            type_st,
+            children,
+            optional_type_st,
+        ),
     ),
     max_leaves=6,
 )
@@ -115,6 +187,22 @@ def _walk_value(v):
     elif isinstance(v, (list, tuple)):
         for x in v:
             yield from _walk_value(x)
+
+
+def _binds_name(node, name):
+    if isinstance(node, Lambda):
+        return any(x == name for (x, _) in node.vars)
+    if isinstance(node, TLet):
+        return node.var == name
+    if isinstance(node, All):
+        return node.var[0] == name
+    if isinstance(node, Some):
+        return any(x == name for (x, _) in node.vars)
+    return False
+
+
+def _contains_binder_named(node, name):
+    return any(_binds_name(n, name) for n in _walk(node))
 
 
 @pytest.fixture(autouse=True)
@@ -177,6 +265,14 @@ def test_substitute_miss_preserves_post_uniquify_class(t):
     for n in _walk(s):
         if type(n) is Var:
             pytest.fail(f"pre-uniquify Var appeared in substituted output: {n}")
+
+
+@settings(suppress_health_check=[HealthCheck.too_slow])
+@given(post_term_st)
+def test_generated_post_terms_never_contain_plain_var(t):
+    for n in _walk(t):
+        if type(n) is Var:
+            pytest.fail(f"post-uniquify generator emitted plain Var: {n}")
 
 
 @given(st.sampled_from(POST_NAMES))
@@ -291,7 +387,12 @@ def test_lambda_copy_equals_under_alpha_equiv(lam):
     # And a fresh top-level rename of the binder also stays
     # alpha-equivalent. Build a copy with a different binder name
     # and the body rewritten via substitute, then verify alpha-equiv.
+    # The rewrite is intentionally skipped when the generated body
+    # contains a nested binder with the same name: raw substitute is
+    # not a capture-avoiding alpha-renamer under shadowing binders.
     old = lam.vars[0][0]
+    if _contains_binder_named(lam.body, old):
+        return
     new = "fresh.S101"
     assert new != old
     renamed_body = lam.body.substitute({old: OverloadedVar(_m(), None, [new])})
@@ -305,6 +406,34 @@ def test_lambda_copy_equals_under_alpha_equiv(lam):
 @given(post_term_st)
 def test_substitute_empty_is_identity_post_uniquify(t):
     assert t.substitute({}) == t
+
+
+@settings(suppress_health_check=[HealthCheck.too_slow])
+@given(post_term_st)
+def test_copy_is_equal_post_uniquify_with_binders_and_typeof(t):
+    c = t.copy()
+    assert c == t
+    assert alpha_equiv(c, t)
+
+
+@settings(suppress_health_check=[HealthCheck.too_slow])
+@given(post_term_st)
+def test_copy_preserves_typeof_post_uniquify(t):
+    c = t.copy()
+    for orig, copied in zip(_walk(t), _walk(c)):
+        if hasattr(orig, "typeof"):
+            assert hasattr(copied, "typeof")
+            assert copied.typeof == orig.typeof
+
+
+@settings(suppress_health_check=[HealthCheck.too_slow])
+@given(post_term_st)
+def test_substitute_absent_key_preserves_typeof_post_uniquify(t):
+    s = t.substitute({"__absent__.S999": Int(_m(), None, 0)})
+    for orig, after in zip(_walk(t), _walk(s)):
+        if hasattr(orig, "typeof"):
+            assert hasattr(after, "typeof")
+            assert after.typeof == orig.typeof
 
 
 @given(post_term_st, st.sampled_from(POST_NAMES))
