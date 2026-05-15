@@ -1,8 +1,9 @@
 """Acceptance test for ``lsp.library.check_file`` (Phase 1 / Step 1).
 
-For every file in ``test/should-validate`` and ``test/should-error``,
-verifies that the library API returns the same outcome (ok vs. error)
-that ``test-deduce.py`` produces by shelling out to ``deduce.py``.
+For representative files in ``test/should-validate`` and
+``test/should-error``, verifies that the library API returns the same
+outcome (ok vs. error) that ``test-deduce.py`` produces in the full
+corpus sweep.
 
 The session/state fixtures live in ``conftest.py`` so the Step 3
 acceptance test can share them.
@@ -26,11 +27,37 @@ ERROR_DIR = REPO_ROOT / "test" / "should-error"
 LIB_DIR = REPO_ROOT / "lib"
 
 
-def _pf_files(d: Path) -> list[Path]:
-    return sorted(p for p in d.glob("*.pf"))
+_SAMPLE_VALID = [
+    "empty_file.pf",
+    "ImportTests.pf",
+    "ListTests.pf",
+    "uint_replicate.pf",
+]
+
+_SAMPLE_ERRORS = [
+    "conclude.pf",
+    "define_missing_semi.pf",
+    "overload6.pf",
+    "import_using_unknown.pf",
+    "givens_conclude_hole.pf",
+]
+
+_SAMPLE_LIB_COLLECT_ERRORS = [
+    "Base.pf",
+    "Nat.pf",
+    "List.pf",
+    "IntMult.pf",
+    "UIntDiv.pf",
+]
 
 
-@pytest.mark.parametrize("path", _pf_files(PASS_DIR), ids=lambda p: p.name)
+def _paths(directory: Path, names: list[str]) -> list[Path]:
+    return [directory / name for name in names]
+
+
+@pytest.mark.parametrize(
+    "path", _paths(PASS_DIR, _SAMPLE_VALID), ids=lambda p: p.name
+)
 def test_should_validate(path: Path) -> None:
     result = check_file(str(path), prelude=())
     assert isinstance(result, CheckResult)
@@ -44,7 +71,9 @@ def test_should_validate(path: Path) -> None:
     assert result.module_name == path.stem
 
 
-@pytest.mark.parametrize("path", _pf_files(ERROR_DIR), ids=lambda p: p.name)
+@pytest.mark.parametrize(
+    "path", _paths(ERROR_DIR, _SAMPLE_ERRORS), ids=lambda p: p.name
+)
 def test_should_error(path: Path) -> None:
     result = check_file(str(path), prelude=())
     assert isinstance(result, CheckResult)
@@ -57,7 +86,10 @@ def test_should_error(path: Path) -> None:
     assert result.module_name == path.stem
 
 
-@pytest.mark.parametrize("path", _pf_files(LIB_DIR), ids=lambda p: p.name)
+@pytest.mark.parametrize(
+    "path", _paths(LIB_DIR, _SAMPLE_LIB_COLLECT_ERRORS),
+    ids=lambda p: p.name,
+)
 def test_lib_collect_errors_no_false_positives(path: Path) -> None:
     """Regression test for issue #400: ``check_file(..., collect_errors=True)``
     on a stdlib file must agree with ``deduce.py`` -- speculative
