@@ -1718,6 +1718,69 @@ def _check_proof_of_cases(proof, formula, env):
       add_diagnostic(proof.location, "expected 'or', not " + str(sub_red)
             + givens_str(env))
 
+def _check_proof_of_suffices(proof, formula, env):
+  loc = proof.location
+  claim = proof.claim
+  reason = proof.reason
+  rest = proof.body
+  evaluate = False
+
+  match reason:
+    case EvaluateGoal(_):
+       evaluate = True
+
+  if evaluate:
+    new_claim = type_check_term(claim, BoolType(loc), env, None, [])
+    set_reduce_all(True)
+    set_dont_reduce_opaque(True)
+    new_formula = formula.reduce(env)
+    red_claim = new_claim.reduce(env)
+    set_reduce_all(False)
+    set_dont_reduce_opaque(False)
+
+    match red_claim:
+      case Omitted(_, _):
+        _try_check_proof_of(rest, new_formula, env)
+      case Hole(loc2, _):
+        newer_formula = check_formula(new_formula, env)
+        warning(loc, '\nsuffices to prove:\n\t' + str(newer_formula))
+        check_proof_of(rest, newer_formula, env)
+      case _:
+        try:
+          check_implies(loc, red_claim, new_formula)
+        except UserError as e:
+          raise wrap_user_error(e, '\n' + style.orange('Givens:') + '\n' + env.proofs_str()) from e
+        _try_check_proof_of(rest, new_claim, env)
+    return
+
+  new_claim = type_check_term(claim, BoolType(loc), env, None, [])
+  claim_red = new_claim.reduce(env)
+
+  match claim_red:
+    case Hole(loc2, _):
+      proved_formula = check_proof(reason, env)
+      match proved_formula:
+        case IfThen(_, _, prem, conc):
+          check_implies(loc, conc, formula)
+          warning(loc2, '\nsuffices to prove:\n\t' + str(prem))
+          _try_check_proof_of(rest, prem, env)
+        case _:
+          add_diagnostic(loc, 'expected a proof of an "if"-"then" formula, not ' + str(proved_formula)
+                + givens_str(env))
+    case Omitted(_, _):
+      proved_formula = check_proof(reason, env)
+      match proved_formula:
+        case IfThen(_, _, prem, conc):
+          check_implies(loc, conc, formula)
+          _try_check_proof_of(rest, prem, env)
+        case _:
+          add_diagnostic(loc, 'expected a proof of an "if"-"then" formula, not ' + str(proved_formula)
+                + givens_str(env))
+    case _:
+      imp = IfThen(loc, BoolType(loc), claim_red, formula).reduce(env)
+      _try_check_proof_of(reason, imp, env)
+      _try_check_proof_of(rest, claim_red, env)
+
 _CHECK_PROOF_OF_HANDLERS = {
   PHole: _check_proof_of_hole,
   PSorry: _check_proof_of_sorry,
@@ -1738,6 +1801,9 @@ _CHECK_PROOF_OF_HANDLERS = {
   PAnnot: _check_proof_of_annot,
   PTuple: _check_proof_of_tuple,
   Cases: _check_proof_of_cases,
+  Suffices: _check_proof_of_suffices,
+  RuleInduction: _check_rule_induction,
+  RuleInversion: _check_rule_inversion,
 }
 
 def check_proof_of(proof, formula, env):
@@ -1748,73 +1814,6 @@ def check_proof_of(proof, formula, env):
   if handler is not None:
     return handler(proof, formula, env)
   match proof:
-    #  goal is P
-    #  suffices Q by r        r proves (if Q then P)
-    #  goal is Q
-    case Suffices(loc, claim, reason, rest):
-      evaluate = False
-
-      match reason:
-        case EvaluateGoal(loc2):
-           evaluate = True
-
-      if evaluate:
-        new_claim = type_check_term(claim, BoolType(loc), env, None, [])
-        set_reduce_all(True)
-        set_dont_reduce_opaque(True)
-        new_formula = formula.reduce(env)
-        red_claim = new_claim.reduce(env)
-        set_reduce_all(False)
-        set_dont_reduce_opaque(False)
-
-        match red_claim:
-          case Omitted(loc2, _):
-            _try_check_proof_of(rest, new_formula, env)
-          case Hole(loc2, _):
-            newer_formula = check_formula(new_formula, env)
-            warning(loc, '\nsuffices to prove:\n\t' + str(newer_formula))
-            check_proof_of(rest, newer_formula, env)
-          case _:
-            try:
-              check_implies(loc, red_claim, new_formula)
-            except UserError as e:
-              raise wrap_user_error(e, '\n' + style.orange('Givens:') + '\n' + env.proofs_str()) from e
-            _try_check_proof_of(rest, new_claim, env)
-      else:
-        new_claim = type_check_term(claim, BoolType(loc), env, None, [])
-        claim_red = new_claim.reduce(env)
-
-        match claim_red:
-          case Hole(loc2, _):
-            proved_formula = check_proof(reason, env)
-            match proved_formula:
-              case IfThen(_, _, prem, conc):
-                check_implies(loc, conc, formula)
-                warning(loc2, '\nsuffices to prove:\n\t' + str(prem))
-                _try_check_proof_of(rest, prem, env)
-              case _:
-                add_diagnostic(loc, 'expected a proof of an "if"-"then" formula, not ' + str(proved_formula)
-                      + givens_str(env))
-          case Omitted(loc2, _):
-            proved_formula = check_proof(reason, env)
-            match proved_formula:
-              case IfThen(_, _, prem, conc):
-                check_implies(loc, conc, formula)
-                _try_check_proof_of(rest, prem, env)
-              case _:
-                add_diagnostic(loc, 'expected a proof of an "if"-"then" formula, not ' + str(proved_formula)
-                      + givens_str(env))
-          case _:
-            imp = IfThen(loc, BoolType(loc), claim_red, formula).reduce(env)
-            _try_check_proof_of(reason, imp, env)
-            _try_check_proof_of(rest, claim_red, env)
-
-    case RuleInduction(loc, _, _):
-      _check_rule_induction(proof, formula, env)
-
-    case RuleInversion(loc, _, _):
-      _check_rule_inversion(proof, formula, env)
-
     case Induction(loc, typ, cases):
       typ = check_type(typ, env)
 
@@ -1889,7 +1888,7 @@ def check_proof_of(proof, formula, env):
         _try_check_proof_of(new_pf, formula, env)
       else:
         match env.get_def_of_type_var(get_type_name(typ)):
-          case Union(loc2, name, typarams, alts):
+          case Union(_, name, typarams, alts):
             if len(cases) != len(alts):
               add_diagnostic(loc, 'expected ' + str(len(alts)) + ' cases for induction' \
                     + ', but only have ' + str(len(cases))
@@ -1958,7 +1957,7 @@ def check_proof_of(proof, formula, env):
       new_subject = type_synth_term(subject, env, None, [])
       ty = new_subject.typeof
       match ty:
-        case BoolType(loc2):
+        case BoolType(_):
           # check exhaustiveness
           has_true_case = False
           has_false_case = False
@@ -2018,7 +2017,7 @@ def check_proof_of(proof, formula, env):
         case _:
           tname = get_type_name(ty)
           match env.get_def_of_type_var(tname):
-            case Union(loc2, name, typarams, alts):
+            case Union(_, name, typarams, alts):
               if len(cases) != len(alts):
                 add_diagnostic(loc, 'expected ' + str(len(alts)) + ' cases in switch, but only have ' + str(len(cases))
                       + givens_str(env))
