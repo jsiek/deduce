@@ -32,8 +32,9 @@ from __future__ import annotations
 
 import os
 import sys
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Optional
+from typing import Optional, cast
 
 
 # ---------------------------------------------------------------------------
@@ -250,7 +251,8 @@ def _document_content(ls: LanguageServer, uri: str) -> Optional[str]:
         doc = ls.workspace.get_text_document(uri)
     except KeyError:
         return None
-    return doc.source
+    source: object = doc.source
+    return source if isinstance(source, str) else None
 
 
 def _publish_diagnostics(ls: LanguageServer, uri: str) -> None:
@@ -465,7 +467,7 @@ def on_completion(
     return lsp_types.CompletionList(is_incomplete=False, items=items)
 
 
-def _get_field(obj, name):
+def _get_field(obj: object | None, name: str) -> object | None:
     """Read a named field from a custom-request param value.
 
     pygls 2.x converts the JSON params for *known* LSP methods into
@@ -475,9 +477,66 @@ def _get_field(obj, name):
     pass a plain ``dict`` instead.  Handle both shapes."""
     if obj is None:
         return None
-    if isinstance(obj, dict):
+    if isinstance(obj, Mapping):
         return obj.get(name)
-    return getattr(obj, name, None)
+    return cast(object | None, getattr(obj, name, None))
+
+
+def _field_as_str(obj: object | None, name: str) -> Optional[str]:
+    value = _get_field(obj, name)
+    return value if isinstance(value, str) else None
+
+
+def _field_as_int(obj: object | None, name: str) -> int:
+    value = _get_field(obj, name)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return 0
+    return 0
+
+
+def _field_as_bool(obj: object | None, name: str, default: bool) -> bool:
+    value = _get_field(obj, name)
+    return value if isinstance(value, bool) else default
+
+
+def _position_from_param(pos_obj: object | None) -> lsp_types.Position:
+    return lsp_types.Position(
+        line=_field_as_int(pos_obj, "line"),
+        character=_field_as_int(pos_obj, "character"),
+    )
+
+
+def _range_payload_from_query(rng: _query.Range) -> dict[str, object]:
+    return {
+        "start": {
+            "line": max(rng.start.line - 1, 0),
+            "character": max(rng.start.column - 1, 0),
+        },
+        "end": {
+            "line": max(rng.end.line - 1, 0),
+            "character": max(rng.end.column - 1, 0),
+        },
+    }
+
+
+def _workspace_edit_payload(
+    uri: str, edit: _query.WorkspaceEdit
+) -> dict[str, object]:
+    return {
+        "changes": {
+            uri: [
+                {
+                    "range": _range_payload_from_query(edit.range),
+                    "newText": edit.new_text,
+                }
+            ]
+        }
+    }
 
 
 @server.feature(
@@ -549,7 +608,9 @@ def _code_action_from_edit(
 
 
 @server.feature(GOAL_AT_REQUEST)
-def on_goal_at(ls: LanguageServer, params) -> Optional[dict]:
+def on_goal_at(
+    ls: LanguageServer, params: object
+) -> Optional[dict[str, object]]:
     """Custom request: return the proof goal at a cursor position.
 
     Params: ``{"textDocument": {"uri": "..."}, "position": {"line":
@@ -560,17 +621,14 @@ def on_goal_at(ls: LanguageServer, params) -> Optional[dict]:
     """
     text_doc = _get_field(params, "textDocument")
     pos_obj = _get_field(params, "position")
-    uri = _get_field(text_doc, "uri")
+    uri = _field_as_str(text_doc, "uri")
     if not uri:
         return None
     content = _document_content(ls, uri)
     if content is None:
         return None
     pos = _query_pos_from_lsp(
-        lsp_types.Position(
-            line=int(_get_field(pos_obj, "line") or 0),
-            character=int(_get_field(pos_obj, "character") or 0),
-        )
+        _position_from_param(pos_obj)
     )
     path = _path_from_uri(uri)
     goal = _query.goal_at(path, content, pos, prelude=_prelude_for(path))
@@ -581,21 +639,14 @@ def on_goal_at(ls: LanguageServer, params) -> Optional[dict]:
         "givens": [
             {"label": g.label, "formula": g.formula} for g in goal.givens
         ],
-        "range": {
-            "start": {
-                "line": max(goal.range.start.line - 1, 0),
-                "character": max(goal.range.start.column - 1, 0),
-            },
-            "end": {
-                "line": max(goal.range.end.line - 1, 0),
-                "character": max(goal.range.end.column - 1, 0),
-            },
-        },
+        "range": _range_payload_from_query(goal.range),
     }
 
 
 @server.feature(HOLE_CONTEXT_AT_REQUEST)
-def on_hole_context_at(ls: LanguageServer, params) -> Optional[dict]:
+def on_hole_context_at(
+    ls: LanguageServer, params: object
+) -> Optional[dict[str, object]]:
     """Custom request: return rich context for the ``?`` at a cursor.
 
     Sibling to ``deduce/goalAt``; the hole-fill sidecar uses this to
@@ -614,42 +665,28 @@ def on_hole_context_at(ls: LanguageServer, params) -> Optional[dict]:
     """
     text_doc = _get_field(params, "textDocument")
     pos_obj = _get_field(params, "position")
-    uri = _get_field(text_doc, "uri")
+    uri = _field_as_str(text_doc, "uri")
     if not uri:
         return None
     content = _document_content(ls, uri)
     if content is None:
         return None
     pos = _query_pos_from_lsp(
-        lsp_types.Position(
-            line=int(_get_field(pos_obj, "line") or 0),
-            character=int(_get_field(pos_obj, "character") or 0),
-        )
+        _position_from_param(pos_obj)
     )
-    include_lemmas = _get_field(params, "includeLemmas")
-    if include_lemmas is None:
-        include_lemmas = True
+    include_lemmas = _field_as_bool(params, "includeLemmas", True)
     path = _path_from_uri(uri)
     ctx = _query.hole_context_at(
         path,
         content,
         pos,
         prelude=_prelude_for(path),
-        include_lemmas=bool(include_lemmas),
+        include_lemmas=include_lemmas,
     )
     if ctx is None:
         return None
     return {
-        "holeRange": {
-            "start": {
-                "line": max(ctx.hole_range.start.line - 1, 0),
-                "character": max(ctx.hole_range.start.column - 1, 0),
-            },
-            "end": {
-                "line": max(ctx.hole_range.end.line - 1, 0),
-                "character": max(ctx.hole_range.end.column - 1, 0),
-            },
-        },
+        "holeRange": _range_payload_from_query(ctx.hole_range),
         "goal": ctx.goal,
         "givens": [
             {"label": g.label, "formula": g.formula} for g in ctx.givens
@@ -667,7 +704,9 @@ def on_hole_context_at(ls: LanguageServer, params) -> Optional[dict]:
 
 
 @server.feature(VALIDATE_PROOF_REQUEST)
-def on_validate_proof(ls: LanguageServer, params) -> dict:
+def on_validate_proof(
+    ls: LanguageServer, params: object
+) -> dict[str, object]:
     """Custom request: splice a proof into the open buffer at a hole
     range and report whether the resulting file checks.
 
@@ -686,7 +725,7 @@ def on_validate_proof(ls: LanguageServer, params) -> dict:
     path to reason about.
     """
     text_doc = _get_field(params, "textDocument")
-    uri = _get_field(text_doc, "uri")
+    uri = _field_as_str(text_doc, "uri")
     if not uri:
         return {"ok": False, "error": "missing textDocument.uri"}
     content = _document_content(ls, uri)
@@ -702,14 +741,8 @@ def on_validate_proof(ls: LanguageServer, params) -> dict:
         return {"ok": False, "error": "holeRange missing start/end"}
     hole_range = _query_range_from_lsp(
         lsp_types.Range(
-            start=lsp_types.Position(
-                line=int(_get_field(start_obj, "line") or 0),
-                character=int(_get_field(start_obj, "character") or 0),
-            ),
-            end=lsp_types.Position(
-                line=int(_get_field(end_obj, "line") or 0),
-                character=int(_get_field(end_obj, "character") or 0),
-            ),
+            start=_position_from_param(start_obj),
+            end=_position_from_param(end_obj),
         )
     )
 
@@ -725,7 +758,7 @@ def on_validate_proof(ls: LanguageServer, params) -> dict:
 
 
 @server.feature(SPLITTABLE_VARS_REQUEST)
-def on_splittable_vars_at(ls: LanguageServer, params) -> list[str]:
+def on_splittable_vars_at(ls: LanguageServer, params: object) -> list[str]:
     """Custom request: return variables at the cursor's hole that
     case-split can target.
 
@@ -739,17 +772,14 @@ def on_splittable_vars_at(ls: LanguageServer, params) -> list[str]:
     """
     text_doc = _get_field(params, "textDocument")
     pos_obj = _get_field(params, "position")
-    uri = _get_field(text_doc, "uri")
+    uri = _field_as_str(text_doc, "uri")
     if not uri:
         return []
     content = _document_content(ls, uri)
     if content is None:
         return []
     pos = _query_pos_from_lsp(
-        lsp_types.Position(
-            line=int(_get_field(pos_obj, "line") or 0),
-            character=int(_get_field(pos_obj, "character") or 0),
-        )
+        _position_from_param(pos_obj)
     )
     path = _path_from_uri(uri)
     return list(
@@ -758,7 +788,9 @@ def on_splittable_vars_at(ls: LanguageServer, params) -> list[str]:
 
 
 @server.feature(CASE_SPLIT_REQUEST)
-def on_case_split_at(ls: LanguageServer, params) -> Optional[dict]:
+def on_case_split_at(
+    ls: LanguageServer, params: object
+) -> Optional[dict[str, object]]:
     """Custom request: return a WorkspaceEdit that case-splits the
     cursor's hole on a named variable.
 
@@ -774,18 +806,15 @@ def on_case_split_at(ls: LanguageServer, params) -> Optional[dict]:
     """
     text_doc = _get_field(params, "textDocument")
     pos_obj = _get_field(params, "position")
-    uri = _get_field(text_doc, "uri")
-    variable = _get_field(params, "variable")
+    uri = _field_as_str(text_doc, "uri")
+    variable = _field_as_str(params, "variable")
     if not uri or not variable:
         return None
     content = _document_content(ls, uri)
     if content is None:
         return None
     pos = _query_pos_from_lsp(
-        lsp_types.Position(
-            line=int(_get_field(pos_obj, "line") or 0),
-            character=int(_get_field(pos_obj, "character") or 0),
-        )
+        _position_from_param(pos_obj)
     )
     path = _path_from_uri(uri)
     edit = _query.case_split_at(
@@ -796,29 +825,11 @@ def on_case_split_at(ls: LanguageServer, params) -> Optional[dict]:
     # Shape-shift to the LSP wire format: an LSP WorkspaceEdit with
     # `changes: {uri: [TextEdit]}`. Mirrors what the codeAction
     # handler emits for refine.
-    return {
-        "changes": {
-            uri: [
-                {
-                    "range": {
-                        "start": {
-                            "line": max(edit.range.start.line - 1, 0),
-                            "character": max(edit.range.start.column - 1, 0),
-                        },
-                        "end": {
-                            "line": max(edit.range.end.line - 1, 0),
-                            "character": max(edit.range.end.column - 1, 0),
-                        },
-                    },
-                    "newText": edit.new_text,
-                }
-            ]
-        }
-    }
+    return _workspace_edit_payload(uri, edit)
 
 
 @server.feature(ELIMINABLE_VARS_REQUEST)
-def on_eliminable_vars_at(ls: LanguageServer, params) -> list[str]:
+def on_eliminable_vars_at(ls: LanguageServer, params: object) -> list[str]:
     """Custom request: return labels of in-scope hypotheses that
     ``eliminate`` can target.
 
@@ -832,17 +843,14 @@ def on_eliminable_vars_at(ls: LanguageServer, params) -> list[str]:
     """
     text_doc = _get_field(params, "textDocument")
     pos_obj = _get_field(params, "position")
-    uri = _get_field(text_doc, "uri")
+    uri = _field_as_str(text_doc, "uri")
     if not uri:
         return []
     content = _document_content(ls, uri)
     if content is None:
         return []
     pos = _query_pos_from_lsp(
-        lsp_types.Position(
-            line=int(_get_field(pos_obj, "line") or 0),
-            character=int(_get_field(pos_obj, "character") or 0),
-        )
+        _position_from_param(pos_obj)
     )
     path = _path_from_uri(uri)
     return list(
@@ -851,7 +859,9 @@ def on_eliminable_vars_at(ls: LanguageServer, params) -> list[str]:
 
 
 @server.feature(ELIMINATE_REQUEST)
-def on_eliminate_at(ls: LanguageServer, params) -> Optional[dict]:
+def on_eliminate_at(
+    ls: LanguageServer, params: object
+) -> Optional[dict[str, object]]:
     """Custom request: return a WorkspaceEdit that uses the named
     hypothesis at the cursor's hole.
 
@@ -867,18 +877,15 @@ def on_eliminate_at(ls: LanguageServer, params) -> Optional[dict]:
     """
     text_doc = _get_field(params, "textDocument")
     pos_obj = _get_field(params, "position")
-    uri = _get_field(text_doc, "uri")
-    label = _get_field(params, "label")
+    uri = _field_as_str(text_doc, "uri")
+    label = _field_as_str(params, "label")
     if not uri or not label:
         return None
     content = _document_content(ls, uri)
     if content is None:
         return None
     pos = _query_pos_from_lsp(
-        lsp_types.Position(
-            line=int(_get_field(pos_obj, "line") or 0),
-            character=int(_get_field(pos_obj, "character") or 0),
-        )
+        _position_from_param(pos_obj)
     )
     path = _path_from_uri(uri)
     edit = _query.eliminate_at(
@@ -886,29 +893,11 @@ def on_eliminate_at(ls: LanguageServer, params) -> Optional[dict]:
     )
     if edit is None:
         return None
-    return {
-        "changes": {
-            uri: [
-                {
-                    "range": {
-                        "start": {
-                            "line": max(edit.range.start.line - 1, 0),
-                            "character": max(edit.range.start.column - 1, 0),
-                        },
-                        "end": {
-                            "line": max(edit.range.end.line - 1, 0),
-                            "character": max(edit.range.end.column - 1, 0),
-                        },
-                    },
-                    "newText": edit.new_text,
-                }
-            ]
-        }
-    }
+    return _workspace_edit_payload(uri, edit)
 
 
 @server.feature(MATCHING_GIVENS_REQUEST)
-def on_matching_givens_at(ls: LanguageServer, params) -> list[str]:
+def on_matching_givens_at(ls: LanguageServer, params: object) -> list[str]:
     """Custom request: return labels of in-scope local proof
     bindings whose formula equals the goal at the cursor's hole.
 
@@ -921,17 +910,14 @@ def on_matching_givens_at(ls: LanguageServer, params) -> list[str]:
     """
     text_doc = _get_field(params, "textDocument")
     pos_obj = _get_field(params, "position")
-    uri = _get_field(text_doc, "uri")
+    uri = _field_as_str(text_doc, "uri")
     if not uri:
         return []
     content = _document_content(ls, uri)
     if content is None:
         return []
     pos = _query_pos_from_lsp(
-        lsp_types.Position(
-            line=int(_get_field(pos_obj, "line") or 0),
-            character=int(_get_field(pos_obj, "character") or 0),
-        )
+        _position_from_param(pos_obj)
     )
     path = _path_from_uri(uri)
     return list(
@@ -940,7 +926,9 @@ def on_matching_givens_at(ls: LanguageServer, params) -> list[str]:
 
 
 @server.feature(FILL_FROM_GIVEN_REQUEST)
-def on_fill_from_given_at(ls: LanguageServer, params) -> Optional[dict]:
+def on_fill_from_given_at(
+    ls: LanguageServer, params: object
+) -> Optional[dict[str, object]]:
     """Custom request: return a WorkspaceEdit that fills the cursor's
     hole with ``conclude <goal> by <label>``.
 
@@ -956,18 +944,15 @@ def on_fill_from_given_at(ls: LanguageServer, params) -> Optional[dict]:
     """
     text_doc = _get_field(params, "textDocument")
     pos_obj = _get_field(params, "position")
-    uri = _get_field(text_doc, "uri")
-    label = _get_field(params, "label")
+    uri = _field_as_str(text_doc, "uri")
+    label = _field_as_str(params, "label")
     if not uri or not label:
         return None
     content = _document_content(ls, uri)
     if content is None:
         return None
     pos = _query_pos_from_lsp(
-        lsp_types.Position(
-            line=int(_get_field(pos_obj, "line") or 0),
-            character=int(_get_field(pos_obj, "character") or 0),
-        )
+        _position_from_param(pos_obj)
     )
     path = _path_from_uri(uri)
     edit = _query.fill_from_given_at(
@@ -975,25 +960,7 @@ def on_fill_from_given_at(ls: LanguageServer, params) -> Optional[dict]:
     )
     if edit is None:
         return None
-    return {
-        "changes": {
-            uri: [
-                {
-                    "range": {
-                        "start": {
-                            "line": max(edit.range.start.line - 1, 0),
-                            "character": max(edit.range.start.column - 1, 0),
-                        },
-                        "end": {
-                            "line": max(edit.range.end.line - 1, 0),
-                            "character": max(edit.range.end.column - 1, 0),
-                        },
-                    },
-                    "newText": edit.new_text,
-                }
-            ]
-        }
-    }
+    return _workspace_edit_payload(uri, edit)
 
 
 # --- Entry point ---------------------------------------------------------

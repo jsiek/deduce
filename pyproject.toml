@@ -109,7 +109,6 @@ exclude = [
 #   lsp/mcp_server.py                           (30)
 #   style.py                                    (31)
 #   error.py                                    (65)
-#   lsp/lsp_server.py                           (74)
 #   lsp/query.py                                (132)
 #   parser.py                                   (310)
 #   abstract_syntax.py                          (1192)
@@ -154,17 +153,15 @@ disallow_incomplete_defs = true
 check_untyped_defs = true
 warn_return_any = true
 
-# lsp/mcp_server.py uses `@mcp.tool()` from the `mcp` package, which
-# is an optional dev-only dep that the CI workflow does not install
-# (same pattern as `pygls` for `lsp/lsp_server.py` — see comment on
-# global `disallow_untyped_decorators` above). Under
-# `ignore_missing_imports = true`, `mcp.tool` resolves to `Any` on
-# CI, which makes every decorated function "untyped" and trips
-# disallow_untyped_decorators. Listed in its own override block with
-# the strict bits but without the decorator check, since mypy refuses
-# to merge two overrides setting conflicting values for the same key.
+# lsp/mcp_server.py and lsp/lsp_server.py use decorators from optional
+# dev-only deps (`mcp` and `pygls`) that the CI workflow does not
+# install. Under `ignore_missing_imports = true`, those decorators
+# resolve to `Any` on CI and trip disallow_untyped_decorators. They
+# live in this strict override without the decorator check, since mypy
+# refuses to merge two overrides setting conflicting values for the
+# same key.
 [[tool.mypy.overrides]]
-module = ["lsp.mcp_server"]
+module = ["lsp.mcp_server", "lsp.lsp_server"]
 disallow_any_generics = true
 disallow_untyped_calls = true
 disallow_untyped_defs = true
