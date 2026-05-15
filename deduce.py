@@ -1,5 +1,14 @@
-from flags import *
-from abstract_syntax import init_import_directories, add_import_directory, print_theorems, set_recursive_descent, VerboseLevel
+from flags import (
+    VerboseLevel,
+    add_import_directory,
+    init_import_directories,
+    set_check_imports,
+    set_quiet_mode,
+    set_recursive_descent,
+    set_unique_names,
+    set_verbose,
+)
+from abstract_syntax import print_theorems
 from lsp.library import check_file
 from signal import signal, SIGINT
 import sys

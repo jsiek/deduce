@@ -1,8 +1,29 @@
 from dataclasses import dataclass, field, fields as dc_fields
 from lark.tree import Meta
 from typing import Any, Callable, Iterator, Tuple, List, Optional, Set, Self
-from error import user_error, internal_error, warning, static_error, match_failed, MatchFailed, UserError
-from flags import *
+from error import (
+    InternalError,
+    MatchFailed,
+    UserError,
+    internal_error,
+    match_failed,
+    static_error,
+    user_error,
+    warning,
+)
+from flags import (
+    VerboseLevel,
+    add_import_directory as add_import_directory,
+    get_debugger,
+    get_import_directories,
+    get_recursive_descent as get_recursive_descent,
+    get_unique_names,
+    get_verbose,
+    init_import_directories as init_import_directories,
+    set_check_imports as set_check_imports,
+    set_recursive_descent as set_recursive_descent,
+    set_verbose,
+)
 from pathlib import Path
 from edit_distance import edit_distance
 from math import ceil
