@@ -1477,7 +1477,7 @@ def _find_reference_at(ast_nodes, pos: Position, path: str) -> Optional[str]:
     return best[0]
 
 
-def _meta_in_file(meta, path: str) -> bool:
+def _meta_in_file(meta: Any, path: str) -> bool:
     """True iff ``meta``'s source file is ``path``.
 
     Compares the ``filename`` attribute the parsers stash on each
@@ -1491,7 +1491,7 @@ def _meta_in_file(meta, path: str) -> bool:
     import os
 
     fname = getattr(meta, "filename", None)
-    if fname is None or fname == "???":
+    if not isinstance(fname, str) or fname == "???":
         # No reliable file info on this node. Don't reject -- some
         # synthetic nodes never get a filename, and rejecting them
         # outright would regress same-file lookups.
@@ -1504,15 +1504,19 @@ def _meta_in_file(meta, path: str) -> bool:
         return False
 
 
-def _meta_span(meta) -> int:
+def _meta_span(meta: Any) -> int:
     """Crude size measure for a ``Meta``; smaller wins ties in tree
     descent so inner nodes outrank enclosing ones."""
-    if meta.line == meta.end_line:
-        return meta.end_column - meta.column
+    line = int(meta.line)
+    end_line = int(meta.end_line)
+    column = int(meta.column)
+    end_column = int(meta.end_column)
+    if line == end_line:
+        return end_column - column
     # Multi-line ranges are larger than any single-line range. Use a
     # huge per-line cost so we never pick a multi-line Var over a
     # single-line one that contains the cursor.
-    return 10_000 * (meta.end_line - meta.line) + meta.end_column
+    return 10_000 * (end_line - line) + end_column
 
 
 def _find_declaration(ast_nodes, target_name: str, _seen=None):
