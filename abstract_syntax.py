@@ -4392,6 +4392,53 @@ def uintToInt(t):
     case _:
       raise InternalError('uintToInt: not a uint ' + str(t))
 
+def _same_numeric_literal(t1, t2):
+  if isNat(t1) and isNat(t2):
+    return natToInt(t1) == natToInt(t2)
+  if isUInt(t1) and isUInt(t2):
+    return uintToInt(t1) == uintToInt(t2)
+  return False
+
+def formulas_equal_modulo_numeric_literals(frm1, frm2):
+  if frm1 == frm2 or _same_numeric_literal(frm1, frm2):
+    return True
+  match (frm1, frm2):
+    case (Call(_, _, rator1, args1), Call(_, _, rator2, args2)) \
+         if len(args1) == len(args2):
+      return formulas_equal_modulo_numeric_literals(rator1, rator2) \
+          and all(formulas_equal_modulo_numeric_literals(arg1, arg2)
+                  for (arg1, arg2) in zip(args1, args2))
+    case (And(_, _, args1), And(_, _, args2)) if len(args1) == len(args2):
+      return all(formulas_equal_modulo_numeric_literals(arg1, arg2)
+                 for (arg1, arg2) in zip(args1, args2))
+    case (Or(_, _, args1), Or(_, _, args2)) if len(args1) == len(args2):
+      return all(formulas_equal_modulo_numeric_literals(arg1, arg2)
+                 for (arg1, arg2) in zip(args1, args2))
+    case (IfThen(_, _, prem1, conc1), IfThen(_, _, prem2, conc2)):
+      return formulas_equal_modulo_numeric_literals(prem1, prem2) \
+          and formulas_equal_modulo_numeric_literals(conc1, conc2)
+    case (All(_, _, _, _, body1), All(_, _, _, _, body2)):
+      return formulas_equal_modulo_numeric_literals(body1, body2)
+    case (Some(_, _, vars1, body1), Some(_, _, vars2, body2)) \
+         if len(vars1) == len(vars2):
+      return formulas_equal_modulo_numeric_literals(body1, body2)
+    case (TermInst(_, _, subject1, tyargs1, _),
+          TermInst(_, _, subject2, tyargs2, _)) \
+         if len(tyargs1) == len(tyargs2):
+      return formulas_equal_modulo_numeric_literals(subject1, subject2) \
+          and all(formulas_equal_modulo_numeric_literals(tyarg1, tyarg2)
+                  for (tyarg1, tyarg2) in zip(tyargs1, tyargs2))
+    case (TermInst(_, _, subject, _, _), _):
+      return formulas_equal_modulo_numeric_literals(subject, frm2)
+    case (_, TermInst(_, _, subject, _, _)):
+      return formulas_equal_modulo_numeric_literals(frm1, subject)
+    case (TAnnote(_, _, subject1, _), _):
+      return formulas_equal_modulo_numeric_literals(subject1, frm2)
+    case (_, TAnnote(_, _, subject2, _)):
+      return formulas_equal_modulo_numeric_literals(frm1, subject2)
+    case _:
+      return False
+
 def mkUIntLit(loc, num):
     return Call(loc, None, Var(loc, None, 'fromNat'),
                 [Call(loc, None, Var(loc, None, 'lit'),
@@ -5533,7 +5580,8 @@ def try_rewrite(loc, formula, equation, env):
       print('\tmatched LHS, rewriting to the RHS: ' + str(rhs.substitute(matching)))
   return rhs.substitute(matching).reduce(env)
 
-def formula_match(loc, vars, pattern_frm, frm, matching, env):
+def formula_match(loc, vars, pattern_frm, frm, matching, env,
+                  numeric_literals=False):
   if False and get_verbose():
     print("formula_match:\n\t" + str(pattern_frm) + "\n\t" + str(frm) + "\n")
     print("\tin  " + ','.join([str(x) for x in vars]))
@@ -5545,18 +5593,23 @@ def formula_match(loc, vars, pattern_frm, frm, matching, env):
       try:
         matching2 = dict(matching)
         for (t1,t2) in zip(tyargs1, tyargs2):
-          formula_match(loc, vars, t1, t2, matching2, env)
-        formula_match(loc, vars, subject1, subject2, matching2, env)
+          formula_match(loc, vars, t1, t2, matching2, env,
+                        numeric_literals)
+        formula_match(loc, vars, subject1, subject2, matching2, env,
+                      numeric_literals)
         matching.clear()
         matching.update(matching2)
       except MatchFailed:
-        formula_match(loc, vars, subject1, frm, matching, env)
+        formula_match(loc, vars, subject1, frm, matching, env,
+                      numeric_literals)
         
     case (TermInst(_, _, subject, _, _), _):
-      formula_match(loc, vars, subject, frm, matching, env)
+      formula_match(loc, vars, subject, frm, matching, env,
+                    numeric_literals)
       
     case (_, TermInst(_, _, subject, _, _)):
-      formula_match(loc, vars, pattern_frm, subject, matching, env)
+      formula_match(loc, vars, pattern_frm, subject, matching, env,
+                    numeric_literals)
       
     case _ if isinstance(pattern_frm, VarRef) and isinstance(frm, VarRef) \
               and pattern_frm.get_name() == frm.get_name():
@@ -5564,7 +5617,8 @@ def formula_match(loc, vars, pattern_frm, frm, matching, env):
     case _ if isinstance(pattern_frm, VarRef) and pattern_frm in vars:
       tyvar_name = pattern_frm.get_name()
       if tyvar_name in matching.keys():
-        formula_match(loc, vars, matching[tyvar_name], frm, matching, env)
+        formula_match(loc, vars, matching[tyvar_name], frm, matching, env,
+                      numeric_literals)
       else:
         if get_verbose():
             print("formula_match, " + base_name(tyvar_name) + ' := ' + str(frm))
@@ -5575,7 +5629,8 @@ def formula_match(loc, vars, pattern_frm, frm, matching, env):
       if False and get_verbose():
           print("matching Call with Call\n\trator pattern: " + str(goal_rator) + '\n'\
                 + '\trator formula: ' + str(rator))
-      formula_match(loc, vars, goal_rator, rator, matching, env)
+      formula_match(loc, vars, goal_rator, rator, matching, env,
+                    numeric_literals)
       if len(rands) >= len(goal_rands):
         while len(rands) > 0:
           # What is the following for? -Jeremy
@@ -5590,7 +5645,8 @@ def formula_match(loc, vars, pattern_frm, frm, matching, env):
           goal_rands = goal_rands[1:]
             
           new_goal_rand = goal_rand.substitute(matching)
-          formula_match(loc, vars, new_goal_rand, rand, matching, env)
+          formula_match(loc, vars, new_goal_rand, rand, matching, env,
+                        numeric_literals)
           
       else:
         match_failed(loc, "formula: " + str(frm) + "\n" \
@@ -5600,22 +5656,30 @@ def formula_match(loc, vars, pattern_frm, frm, matching, env):
           And(loc3, tyof3, args)):
       for (goal_arg, arg) in zip(goal_args, args):
           new_goal_arg = goal_arg.substitute(matching)
-          formula_match(loc, vars, new_goal_arg, arg, matching, env)
+          formula_match(loc, vars, new_goal_arg, arg, matching, env,
+                        numeric_literals)
     case (Or(_, _, goal_args),
           Or(loc3, tyof3, args)):
       for (goal_arg, arg) in zip(goal_args, args):
           new_goal_arg = goal_arg.substitute(matching)
-          formula_match(loc, vars, new_goal_arg, arg, matching, env)
+          formula_match(loc, vars, new_goal_arg, arg, matching, env,
+                        numeric_literals)
     case (IfThen(_, _, goal_prem, goal_conc),
           IfThen(loc3, tyof3, prem, conc)):
-      formula_match(loc, vars, goal_prem, prem, matching, env)
+      formula_match(loc, vars, goal_prem, prem, matching, env,
+                    numeric_literals)
       new_goal_conc = goal_conc.substitute(matching)
-      formula_match(loc, vars, new_goal_conc, conc, matching, env)
+      formula_match(loc, vars, new_goal_conc, conc, matching, env,
+                    numeric_literals)
     # UNDER CONSTRUCTION
     case _:
       red_pattern = pattern_frm.reduce(env)
       red_frm = frm.reduce(env)
-      if red_pattern != red_frm:
+      if numeric_literals:
+        matched = formulas_equal_modulo_numeric_literals(red_pattern, red_frm)
+      else:
+        matched = red_pattern == red_frm
+      if not matched:
           match_failed(loc, "formula: " + str(red_frm) + "\n" \
                        + "does not match expected formula: " + str(red_pattern))
 

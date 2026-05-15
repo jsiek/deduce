@@ -1,0 +1,40 @@
+import Nat
+import UInt
+
+theorem apply_nat_zero_to_lit_zero_premise: all x:Nat, y:Nat.
+  if y * x = ℕ0 then true
+proof
+  arbitrary x:Nat, y:Nat
+  assume prem: y * x = ℕ0
+  have disj: y = zero or x = zero by apply mult_to_zero[x,y] to prem
+  .
+end
+
+theorem apply_nat_zero_to_lit_zero_goal: all x:Nat, y:Nat.
+  if y * x = zero then true
+proof
+  arbitrary x:Nat, y:Nat
+  assume prem: y * x = zero
+  have disj: y = ℕ0 or x = ℕ0 by apply mult_to_zero[x,y] to prem
+  .
+end
+
+theorem apply_uint_toNat_lit_zero_goal: all x:UInt, y:UInt.
+  if toNat(y) * toNat(x) = ℕ0 then true
+proof
+  arbitrary x:UInt, y:UInt
+  assume prem: toNat(y) * toNat(x) = ℕ0
+  have disj: toNat(y) = zero or toNat(x) = zero
+    by apply mult_to_zero[toNat(x), toNat(y)] to prem
+  .
+end
+
+theorem apply_uint_toNat_zero_goal: all x:UInt, y:UInt.
+  if toNat(y) * toNat(x) = zero then true
+proof
+  arbitrary x:UInt, y:UInt
+  assume prem: toNat(y) * toNat(x) = zero
+  have disj: toNat(y) = ℕ0 or toNat(x) = ℕ0
+    by apply mult_to_zero[toNat(x), toNat(y)] to prem
+  .
+end

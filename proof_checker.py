@@ -44,7 +44,8 @@ from abstract_syntax import (
     TAnnote, TLet, Term, TermInst, Theorem, Trace, Type, TypeInst, TypeType,
     Union, Var, VarRef, ViewDecl, ViewRecFun, alpha_equiv, base_name,
     check_post_typecheck_invariants, count_marks, find_file, find_mark,
-    formula_match, get_num_rewrites, get_predicate_decl, get_reduced_defs,
+    formula_match, formulas_equal_modulo_numeric_literals, get_num_rewrites,
+    get_predicate_decl, get_reduced_defs,
     get_type_name, isUInt, is_associative, is_constructor, is_equation,
     is_true, mkEqual, name2str, print_theorems, rator_name, remove_mark,
     replace_mark, reset_num_rewrites, reset_reduced_defs, rewrite_aux,
@@ -429,14 +430,15 @@ def check_implies(loc, frm1, frm2):
        matching = {}
        try:
          vars, body = collect_all(frm1)
-         formula_match(loc, vars, body, frm2, matching, Env())
+         formula_match(loc, vars, body, frm2, matching, Env(),
+                       numeric_literals=True)
        except MatchFailed as e:
          user_error(loc, '\nCould not prove that\n\t' + str(frm1) \
                     + '\ninstantiates to\n\t' + str(frm2) \
                     + '\nbecause\n' + str(e))
        
     case _:
-      if frm1 != frm2:
+      if not formulas_equal_modulo_numeric_literals(frm1, frm2):
         diff = isolate_difference(frm1, frm2)
         if diff:
           (small_frm1, small_frm2) = diff
@@ -817,7 +819,8 @@ def check_proof(proof, env):
           for prem, conc in imps: 
             try:
               matching = {}
-              formula_match(loc, vars, prem, arg_frm, matching, env)
+              formula_match(loc, vars, prem, arg_frm, matching, env,
+                            numeric_literals=True)
               type_vars = [x for x in vars if isinstance(x.typeof, TypeType)]
               term_vars = [x for x in vars if not isinstance(x.typeof, TypeType)]
               if len(type_vars) > 0:
