@@ -11,6 +11,7 @@ default: static tests-tokens tests
 static:
 	$(PYTHON) -m ruff check .
 	$(PYTHON) -m mypy .
+	$(PYTHON) -m mypy . --no-site-packages
 
 tests-tokens:
 	$(PYTHON) ./gh_pages/scripts/keywords.py

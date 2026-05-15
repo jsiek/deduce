@@ -341,7 +341,7 @@ def _check_file_impl(
                     # stubs (mypy reports its constructor as untyped).
                     # Tag the call with `type: ignore[no-untyped-call]`;
                     # the runtime behavior is unchanged.
-                    Import(Meta(), name, visibility="private")  # type: ignore[no-untyped-call]
+                    Import(Meta(), name, visibility="private")  # type: ignore[no-untyped-call, unused-ignore]
                     for name in prelude
                     if name not in user_filtered_modules
                 ]
