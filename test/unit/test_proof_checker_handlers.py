@@ -1,4 +1,4 @@
-"""Unit tests for the goal-directed proof handler dispatch table."""
+"""Unit tests for proof handler dispatch tables."""
 
 from lark.tree import Meta
 
@@ -96,3 +96,35 @@ def test_sorry_handler_preserves_warning_behavior(monkeypatch) -> None:
     proof_checker._check_proof_of_sorry(proof, object(), object())
 
     assert calls == [(proof.location, "unfinished proof")]
+
+
+def test_check_proof_registers_extracted_synthesis_handlers() -> None:
+    expected = {
+        ast.PRecall: proof_checker._check_proof_recall,
+        ast.PVar: proof_checker._check_proof_var,
+        ast.PTrue: proof_checker._check_proof_true,
+        ast.PAndElim: proof_checker._check_proof_and_elim,
+    }
+
+    for proof_type, handler in expected.items():
+        assert proof_checker._CHECK_PROOF_HANDLERS[proof_type] is handler
+
+
+def test_check_proof_dispatches_registered_handler(monkeypatch) -> None:
+    proof = ast.PTrue(_meta())
+    calls = []
+
+    def fake_handler(proof_arg, env_arg):
+        calls.append((proof_arg, env_arg))
+        return "handled"
+
+    monkeypatch.setitem(
+        proof_checker._CHECK_PROOF_HANDLERS,
+        ast.PTrue,
+        fake_handler,
+    )
+
+    env = object()
+
+    assert proof_checker.check_proof(proof, env) == "handled"
+    assert calls == [(proof, env)]

@@ -586,29 +586,68 @@ def collect_all(frm):
       case _:
         return ([], frm)
         
+def _check_proof_recall(proof, env):
+  loc = proof.location
+  results = []
+  for fact in proof.facts:
+    new_fact = type_check_term(fact, BoolType(loc), env, None, [])
+    if new_fact in env.local_proofs():
+        results.append(new_fact)
+    else:
+        user_error(loc, 'Could not find a proof of\n\t' + str(new_fact) \
+              + '\nin the current scope\n' \
+              + style.orange('Givens:') + '\n' + env.proofs_str())
+  if len(results) > 1:
+      return And(loc, BoolType(loc), results)
+  if len(results) == 1:
+      return results[0]
+  user_error(loc, 'expected some facts after `recall`')
+
+def _check_proof_var(proof, env):
+  loc = proof.location
+  try:
+    formula = env.get_formula_of_proof_var(proof)
+    if formula:
+        return formula
+    raise UserError('could not find given: ' + proof.name)
+  except UserError as e:
+    user_error(loc, str(e))
+
+def _check_proof_true(proof, env):
+  return Bool(proof.location, BoolType(proof.location), True)
+
+def _check_proof_and_elim(proof, env):
+  loc = proof.location
+  formula = check_proof(proof.subject, env)
+  if isinstance(formula, TLet):
+    formula = formula.reduceLets(env)
+
+  match formula:
+    case And(_, _, args):
+      if proof.which >= len(args):
+        user_error(loc, 'out of bounds, access to conjunct ' + str(proof.which) \
+                   + ' but there are only ' + str(len(args)) + ' conjuncts' \
+                   + ' in formula\n\t' + str(formula))
+      return args[proof.which]
+    case _:
+      user_error(loc, 'expected a conjunction, not ' + str(formula))
+
+_CHECK_PROOF_HANDLERS = {
+  PRecall: _check_proof_recall,
+  PVar: _check_proof_var,
+  PTrue: _check_proof_true,
+  PAndElim: _check_proof_and_elim,
+}
+
 def check_proof(proof, env):
   if get_verbose():
     print('check_proof:')
     print('\t' + str(proof))
+  handler = _CHECK_PROOF_HANDLERS.get(type(proof))
+  if handler is not None:
+    return handler(proof, env)
   ret = None
   match proof:
-    case PRecall(loc, facts):
-      results = []
-      for fact in facts:
-        new_fact = type_check_term(fact, BoolType(loc), env, None, [])
-        if new_fact in env.local_proofs():
-            results.append(new_fact)
-        else:
-            user_error(loc, 'Could not find a proof of\n\t' + str(new_fact) \
-                  + '\nin the current scope\n' \
-                  + style.orange('Givens:') + '\n' + env.proofs_str())
-      if len(results) > 1:
-          ret = And(loc, BoolType(loc), results)
-      elif len(results) == 1:
-          ret = results[0]
-      else:
-          user_error(loc, 'expected some facts after `recall`')
-
     case EvaluateFact(loc, subject):
       formula = check_proof(subject, env)
       set_reduce_all(True)
@@ -648,19 +687,6 @@ def check_proof(proof, env):
       formula = check_proof(proof, env)
       user_error(loc, proof_use_advice(proof, formula, env))
       
-    case PVar(loc, name):
-      try:
-        ret = env.get_formula_of_proof_var(proof)
-        if ret:
-            return ret
-        else:
-            raise UserError('could not find given: ' + name)
-      except UserError as e:
-        user_error(loc, str(e))
-      
-    case PTrue(loc):
-      ret = Bool(loc, BoolType(loc), True)
-      
     case PTLetNew(loc, var, rhs, rest):
       new_rhs = type_synth_term(rhs, env, None, [])
       body_env = env.define_term_var(loc, var, new_rhs.typeof, new_rhs)
@@ -691,22 +717,6 @@ def check_proof(proof, env):
       frms = [check_proof(pf, env) for pf in pfs]
       ret = And(loc, BoolType(loc), frms)
       
-    case PAndElim(loc, which, subject):
-      formula = check_proof(subject, env)
-      # formula = formula.reduce(env)
-      if isinstance(formula, TLet):
-        formula = formula.reduceLets(env)
-      
-      match formula:
-        case And(loc2, tyof, args):
-          if which >= len(args):
-            user_error(loc, 'out of bounds, access to conjunct ' + str(which) \
-                       + ' but there are only ' + str(len(args)) + ' conjuncts' \
-                       + ' in formula\n\t' + str(formula))
-          ret = args[which]
-        case _:
-          user_error(loc, 'expected a conjunction, not ' + str(formula))
-          
     case ImpIntro(loc, label, prem, body):
       if prem is not None:
           new_prem = check_formula(prem, env)
@@ -782,7 +792,7 @@ def check_proof(proof, env):
           pass
         case All(loc2, tyof, var, _, body):
           pass
-        case And(loc2, tyof, args):
+        case And(loc2, tyof, _):
           pass
         case _:
           ifthen = ifthen.reduce(env)
@@ -790,7 +800,7 @@ def check_proof(proof, env):
         case IfThen(loc2, tyof, prem, conc):
           _try_check_proof_of(arg, prem, env)
           ret = conc.reduce(env)
-        case And(loc2, tyof, args):
+        case And(loc2, tyof, _):
           vars, imps = collect_all_if_then(loc, ifthen, env)
           arg_frm = check_proof(arg, env)
           rets = []
