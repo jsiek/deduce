@@ -109,7 +109,7 @@ def unsafeHTMLify(s):
             .replace("&#x2205;", "∅")\
             .replace("<br>\n", "\n")
 
-class BlockPreprocessor(Preprocessor):
+class BlockPreprocessor(Preprocessor):  # type: ignore[misc]
 
     def is_list(self, line):
         # Markdown list markers require whitespace after the marker; without it,
@@ -161,7 +161,7 @@ class BlockPreprocessor(Preprocessor):
 
         return new_lines
 
-class EntangledPreprocessor(Preprocessor):
+class EntangledPreprocessor(Preprocessor):  # type: ignore[misc]
 
     def __init__(self, fname):
         self.fname = fname
@@ -185,7 +185,7 @@ class EntangledPreprocessor(Preprocessor):
 
         return lines
 
-class CodeBlockPreprocessor(Preprocessor):
+class CodeBlockPreprocessor(Preprocessor):  # type: ignore[misc]
     def run(self, lines):
         # otherwise it gets interpreted as a code block instead of our special code block
         # then make inequality signs safe for html then add back comments
@@ -196,13 +196,13 @@ class CodeBlockPreprocessor(Preprocessor):
                     .replace("--&gt;", "-->") 
                 for line in lines]
 
-class CodeInlineProcessor(InlineProcessor):
+class CodeInlineProcessor(InlineProcessor):  # type: ignore[misc]
     def handleMatch(self, m, data):
         el = etree.Element('code', {'class': 'inline'})
         el.text = m.group(1)
         return el, m.start(0), m.end(0)
 
-class BetterAnchorPostprocessor(Postprocessor):
+class BetterAnchorPostprocessor(Postprocessor):  # type: ignore[misc]
 
     def replace_anchors(self, m):
         file = m.group(1)
@@ -224,7 +224,7 @@ class BetterAnchorPostprocessor(Postprocessor):
         PATTERN = r'<a +href="([^"#]*)(#([^"]*))?">'
         return re.sub(PATTERN, self.replace_anchors, text)
 
-class CodeBlockProcessor(BlockProcessor):
+class CodeBlockProcessor(BlockProcessor):  # type: ignore[misc]
     # Accept any fence-start line: bare `!!!`, deduce-annotated `!!!{.deduce^#id}`,
     # or a language hint like `!!!sh` / `!!!elisp` / `!!!deduce` (markdown's
     # standard `` ```lang `` fences are converted to `!!!lang` by CodeBlockPreprocessor).
@@ -306,7 +306,7 @@ class CodeBlockProcessor(BlockProcessor):
         blocks[0] = original_block
         return False  # equivalent to our test() routine returning False
 
-class CodeBlockTreeProcessor(Treeprocessor):
+class CodeBlockTreeProcessor(Treeprocessor):  # type: ignore[misc]
     def run(self, root):
         self.fix_codeblocks(root)
 
@@ -326,7 +326,7 @@ class CodeBlockTreeProcessor(Treeprocessor):
                 child.find('code').text = child.find('code').text.replace("*", "&ast;")
             else: self.fix_codeblocks(child)
 
-class CodeExtension(Extension):
+class CodeExtension(Extension):  # type: ignore[misc]
     def __init__(self, fname, windowed=False):
         self.fname = fname
         self.windowed = windowed

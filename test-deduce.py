@@ -21,6 +21,8 @@ Per-category flags (combinable):
     --equiv        Parse ``lib/`` and ``test/should-validate/`` with both
                    parsers and compare structural ASTs. Known historical
                    divergences are allowlisted so CI catches new drift.
+                   Also round-trip representative ASTs through the
+                   pretty-printer and both parsers.
 
 Standalone modes (mutually exclusive with the above):
     --site             Generate ``doc_*.pf`` from ``gh_pages/doc/``
@@ -53,6 +55,7 @@ from concurrent.futures import ProcessPoolExecutor
 from dataclasses import fields as dc_fields, is_dataclass
 from pathlib import Path
 from signal import signal, SIGINT
+from typing import Any
 from lark import Token
 
 # Work around macOS sandbox profiles (notably Claude Code's seatbelt
@@ -123,6 +126,20 @@ PARSER_EQUIV_EXPECTED_DIVERGENCES = frozenset({
     "./test/should-validate/inst3.pf",
     "./test/should-validate/map_append_cross_type.pf",
 })
+
+
+# Pretty-printer/parser round-trip coverage for accepted syntax. Keep this
+# curated until the existing pretty-printer is parse-preserving for the whole
+# corpus; broad parser equivalence above still covers every checked-in lib and
+# should-validate file.
+PARSER_ROUND_TRIP_FILES = (
+    "./test/should-validate/theorem_true.pf",
+    "./test/should-validate/function1.pf",
+    "./test/should-validate/generic-fun.pf",
+    "./test/should-validate/bintree.pf",
+    "./test/should-validate/uint_viewrec.pf",
+    "./lib/Option.pf",
+)
 
 
 # Module-level globals consumed by worker functions. The parent
@@ -358,12 +375,28 @@ def _canonical_ast(value, *, parent_class: str | None = None,
 
 
 def _parse_for_equivalence(path: str, *, recursive_descent: bool):
+    with open(path, encoding="utf-8") as f:
+        return _parse_text_for_equivalence(
+            path, f.read(), recursive_descent=recursive_descent
+        )
+
+
+def _parse_text_for_equivalence(path: str, source: str, *,
+                                recursive_descent: bool):
     parser_mod = _equiv_rd_parser if recursive_descent else _equiv_lark_parser
     parser_mod.set_deduce_directory(str(REPO_ROOT))
     parser_mod.set_filename(path)
     parser_mod.init_parser()
-    with open(path, encoding="utf-8") as f:
-        return parser_mod.parse(f.read())
+    return parser_mod.parse(source)
+
+
+def _pretty_print_program(ast) -> str:
+    chunks = []
+    for stmt in ast:
+        printer = getattr(stmt, "pretty_print", None)
+        text = printer(0) if printer is not None else str(stmt)
+        chunks.append(text if text.endswith("\n") else text + "\n")
+    return "".join(chunks)
 
 
 def run_parser_equivalence() -> list[tuple[str, str, str]]:
@@ -414,6 +447,46 @@ def run_parser_equivalence() -> list[tuple[str, str, str]]:
     for path in sorted(stale):
         failures.append((path, "parser-equivalence",
                          "expected divergence path no longer exists"))
+    return failures
+
+
+def run_parser_round_trip() -> list[tuple[str, str, str]]:
+    """Pretty-print representative ASTs and re-parse with both parsers."""
+    failures: list[tuple[str, str, str]] = []
+    for path in PARSER_ROUND_TRIP_FILES:
+        for source_rd in (True, False):
+            source_label = "RD" if source_rd else "LALR"
+            try:
+                original = _parse_for_equivalence(
+                    path, recursive_descent=source_rd
+                )
+                pretty_source = _pretty_print_program(original)
+                original_ast = _canonical_ast(original)
+            except Exception as exc:
+                failures.append((path, "parser-roundtrip",
+                                 f"{source_label} source parse/print: "
+                                 f"{type(exc).__name__}: {exc}"))
+                continue
+
+            for roundtrip_rd in (True, False):
+                roundtrip_label = "RD" if roundtrip_rd else "LALR"
+                try:
+                    reparsed = _parse_text_for_equivalence(
+                        path + f"<{source_label}-roundtrip-{roundtrip_label}>",
+                        pretty_source,
+                        recursive_descent=roundtrip_rd,
+                    )
+                except Exception as exc:
+                    failures.append((path, "parser-roundtrip",
+                                     f"{source_label} pretty source failed "
+                                     f"with {roundtrip_label}: "
+                                     f"{type(exc).__name__}: {exc}"))
+                    continue
+
+                if _canonical_ast(reparsed) != original_ast:
+                    failures.append((path, "parser-roundtrip",
+                                     f"{source_label} pretty source changed "
+                                     f"when parsed with {roundtrip_label}"))
     return failures
 
 
@@ -512,7 +585,7 @@ def time_section(label: str, fn) -> tuple[float, list]:
 def parse_args(argv: list[str]) -> dict:
     """Return a dict of flag → value. Tolerates the legacy long-form
     arguments still in scripts / muscle memory."""
-    flags = {
+    flags: dict[str, Any] = {
         "cli": False, "lib": False, "passable": False, "errors": False,
         "equiv": False, "site": False, "parser": False,
         "regen_all": False, "regen_files": [], "gen_parse": False,
@@ -670,6 +743,9 @@ def main(argv: list[str]) -> int:
         print("\n=== parser equivalence (RD vs LALR ASTs) ===")
         _, fails = time_section("lib + should-validate",
                                 run_parser_equivalence)
+        total_failures.extend(fails)
+        _, fails = time_section("pretty-print round trip",
+                                run_parser_round_trip)
         total_failures.extend(fails)
 
     return _report(total_failures, total_t0)
