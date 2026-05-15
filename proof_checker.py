@@ -586,149 +586,178 @@ def collect_all(frm):
       case _:
         return ([], frm)
         
+def _check_proof_recall(proof, env):
+  loc = proof.location
+  results = []
+  for fact in proof.facts:
+    new_fact = type_check_term(fact, BoolType(loc), env, None, [])
+    if new_fact in env.local_proofs():
+        results.append(new_fact)
+    else:
+        user_error(loc, 'Could not find a proof of\n\t' + str(new_fact) \
+              + '\nin the current scope\n' \
+              + style.orange('Givens:') + '\n' + env.proofs_str())
+  if len(results) > 1:
+      return And(loc, BoolType(loc), results)
+  if len(results) == 1:
+      return results[0]
+  user_error(loc, 'expected some facts after `recall`')
+
+def _check_proof_var(proof, env):
+  loc = proof.location
+  try:
+    formula = env.get_formula_of_proof_var(proof)
+    if formula:
+        return formula
+    raise UserError('could not find given: ' + proof.name)
+  except UserError as e:
+    user_error(loc, str(e))
+
+def _check_proof_true(proof, env):
+  return Bool(proof.location, BoolType(proof.location), True)
+
+def _check_proof_and_elim(proof, env):
+  loc = proof.location
+  formula = check_proof(proof.subject, env)
+  if isinstance(formula, TLet):
+    formula = formula.reduceLets(env)
+
+  match formula:
+    case And(_, _, args):
+      if proof.which >= len(args):
+        user_error(loc, 'out of bounds, access to conjunct ' + str(proof.which) \
+                   + ' but there are only ' + str(len(args)) + ' conjuncts' \
+                   + ' in formula\n\t' + str(formula))
+      return args[proof.which]
+    case _:
+      user_error(loc, 'expected a conjunction, not ' + str(formula))
+
+def _check_proof_evaluate_fact(proof, env):
+  formula = check_proof(proof.subject, env)
+  set_reduce_all(True)
+  try:
+    return formula.reduce(env)
+  finally:
+    set_reduce_all(False)
+
+def _check_proof_apply_defs_fact(proof, env):
+  formula = check_proof(proof.subject, env)
+  return expand_definitions(proof.location, formula, proof.definitions, env)
+
+def _check_proof_rewrite_fact(proof, env):
+  formula = check_proof(proof.subject, env)
+  eqns = [check_proof(equation_proof, env)
+          for equation_proof in proof.equations]
+  red_formula = formula.reduce(env)
+  return apply_rewrites(proof.location, red_formula, eqns, env,
+                        display_formula=formula)
+
+def _check_proof_simplify_fact(proof, env):
+  formula = check_proof(proof.subject, env)
+  preds = [check_proof(given, env) for given in proof.givens]
+  equations = [pred_to_equality(proof.location, p) for p in preds]
+  eqns = [equation.reduce(env) for equation in equations]
+  new_formula = apply_rewrites(proof.location, formula, eqns, env)
+  return new_formula.reduce(env)
+
+def _check_proof_hole(proof, env):
+  incomplete_error(proof.location, 'unfinished proof')
+
+def _check_proof_sorry(proof, env):
+  user_error(proof.location, "can't use sorry in context with unknown goal")
+
+def _check_proof_help_use(proof, env):
+  formula = check_proof(proof.proof, env)
+  user_error(proof.location, proof_use_advice(proof.proof, formula, env))
+
+def _check_proof_tlet_new(proof, env):
+  new_rhs = type_synth_term(proof.rhs, env, None, [])
+  body_env = env.define_term_var(proof.location, proof.var,
+                                 new_rhs.typeof, new_rhs)
+  return check_proof(proof.body, body_env)
+
+def _check_proof_let(proof, env):
+  loc = proof.location
+  new_frm = check_formula(proof.proved, env)
+  match new_frm:
+    case Hole(_, _):
+      proved_formula = check_proof(proof.because, env)
+      user_error(loc, "\nhave " + proof.label + ':\n\t' + str(proved_formula))
+    case _:
+      _try_check_proof_of(proof.because, new_frm, env)
+      body_env = env.declare_local_proof_var(loc, proof.label,
+                                             remove_mark(new_frm))
+      return check_proof(proof.body, body_env)
+
+def _check_proof_annot(proof, env):
+  loc = proof.location
+  new_claim = check_formula(proof.claim, env)
+  match new_claim:
+    case Hole(_, _):
+      proved_formula = check_proof(proof.body, env)
+      user_error(loc, '\nconclude ' + str(proved_formula))
+    case _:
+      _try_check_proof_of(proof.body, new_claim, env)
+      return remove_mark(new_claim)
+
+def _check_proof_tuple(proof, env):
+  loc = proof.location
+  frms = [check_proof(pf, env) for pf in proof.args]
+  return And(loc, BoolType(loc), frms)
+
+def _check_proof_imp_intro(proof, env):
+  loc = proof.location
+  if proof.premise is not None:
+      new_prem = check_formula(proof.premise, env)
+  else:
+      new_prem = None
+  body_env = env.declare_local_proof_var(loc, proof.label, new_prem)
+  conc = check_proof(proof.body, body_env)
+  return IfThen(loc, BoolType(loc), new_prem, conc)
+
+def _check_proof_all_intro(proof, env):
+  loc = proof.location
+  body_env = env
+  x, ty = proof.var
+  checked_ty = check_type(ty, env)
+  checked_var = (x, checked_ty)
+  if isinstance(checked_ty, TypeType):
+    body_env = body_env.declare_type(loc, x)
+  else:
+    body_env = body_env.declare_term_var(loc, x, checked_ty)
+  formula = check_proof(proof.body, body_env)
+  return All(loc, BoolType(loc), checked_var, proof.pos, formula)
+
+_CHECK_PROOF_HANDLERS = {
+  PRecall: _check_proof_recall,
+  PVar: _check_proof_var,
+  PTrue: _check_proof_true,
+  PAndElim: _check_proof_and_elim,
+  EvaluateFact: _check_proof_evaluate_fact,
+  ApplyDefsFact: _check_proof_apply_defs_fact,
+  RewriteFact: _check_proof_rewrite_fact,
+  SimplifyFact: _check_proof_simplify_fact,
+  PHole: _check_proof_hole,
+  PSorry: _check_proof_sorry,
+  PHelpUse: _check_proof_help_use,
+  PTLetNew: _check_proof_tlet_new,
+  PLet: _check_proof_let,
+  PAnnot: _check_proof_annot,
+  PTuple: _check_proof_tuple,
+  ImpIntro: _check_proof_imp_intro,
+  AllIntro: _check_proof_all_intro,
+}
+
 def check_proof(proof, env):
   if get_verbose():
     print('check_proof:')
     print('\t' + str(proof))
+  handler = _CHECK_PROOF_HANDLERS.get(type(proof))
+  if handler is not None:
+    return handler(proof, env)
   ret = None
   match proof:
-    case PRecall(loc, facts):
-      results = []
-      for fact in facts:
-        new_fact = type_check_term(fact, BoolType(loc), env, None, [])
-        if new_fact in env.local_proofs():
-            results.append(new_fact)
-        else:
-            user_error(loc, 'Could not find a proof of\n\t' + str(new_fact) \
-                  + '\nin the current scope\n' \
-                  + style.orange('Givens:') + '\n' + env.proofs_str())
-      if len(results) > 1:
-          ret = And(loc, BoolType(loc), results)
-      elif len(results) == 1:
-          ret = results[0]
-      else:
-          user_error(loc, 'expected some facts after `recall`')
-
-    case EvaluateFact(loc, subject):
-      formula = check_proof(subject, env)
-      set_reduce_all(True)
-      red_formula = formula.reduce(env)
-      set_reduce_all(False)
-      ret = red_formula
-          
-    case ApplyDefsFact(loc, definitions, subject):
-      formula = check_proof(subject, env)
-      new_formula = expand_definitions(loc, formula, definitions, env)
-      ret = new_formula
-      
-    case RewriteFact(loc, subject, equation_proofs):
-      formula = check_proof(subject, env)
-      eqns = [check_proof(proof, env) for proof in equation_proofs]
-      red_formula = formula.reduce(env)
-      current_formula = red_formula
-      current_formula = apply_rewrites(loc, current_formula, eqns, env,
-                                       display_formula=formula)
-      ret = current_formula
-
-    case SimplifyFact(loc, subject, givens):
-      formula = check_proof(subject, env)
-      preds = [check_proof(proof, env) for proof in givens]
-      equations = [pred_to_equality(loc, p) for p in preds]
-      eqns = [equation.reduce(env) for equation in equations]
-      new_formula = apply_rewrites(loc, formula, eqns, env)
-      ret = new_formula.reduce(env)
-      
-    case PHole(loc):
-      incomplete_error(loc, 'unfinished proof')
-      
-    case PSorry(loc):
-      user_error(loc, "can't use sorry in context with unknown goal")
-
-    case PHelpUse(loc, proof):
-      formula = check_proof(proof, env)
-      user_error(loc, proof_use_advice(proof, formula, env))
-      
-    case PVar(loc, name):
-      try:
-        ret = env.get_formula_of_proof_var(proof)
-        if ret:
-            return ret
-        else:
-            raise UserError('could not find given: ' + name)
-      except UserError as e:
-        user_error(loc, str(e))
-      
-    case PTrue(loc):
-      ret = Bool(loc, BoolType(loc), True)
-      
-    case PTLetNew(loc, var, rhs, rest):
-      new_rhs = type_synth_term(rhs, env, None, [])
-      body_env = env.define_term_var(loc, var, new_rhs.typeof, new_rhs)
-      ret = check_proof(rest, body_env)
-      
-    case PLet(loc, label, frm, reason, rest):
-      new_frm = check_formula(frm, env)
-      match new_frm:
-        case Hole(loc2, tyof):
-          proved_formula = check_proof(reason, env)
-          user_error(loc, "\nhave " + label + ':\n\t' + str(proved_formula))
-        case _:
-          _try_check_proof_of(reason, new_frm, env)
-          body_env = env.declare_local_proof_var(loc, label, remove_mark(new_frm))
-          ret = check_proof(rest, body_env)
-      
-    case PAnnot(loc, claim, reason):
-      new_claim = check_formula(claim, env)
-      match new_claim:
-        case Hole(loc2, tyof):
-          proved_formula = check_proof(reason, env)
-          user_error(loc, '\nconclude ' + str(proved_formula))
-        case _:
-          _try_check_proof_of(reason, new_claim, env)
-          ret = remove_mark(new_claim)
-      
-    case PTuple(loc, pfs):
-      frms = [check_proof(pf, env) for pf in pfs]
-      ret = And(loc, BoolType(loc), frms)
-      
-    case PAndElim(loc, which, subject):
-      formula = check_proof(subject, env)
-      # formula = formula.reduce(env)
-      if isinstance(formula, TLet):
-        formula = formula.reduceLets(env)
-      
-      match formula:
-        case And(loc2, tyof, args):
-          if which >= len(args):
-            user_error(loc, 'out of bounds, access to conjunct ' + str(which) \
-                       + ' but there are only ' + str(len(args)) + ' conjuncts' \
-                       + ' in formula\n\t' + str(formula))
-          ret = args[which]
-        case _:
-          user_error(loc, 'expected a conjunction, not ' + str(formula))
-          
-    case ImpIntro(loc, label, prem, body):
-      if prem is not None:
-          new_prem = check_formula(prem, env)
-      else:
-          new_prem = None
-      body_env = env.declare_local_proof_var(loc, label, new_prem)
-      conc = check_proof(body, body_env)
-      ret = IfThen(loc, BoolType(loc), new_prem, conc)
-      
-    case AllIntro(loc, var, pos, body):      
-      body_env = env
-      x, ty = var
-      checked_ty = check_type(ty, env)
-      checked_var = (x, checked_ty)
-      if isinstance(checked_ty, TypeType):
-        body_env = body_env.declare_type(loc, x)
-      else:
-        body_env = body_env.declare_term_var(loc, x, checked_ty)
-      formula = check_proof(body, body_env)
-      ret = All(loc, BoolType(loc), checked_var, pos, formula)
-      
-    case AllElim(loc, univ, arg, pos):
+    case AllElim(loc, univ, arg, _):
       allfrm = check_proof(univ, env)
 
       if isinstance(allfrm, TLet):
@@ -780,9 +809,9 @@ def check_proof(proof, env):
       match ifthen:
         case IfThen(loc2, tyof, prem, conc):
           pass
-        case All(loc2, tyof, var, _, body):
+        case All(loc2, tyof, var, _, _):
           pass
-        case And(loc2, tyof, args):
+        case And(loc2, tyof, _):
           pass
         case _:
           ifthen = ifthen.reduce(env)
@@ -790,7 +819,7 @@ def check_proof(proof, env):
         case IfThen(loc2, tyof, prem, conc):
           _try_check_proof_of(arg, prem, env)
           ret = conc.reduce(env)
-        case And(loc2, tyof, args):
+        case And(loc2, tyof, _):
           vars, imps = collect_all_if_then(loc, ifthen, env)
           arg_frm = check_proof(arg, env)
           rets = []
@@ -809,7 +838,7 @@ def check_proof(proof, env):
                        + "\n\t".join([str(p) for p, _ in imps])
                        + "\nfor application of \n\t"+str(ifthen)
                        + "\nto \n\t" + str(arg) + ': ' + str(arg_frm))
-        case All(loc2, tyof, _, _, body):
+        case All(loc2, tyof, _, _, _):
           (vars, imps) = collect_all_if_then(loc, ifthen, env)
           rets = []
           reasons = []
