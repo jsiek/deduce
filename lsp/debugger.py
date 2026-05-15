@@ -26,7 +26,7 @@ import os
 import sys
 from dataclasses import dataclass, field
 from os.path import basename
-from typing import IO, Any, Optional
+from typing import IO, Any, Callable, Optional, cast
 
 
 DEFAULT_HISTORY_FILE = os.path.expanduser("~/.config/deduce/debug_history")
@@ -73,12 +73,12 @@ class _Frame:
     name: str
     location: object
     env: object
-    params: dict = field(default_factory=dict)
+    params: dict[str, Any] = field(default_factory=dict)
     is_skipped: bool = False
     # The call's positional arguments, as the user wrote them.
     # Used by both the entry trap header and the matching return
     # trap so the unwinding view is self-describing.
-    display_args: list = field(default_factory=list)
+    display_args: list[Any] = field(default_factory=list)
 
 
 @dataclass
@@ -97,7 +97,7 @@ class _Breakpoint:
 
     # --- pause-decision helpers ---
 
-    def hits_at_statement(self, stmt, env, dbg: "Debugger") -> bool:
+    def hits_at_statement(self, stmt: Any, env: Any, dbg: "Debugger") -> bool:
         if ":" not in self.spec:
             # function-name breakpoints fire in on_function, not here
             return False
@@ -106,7 +106,7 @@ class _Breakpoint:
         return self._condition_holds(env, dbg)
 
     def hits_at_function(
-        self, name: str, location, env, dbg: "Debugger"
+        self, name: str, location: Any, env: Any, dbg: "Debugger"
     ) -> bool:
         if ":" in self.spec:
             # file:line breakpoint -- match against the function's
@@ -124,7 +124,7 @@ class _Breakpoint:
 
     # --- internals ---
 
-    def _loc_matches(self, loc) -> bool:
+    def _loc_matches(self, loc: Any) -> bool:
         if loc is None:
             return False
         file_part, _, line_part = self.spec.rpartition(":")
@@ -141,7 +141,7 @@ class _Breakpoint:
             return True
         return False
 
-    def _condition_holds(self, env, dbg: "Debugger") -> bool:
+    def _condition_holds(self, env: Any, dbg: "Debugger") -> bool:
         if self.condition is None:
             return True
         try:
@@ -177,7 +177,7 @@ class Debugger:
         # pass StringIO objects; for those we fall back to plain
         # ``readline()`` on the stream and skip the history file
         # entirely so unit tests don't poke the filesystem.
-        self._readline = None
+        self._readline: Optional[Any] = None
         self._history_file: Optional[str] = None
         if (self.input is sys.stdin and self.output is sys.stdout
                 and sys.stdin.isatty()):
@@ -248,7 +248,7 @@ class Debugger:
     # Hook callbacks -- called from proof_checker / abstract_syntax.
     # ------------------------------------------------------------------
 
-    def on_statement(self, stmt, env) -> None:
+    def on_statement(self, stmt: Any, env: Any) -> None:
         # gdb doesn't trap on ``#include``; the debugger doesn't trap
         # on ``import``.  Imports are pure declarations -- no
         # user-visible side effect to step through, no body for
@@ -270,19 +270,19 @@ class Debugger:
         self._print(f"-> statement at {self._format_loc(self._current_loc)}: {stmt}")
         self._repl()
 
-    def after_statement(self, stmt, env) -> None:
+    def after_statement(self, stmt: Any, env: Any) -> None:
         return
 
     def on_function(
         self,
         name: str,
-        location,
-        env,
-        params: Optional[list] = None,
-        args: Optional[list] = None,
-        subst: Optional[dict] = None,
-        defn_loc=None,
-        display_args: Optional[list] = None,
+        location: Any,
+        env: Any,
+        params: Optional[list[Any]] = None,
+        args: Optional[list[Any]] = None,
+        subst: Optional[dict[Any, Any]] = None,
+        defn_loc: Any = None,
+        display_args: Optional[list[Any]] = None,
     ) -> None:
         # ``defn_loc`` is the function's *defining* site (from its
         # body's ``Meta``).  ``location`` is the call site.  For
@@ -297,7 +297,7 @@ class Debugger:
             # depth-based step machinery honest (``next`` / ``finish``
             # measure visible frames only).
             return
-        params_dict: dict = {}
+        params_dict: dict[str, Any] = {}
         from abstract_syntax import base_name
         if params is not None and args is not None:
             for p, a in zip(params, args):
@@ -331,7 +331,9 @@ class Debugger:
         )
         self._repl()
 
-    def after_function(self, name: str, env, return_value=None) -> None:
+    def after_function(
+        self, name: str, env: Any, return_value: Any = None
+    ) -> None:
         # No matching frame iff ``on_function`` chose not to push
         # (invisible function).  Nothing to pop, nothing to trap.
         if not self.stack:
@@ -405,7 +407,7 @@ class Debugger:
         bn = base_name(name) if isinstance(name, str) else ""
         return bn in self._invisible_function_names
 
-    def _is_skipped(self, defn_loc) -> bool:
+    def _is_skipped(self, defn_loc: Any) -> bool:
         """The gdb-style policy: ``step`` doesn't trap on entry, but
         the function still pushes a frame.  Keyed on the function's
         defining-file location (so generic calls don't slip past via
@@ -420,7 +422,7 @@ class Debugger:
     # Pause-decision logic.  Single source of truth for every hook.
     # ------------------------------------------------------------------
 
-    def _should_pause_at_statement(self, stmt, env) -> bool:
+    def _should_pause_at_statement(self, stmt: Any, env: Any) -> bool:
         if self._step_mode in (_StepMode.STEP, _StepMode.STOP):
             return True
         if self._step_mode == _StepMode.NEXT:
@@ -433,7 +435,9 @@ class Debugger:
         return any(bp.hits_at_statement(stmt, env, self)
                    for bp in self.breakpoints)
 
-    def _should_pause_at_function(self, name, location, env, defn_loc=None) -> bool:
+    def _should_pause_at_function(
+        self, name: str, location: Any, env: Any, defn_loc: Any = None
+    ) -> bool:
         # Breakpoints always fire, regardless of step mode and
         # regardless of whether the file is in the skip list -- the
         # whole point of ``break length`` after ``skip lib/`` is to
@@ -567,7 +571,7 @@ class Debugger:
     # readline doesn't need to be in the loop.
     # ------------------------------------------------------------------
 
-    def _completer(self, text: str, state: int):
+    def _completer(self, text: str, state: int) -> Optional[str]:
         """``readline`` calls this repeatedly with increasing
         ``state`` until it returns ``None``.  Each call returns one
         candidate."""
@@ -620,7 +624,7 @@ class Debugger:
         if self._current_env is None:
             return []
         from abstract_syntax import base_name
-        names: set = set()
+        names: set[str] = set()
         for unique in self._current_env.dict.keys():
             names.add(base_name(unique))
         for k in self._focus_params().keys():
@@ -628,10 +632,10 @@ class Debugger:
         return list(names)
 
     @staticmethod
-    def _sorted_matches(seq, text: str) -> list[str]:
+    def _sorted_matches(seq: list[str], text: str) -> list[str]:
         return sorted(set(s for s in seq if s.startswith(text)))
 
-    def _command_table(self) -> dict:
+    def _command_table(self) -> dict[str, Callable[[str], bool]]:
         """Map of command verb -> handler.  Aliases get their own
         entries so the typo-suggestion routine and tab-completion can
         treat them uniformly.
@@ -639,7 +643,7 @@ class Debugger:
         Each handler returns ``True`` to resume execution (release the
         REPL) or ``False`` to re-prompt.
         """
-        t = {
+        t: dict[str, Callable[[str], bool]] = {
             "continue": self._cmd_continue,
             "c":        self._cmd_continue,
             "step":     self._cmd_step,
@@ -749,7 +753,7 @@ class Debugger:
             self.breakpoints.clear()
             self._print("all breakpoints deleted")
             return False
-        ids_to_remove: set = set()
+        ids_to_remove: set[int] = set()
         for piece in args.split():
             if not piece.isdigit():
                 self._print(
@@ -938,7 +942,7 @@ class Debugger:
     # Helpers.
     # ------------------------------------------------------------------
 
-    def _focus_env(self):
+    def _focus_env(self) -> Optional[Any]:
         """Env to use for ``print`` / ``locals`` based on ``up``/``down``.
         Defaults to the most recent hook env (the focused / innermost
         frame), but the user can navigate."""
@@ -949,7 +953,7 @@ class Debugger:
             return self.stack[idx].env
         return self._current_env
 
-    def _focus_params(self) -> dict:
+    def _focus_params(self) -> dict[str, Any]:
         if self._frame_cursor == -1:
             if not self.stack:
                 return {}
@@ -973,7 +977,7 @@ class Debugger:
             return args.strip(), None
         return args[:idx].strip(), args[idx + len(marker):].strip()
 
-    def _eval_expr(self, expr_text: str, env):
+    def _eval_expr(self, expr_text: str, env: Any) -> Any:
         """Parse ``expr_text`` as a term, uniquify it against the
         proof-checker env's bindings, and reduce.
 
@@ -1002,7 +1006,8 @@ class Debugger:
             _p.token_list = list(_p.lark_parser.lex(expr_text))
             _p.current_position = 0
             _p.check_closest_kwd = False
-            term = _p.parse_term()
+            parse_term: Callable[[], Any] = getattr(_p, "parse_term")
+            term = parse_term()
         finally:
             (_p.token_list, _p.current_position,
              _p.filename, _p.check_closest_kwd) = saved
@@ -1010,7 +1015,7 @@ class Debugger:
         # Build a uniquify env from the proof-checker env.  Each base
         # name maps to a list of the uniquified candidates -- which
         # is exactly what overload resolution at uniquify-time uses.
-        u_env: dict = {"≠": ["≠"], "=": ["="]}
+        u_env: dict[str, list[str]] = {"≠": ["≠"], "=": ["="]}
         for unique in env.dict.keys():
             b = base_name(unique)
             u_env.setdefault(b, []).append(unique)
@@ -1027,8 +1032,10 @@ class Debugger:
         # Force full reduction so the printed value matches what
         # ``print`` / ``assert`` would compute in the proof checker.
         from abstract_syntax import set_eval_all, set_reduce_all
-        set_reduce_all(True)
-        set_eval_all(True)
+        set_reduce = cast(Callable[[bool], None], set_reduce_all)
+        set_eval = cast(Callable[[bool], None], set_eval_all)
+        set_reduce(True)
+        set_eval(True)
         # Suppress traps while evaluating the user's debugger
         # expression: the reduction will fire the same hooks the
         # surrounding session uses, and re-trapping inside ``print``
@@ -1050,8 +1057,8 @@ class Debugger:
             (self._step_mode, self._step_depth,
              self._current_env, self._current_loc, self._current_stmt,
              self.stack) = saved_state
-            set_eval_all(False)
-            set_reduce_all(False)
+            set_eval(False)
+            set_reduce(False)
 
     # ------------------------------------------------------------------
     # Output helpers -- one call site each so a future DAP adapter can
@@ -1067,7 +1074,7 @@ class Debugger:
         self.output.flush()
 
     @staticmethod
-    def _format_loc(loc) -> str:
+    def _format_loc(loc: Any) -> str:
         if loc is None:
             return "<unknown>"
         line = getattr(loc, "line", None)
@@ -1075,4 +1082,3 @@ class Debugger:
         if line is not None and col is not None:
             return f"{line}:{col}"
         return "<unknown>"
-

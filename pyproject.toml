@@ -108,7 +108,6 @@ exclude = [
 #   tools/claude_fill_hole/openai_backend.py    (30)
 #   lsp/mcp_server.py                           (30)
 #   style.py                                    (31)
-#   lsp/debugger.py                             (38)
 #   lsp/dap_server.py                           (49)
 #   error.py                                    (65)
 #   lsp/lsp_server.py                           (74)
@@ -136,6 +135,7 @@ module = [
     "flags",
     "style",
     "lsp.benchmark",
+    "lsp.debugger",
     "lsp.library",
     "claude_fill_hole.__main__",
     "claude_fill_hole.agent",
