@@ -16,7 +16,7 @@ from flags import (
     add_import_directory as add_import_directory,
     get_debugger,
     get_import_directories,
-    get_recursive_descent,
+    get_recursive_descent as get_recursive_descent,
     get_unique_names,
     get_verbose,
     init_import_directories as init_import_directories,
