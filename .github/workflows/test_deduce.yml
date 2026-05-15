@@ -7,32 +7,91 @@ on:
     branches: [ main ]
 
 jobs:
-  build:
+  static:
+    name: static checks
     runs-on: ubuntu-latest
 
     steps:
-      - name: checkout repo content
-        uses: actions/checkout@v4 # checkout the repository content to github runner.
-      - name: setup python
+      - name: Checkout repo content
+        uses: actions/checkout@v4
+
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.13' # match the Makefile
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            gh_pages/requirements.txt
+
       - name: Install dependencies
         run: |
-            python -m pip install --upgrade pip
-            if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-            if [ -f ./gh_pages/requirements.txt ]; then pip install -r ./gh_pages/requirements.txt; fi
-            pip install ruff mypy
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f ./gh_pages/requirements.txt ]; then pip install -r ./gh_pages/requirements.txt; fi
+          pip install ruff mypy
+
       - name: Lint with ruff
         run: ruff check .
+
       - name: Type-check with mypy
         run: mypy .
+
       - name: Check known tokens
         run: python ./gh_pages/scripts/keywords.py
+
       - name: Check reference grammar snippets
         run: python ./gh_pages/scripts/reference_grammar.py
-      - name: execute py script # run file
+
+  regression:
+    name: regression (${{ matrix.name }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: site
+            args: --site
+            requirements: site
+          - name: parser
+            args: --parser
+            requirements: core
+          - name: lib
+            args: --lib
+            requirements: core
+          - name: passable
+            args: --passable --cli
+            requirements: core
+          - name: errors
+            args: --errors
+            requirements: core
+          - name: equiv
+            args: --equiv
+            requirements: core
+
+    steps:
+      - name: Checkout repo content
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            gh_pages/requirements.txt
+
+      - name: Install core dependencies
         run: |
-          python test-deduce.py --site
-          python test-deduce.py
-          python test-deduce.py --parser
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Install site dependencies
+        if: matrix.requirements == 'site'
+        run: |
+          if [ -f ./gh_pages/requirements.txt ]; then pip install -r ./gh_pages/requirements.txt; fi
+
+      - name: Run regression category
+        run: python test-deduce.py ${{ matrix.args }}
