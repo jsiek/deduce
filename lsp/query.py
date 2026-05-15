@@ -4008,16 +4008,6 @@ def _rank_lemmas(
 
     raw_scores: list = []
     for info, formula, module in candidates:
-        head = _formula_head_symbol(formula)
-        symbols = _formula_symbols(formula)
-
-        head_score = 1.0 if (goal_head is not None and head == goal_head) else 0.0
-
-        if goal_syms:
-            overlap = len(goal_syms & symbols) / len(goal_syms)
-        else:
-            overlap = 0.0
-
         proximity = 1.0 if module == user_module else 0.0
 
         sig_lower = info.signature.lower()
@@ -4034,17 +4024,10 @@ def _rank_lemmas(
         if pattern is not None and pattern.search(info.signature):
             pattern_score = 1.0
 
-        raw = (
-            4.0 * head_score
-            + 2.0 * overlap
-            + 1.0 * proximity
-            + 2.0 * substring_score
-            + 3.0 * pattern_score
-        )
-
         # When the user typed a goal-shape pattern or substring, only
-        # surface lemmas that match it -- other signals shouldn't
-        # promote unrelated lemmas above a query-only baseline.
+        # surface lemmas that match it. Run this cheap filter before
+        # walking formula ASTs; query-only MCP calls otherwise pay the
+        # recursive symbol extraction cost for every in-scope theorem.
         if has_substring_query and substring_score == 0.0:
             continue
         if pattern is not None and pattern_score == 0.0:
@@ -4056,6 +4039,26 @@ def _rank_lemmas(
             # dropped by the ``raw <= 0`` filter below.
             raw_scores.append((1.0 + proximity, info, module))
             continue
+
+        if goal_head is not None:
+            head = _formula_head_symbol(formula)
+            head_score = 1.0 if head == goal_head else 0.0
+        else:
+            head_score = 0.0
+
+        if goal_syms:
+            symbols = _formula_symbols(formula)
+            overlap = len(goal_syms & symbols) / len(goal_syms)
+        else:
+            overlap = 0.0
+
+        raw = (
+            4.0 * head_score
+            + 2.0 * overlap
+            + 1.0 * proximity
+            + 2.0 * substring_score
+            + 3.0 * pattern_score
+        )
 
         # No goal AND no query that this lemma matched -> nothing to
         # score on.  Skip.

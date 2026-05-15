@@ -292,8 +292,11 @@ def _check_file_impl(
         cached = get_uniquified_modules()
         # The cache is keyed by module name and corresponds to a
         # specific on-disk state. When the caller passes in-memory
-        # content, the cache may be stale, so we bypass it and re-parse.
-        use_cache = content is None
+        # content, it is usually an unsaved editor buffer, so the cache
+        # may be stale. MCP tools, however, read the file from disk and
+        # pass that exact text through this same API; those calls are
+        # cacheable because they match the cache's on-disk contract.
+        use_cache = content is None or _content_matches_file(filename, content)
         if use_cache and module_name in cached:
             ast = cached[module_name]
         else:
@@ -397,6 +400,19 @@ def _check_file_impl(
             module_name=module_name,
             ast=ast,
         )
+
+
+def _content_matches_file(filename: str, content: str) -> bool:
+    """Return true when ``content`` exactly matches ``filename`` on disk.
+
+    A missing or unreadable file means the caller's text is necessarily
+    an in-memory buffer, so it must bypass the module cache.
+    """
+    try:
+        with open(filename, "r", encoding="utf-8") as f:
+            return f.read() == content
+    except OSError:
+        return False
 
 
 # ---------------------------------------------------------------------------
