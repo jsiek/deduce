@@ -2076,6 +2076,8 @@ def _splittable_vars(env) -> tuple:
                 seen.add(bname)
         elif isinstance(binding, TermBinding):
             ty = binding.typ
+            if ty is None:
+                continue
             try:
                 type_var = get_type_name(ty)
             except Exception:
@@ -2132,6 +2134,8 @@ def _case_split_template(name: str, env) -> Optional[str]:
         # ``Var'', post-uniquify ``OverloadedVar'', and post-typecheck
         # ``ResolvedVar'' (issue: PR #330 split these classes).
         ty = binding.typ
+        if ty is None:
+            return None
         try:
             type_var = get_type_name(ty)
         except Exception:

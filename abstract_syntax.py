@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, fields as dc_fields
 from lark.tree import Meta
-from typing import Any, Callable, Iterator, Tuple, List, Optional, Protocol, Set, Self, overload, TextIO, Sequence, cast, no_type_check
+from typing import Any, Callable, Iterator, Tuple, List, Mapping, Optional, Protocol, Set, Self, overload, TextIO, Sequence, cast
 from error import (
     InternalError,
     MatchFailed,
@@ -109,10 +109,10 @@ class AST:
   def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> Self:
     return self._map_children(lambda x: x.uniquify(env, ctx))
 
-  def substitute(self, sub: object) -> Self:
+  def substitute(self, sub: Mapping[str, Term | Type | RecFun | GenRecFun]) -> AST:
     return self._map_children(lambda x: x.substitute(sub))
 
-  def reduce(self, env: object) -> Self:
+  def reduce(self, env: Env) -> AST:
     return self._map_children(lambda x: x.reduce(env))
 
 def _ast_map(value: object, f: Callable[[AST], AST]) -> object:
@@ -137,6 +137,15 @@ class Type(AST):
   def free_vars(self) -> Set[str]:
     internal_error(self.location, 'free_vars not implemented')
 
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> Type:
+    return super().uniquify(env, ctx)
+
+  def substitute(self, sub: Mapping[str, Term | Type | RecFun | GenRecFun]) -> Type:
+    return cast(Type, super().substitute(sub))
+
+  def reduce(self, env: Env) -> Type:
+    return cast(Type, super().reduce(env))
+
 
 @dataclass
 class Term(AST):
@@ -144,18 +153,21 @@ class Term(AST):
 
   _NON_STRUCTURAL_FIELDS = frozenset({'location', 'typeof'})
 
-  def subst_typeof(self, sub: object) -> Optional[Type]:
+  def subst_typeof(self, sub: Mapping[str, Term | Type | RecFun | GenRecFun]) -> Optional[Type]:
     # Apply `sub` to the cached `typeof` annotation. Kept as a named
     # helper because a handful of bespoke `substitute` methods (Var,
     # OverloadedVar, ResolvedVar) call it directly to short-circuit
     # when the annotation didn't actually change.
     return self.typeof.substitute(sub) if self.typeof is not None else None
 
-  def substitute(self, sub: object) -> Self:
+  def substitute(self, sub: Mapping[str, Term | Type | RecFun | GenRecFun]) -> Term | RecFun | GenRecFun:
     return self._map_children(
       lambda x: x.substitute(sub),
       on_typeof=lambda t: t.substitute(sub) if t is not None else None,
     )
+
+  def reduce(self, env: Env) -> Term:
+    return self._map_children(lambda x: x.reduce(env))
 
   def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
       if afterNewline:
@@ -165,7 +177,8 @@ class Term(AST):
 
 @dataclass
 class Formula(Term):
-  pass
+  def reduce(self, env: Env) -> Formula:
+    return cast(Formula, super().reduce(env))
 
 @dataclass
 class Proof(AST):
@@ -518,7 +531,7 @@ class GenericUnknownInst(Type):
   def substitute(self, sub: object) -> Self:
     return self
 
-def get_type_name(ty: Type) -> Type:
+def get_type_name(ty: Type | VarRef) -> Type | VarRef:
   if isinstance(ty, VarRef):
     return ty
   match ty:
@@ -536,10 +549,16 @@ class Pattern(AST):
   # matching, not a variable reference to be rewritten. Compound nodes
   # (`SwitchCase`, `IndCase`, `FunCase`) call `with_bindings` to
   # rename pattern parameters during uniquify.
-  def substitute(self, sub: object) -> Self:
+  def substitute(self, sub: Mapping[str, Term | Type | RecFun | GenRecFun]) -> Pattern:
     return self
 
-  def reduce(self, env: Env) -> Self:  # type: ignore[override]
+  def reduce(self, env: Env) -> Pattern:
+    return self
+
+  def bindings(self) -> list[str]:
+    return []
+
+  def with_bindings(self, new_bindings: list[str]) -> Pattern:
     return self
 
 @dataclass
@@ -549,7 +568,7 @@ class PatternBool(Pattern):
   def __str__(self):
       return "true" if self.value else "false"
 
-  def bindings(self):
+  def bindings(self) -> list[str]:
     return []
 
   def with_bindings(self, new_bindings: list[str]) -> PatternBool:
@@ -560,7 +579,7 @@ class PatternCons(Pattern):
   constructor : Term         # typically a Var
   parameters : List[str]
 
-  def bindings(self):
+  def bindings(self) -> list[str]:
     return self.parameters
 
   def with_bindings(self, params: list[str]) -> PatternCons:
@@ -578,7 +597,7 @@ class PatternTerm(Pattern):
   term: Term
   parameters: list[str]
 
-  def bindings(self):
+  def bindings(self) -> list[str]:
     return self.parameters
 
   def with_bindings(self, params: list[str]) -> PatternTerm:
@@ -643,7 +662,7 @@ class Conditional(Term):
       return False
     return self.cond == other.cond and self.thn == other.thn and self.els == other.els
 
-  def reduce(self, env: Env) -> Term:  # type: ignore[override]
+  def reduce(self, env: Env) -> Term:
      cond = self.cond.reduce(env)
      if get_reduce_all():   # Does this work? Need to test!
          match cond:
@@ -673,7 +692,7 @@ class TAnnote(Term):
   def __str__(self):
       return str(self.subject) + ':' + str(self.typ)
 
-  def reduce(self, env: Env) -> Term:  # type: ignore[override]
+  def reduce(self, env: Env) -> Term:
     return self.subject.reduce(env)
 
   def __eq__(self, other: object) -> bool:
@@ -743,15 +762,15 @@ class Var(VarRef):
       else:
         return name2str(self.name)
 
-  def reduce(self, env: Env) -> Self:  # type: ignore[override]
+  def reduce(self, env: Env) -> Self:
       # Pre-uniquify Vars don't appear in the runtime environment, so
       # they reduce to themselves. The post-uniquify form is
       # `OverloadedVar`, which has its own reduce.
       return self
 
-  def substitute(self, sub: dict[str, Any]) -> Any:  # type: ignore[override]
+  def substitute(self, sub: Mapping[str, Term | Type | RecFun | GenRecFun]) -> Term | RecFun | GenRecFun:
       if self.name in sub:
-          trm = sub[self.name]
+          trm = cast(Term | RecFun | GenRecFun, sub[self.name])
           if not isinstance(trm, RecFun) and not isinstance(trm, GenRecFun):
             add_reduced_def(self.name)
           return trm
@@ -854,8 +873,7 @@ class OverloadedVar(VarRef):
     else:
       return name2str(chosen)
 
-  @no_type_check
-  def reduce(self, env: Env) -> Term:
+  def reduce(self, env: Env) -> Term | RecFun | GenRecFun:  # type: ignore[override]
     if get_reduce_all() or (self in get_reduce_only()):
       chosen = self.resolved_names[0]
       if get_dont_reduce_opaque() and chosen in env.dict.keys():
@@ -870,17 +888,16 @@ class OverloadedVar(VarRef):
           print('\t var ' + chosen + ' ===> ' + str(res))
         if isinstance(res, Union):
           return self if get_eval_all() else auto_rewrites(self, env)
-        return res.reduce(env)
+        return cast(Term | RecFun | GenRecFun, res.reduce(env))
       else:
         return self if get_eval_all() else auto_rewrites(self, env)
     else:
       return self if get_eval_all() else auto_rewrites(self, env)
 
-  @no_type_check
-  def substitute(self, sub: dict[str, Term | Type | RecFun | GenRecFun]) -> Term | RecFun | GenRecFun:
+  def substitute(self, sub: Mapping[str, Term | Type | RecFun | GenRecFun]) -> Term | RecFun | GenRecFun:
     chosen = self.resolved_names[0]
     if chosen in sub:
-      trm = sub[chosen]
+      trm = cast(Term | RecFun | GenRecFun, sub[chosen])
       if not isinstance(trm, RecFun) and not isinstance(trm, GenRecFun):
         add_reduced_def(chosen)
       return trm
@@ -890,7 +907,6 @@ class OverloadedVar(VarRef):
         return self
       return OverloadedVar(self.location, new_typeof, list(self.resolved_names))
 
-  @no_type_check
   def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> OverloadedVar:
     # Already uniquified — re-uniquify is a no-op (we'd hit this if
     # uniquify_deduce were ever called twice on the same AST).
@@ -957,8 +973,7 @@ class ResolvedVar(VarRef):
     else:
       return name2str(self.name)
 
-  @no_type_check
-  def reduce(self, env: Env) -> Term:
+  def reduce(self, env: Env) -> Term | RecFun | GenRecFun:  # type: ignore[override]
     if get_reduce_all() or (self in get_reduce_only()):
       if get_dont_reduce_opaque() and self.name in env.dict.keys():
         binding = env.dict[self.name]
@@ -972,16 +987,15 @@ class ResolvedVar(VarRef):
           print('\t var ' + self.name + ' ===> ' + str(res))
         if isinstance(res, Union):
           return self if get_eval_all() else auto_rewrites(self, env)
-        return res.reduce(env)
+        return cast(Term | RecFun | GenRecFun, res.reduce(env))
       else:
         return self if get_eval_all() else auto_rewrites(self, env)
     else:
       return self if get_eval_all() else auto_rewrites(self, env)
 
-  @no_type_check
-  def substitute(self, sub: dict[str, Term | Type | RecFun | GenRecFun]) -> Term | RecFun | GenRecFun:
+  def substitute(self, sub: Mapping[str, Term | Type | RecFun | GenRecFun]) -> Term | RecFun | GenRecFun:
     if self.name in sub:
-      trm = sub[self.name]
+      trm = cast(Term | RecFun | GenRecFun, sub[self.name])
       if not isinstance(trm, RecFun) and not isinstance(trm, GenRecFun):
         add_reduced_def(self.name)
       return trm
@@ -991,7 +1005,6 @@ class ResolvedVar(VarRef):
         return self
       return ResolvedVar(self.location, new_typeof, self.name)
 
-  @no_type_check
   def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> ResolvedVar:
     # Already uniquified.
     return self
@@ -1014,7 +1027,7 @@ class Int(Term):
 
 @dataclass
 class Lambda(Term):
-  vars: List[Tuple[str,Type]]
+  vars: List[Tuple[str, Type | None]]
   body: Term
   # Captured runtime environment, populated by `Lambda.reduce` under
   # `--eval-all` so the closure can be applied later. `None` for an
@@ -1043,18 +1056,18 @@ class Lambda(Term):
         return False
       return _alpha_equiv_lambda(self, other, {}, {})
 
-  @no_type_check
   def reduce(self, env: Env) -> Lambda:
     if get_eval_all():
       return Lambda(self.location, self.typeof, self.vars, self.body,
                     env=self.env if self.env is not None else env)
     else:
-      return Lambda(self.location, self.typeof, self.vars, self.body.reduce(env))
+      return Lambda(self.location, self.typeof, self.vars,
+                    self.body.reduce(env))
 
-  @no_type_check
   def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> Lambda:
     body_env = {x:y for (x,y) in env.items()}
-    new_var_types = [t.uniquify(env, ctx) if t else None for (x,t) in self.vars]
+    new_var_types = [t.uniquify(env, ctx) if t else None
+                     for (x,t) in self.vars]
     new_vars = [(generate_name(x, ctx), nt) \
                 for ((x,_), nt) in zip(self.vars, new_var_types)]
     for ((old,_), (new,_)) in zip(self.vars, new_vars):
@@ -1239,7 +1252,6 @@ def op_arg_str(trm: Term, arg: Term) -> str:
 
 
 
-@no_type_check
 def do_function_call(loc: Meta, name: str, type_params: list[str],
                      type_args: list[Type], params: list[str],
                      args: list[Term], body: Term,
@@ -1280,60 +1292,56 @@ def do_function_call(loc: Meta, name: str, type_params: list[str],
                      display_args=display_args if display_args is not None
                                                  else args)
   fast_call = False
+  ret: Term | None = None
   if get_eval_all() and len(args) == 2  and isNat(args[0]) and isNat(args[1]):
     op = base_name(name)
-    x = natToInt(args[0])
-    y = natToInt(args[1])
+    arg_x = natToInt(args[0])
+    arg_y = natToInt(args[1])
     # This is a really hack-y fix
     sname = getSuc(args[0])
     sname = sname if sname else getSuc(args[1])
     zname = getZero(args[0])
     ty = return_type
-    ret = None
     if op == '+':
-      ret = intToNat(loc, x + y, sname=sname, zname=zname, ty=ty)
+      ret = intToNat(loc, arg_x + arg_y, sname=sname, zname=zname, ty=ty)
     elif op == '-':
-      ret = intToNat(loc, x - y, sname=sname, zname=zname, ty=ty)
+      ret = intToNat(loc, arg_x - arg_y, sname=sname, zname=zname, ty=ty)
     elif op == '/':
-      ret = intToNat(loc, x // y, sname=sname, zname=zname, ty=ty)
+      ret = intToNat(loc, arg_x // arg_y, sname=sname, zname=zname, ty=ty)
     elif op == '*':
-      ret = intToNat(loc, x * y, sname=sname, zname=zname, ty=ty)
+      ret = intToNat(loc, arg_x * arg_y, sname=sname, zname=zname, ty=ty)
     elif op == '^':
-      ret = intToNat(loc, x ** y, sname=sname, zname=zname, ty=ty)
+      ret = intToNat(loc, arg_x ** arg_y, sname=sname, zname=zname, ty=ty)
     if ret: 
       if get_verbose():
-        print(f"Doing fast arithmetic on call {x} {op} {y}.")
+        print(f"Doing fast arithmetic on call {arg_x} {op} {arg_y}.")
       ret.typeof = return_type
       fast_call = True
 
   if not fast_call:    
     body_env = env
-    if False and len(params) != len(args): # TODO: why if False?? -Jeremy
-      user_error(loc, 'in function call ' + name2str(name) \
-                 + '(' + ', '.join([str(a) for a in args]) + ')\n' \
-                 + '\tnumber of parameters: ' + str(len(params)) + '\n' \
-                 + '\tdoes not match number of arguments')
-    for (x,ty) in zip(type_params, type_args):
-      subst[x] = ty
-    for (k,v) in zip(params, args):
-      subst[k] = v
+    for (type_param, type_arg) in zip(type_params, type_args):
+      subst[type_param] = type_arg
+    for (param, arg) in zip(params, args):
+      subst[param] = arg
 
-    for k, v in subst.items():
-      if isinstance(v, TermInst):
-        v.inferred = False
+    for subst_value in subst.values():
+      if isinstance(subst_value, TermInst):
+        subst_value.inferred = False
 
     if get_reduce_all() and get_eval_all():
       if get_verbose():
         print("Fast evaluate", body)
-      for k, v in subst.items():
+      for k, subst_value in subst.items():
         if k in type_params:
-          env = env.define_type(loc, k, v)
+          env = env.define_type(loc, k, cast(Type, subst_value))
         else:
-          env = env.define_term_var(loc, k, v.typeof, v)
+          trm = cast(Term, subst_value)
+          env = env.define_term_var(loc, k, trm.typeof, trm)
 
       ret = body.reduce(env)
     else:
-      new_fun_case_body = body.substitute(subst)
+      new_fun_case_body = cast(Term, body.substitute(subst))
       old_defs = get_reduce_only()
       reduce_defs = [x for x in old_defs]
       if ResolvedVar(loc, None, name) in reduce_defs:
@@ -1363,6 +1371,7 @@ def do_function_call(loc: Meta, name: str, type_params: list[str],
 
   if _dbg is not None:
     _dbg.after_function(name, env, return_value=ret)
+  assert ret is not None
   return explicit_term_inst(ret)
 
 
@@ -1409,9 +1418,8 @@ class Call(Term):
       #print(str(self) + ' =? ' + str(other) + ' = ' + str(result))
       return result
 
-  @no_type_check
   def reduce(self, env: Env) -> Term:
-    fun = self.rator.reduce(env)
+    fun = cast(Term | RecFun | GenRecFun, self.rator.reduce(env))
     if get_eval_all():
       is_assoc = False
       assoc_name = None
@@ -1425,17 +1433,18 @@ class Call(Term):
     else:
       flat_args = self.args
     args = [arg.reduce(env) for arg in flat_args]
-    ret = None
-    match fun:
+    ret: Term | None = None
+    match cast(Any, fun):
       case Var(loc, _, '=') | OverloadedVar(loc, _, ['=']) | ResolvedVar(loc, _, '='):
         if args[0] == args[1]:
           ret = Bool(loc, BoolType(loc), True)
         elif constructor_conflict(args[0], args[1], env):
           ret = Bool(loc, BoolType(loc), False)
         else:
-          ret = Call(self.location, self.typeof, fun, args)
+          ret = Call(self.location, self.typeof, cast(Term, fun), args)
       case (OverloadedVar() | ResolvedVar()) if is_assoc:
-        ret = Call(self.location, self.typeof, fun,
+        assert assoc_name is not None
+        ret = Call(self.location, self.typeof, cast(Term, fun),
                    flatten_assoc_list(assoc_name, args))
 
       case Lambda(loc, _, vars, body):
@@ -1448,7 +1457,8 @@ class Call(Term):
         # name (e.g. a ``define f = λ ...``) rather than a generic
         # ``anonymous``; literal lambdas with no name fall back to
         # ``<lambda>``.
-        call_env = fun.env if fun.env is not None else env
+        lambda_fun = cast(Lambda, fun)
+        call_env = lambda_fun.env if lambda_fun.env is not None else env
         display_name = callable_name(self.rator) or '<lambda>'
         ret = self.do_call(loc, vars, body, args, call_env, name=display_name)
     
@@ -1459,40 +1469,47 @@ class Call(Term):
           recursion_depth += 1
           print('>' * recursion_depth, str(base_name(name)) + '(' + str(' '.join([str(x) for x in args]) + ')'))
 
-        subst = {k: v for ((k,t),v) in zip(params, args)}
+        subst: dict[str, Term | Type] = {k: v for ((k,t),v) in zip(params, args)}
         ret = do_function_call(loc, name, [], [], [x for (x,t) in params], args,
                                body, subst, env, None,
                                display_args=args)
 
-      case TermInst(loc, _,
-                    GenRecFun(_, name, typarams, params, returns,
-                              _, _, body, _),
-                    type_args):
-        subst = {k: v for ((k,t),v) in zip(params, args)}
+      case TermInst(loc, _, subject, type_args) if isinstance(cast(Any, subject), GenRecFun):
+        gen_fun = cast(GenRecFun, subject)
+        name = gen_fun.name
+        typarams = gen_fun.type_params
+        params = gen_fun.vars
+        body = gen_fun.body
+        subst2: dict[str, Term | Type] = {k: v for ((k,t),v) in zip(params, args)}
         ret = do_function_call(loc, name, typarams, type_args, [x for (x,t) in params], args,
-                               body, subst, env, None,
+                               body, subst2, env, None,
                                display_args=args)
     
       case RecFun(loc, name, [], params, returns, cases):
-        ret = self.do_recursive_call(loc, name, fun, [], [], params, args,
+        ret = self.do_recursive_call(loc, name, cast(Term | RecFun, fun), [], [], params, args,
                                      returns, cases, is_assoc, env)
-      case TermInst(loc, _,
-                    RecFun(_, name, typarams, params, returns, cases),
-                    type_args):
-        ret = self.do_recursive_call(loc, name, fun, typarams, type_args,
+      case TermInst(loc, _, subject, type_args) if isinstance(cast(Any, subject), RecFun):
+        rec_fun = cast(RecFun, subject)
+        name = rec_fun.name
+        typarams = rec_fun.type_params
+        params = rec_fun.params
+        returns = rec_fun.returns
+        cases = rec_fun.cases
+        ret = self.do_recursive_call(loc, name, cast(Term | RecFun, fun), typarams, type_args,
                                      params, args, returns, cases, is_assoc,
                                      env)
       case Generic(_, _, typarams, body):
         internal_error(self.location, 'in reduction, call to generic\n\t' + str(self))
       case _:
-        ret = Call(self.location, self.typeof, fun, args)
+        ret = Call(self.location, self.typeof, cast(Term, fun), args)
 
     if not get_eval_all():
+        assert ret is not None
         ret = auto_rewrites(ret, env)
     
+    assert ret is not None
     return ret
 
-  @no_type_check
   def do_call(self, loc: Meta, vars: list[tuple[str, Type | None]],
               body: Term, args: list[Term], env: Env,
               name: str = "anonymous") -> Term:
@@ -1501,11 +1518,10 @@ class Call(Term):
     # called -- caller passes the result of ``callable_name(self.rator)``
     # so debugger traps and trace output see ``foo`` rather than
     # ``anonymous`` when the lambda came from a named binding.
-    subst = {k: v for ((k,t),v) in zip(vars, args)}
+    subst: dict[str, Term | Type] = {k: v for ((k,t),v) in zip(vars, args)}
     return do_function_call(loc, name, [], [], [], [], body, subst, env, None,
                             display_args=args)
 
-  @no_type_check
   def do_recursive_call(self, loc: Meta, name: str, fun: Term | RecFun,
                         type_params: list[str], type_args: list[Type],
                         params: list[Type], args: list[Term],
@@ -1528,7 +1544,7 @@ class Call(Term):
       first_arg = args[0]
       rest_args = args[1:]
       for fun_case in cases:
-          subst = {}
+          subst: dict[str, Term] = {}
           if is_match(fun_case.pattern, first_arg, subst):
               # Pass the matched case's own location to
               # ``do_function_call``, not the RecFun's overall
@@ -1538,22 +1554,22 @@ class Call(Term):
               # case body* (line 13/14 for ``count_down``'s base /
               # inductive case), not the bare ``recursive`` header
               # on line 12.
+              subst_for_call: dict[str, Term | Type] = dict(subst)
               return do_function_call(fun_case.location, name,
                                       type_params, type_args,
                                       fun_case.parameters, rest_args,
-                                      fun_case.body, subst, env, returns,
+                                      fun_case.body, subst_for_call, env, returns,
                                       display_args=args)
     if is_assoc:
       if get_verbose():
         print('not reducing recursive call to associative ' + str(fun))
-      return Call(self.location, self.typeof, fun,
+      return Call(self.location, self.typeof, cast(Term, fun),
                  flatten_assoc_list(name, args))
     else:
       if get_verbose():
         print('not reducing recursive call to ' + str(fun))
-      return Call(self.location, self.typeof, fun, args)
+      return Call(self.location, self.typeof, cast(Term, fun), args)
   
-  @no_type_check
   def reduce_associative(self, loc: Meta, name: str, fun: Term | RecFun,
                          type_params: list[str], type_args: list[Type],
                          params: list[Type], args: list[Term],
@@ -1567,13 +1583,13 @@ class Call(Term):
 
     old_reduce_only = get_reduce_only()
     reduce_only = [x for x in old_reduce_only]
-    new_args = []
-    worklist = args
+    new_args: list[Term] = []
+    worklist: list[Term] = args
     while len(worklist) > 1:
       first_arg = worklist[0]; worklist = worklist[1:]
       did_call = False
       for fun_case in cases:
-          subst = {}
+          subst: dict[str, Term] = {}
           if is_match(fun_case.pattern, first_arg, subst):
               rest_args = worklist[:len(fun_case.parameters)]
               # Use the matched case's location so the debugger's
@@ -1584,10 +1600,11 @@ class Call(Term):
               # consumes ``first_arg`` plus enough of ``worklist`` to
               # match the remaining params -- that's the original
               # arg list to display.
+              subst_for_call: dict[str, Term | Type] = dict(subst)
               result = do_function_call(fun_case.location, name,
                                         type_params, type_args,
                                         fun_case.parameters, rest_args,
-                                        fun_case.body, subst, env, returns,
+                                        fun_case.body, subst_for_call, env, returns,
                                         display_args=[first_arg] + rest_args)
               # if get_verbose():
               #   print('call result: ' + str(result))
@@ -1609,7 +1626,7 @@ class Call(Term):
     if len(flat_results) == 1:
       return explicit_term_inst(flat_results[0])
     else:
-      return Call(self.location, self.typeof, fun, flat_results)
+      return Call(self.location, self.typeof, cast(Term, fun), flat_results)
 
 
 @dataclass
@@ -1625,7 +1642,6 @@ class SwitchCase(AST):
           + (indent+2)*' ' + str(self.body) + '\n'\
           + indent*' ' + '}'
 
-  @no_type_check
   def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> SwitchCase:
     new_pat = self.pattern.uniquify(env, ctx)
     body_env = {x:y for (x,y) in env.items()}
@@ -1674,11 +1690,10 @@ class Switch(Term):
           + '\n'.join([c.pretty_print(indent+2) for c in self.cases]) + '\n'\
           + indent*' ' + '}'
 
-  @no_type_check
   def reduce(self, env: Env) -> Term:
       new_subject = self.subject.reduce(env)
       for c in self.cases:
-          subst = {}
+          subst: dict[str, Term] = {}
           if is_match(c.pattern, new_subject, subst):
             if get_verbose():
               print('switch, matched ' + str(c.pattern) + ' and ' \
@@ -1688,7 +1703,7 @@ class Switch(Term):
                 env = env.define_term_var(self.location, k, v.typeof, v)
               ret = c.body.reduce(env)
             else:
-              new_body = c.body.substitute(subst)
+              new_body = cast(Term, c.body.substitute(subst))
               new_env = env
               old_defs = get_reduce_only()
               set_reduce_only(old_defs + [ResolvedVar(self.location, None, x) \
@@ -1727,14 +1742,14 @@ class TermInst(Term):
     else:
       return '@' + str(self.subject) + '<' + ','.join([str(ty) for ty in self.type_args]) + '>'
 
-  def reduce(self, env: Env) -> Term:  # type: ignore[override]
+  def reduce(self, env: Env) -> Term:
     subject_red = self.subject.reduce(env)
     type_args_red = [t.reduce(env) for t in self.type_args]
     match subject_red:
       case Generic(_, _, typarams, body):
         # sub = {x:t for (x,t) in zip(typarams, self.type_args)}
         sub = {x:t for (x,t) in zip(typarams, type_args_red)}
-        return body.substitute(sub)
+        return cast(Term, body.substitute(sub))
       case _:
         # return TermInst(self.location, self.typeof, subject_red,
         #                self.type_args, self.inferred)
@@ -1768,7 +1783,7 @@ class MakeArray(Term):
   def __str__(self):
     return 'array(' + str(self.subject) + ')'
 
-  def reduce(self, env: Env) -> Term:  # type: ignore[override]
+  def reduce(self, env: Env) -> Term:
     subject_red = self.subject.reduce(env)
     if isNodeList(subject_red):
       elements = nodeListToList(subject_red)
@@ -1791,7 +1806,7 @@ class ArrayGet(Term):
   def __str__(self):
     return str(self.subject) + '[' + str(self.position) + ']'
 
-  def reduce(self, env: Env) -> Term:  # type: ignore[override]
+  def reduce(self, env: Env) -> Term:
     subject_red = self.subject.reduce(env)
     position_red = self.position.reduce(env)
     index = None
@@ -1851,16 +1866,16 @@ class TLet(Term):
     return 'define ' + base_name(self.var) + ' = ' + str(self.rhs) + ';' \
       + '\n\t' + str(self.body)
 
-  def reduce(self, env: Env) -> Term:  # type: ignore[override]
+  def reduce(self, env: Env) -> Term:
     new_body = self.body.substitute({self.var: self.rhs})
-    return new_body.reduce(env)
+    return cast(Term, new_body.reduce(env))
 
   def reduceLets(self, env: Env) -> Term:
     new_body = self.body.substitute({self.var: self.rhs})
     if isinstance(new_body, TLet):
       return new_body.reduceLets(env)
     else:
-      return new_body
+      return cast(Term, new_body)
 
   def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> TLet:
     new_rhs = self.rhs.uniquify(env, ctx)
@@ -1969,7 +1984,7 @@ class And(Formula):
       return False
     return all([arg1 == arg2 for arg1,arg2 in zip(self.args, other.args)])
   
-  def reduce(self, env: Env) -> Formula:  # type: ignore[override]
+  def reduce(self, env: Env) -> Formula:
     #new_args = [arg.reduce(env) for arg in self.args]
     new_args = flatten_and([arg.reduce(env) for arg in self.args])
     newer_args = []
@@ -2015,7 +2030,7 @@ class Or(Formula):
       return False
     return all([arg1 == arg2 for arg1,arg2 in zip(self.args, other.args)])
   
-  def reduce(self, env: Env) -> Formula:  # type: ignore[override]
+  def reduce(self, env: Env) -> Formula:
     new_args = flatten_or([arg.reduce(env) for arg in self.args])
     newer_args = []
     for arg in new_args:
@@ -2054,7 +2069,7 @@ class IfThen(Formula):
       return False
     return self.premise == other.premise and self.conclusion == other.conclusion
   
-  def reduce(self, env: Env) -> Formula:  # type: ignore[override]
+  def reduce(self, env: Env) -> Formula:
     prem = self.premise.reduce(env)
     conc = self.conclusion.reduce(env)
     ret: Formula
@@ -2115,7 +2130,7 @@ class All(Formula):
 
     return result
 
-  def reduce(self, env: Env) -> Formula:  # type: ignore[override]
+  def reduce(self, env: Env) -> Formula:
     new_body = self.body.reduce(env)
     match new_body:
       case Bool(_, _, _):
@@ -2155,7 +2170,7 @@ class Some(Formula):
                                  for (v,t) in self.vars]) \
         + '. ' + str(self.body)
   
-  def reduce(self, env: Env) -> Formula:  # type: ignore[override]
+  def reduce(self, env: Env) -> Formula:
     len(self.vars)
     new_body = self.body.reduce(env)
     match new_body:
@@ -4353,7 +4368,7 @@ def deduceIntToInt(t: Term) -> str:
     case _:
       internal_error(t.location, 'deduceIntToInt: expected an int, not ' + str(t))
 
-def is_constructor(constr_name, env):
+def is_constructor(constr_name: str, env: Env) -> bool:
   for (name,binding) in env.dict.items():
     if isinstance(binding, TypeBinding):
       match binding.defn:
@@ -4365,7 +4380,7 @@ def is_constructor(constr_name, env):
           continue
   return False
 
-def is_constr_term(term, env):
+def is_constr_term(term: Term, env: Env) -> bool:
   if isinstance(term, VarRef):
     return is_constructor(term.get_name(), env)
   match term:
@@ -4374,7 +4389,7 @@ def is_constr_term(term, env):
     case _:
       return False
 
-def constr_name(term):
+def constr_name(term: Term) -> str:
   if isinstance(term, VarRef):
     return term.get_name()
   match term:
@@ -4383,7 +4398,7 @@ def constr_name(term):
     case _:
       raise InternalError('constr_name unhandled ' + str(term))
     
-def constructor_conflict(term1, term2, env):
+def constructor_conflict(term1: Term, term2: Term, env: Env) -> bool:
   match (term1, term2):
     case (Call(_, _, rator1, rands1),
           Call(_, _, rator2, rands2)) if is_constr_term(rator1, env) and is_constr_term(rator2, env):
@@ -4478,8 +4493,8 @@ class TypeBinding(Binding):
 
 @dataclass
 class TermBinding(Binding):
-  typ : Type
-  defn : Optional[Term] = None
+  typ : Optional[Type]
+  defn : Optional[Term | RecFun | GenRecFun | ViewRecFun] = None
   local : bool = False
   
   def __str__(self):
@@ -4575,7 +4590,8 @@ class Env:
       new_env = new_env.declare_type(loc, x)
     return new_env
   
-  def define_type(self, loc, name, defn, visibility = 'public'):
+  def define_type(self, loc: Meta, name: str, defn: AST,
+                  visibility: str = 'public') -> Env:
     if defn == None:
       internal_error(loc, 'None not allowed in define_type')
     new_env = Env(self.dict)
@@ -4678,9 +4694,9 @@ class Env:
       new_env = new_env.declare_term_var(loc, x, ty, local)
     return new_env
   
-  def define_term_var(self, loc, name, typ, val, visibility='public'):
-    if False and typ == None:
-      internal_error(loc, 'None not allowed as type in define_term_var')
+  def define_term_var(self, loc: Meta, name: str, typ: Type | None,
+                      val: Term | RecFun | GenRecFun | ViewRecFun,
+                      visibility: str = 'public') -> Env:
     if val == None:
       internal_error(loc, 'None not allowed as value in define_term_var')
     new_env = Env(self.dict)
@@ -4716,8 +4732,8 @@ class Env:
     new_env.dict['tracing'].add(function_name)
     return new_env
 
-  def get_current_module(self):
-      return self.dict['__current_module__']
+  def get_current_module(self) -> str:
+      return cast(str, self.dict['__current_module__'])
   
   def _def_of_type_var(self, curr, name):
     if name in curr.keys():
@@ -4750,9 +4766,9 @@ class Env:
         return True
     return False
 
-  def _value_of_term_var(self, curr, name):
+  def _value_of_term_var(self, curr: dict[str, Any], name: str) -> Term | RecFun | GenRecFun | None:
     if name in curr.keys(): # the name '=' is not in the env
-      return curr[name].defn
+      return cast(Term | RecFun | GenRecFun | None, curr[name].defn)
     else:
       return None
   
@@ -4841,9 +4857,8 @@ class Env:
       case Var(loc, _, name):
         return self._type_of_term_var(self.dict, name)
 
-  def get_value_of_term_var(self, tvar):
-    if isinstance(tvar, VarRef):
-      return self._value_of_term_var(self.dict, tvar.get_name())
+  def get_value_of_term_var(self, tvar: VarRef) -> Term | RecFun | GenRecFun | None:
+    return self._value_of_term_var(self.dict, tvar.get_name())
       
   def get_tracing(self, function_name: str) -> bool:
     return 'tracing' in self.dict and function_name in self.dict['tracing']
@@ -5270,7 +5285,7 @@ def uniquify_deduce(ast: Sequence[Statement], ctx: UniquifyContext) -> list[Stat
   env['no overload'] = {}
   outer_scope = ctx.scope
   outer_name_id = ctx.name_id
-  result = []
+  result: list[Statement] = []
   for i, stmt in enumerate(ast):
     ctx.scope = outer_scope + 's' + str(i) + '_'
     ctx.name_id = 0
@@ -5501,7 +5516,7 @@ def try_rewrite(
   #       + '\t==> ' + str(rhs.substitute(matching)) + '\n')
   if rewrite_debug and get_verbose():
       print('\tmatched LHS, rewriting to the RHS: ' + str(rhs.substitute(matching)))
-  return rhs.substitute(matching).reduce(env)
+  return cast(Term, rhs.substitute(matching).reduce(env))
 
 def formula_match(
     loc: Meta,
@@ -5769,8 +5784,8 @@ def _alpha_equiv_varref(
   return isinstance(t2, (OverloadedVar, ResolvedVar, RecFun, GenRecFun))
 
 
-def _alpha_equiv_binder_types(vars1: List[Tuple[str,Type]],
-                              vars2: List[Tuple[str,Type]],
+def _alpha_equiv_binder_types(vars1: Sequence[Tuple[str, Type | None]],
+                              vars2: Sequence[Tuple[str, Type | None]],
                               env1:dict[str,object],
                               env2:dict[str,object]) -> bool:
   # Shared by Lambda / Some: matched (name, type) pairs where `None`
