@@ -24,6 +24,7 @@
 
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, cast
+from lark.tree import Meta
 
 from abstract_syntax import (
     All, AllElim, AllElimTypes, AllIntro, And, ApplyDefsFact,
@@ -331,7 +332,7 @@ def _is_global_barrier(stmt) -> bool:
     one invalidates the cache for everything after."""
     return isinstance(stmt, (Import, Auto))
   
-def check_implies(loc, frm1, frm2):
+def check_implies(loc: Meta, frm1: Formula, frm2: Formula) -> None:
   if get_verbose():
     print('check_implies? ' + str(frm1) + ' => ' + str(frm2))
   match (frm1, frm2):
@@ -427,7 +428,7 @@ def check_implies(loc, frm1, frm2):
         raise wrap_user_error(e, context) from e
 
     case (All(_, _, _, _, body1), _):
-       matching = {}
+       matching:dict[str, Formula] = {}
        try:
          vars, body = collect_all(frm1)
          formula_match(loc, vars, body, frm2, matching, Env(),
@@ -1081,7 +1082,7 @@ def make_unique(name, env):
     else:
         return name
 
-def is_recursive(name, typ):
+def is_recursive(name: str, typ: Type) -> bool:
     match typ:
       case OverloadedVar(_, _, rs):
         return name == rs[0]
@@ -1092,7 +1093,7 @@ def is_recursive(name, typ):
       case _:
         return False
 
-def update_all_head(r):
+def update_all_head(r: Formula) -> Formula:
     match r:
       case All(loc2, tyof, var, (s, e), frm):
         if s == 0:  

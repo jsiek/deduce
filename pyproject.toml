@@ -24,6 +24,7 @@ exclude = [
     "editor",
     "live_code_vercel_api",
     "autograder_docker",
+    ".claude",
     "gh_pages/pages",
     "gh_pages/deduce-code",
 ]
@@ -54,7 +55,7 @@ select = ["F401", "F403", "F405", "F541", "F601", "F811", "F821", "F841"]
 #                   so [[tool.mypy.overrides]] cannot target it; revisit
 #                   if/when it is renamed.
 #   - tmp/, lark/, editor/, live_code_vercel_api/, autograder_docker/,
-#     gh_pages/    match the ruff `exclude` list above.
+#     .claude/, gh_pages/    match the ruff `exclude` list above.
 python_version = "3.12"
 ignore_missing_imports = true
 warn_unused_ignores = true
@@ -81,6 +82,7 @@ exclude = [
     '^editor/',
     '^live_code_vercel_api/',
     '^autograder_docker/',
+    '^\.claude/',
     '^gh_pages/',
 ]
 

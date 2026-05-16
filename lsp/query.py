@@ -93,7 +93,7 @@ __all__ = [
     "auto_rules_at",
 ]
 
-
+# TODO: remove the _call_untyped function.
 def _call_untyped(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
     """Typed boundary for calls into not-yet-strict Deduce core modules."""
     return fn(*args, **kwargs)
@@ -234,7 +234,7 @@ class WorkspaceEdit:
 # Stable list of goal shapes that ``refine_at`` knows a template for.
 # Surfaced on ``UnsupportedRefineShape`` so callers don't have to
 # re-read the docstring to find out which shapes are covered.
-REFINE_SUPPORTED_SHAPES: tuple = (
+REFINE_SUPPORTED_SHAPES: tuple[str, ...] = (
     "true",
     "_ and _",
     "if _ then _",
@@ -336,7 +336,7 @@ class UnsupportedRefineShape:
 
     outcome: str
     goal: str
-    supported_shapes: tuple
+    supported_shapes: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -920,7 +920,7 @@ def _attach_normalized_givens(givens: tuple, env: Any) -> tuple:
     for unique, binding in env.dict.items():
         if not isinstance(binding, ProofBinding):
             continue
-        label = cast(str, _call_untyped(name2str, unique))
+        label = name2str(unique)
         # A label could appear more than once across nested scopes;
         # keep the most recent (later-inserted) binding to match what
         # the proof checker resolves to at the hole.
@@ -2077,7 +2077,7 @@ def _splittable_vars(env) -> tuple:
         elif isinstance(binding, TermBinding):
             ty = binding.typ
             try:
-                type_var = _call_untyped(get_type_name, ty)
+                type_var = get_type_name(ty)
             except Exception:
                 continue
             # Match any name-resolution stage: pre-uniquify ``Var',
@@ -2133,7 +2133,7 @@ def _case_split_template(name: str, env) -> Optional[str]:
         # ``ResolvedVar'' (issue: PR #330 split these classes).
         ty = binding.typ
         try:
-            type_var = _call_untyped(get_type_name, ty)
+            type_var = get_type_name(ty)
         except Exception:
             return None
         if not isinstance(type_var, VarRef):
@@ -2310,7 +2310,7 @@ def _induction_template(formula, env) -> Optional[str]:
     body = formula.body
 
     try:
-        type_var = _call_untyped(get_type_name, var_ty)
+        type_var = get_type_name(var_ty)
     except Exception:
         return None
     if not isinstance(type_var, VarRef):
@@ -2369,13 +2369,13 @@ def _render_induction(var_x, var_ty, body, union_def, env) -> str:
         rec_params = [
             (p, ty)
             for (p, ty) in params
-            if cast(bool, _call_untyped(is_recursive, union_name, ty))
+            if is_recursive(union_name, ty)
         ]
         if rec_params:
             ih_clauses = []
             for i, (p, p_ty) in enumerate(rec_params):
                 ih_var = ResolvedVar(p_ty.location, p_ty, p)
-                ih_body = _call_untyped(update_all_head, body.substitute({var_x: ih_var}))
+                ih_body = update_all_head(body.substitute({var_x: ih_var}))
                 ih_clauses.append(f"IH{i + 1}: {ih_body}")
             line += " assume " + ", ".join(ih_clauses)
 
@@ -2852,7 +2852,7 @@ def _implies(frm1, frm2) -> bool:
     saved = flags.verbose
     flags.verbose = False
     try:
-        _call_untyped(check_implies, frm1.location, frm1, frm2)
+        check_implies(frm1.location, frm1, frm2)
         return True
     except Exception:
         return False
@@ -3031,7 +3031,7 @@ def preview_conclude_at(
     from abstract_syntax import remove_mark
 
     given_red = binding.formula.reduce(env)
-    goal_red = _call_untyped(remove_mark, goal).reduce(env)
+    goal_red = remove_mark(goal).reduce(env)
 
     if given_red == goal_red or _implies(given_red, goal_red):
         return {

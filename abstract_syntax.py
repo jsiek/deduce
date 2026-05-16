@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field, fields as dc_fields
 from lark.tree import Meta
-from typing import Any, Callable, Iterator, Tuple, List, Optional, Set, Self
+from typing import Any, Callable, Iterator, Tuple, List, Optional, Set, Self, overload
 from error import (
     InternalError,
     MatchFailed,
@@ -37,7 +37,7 @@ infix_precedence = {'+': 6, '-': 6, '∸': 6, '⊝': 6, '*': 7, '/': 7, '%': 7,
 prefix_precedence = {'-': 9, 'not': 4}
 recursion_depth = 0
 
-def name2str(s):
+def name2str(s: str) -> str:
     if get_unique_names():
         return s
     else:
@@ -717,7 +717,7 @@ class GenericUnknownInst(Type):
   def substitute(self, sub):
     return self
 
-def get_type_name(ty):
+def get_type_name(ty: Type) -> Type:
   if isinstance(ty, VarRef):
     return ty
   match ty:
@@ -5036,7 +5036,7 @@ def get_default_mark_LHS():
 class MarkException(BaseException):
     subject: Term
 
-def count_marks(formula):
+def count_marks(formula: AST) -> int:
   match formula:
     case Mark(_, _, subject):
       return 1 + count_marks(subject)
@@ -5059,7 +5059,8 @@ def count_marks(formula):
     case Call(_, _, rator, args):
       return count_marks(rator) + sum([count_marks(arg) for arg in args])
     case Switch(_, _, subject, cases):
-      return count_marks(subject) + sum([count_marks(c) for c in cases])
+      ls : list[int] = [count_marks(c) for c in cases]
+      return count_marks(subject) + sum(ls)
     case SwitchCase(_, _, body):
       return count_marks(body)
     case RecFun(_, _, _, _, _, cases):
@@ -5089,7 +5090,7 @@ def count_marks(formula):
     case _:
       internal_error(formula.location, 'in count_marks function, unhandled ' + str(formula))
 
-def find_mark(formula):
+def find_mark(formula: AST) -> None:
   match formula:
     case Mark(_, _, subject):
       raise MarkException(subject)
@@ -5100,11 +5101,11 @@ def find_mark(formula):
     case Bool(_, _, _):
       pass
     case And(_, _, args):
-      for arg in args:
-          find_mark(arg)
+      for and_arg in args:
+          find_mark(and_arg)
     case Or(_, _, args):
-      for arg in args:
-          find_mark(arg)
+      for or_arg in args:
+          find_mark(or_arg)
     case IfThen(_, _, prem, conc):
       find_mark(prem)
       find_mark(conc)
@@ -5114,8 +5115,8 @@ def find_mark(formula):
       find_mark(frm2)
     case Call(_, _, rator, args):
       find_mark(rator)
-      for arg in args:
-          find_mark(arg)
+      for call_arg in args:
+          find_mark(call_arg)
     case Switch(_, _, subject, cases):
       find_mark(subject)
       for c in cases:
@@ -5150,7 +5151,22 @@ def find_mark(formula):
     case _:
       internal_error(formula.location, 'in find_mark function, unhandled ' + str(formula))
 
-def replace_mark(formula, replacement):
+@overload
+def replace_mark(formula: Formula, replacement: Formula) -> Formula: ...
+
+@overload
+def replace_mark(formula: Formula, replacement: Term) -> Formula: ...
+
+@overload
+def replace_mark(formula: Term, replacement: Formula) -> Term: ...
+
+@overload
+def replace_mark(formula: Term, replacement: Term) -> Term: ...
+
+@overload
+def replace_mark(formula: SwitchCase, replacement: Term) -> SwitchCase: ...
+
+def replace_mark(formula: Term | SwitchCase, replacement: Term) -> Term | SwitchCase:
   match formula:
     case Mark(loc2, tyof, subject):
       return replacement
@@ -5161,9 +5177,11 @@ def replace_mark(formula, replacement):
     case Bool(loc2, tyof, _):
       return formula
     case And(loc2, tyof, args):
-      return And(loc2, tyof, [replace_mark(arg, replacement) for arg in args])
+      return And(loc2, tyof, [replace_mark(and_arg, replacement) \
+                              for and_arg in args])
     case Or(loc2, tyof, args):
-      return Or(loc2, tyof, [replace_mark(arg, replacement) for arg in args])
+      return Or(loc2, tyof, [replace_mark(or_arg, replacement) \
+                             for or_arg in args])
     case IfThen(loc2, tyof, prem, conc):
       return IfThen(loc2, tyof, replace_mark(prem, replacement),
                     replace_mark(conc, replacement))
@@ -5189,8 +5207,8 @@ def replace_mark(formula, replacement):
       return Lambda(loc2, tyof, vars, replace_mark(body, replacement))
     case Generic(loc2, tyof, typarams, body):
       return Generic(loc2, tyof, typarams, replace_mark(body, replacement))
-    case TAnnote(loc2, tyof, subject, _):
-      return TAnnote(loc2, tyof, replace_mark(subject, replacement))
+    case TAnnote(loc2, typof, subject, typ):
+      return TAnnote(loc2, typof, replace_mark(subject, replacement), typ)
     case TLet(loc2, tyof, var, rhs, body):
       return TLet(loc2, tyof, var, replace_mark(rhs, replacement),
                   replace_mark(body, replacement))
@@ -5206,14 +5224,14 @@ def replace_mark(formula, replacement):
     case _:
       internal_error(formula.location, 'in replace_mark function, unhandled ' + str(formula))
 
-def remove_mark(formula):
+def remove_mark(formula: Formula) -> Formula:
   num_marks = count_marks(formula)
   if num_marks == 0:
       return formula
   else:
         try:
             find_mark(formula)
-            loc = formula.location if hasattr(formula, 'location') else None
+            loc:Meta = formula.location
             internal_error(loc, 'in remove_mark, find_mark failed on formula:\n\t' + str(formula))
         except MarkException as ex:
             return replace_mark(formula, ex.subject)
