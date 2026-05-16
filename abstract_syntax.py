@@ -888,7 +888,7 @@ class OverloadedVar(VarRef):
           print('\t var ' + chosen + ' ===> ' + str(res))
         if isinstance(res, Union):
           return self if get_eval_all() else auto_rewrites(self, env)
-        return cast(Term | RecFun | GenRecFun, res.reduce(env))
+        return res.reduce(env)
       else:
         return self if get_eval_all() else auto_rewrites(self, env)
     else:
@@ -987,7 +987,7 @@ class ResolvedVar(VarRef):
           print('\t var ' + self.name + ' ===> ' + str(res))
         if isinstance(res, Union):
           return self if get_eval_all() else auto_rewrites(self, env)
-        return cast(Term | RecFun | GenRecFun, res.reduce(env))
+        return res.reduce(env)
       else:
         return self if get_eval_all() else auto_rewrites(self, env)
     else:
@@ -1637,7 +1637,7 @@ class SwitchCase(AST):
   def __str__(self):
       return 'case ' + str(self.pattern) + ' { ' + str(self.body) + ' }'
 
-  def pretty_print(self, indent: int) -> str:
+  def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
       return indent*' ' + 'case ' + str(self.pattern) + ' {\n' \
           + (indent+2)*' ' + str(self.body) + '\n'\
           + indent*' ' + '}'
@@ -2211,7 +2211,7 @@ class PVar(Proof):
       return False
     return self.name == other.name
 
-  def pretty_print(self, indent: int) -> str:
+  def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
       return str(self)
   
   def __str__(self):
@@ -2245,7 +2245,7 @@ class PLet(Proof):
   because: Proof
   body: Proof
 
-  def pretty_print(self, indent: int) -> str:
+  def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
       return indent*' ' + 'have ' + base_name(self.label) + ': ' + str(self.proved) + ' by {\n' \
           + self.because.pretty_print(indent+2) + '\n' \
           + indent*' ' + '}\n' \
@@ -3035,13 +3035,21 @@ class Constructor(AST):
   name: str
   parameters: List[Type]
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
       return indent*' ' + str(self)
   
-  def uniquify(self, env, body_env, ctx):
-    new_params = [ty.uniquify(body_env, ctx) for ty in self.parameters]
-    new_name = generate_name(self.name, ctx)
-    extend(env, self.name, new_name, self.location)
+  def uniquify(  # type: ignore[override]
+      self,
+      env: object,
+      body_env: object,
+      ctx: object,
+  ) -> Constructor:
+    env_map = cast(dict[str, Any], env)
+    body_env_map = cast(dict[str, Any], body_env)
+    uniq_ctx = cast(UniquifyContext, ctx)
+    new_params = [ty.uniquify(body_env_map, uniq_ctx) for ty in self.parameters]
+    new_name = generate_name(self.name, uniq_ctx)
+    extend(env_map, self.name, new_name, self.location)
     return Constructor(self.location, new_name, new_params)
 
   def __str__(self):
@@ -3065,20 +3073,28 @@ class Rule(AST):
   name: str
   formula: Formula
 
-  def uniquify(self, env, body_env, ctx):
-    new_formula = self.formula.uniquify(body_env, ctx)
-    if self.name in env.keys():
+  def uniquify(  # type: ignore[override]
+      self,
+      env: object,
+      body_env: object,
+      ctx: object,
+  ) -> Rule:
+    env_map = cast(dict[str, Any], env)
+    body_env_map = cast(dict[str, Any], body_env)
+    uniq_ctx = cast(UniquifyContext, ctx)
+    new_formula = self.formula.uniquify(body_env_map, uniq_ctx)
+    if self.name in env_map.keys():
       user_error(self.location,
                  "rule names may not be overloaded: " + base_name(self.name))
-    new_name = generate_name(self.name, ctx)
-    overwrite(env, self.name, new_name, self.location)
-    env['no overload'][self.name] = 'rule'
+    new_name = generate_name(self.name, uniq_ctx)
+    overwrite(env_map, self.name, new_name, self.location)
+    env_map['no overload'][self.name] = 'rule'
     return Rule(self.location, new_name, new_formula)
 
   def __str__(self):
     return base_name(self.name) + ' : ' + str(self.formula)
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
     return indent*' ' + base_name(self.name) + ' : ' + str(self.formula)
 
 
@@ -3103,20 +3119,22 @@ class Predicate(Declaration):
   # `None` on a Predicate that hasn't been processed yet.
   translated_ast: Optional[List["Statement"]] = None
 
-  def reduce(self, env):
+  def reduce(self, env: object) -> Self:
     return self
 
-  def substitute(self, sub):
+  def substitute(self, sub: object) -> Self:
     return self
 
-  def uniquify(self, env, ctx):
-    if self.name in env.keys():
+  def uniquify(self, env: object, ctx: object) -> Predicate:
+    env_map = cast(dict[str, Any], env)
+    uniq_ctx = cast(UniquifyContext, ctx)
+    if self.name in env_map.keys():
       user_error(self.location,
                  self.original_keyword + " names may not be overloaded: " \
                  + base_name(self.name))
-    new_name = generate_name(self.name, ctx)
-    env[self.name] = [new_name]
-    env['no overload'][self.name] = self.original_keyword
+    new_name = generate_name(self.name, uniq_ctx)
+    env_map[self.name] = [new_name]
+    env_map['no overload'][self.name] = self.original_keyword
     base_pred = base_name(self.name)
 
     # Pre-register the synthesised `<pred>_rule_induction` theorem name so
@@ -3124,32 +3142,32 @@ class Predicate(Declaration):
     # The translation pass in proof_checker.py reads `rule_induction_name`
     # off the AST and emits a Theorem with that exact uniquified name.
     rule_ind_base = base_pred + '_rule_induction'
-    if rule_ind_base in env.keys():
+    if rule_ind_base in env_map.keys():
       user_error(self.location,
                  "name '" + rule_ind_base + "' is already defined; the "
                  + self.original_keyword + " '" + base_pred
                  + "' would auto-generate a theorem with that name")
-    rule_ind_unique = generate_name(rule_ind_base, ctx)
-    env[rule_ind_base] = [rule_ind_unique]
-    env['no overload'][rule_ind_base] = 'theorem'
+    rule_ind_unique = generate_name(rule_ind_base, uniq_ctx)
+    env_map[rule_ind_base] = [rule_ind_unique]
+    env_map['no overload'][rule_ind_base] = 'theorem'
     # Same treatment for the inversion principle.
     rule_inv_base = base_pred + '_rule_inversion'
-    if rule_inv_base in env.keys():
+    if rule_inv_base in env_map.keys():
         user_error(self.location,
                    "name '" + rule_inv_base + "' is already defined; the "
                    + self.original_keyword + " '" + base_pred
                    + "' would auto-generate a theorem with that name")
-    rule_inv_unique = generate_name(rule_inv_base, ctx)
-    env[rule_inv_base] = [rule_inv_unique]
-    env['no overload'][rule_inv_base] = 'theorem'
+    rule_inv_unique = generate_name(rule_inv_base, uniq_ctx)
+    env_map[rule_inv_base] = [rule_inv_unique]
+    env_map['no overload'][rule_inv_base] = 'theorem'
 
-    body_env = copy_dict(env)
-    new_type_params = [generate_name(t, ctx) for t in self.type_params]
+    body_env = copy_dict(env_map)
+    new_type_params = [generate_name(t, uniq_ctx) for t in self.type_params]
     for (old, new) in zip(self.type_params, new_type_params):
       extend(body_env, old, new, self.location)
 
-    new_signature = self.signature.uniquify(body_env, ctx)
-    new_rules = [rule.uniquify(env, body_env, ctx) for rule in self.rules]
+    new_signature = self.signature.uniquify(body_env, uniq_ctx)
+    new_rules = [rule.uniquify(env_map, body_env, uniq_ctx) for rule in self.rules]
 
     new_pred = Predicate(self.location, new_name, new_type_params,
                          new_signature, new_rules,
@@ -3164,7 +3182,11 @@ class Predicate(Declaration):
     _predicate_decls_by_unique_name[new_name] = new_pred
     return new_pred
 
-  def collect_exports(self, export_env, importing_module):
+  def collect_exports(
+      self,
+      export_env: dict[str, Any],
+      importing_module: str,
+  ) -> None:
     if self.visibility == 'private' and importing_module != get_current_module():
       return
     export_env[base_name(self.name)] = [self.name]
@@ -3185,7 +3207,7 @@ class Predicate(Declaration):
     body = '\n'.join('  ' + str(r) for r in self.rules)
     return header + ' : ' + str(self.signature) + ' {\n' + body + '\n}'
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
     return indent*' ' + str(self)
 
 
@@ -3195,26 +3217,33 @@ class Union(Declaration):
   alternatives: List[Constructor]
   param_polarities: Optional[List[str]] = None
 
-  def reduce(self, env):
+  def reduce(self, env: object) -> Self:
     return self
   
-  def uniquify(self, env, ctx):
-    if self.name in env.keys():
+  def uniquify(self, env: object, ctx: object) -> Union:
+    env_map = cast(dict[str, Any], env)
+    uniq_ctx = cast(UniquifyContext, ctx)
+    if self.name in env_map.keys():
       user_error(self.location, "union names may not be overloaded")
-    new_name = generate_name(self.name, ctx)
-    env[self.name] = [new_name]
-    env['no overload'][self.name] = 'union'
+    new_name = generate_name(self.name, uniq_ctx)
+    env_map[self.name] = [new_name]
+    env_map['no overload'][self.name] = 'union'
 
-    body_env = copy_dict(env)
-    new_type_params = [generate_name(t, ctx) for t in self.type_params]
+    body_env = copy_dict(env_map)
+    new_type_params = [generate_name(t, uniq_ctx) for t in self.type_params]
     for (old, new) in zip(self.type_params, new_type_params):
       extend(body_env, old, new, self.location)
 
-    new_alts = [con.uniquify(env, body_env, ctx) for con in self.alternatives]
+    new_alts = [con.uniquify(env_map, body_env, uniq_ctx)
+                for con in self.alternatives]
     return Union(self.location, new_name, new_type_params, new_alts,
                  visibility=self.visibility)
 
-  def collect_exports(self, export_env, importing_module):
+  def collect_exports(
+      self,
+      export_env: dict[str, Any],
+      importing_module: str,
+  ) -> None:
     if self.visibility == 'private' and importing_module != get_current_module():
       return
     export_env[base_name(self.name)] = [self.name]
@@ -3223,10 +3252,10 @@ class Union(Declaration):
       for con in self.alternatives:
         extend(export_env, base_name(con.name), con.name, self.location)
     
-  def substitute(self, sub):
+  def substitute(self, sub: object) -> Self:
     return self
       
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
       header = 'union ' + base_name(self.name) \
           + ('<' + ','.join([base_name(t) for t in self.type_params]) + '>' if len(self.type_params) > 0 \
              else '')
@@ -3254,7 +3283,7 @@ class FunCase(AST):
   parameters: List[str]
   body: Term
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
       return indent*' ' + str(self.rator) + '(' + str(self.pattern) \
           + (', ' + ', '.join([base_name(p) for p in self.parameters]) if len(self.parameters) > 0 else '') \
           + ') = ' + self.body.pretty_print(indent+2)
@@ -3263,28 +3292,36 @@ class FunCase(AST):
       return str(self.rator) + '(' + str(self.pattern) + ',' + ",".join(self.parameters) \
           + ') = ' + str(self.body)
 
-  def uniquify(self, env, fun_name, ctx):
-    if self.rator.name != fun_name:
+  def uniquify(  # type: ignore[override]
+      self,
+      env: object,
+      fun_name: str,
+      ctx: object,
+  ) -> FunCase:
+    env_map = cast(dict[str, Any], env)
+    uniq_ctx = cast(UniquifyContext, ctx)
+    rator = cast(Var, self.rator)
+    if rator.name != fun_name:
         user_error(self.rator.location, 'expected function name "' + fun_name + \
-                   '", not "' + str(self.rator.name) + '"')
-    new_rator = self.rator.uniquify(env, ctx)
-    new_pat = self.pattern.uniquify(env, ctx)
-    body_env = copy_dict(env)
+                   '", not "' + str(rator.name) + '"')
+    new_rator = self.rator.uniquify(env_map, uniq_ctx)
+    new_pat = self.pattern.uniquify(env_map, uniq_ctx)
+    body_env = copy_dict(env_map)
 
     match new_pat:
       case PatternCons(_, _, parameters):
-        new_pat_params = [generate_name(x, ctx) for x in parameters]
+        new_pat_params = [generate_name(x, uniq_ctx) for x in parameters]
         for (old, new) in zip(parameters, new_pat_params):
           overwrite(body_env, old, new, self.location)
         new_pat = new_pat.with_bindings(new_pat_params)
       case PatternBool(_, _):
         pass
 
-    new_params = [generate_name(x, ctx) for x in self.parameters]
+    new_params = [generate_name(x, uniq_ctx) for x in self.parameters]
     for (old, new) in zip(self.parameters, new_params):
       overwrite(body_env, old, new, self.location)
 
-    new_body = self.body.uniquify(body_env, ctx)
+    new_body = self.body.uniquify(body_env, uniq_ctx)
     return FunCase(self.location, new_rator, new_pat, new_params, new_body)
 
 
@@ -3295,25 +3332,31 @@ class RecFun(Declaration):
   returns: Type
   cases: List[FunCase]
 
-  def uniquify(self, env, ctx):
+  def uniquify(self, env: object, ctx: object) -> RecFun:
+    env_map = cast(dict[str, Any], env)
+    uniq_ctx = cast(UniquifyContext, ctx)
     old_name = self.name
-    new_name = generate_name(self.name, ctx)
-    extend(env, self.name, new_name, self.location)
+    new_name = generate_name(self.name, uniq_ctx)
+    extend(env_map, self.name, new_name, self.location)
 
-    body_env = copy_dict(env)
-    new_type_params = [generate_name(t, ctx) for t in self.type_params]
+    body_env = copy_dict(env_map)
+    new_type_params = [generate_name(t, uniq_ctx) for t in self.type_params]
     for (old, new) in zip(self.type_params, new_type_params):
       extend(body_env, old, new, self.location)
 
-    new_params = [ty.uniquify(body_env, ctx) for ty in self.params]
-    new_returns = self.returns.uniquify(body_env, ctx)
-    new_cases = [c.uniquify(body_env, old_name, ctx) for c in self.cases]
+    new_params = [ty.uniquify(body_env, uniq_ctx) for ty in self.params]
+    new_returns = self.returns.uniquify(body_env, uniq_ctx)
+    new_cases = [c.uniquify(body_env, old_name, uniq_ctx) for c in self.cases]
 
     return RecFun(self.location, new_name, new_type_params,
                   new_params, new_returns, new_cases,
                   visibility=self.visibility)
       
-  def collect_exports(self, export_env, importing_module):
+  def collect_exports(
+      self,
+      export_env: dict[str, Any],
+      importing_module: str,
+  ) -> None:
     if self.visibility == 'private' and importing_module != get_current_module():
       return
     extend(export_env, base_name(self.name), self.name, self.location)
@@ -3331,7 +3374,7 @@ class RecFun(Declaration):
       + '\n'.join([str(c) for c in self.cases]) \
       + '\n}'
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
     header = complete_name(self.name) \
         + ('<' + ','.join([name2str(t) for t in self.type_params]) + '>' \
            if len(self.type_params) > 0 else '') \
@@ -3346,7 +3389,7 @@ class RecFun(Declaration):
 
     return indent*' ' + ret 
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
     if isinstance(other, ResolvedVar):
       return self.name == other.name
     elif isinstance(other, OverloadedVar):
@@ -3360,10 +3403,10 @@ class RecFun(Declaration):
     else:
       return False
 
-  def reduce(self, env):
+  def reduce(self, env: object) -> Self:
     return self
 
-  def substitute(self, sub):
+  def substitute(self, sub: object) -> Self:
     return self
 
 def pretty_print_function_header(
@@ -3377,7 +3420,12 @@ def pretty_print_function_header(
         + '(' + ', '.join([x + ':' + str(t) if t else x \
                            for (x,t) in params]) + ')\n'
 
-def pretty_print_function(name, type_params, params, body):
+def pretty_print_function(
+    name: str,
+    type_params: list[str],
+    params: list[tuple[str, Type | None]],
+    body: Term,
+) -> str:
     return 'fun ' + complete_name(name) \
         + ('<' + ', '.join([base_name(t) for t in type_params]) + '>' \
            if len(type_params) > 0 else '') \
@@ -3396,37 +3444,46 @@ class GenRecFun(Declaration):
   terminates: Proof
   trusted_terminates: bool = False
 
-  def uniquify(self, env, ctx):
-    new_name = generate_name(self.name, ctx)
-    extend(env, self.name, new_name, self.location)
+  def uniquify(self, env: object, ctx: object) -> GenRecFun:
+    env_map = cast(dict[str, Any], env)
+    uniq_ctx = cast(UniquifyContext, ctx)
+    new_name = generate_name(self.name, uniq_ctx)
+    extend(env_map, self.name, new_name, self.location)
 
-    body_env = copy_dict(env)
-    terminates_env = copy_dict(env)
-    new_type_params = [generate_name(t, ctx) for t in self.type_params]
+    body_env = copy_dict(env_map)
+    terminates_env = copy_dict(env_map)
+    new_type_params = [generate_name(t, uniq_ctx) for t in self.type_params]
     for (old, new) in zip(self.type_params, new_type_params):
       extend(body_env, old, new, self.location)
       extend(terminates_env, old, new, self.location)
 
-    new_returns = self.returns.uniquify(body_env, ctx)
+    new_returns = self.returns.uniquify(body_env, uniq_ctx)
 
-    new_var_types = [t.uniquify(body_env, ctx) if t else None
-                     for (_, t) in self.vars]
-    new_vars = [(generate_name(x, ctx), nt)
+    new_var_types = cast(
+      List[Type],
+      [t.uniquify(body_env, uniq_ctx) if t else None
+       for (_, t) in self.vars],
+    )
+    new_vars = [(generate_name(x, uniq_ctx), nt)
                 for ((x, _), nt) in zip(self.vars, new_var_types)]
     for ((old, _), (new, _)) in zip(self.vars, new_vars):
       overwrite(body_env, old, new, self.location)
 
-    new_measure = self.measure.uniquify(body_env, ctx)
-    new_measure_ty = self.measure_ty.uniquify(env, ctx)
-    new_terminates = self.terminates.uniquify(terminates_env, ctx)
-    new_body = self.body.uniquify(body_env, ctx)
+    new_measure = self.measure.uniquify(body_env, uniq_ctx)
+    new_measure_ty = self.measure_ty.uniquify(env_map, uniq_ctx)
+    new_terminates = self.terminates.uniquify(terminates_env, uniq_ctx)
+    new_body = self.body.uniquify(body_env, uniq_ctx)
 
     return GenRecFun(self.location, new_name, new_type_params,
                      new_vars, new_returns, new_measure,
                      new_measure_ty, new_body, new_terminates,
                      self.trusted_terminates, visibility=self.visibility)
     
-  def collect_exports(self, export_env, importing_module):
+  def collect_exports(
+      self,
+      export_env: dict[str, Any],
+      importing_module: str,
+  ) -> None:
     if self.visibility == 'private' and (importing_module != get_current_module()):
       return
     extend(export_env, base_name(self.name), self.name, self.location)
@@ -3446,7 +3503,7 @@ class GenRecFun(Declaration):
         + ' {\n' + str(self.body) + '\n}\n' \
         + 'terminates {\n' + str(self.terminates) + '\n}\n'
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
     header = complete_name(self.name) \
         + ('<' + ','.join([name2str(t) for t in self.type_params]) + '>' \
            if len(self.type_params) > 0 else '') \
@@ -3476,10 +3533,10 @@ class GenRecFun(Declaration):
     else:
       return False
   
-  def reduce(self, env: object) -> GenRecFun:
+  def reduce(self, env: object) -> Self:
     return self
 
-  def substitute(self, sub: object) -> GenRecFun:
+  def substitute(self, sub: object) -> Self:
     return self
 
 @dataclass
