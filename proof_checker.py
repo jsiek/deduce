@@ -4725,14 +4725,14 @@ def process_declaration(stmt : Statement, env : Env, module_chain, downstream_ne
     print('process_declaration(' + str(stmt) + ')')
     
   match stmt:
-    case Declaration():
-      return process_declaration_visibility(stmt, env, module_chain, downstream_needs_checking)
-          
     case Theorem(loc, name, _, _):
       return stmt, env
   
     case Postulate(loc, name, _):
       return stmt, env
+
+    case Declaration():
+      return process_declaration_visibility(stmt, env, module_chain, downstream_needs_checking)
   
     case Assert(loc, _):
       return stmt, env
@@ -5028,11 +5028,12 @@ def type_check_stmt(stmt, env, error_on_next_import : dict[str, bool]):
         
     case Theorem(loc, name, frm, pf, isLemma):
       new_frm = check_formula(frm, env)
-      return Theorem(loc, name, new_frm, pf, isLemma)
+      return Theorem(loc, name, new_frm, pf, isLemma,
+                     visibility=stmt.visibility)
 
     case Postulate(loc, name, frm):
       new_frm = check_formula(frm, env)
-      return Postulate(loc, name, new_frm)
+      return Postulate(loc, name, new_frm, visibility=stmt.visibility)
 
     case Predicate():
       # The translation is processed inline during process_declaration

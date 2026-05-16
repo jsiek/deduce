@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, fields as dc_fields
 from lark.tree import Meta
-from typing import Any, Callable, Iterator, Tuple, List, Optional, Set, Self, overload, TextIO, Sequence, cast
+from typing import Any, Callable, Iterator, Tuple, List, Optional, Protocol, Set, Self, overload, TextIO, Sequence, cast
 from error import (
     InternalError,
     MatchFailed,
@@ -176,11 +176,13 @@ class Proof(AST):
 @dataclass
 class Statement(AST):
 
-  def key(self) -> str:
-      return str(self)
-
   def pretty_print(self, indent: int) -> str:
       return str(self)
+
+class TheoremFilePrinting(Protocol):
+  def key(self) -> str: ...
+
+  def print_theorems_statement(self, f: TextIO) -> None: ...
 
 ################ Miscellaneous Functions #####################
 
@@ -341,15 +343,20 @@ def flatten_assoc_list(op_name: str, args: Sequence[Term]) -> list[Term]:
   return sum([flatten_assoc(op_name, arg) for arg in args], [])
 
 
-@dataclass(kw_only=True)
-class Declaration(AST):
-  visibility:str = 'public'
+@dataclass
+class Declaration(Statement):
+  name: str
+  visibility: str = field(default='public', kw_only=True)
 
-  def key(self):
+  def key(self) -> str:
       if is_operator_name(self.name):
           return 'operator ' + name2str(self.name)
       else:
           return name2str(self.name)
+
+  def print_theorems_statement(self, f: TextIO) -> None:
+      if not self.visibility == 'private':
+        print(self.pretty_print(0), file=f)
 
 ################ Types ######################################
 
@@ -2917,12 +2924,14 @@ def overwrite(env: dict[str, Any], name: str, new_name: str, loc: Meta) -> None:
   env[name] = [new_name]
       
 @dataclass
-class Postulate(Statement):
-  name: str
+class Postulate(Declaration):
   what: Formula
 
-  def key(self):
+  def key(self) -> str:
       return self.name
+
+  def print_theorems_statement(self, f: TextIO) -> None:
+      print(base_name(self.name) + ': ' + str(self.what) + '\n', file=f)
   
   def __str__(self):
     return 'postulate ' + self.name + ': ' + str(self.what) + '\n\n'
@@ -2934,20 +2943,23 @@ class Postulate(Statement):
     new_name = generate_name(self.name, ctx)
     overwrite(env, self.name, new_name, self.location)
     env['no overload'][self.name] = 'theorem'
-    return Postulate(self.location, new_name, new_what)
+    return Postulate(self.location, new_name, new_what,
+                     visibility=self.visibility)
 
   def collect_exports(self, export_env, importing_module):
     export_env[base_name(self.name)] = [self.name]
 
 @dataclass
-class Theorem(Statement):
-  name: str
+class Theorem(Declaration):
   what: Formula
   proof: Proof
   isLemma: bool = False   # TODO: remove this, use visibility
 
-  def key(self):
+  def key(self) -> str:
       return self.name
+
+  def print_theorems_statement(self, f: TextIO) -> None:
+      print(base_name(self.name) + ': ' + str(self.what) + '\n', file=f)
   
   def __str__(self):
     return ('lemma ' if self.isLemma else 'theorem ') \
@@ -2962,7 +2974,8 @@ class Theorem(Statement):
     new_name = generate_name(self.name, ctx)
     overwrite(env, self.name, new_name, self.location)
     env['no overload'][self.name] = 'theorem'
-    return Theorem(self.location, new_name, new_what, new_proof, self.isLemma)
+    return Theorem(self.location, new_name, new_what, new_proof, self.isLemma,
+                   visibility=self.visibility)
 
   def collect_exports(self, export_env, importing_module):
     if importing_module == get_current_module() or not self.isLemma:
@@ -3025,7 +3038,6 @@ class Predicate(Declaration):
   # An inductively defined predicate or relation. `original_keyword` is
   # 'predicate' or 'relation' — kept on the AST so error messages echo the
   # form the user actually wrote.
-  name: str
   type_params: List[str]
   signature: Type
   rules: List[Rule]
@@ -3130,7 +3142,6 @@ class Predicate(Declaration):
 
 @dataclass
 class Union(Declaration):
-  name: str
   type_params: List[str]
   alternatives: List[Constructor]
   param_polarities: Optional[List[str]] = None
@@ -3230,7 +3241,6 @@ class FunCase(AST):
 
 @dataclass
 class RecFun(Declaration):
-  name: str
   type_params: List[str]
   params: List[Type]
   returns: Type
@@ -3324,7 +3334,6 @@ def pretty_print_function(name, type_params, params, body):
 
 @dataclass
 class GenRecFun(Declaration):
-  name: str
   type_params: List[str]
   vars: List[Tuple[str,Type]]
   returns: Type
@@ -3422,7 +3431,6 @@ class GenRecFun(Declaration):
 
 @dataclass
 class ViewRecFun(Declaration):
-  name: str
   type_params: List[str]
   vars: List[Tuple[str,Type]]
   returns: Type
@@ -3491,7 +3499,6 @@ class ViewRecFun(Declaration):
 
 @dataclass
 class ViewDecl(Declaration):
-  name: str
   type_params: List[str]
   source: Type
   target: Type
@@ -3551,7 +3558,6 @@ class ViewDecl(Declaration):
 
 @dataclass
 class Define(Declaration):
-  name: str
   typ: Optional[Type]
   body: Term
 
@@ -3692,7 +3698,6 @@ def _stmt_primary_name(stmt):
 
 @dataclass
 class Import(Declaration):
-  name: str
   # `ast` is the parsed module body (a list of top-level Statements),
   # not a single AST node. The dataclass field is annotated as such so
   # downstream consumers (lower.py, the proof-checker's Import-arm
@@ -3793,8 +3798,11 @@ class Import(Declaration):
 class Auto(Statement):
   name: Term
 
-  def key(self):
+  def key(self) -> str:
       return str(self.name)
+
+  def print_theorems_statement(self, f: TextIO) -> None:
+      print('auto ' + str(self.name) + '\n', file=f)
 
   def __str__(self):
     return 'auto ' + str(self.name)
@@ -4788,10 +4796,11 @@ class Env:
 
 collected_imports: set[str] = set()
 
-def collect_public(s: "Statement", to_print: list["Statement"]) -> None:
+def collect_public(s: Statement, to_print: list[TheoremFilePrinting]) -> None:
     global collected_imports
-    if isinstance(s, Theorem) and not s.isLemma:
-      to_print.append(s)
+    if isinstance(s, Theorem):
+      if not s.isLemma:
+        to_print.append(s)
     elif isinstance(s, Postulate):
       to_print.append(s)
     elif isinstance(s, Auto):
@@ -4805,23 +4814,13 @@ def collect_public(s: "Statement", to_print: list["Statement"]) -> None:
             collect_public(stmt, to_print)
     elif isinstance(s, Declaration) and not s.visibility == 'private':
       to_print.append(s)
-
-def print_theorems_statement(s: Statement, f: TextIO) -> None:
-    if isinstance(s, Theorem) and not s.isLemma:
-        print(base_name(s.name) + ': ' + str(s.what) + '\n', file=f)
-    elif isinstance(s, Postulate):
-      print(base_name(s.name) + ': ' + str(s.what) + '\n', file=f)
-    elif isinstance(s, Auto):
-      print('auto ' + str(s.name) + '\n', file=f)
-    elif isinstance(s, Declaration) and not s.visibility == 'private':
-      print(s.pretty_print(0), file=f)
       
-def print_theorems(filename: str, ast: "List[Statement]") -> None:
+def print_theorems(filename: str, ast: List[Statement]) -> None:
   global collected_imports
   collected_imports = set()
   fullpath = Path(filename)
   theorem_filename = fullpath.with_suffix('.thm')
-  to_print: "List[Statement]" = []
+  to_print: list[TheoremFilePrinting] = []
   
   for s in ast:
     collect_public(s, to_print)
@@ -4833,8 +4832,8 @@ def print_theorems(filename: str, ast: "List[Statement]") -> None:
     print('This file was automatically generated by Deduce.', file=theorem_file)
     print('This file summarizes the theorems proved in the file:\n\t' + filename, file=theorem_file)
     print('', file=theorem_file)
-    for s in sorted(to_print, key=lambda s: s.key()):
-      print_theorems_statement(s, theorem_file)
+    for item in sorted(to_print, key=lambda s: s.key()):
+      item.print_theorems_statement(theorem_file)
 
 ############# Marks for controlling rewriting and definitions ##################
 
