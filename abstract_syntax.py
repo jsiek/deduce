@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, fields as dc_fields
 from lark.tree import Meta
-from typing import Any, Callable, Iterator, Tuple, List, Mapping, Optional, Protocol, Set, Self, overload, TextIO, Sequence, cast
+from typing import Any, Callable, Iterator, Tuple, List, Mapping, Optional, Protocol, Set, Self, overload, TextIO, Sequence, cast, Iterable, NotRequired, TypedDict
 from error import (
     InternalError,
     MatchFailed,
@@ -191,6 +191,14 @@ class Statement(AST):
 
   def pretty_print(self, indent: int) -> str:
       return str(self)
+
+class InductiveInfo(TypedDict):
+  tys: list[str]
+  conjuncts: list[Formula]
+  fun: str
+  ind_ty: Type
+  fun_ty: Type
+  thm: NotRequired[Proof | Term]
 
 class TheoremFilePrinting(Protocol):
   def key(self) -> str: ...
@@ -4727,18 +4735,20 @@ class Env:
     else:
       return []
 
-  def declare_inductive(self, loc, ind_dict, thm):
+  def declare_inductive(self, loc: Meta, ind_dict: InductiveInfo,
+                        thm: Proof | Term) -> Env:
     new_env = Env(self.dict)
     full_name = '__inductive__'
     typ = ind_dict["ind_ty"]
     ind_dict["thm"] = thm
-    type_name = get_type_name(typ).name
+    type_name = cast(VarRef, get_type_name(typ)).get_name()
 
     if full_name in new_env.dict:
-      if type_name in new_env.dict[full_name]:
+      inductives = cast(dict[str, InductiveInfo], new_env.dict[full_name])
+      if type_name in inductives:
         pass
       else:
-        new_env.dict[full_name][type_name] = ind_dict
+        inductives[type_name] = ind_dict
       # Check for type, overwrite/ add to existing
       pass
     else:
@@ -4747,16 +4757,19 @@ class Env:
     
     return new_env
 
-  def get_inductive(self, typ):
+  def get_inductive(self, typ: Type) -> InductiveInfo | None:
     full_name = '__inductive__'
-    type_name = get_type_name(typ).name
+    type_name = cast(VarRef, get_type_name(typ)).get_name()
     if full_name in self.dict:
-      if type_name in self.dict[full_name]:
-        return self.dict[full_name][type_name]
+      inductives = cast(dict[str, InductiveInfo], self.dict[full_name])
+      if type_name in inductives:
+        return inductives[type_name]
 
     return None
 
-  def declare_term_vars(self, loc, xty_pairs, local = False):
+  def declare_term_vars(self, loc: Meta,
+                        xty_pairs: Iterable[tuple[str, Type]],
+                        local: bool = False) -> Env:
     new_env = self
     for (x,ty) in xty_pairs:
       new_env = new_env.declare_term_var(loc, x, ty, local)
@@ -4768,27 +4781,30 @@ class Env:
     if val == None:
       internal_error(loc, 'None not allowed as value in define_term_var')
     new_env = Env(self.dict)
-    new_env.dict[name] = TermBinding(loc, typ, val, module=self.get_current_module(),
+    new_env.dict[name] = TermBinding(loc, cast(Type, typ), cast(Term, val),
+                                     module=self.get_current_module(),
                                      visibility=visibility)
     return new_env
 
-  def define_term_vars(self, loc, xv_pairs):
+  def define_term_vars(self, loc: Meta,
+                       xv_pairs: Iterable[tuple[str, Term]]) -> Env:
     new_env = self
     for (x,v) in xv_pairs:
       new_env = new_env.define_term_var(loc, x, None, v)
     return new_env
   
-  def declare_proof_var(self, loc, name, frm):
+  def declare_proof_var(self, loc: Meta, name: str, frm: Formula) -> Env:
     new_env = Env(self.dict)
     new_env.dict[name] = ProofBinding(loc, frm, False, module=self.get_current_module())
     return new_env
 
-  def declare_local_proof_var(self, loc, name, frm):
+  def declare_local_proof_var(self, loc: Meta, name: str,
+                              frm: Formula) -> Env:
     new_env = Env(self.dict)
     new_env.dict[name] = ProofBinding(loc, frm, True, module=self.get_current_module())
     return new_env
 
-  def declare_module(self, module):
+  def declare_module(self, module: str) -> Env:
     new_env = Env(self.dict)
     new_env.dict['__current_module__'] = module
     return new_env
@@ -4803,23 +4819,25 @@ class Env:
   def get_current_module(self) -> str:
       return cast(str, self.dict['__current_module__'])
   
-  def _def_of_type_var(self, curr, name):
+  def _def_of_type_var(self, curr: dict[str, Any],
+                       name: str) -> AST | None:
     if name in curr.keys():
       binding = curr[name]
       if isinstance(binding, ViewBinding):
         return binding.view.source
-      return binding.defn
+      return cast(AST | None, binding.defn)
     else:
       raise Exception('variable not in env: ' + name)
   
 
-  def _type_of_term_var(self, curr, name):
+  def _type_of_term_var(self, curr: dict[str, object],
+                        name: str) -> Type | None:
     if name in curr.keys():
       binding = curr[name]
       if isinstance(binding, TermBinding):
         return binding.typ
       elif isinstance(binding, TypeBinding):
-        return TypeType(None)
+        return TypeType(cast(Meta, None))
       elif isinstance(binding, ViewBinding):
         raise Exception('expected a term or type variable, not view ' + base_name(name))
       else:
@@ -4827,7 +4845,7 @@ class Env:
     else:
       return None
 
-  def _term_var_defined(self, curr, name):
+  def _term_var_defined(self, curr: dict[str, object], name: str) -> bool:
     if name in curr.keys():
       binding = curr[name]
       if isinstance(binding, TermBinding) or isinstance(binding, TypeBinding):
@@ -4840,7 +4858,8 @@ class Env:
     else:
       return None
   
-  def _formula_of_proof_var(self, curr, name):
+  def _formula_of_proof_var(self, curr: dict[str, object],
+                            name: str) -> Formula | None:
     if name in curr.keys():
       match curr[name]:
         case ProofBinding(_, formula):
@@ -4858,12 +4877,12 @@ class Env:
     else:
       return None
     
-  def type_var_is_defined(self, tyname):
+  def type_var_is_defined(self, tyname: VarRef) -> bool:
     if isinstance(tyname, VarRef):
       return tyname.get_name() in self.dict.keys()
     raise Exception('expected a type name, not ' + str(tyname))
 
-  def term_var_is_defined(self, tvar):
+  def term_var_is_defined(self, tvar: VarRef) -> bool:
     match tvar:
       case OverloadedVar(_, _, resolved_names):
         return any([self._term_var_defined(self.dict, x) for x in resolved_names])
@@ -4871,8 +4890,10 @@ class Env:
         return self._term_var_defined(self.dict, name)
       case Var(_, _, name):
         return self._term_var_defined(self.dict, name)
+      case _:
+        raise Exception('expected term var, not ' + str(tvar))
         
-  def proof_var_is_defined(self, pvar):
+  def proof_var_is_defined(self, pvar: PVar) -> bool:
     match pvar:
       case PVar(_, name):
         if self._formula_of_proof_var(self.dict, name):
@@ -4889,26 +4910,26 @@ class Env:
     else:
       return []
       
-  def get_def_of_type_var(self, var):
+  def get_def_of_type_var(self, var: VarRef) -> AST | None:
     if isinstance(var, VarRef):
       return self._def_of_type_var(self.dict, var.get_name())
     raise Exception('get_def_of_type_var: unexpected ' + str(var))
 
-  def get_view(self, name):
+  def get_view(self, name: str | VarRef) -> ViewDecl | None:
     if isinstance(name, VarRef):
       name = name.get_name()
     if name in self.dict and isinstance(self.dict[name], ViewBinding):
-      return self.dict[name].view
+      return cast(ViewBinding, self.dict[name]).view
     return None
       
-  def get_formula_of_proof_var(self, pvar):
+  def get_formula_of_proof_var(self, pvar: PVar | Term) -> Formula:
     match pvar:
       case PVar(_, name):
-        return self._formula_of_proof_var(self.dict, name)
+        return cast(Formula, self._formula_of_proof_var(self.dict, name))
       case _:
         raise Exception('get_formula_of_proof_var: expected PVar, not ' + str(pvar))
           
-  def get_type_of_term_var(self, tvar):
+  def get_type_of_term_var(self, tvar: Term) -> Type | None:
     match tvar:
       case OverloadedVar(loc, _, resolved_names):
         looked_up = [(x, self._type_of_term_var(self.dict, x)) for x in resolved_names]
@@ -4924,6 +4945,8 @@ class Env:
         return self._type_of_term_var(self.dict, name)
       case Var(loc, _, name):
         return self._type_of_term_var(self.dict, name)
+      case _:
+        raise Exception('get_type_of_term_var: expected VarRef, not ' + str(tvar))
 
   def get_value_of_term_var(self, tvar: VarRef) -> Term | RecFun | GenRecFun | None:
     return self._value_of_term_var(self.dict, tvar.get_name())
@@ -4984,7 +5007,7 @@ def print_theorems(filename: str, ast: List[Statement]) -> None:
 
 default_mark_LHS = True
 
-def set_default_mark_LHS(b):
+def set_default_mark_LHS(b: bool) -> None:
   global default_mark_LHS
   default_mark_LHS = b
   
@@ -5196,14 +5219,14 @@ def remove_mark(formula: Formula) -> Formula:
         except MarkException as ex:
             return replace_mark(formula, ex.subject)
       
-def extract_and(frm):
+def extract_and(frm: Formula) -> list[Formula]:
     match frm:
       case And(_, _, args):
         return args
       case _:
        return [frm]
 
-def extract_or(frm):
+def extract_or(frm: Formula) -> list[Formula]:
     match frm:
       case Or(_, _, args):
         return args
@@ -5294,7 +5317,7 @@ def check_post_uniquify_invariants(ast_list: Sequence[Statement]) -> None:
       'Each one is a leftover construction site that wasn\'t migrated '
       'to OverloadedVar/ResolvedVar.\n' + '\n'.join(msgs) + suffix)
 
-def check_post_typecheck_invariants(ast_list):
+def check_post_typecheck_invariants(ast_list: Sequence[Statement]) -> None:
   """Post-typecheck invariants. Hard error on any pre-uniquify ``Var``.
   Single-candidate ``OverloadedVar`` is currently a soft warning:
   the type checker doesn't visit proof bodies yet, so those leak
@@ -5305,10 +5328,10 @@ def check_post_typecheck_invariants(ast_list):
   Multi-candidate ``OverloadedVar`` is permitted (genuine unresolved
   overload).
   """
-  def loc_prefix(loc):
+  def loc_prefix(loc: Meta | None) -> str:
     try:
       if loc is not None and not getattr(loc, 'empty', True):
-        return f'{loc.filename}:{loc.line}: '
+        return f'{getattr(loc, "filename", "")}:{getattr(loc, "line", "")}: '
     except Exception:
       pass
     return ''
@@ -5368,7 +5391,8 @@ def uniquify_deduce(ast: Sequence[Statement], ctx: UniquifyContext) -> list[Stat
   check_post_uniquify_invariants(result)
   return result
 
-def make_switch_for(meta, defs, subject, cases):
+def make_switch_for(meta: Meta, defs: Sequence[str], subject: Term,
+                    cases: Sequence[SwitchProofCase]) -> SwitchProof:
   new_cases = [SwitchProofCase(c.location, c.pattern, c.assumptions,
                                ApplyDefsGoal(meta, [ResolvedVar(meta, None, t) for t in defs],
                                              c.body)) \
