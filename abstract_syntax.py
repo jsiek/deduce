@@ -52,7 +52,7 @@ def get_current_module():
     global current_module
     return current_module
 
-def set_current_module(name):
+def set_current_module(name: str) -> None:
     global current_module
     current_module = name
 
@@ -364,7 +364,7 @@ class IntType(Type):
   def __str__(self):
     return 'int'
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
     return isinstance(other, IntType)
 
   def free_vars(self) -> Set[str]:
@@ -376,7 +376,7 @@ class BoolType(Type):
   def __str__(self):
     return 'bool'
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
     return isinstance(other, BoolType)
 
   def free_vars(self):
@@ -388,7 +388,7 @@ class TypeType(Type):
   def __str__(self):
     return 'type'
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
     return isinstance(other, TypeType)
 
   def free_vars(self):
@@ -402,7 +402,7 @@ class OverloadType(Type):
     return '(' + ' & '.join([base_name(x) + ': ' + str(ty) \
                              for (x,ty) in self.types]) + ')'
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
     match other:
       case OverloadType(_, types2):
         ret = True
@@ -441,7 +441,7 @@ class FunctionType(Type):
       + [self.return_type.free_vars()]
     return set().union(*fvs) - set(self.type_params)
 
-  def uniquify(self, env, ctx):
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> FunctionType:  # type: ignore[override]
     body_env = {x:y for (x,y) in env.items()}
     new_type_params = [generate_name(t, ctx) for t in self.type_params]
     for (old,new) in zip(self.type_params, new_type_params):
@@ -458,7 +458,7 @@ class ArrayType(Type):
   def __str__(self):
     return '[' + str(self.elt_type) + ']'
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
     match other:
       case ArrayType(_, elt_type):
         return self.elt_type == elt_type
@@ -477,7 +477,7 @@ class TypeInst(Type):
     return str(self.typ) + \
       '<' + ','.join([str(arg) for arg in self.arg_types]) + '>'
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
     match other:
       case TypeInst(_, typ, arg_types):
         return self.typ == typ and \
@@ -499,7 +499,7 @@ class GenericUnknownInst(Type):
   def __str__(self):
     return str(self.typ) + '<?>'
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
     match other:
       # case TypeInst(l, typ, arg_types):
       #   return self.typ == typ
@@ -515,7 +515,7 @@ class GenericUnknownInst(Type):
   # whose type arguments haven't been resolved yet -- substituting
   # through it would mistake the constructor for a substitutable
   # variable. Hand-roll a no-op `substitute` to override the default.
-  def substitute(self, sub):
+  def substitute(self, sub: object) -> Self:
     return self
 
 def get_type_name(ty: Type) -> Type:
@@ -536,10 +536,10 @@ class Pattern(AST):
   # matching, not a variable reference to be rewritten. Compound nodes
   # (`SwitchCase`, `IndCase`, `FunCase`) call `with_bindings` to
   # rename pattern parameters during uniquify.
-  def substitute(self, sub):
+  def substitute(self, sub: object) -> Self:
     return self
 
-  def reduce(self, env):
+  def reduce(self, env: Env) -> Self:  # type: ignore[override]
     return self
 
 @dataclass
@@ -552,7 +552,7 @@ class PatternBool(Pattern):
   def bindings(self):
     return []
 
-  def with_bindings(self, new_bindings):
+  def with_bindings(self, new_bindings: list[str]) -> PatternBool:
     return self
 
 @dataclass
@@ -563,7 +563,7 @@ class PatternCons(Pattern):
   def bindings(self):
     return self.parameters
 
-  def with_bindings(self, params):
+  def with_bindings(self, params: list[str]) -> PatternCons:
     return PatternCons(self.location, self.constructor, params)
 
   def __str__(self):
@@ -581,7 +581,7 @@ class PatternTerm(Pattern):
   def bindings(self):
     return self.parameters
 
-  def with_bindings(self, params):
+  def with_bindings(self, params: list[str]) -> PatternTerm:
     return PatternTerm(self.location, self.term, params)
 
   def __str__(self):
@@ -598,13 +598,13 @@ class Generic(Term):
     return "generic " + ",".join([(t if get_verbose() else base_name(t)) for t in self.type_params]) \
       + " { " + str(self.body) + " }"
 
-  def pretty_print(self, indent, afterNewline=False):
+  def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
     return (indent*' ' if afterNewline else '') \
         + 'generic ' + ', '.join([(t if get_verbose() else base_name(t)) for t in self.type_params]) \
       + ' {\n' + self.body.pretty_print(indent+2, True) + '\n' \
       + indent*' ' + '}'
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
       if not isinstance(other, Generic):
           return False
       ren = {x: ResolvedVar(self.location, None, y) \
@@ -612,7 +612,7 @@ class Generic(Term):
       new_body = self.body.substitute(ren)
       return new_body == other.body
 
-  def uniquify(self, env, ctx):
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> Generic:  # type: ignore[override]
     body_env = {x:y for (x,y) in env.items()}
     new_type_params = [generate_name(x, ctx) for x in self.type_params]
     for (old,new) in zip(self.type_params, new_type_params):
@@ -632,18 +632,18 @@ class Conditional(Term):
         + ' then ' + str(self.thn) \
         + ' else ' + str(self.els) + ')'
 
-  def pretty_print(self, indent, afterNewline=False):
+  def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
       return ('' if afterNewline else '\n') + indent*' ' + 'if ' + str(self.cond) + ' then\n' \
           + self.thn.pretty_print(indent+2, True) + '\n'\
           + indent*' ' + 'else\n' \
           + self.els.pretty_print(indent+2, True)
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
     if not isinstance(other, Conditional):
       return False
     return self.cond == other.cond and self.thn == other.thn and self.els == other.els
 
-  def reduce(self, env):
+  def reduce(self, env: Env) -> Term:  # type: ignore[override]
      cond = self.cond.reduce(env)
      if get_reduce_all():   # Does this work? Need to test!
          match cond:
@@ -673,10 +673,10 @@ class TAnnote(Term):
   def __str__(self):
       return str(self.subject) + ':' + str(self.typ)
 
-  def reduce(self, env):
+  def reduce(self, env: Env) -> Term:  # type: ignore[override]
     return self.subject.reduce(env)
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
     if isinstance(other, TAnnote):
       return self.subject == other.subject
     return self.subject == other
@@ -715,7 +715,7 @@ class Var(VarRef):
   def copy(self):
     return Var(self.location, self.typeof, self.name)
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
       if isinstance(other, OverloadedVar):
         # Pre- and post-uniquify references are not interchangeable.
         return False
@@ -743,13 +743,13 @@ class Var(VarRef):
       else:
         return name2str(self.name)
 
-  def reduce(self, env):
+  def reduce(self, env: Env) -> Self:  # type: ignore[override]
       # Pre-uniquify Vars don't appear in the runtime environment, so
       # they reduce to themselves. The post-uniquify form is
       # `OverloadedVar`, which has its own reduce.
       return self
 
-  def substitute(self, sub):
+  def substitute(self, sub: dict[str, Any]) -> Any:  # type: ignore[override]
       if self.name in sub:
           trm = sub[self.name]
           if not isinstance(trm, RecFun) and not isinstance(trm, GenRecFun):
@@ -761,7 +761,7 @@ class Var(VarRef):
             return self
           return Var(self.location, new_typeof, self.name)
 
-  def uniquify(self, env, ctx):
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> OverloadedVar:  # type: ignore[override]
     if self.name not in env.keys():
       if get_verbose():
         env_str = '\nenvironment: ' + ', '.join(env.keys())
@@ -823,7 +823,7 @@ class OverloadedVar(VarRef):
     return OverloadedVar(self.location, self.typeof,
                        list(self.resolved_names))
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
     if isinstance(other, OverloadedVar):
       return self.resolved_names[0] == other.resolved_names[0]
     elif isinstance(other, ResolvedVar):
