@@ -46,7 +46,7 @@ import threading
 import traceback as _traceback
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, Sequence
+from typing import Any, Optional, Sequence, cast
 
 
 # Process-wide lock around ``check_file``.  The Deduce pipeline
@@ -67,6 +67,7 @@ import proof_checker as _proof_checker
 import rec_desc_parser as _rd_parser
 from abstract_syntax import (
     Import,
+    Statement,
     UniquifyContext,
     add_uniquified_module,
     get_recursive_descent,
@@ -347,7 +348,7 @@ def _check_file_impl(
                 ]
                 ast = imports + ast
 
-            ast = uniquify_deduce(ast, ctx)
+            ast = uniquify_deduce(cast(Sequence[Statement], ast), ctx)
             if use_cache:
                 add_uniquified_module(module_name, ast)
 

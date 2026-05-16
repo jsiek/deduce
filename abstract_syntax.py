@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field, fields as dc_fields
 from lark.tree import Meta
-from typing import Any, Callable, Iterator, Tuple, List, Optional, Set, Self, overload, TextIO, Sequence
+from typing import Any, Callable, Iterator, Tuple, List, Optional, Set, Self, overload, TextIO, Sequence, cast
 from error import (
     InternalError,
     MatchFailed,
@@ -67,7 +69,12 @@ class AST:
   # `uniquify` / `reduce`.
   _NON_STRUCTURAL_FIELDS = frozenset({'location'})
 
-  def _map_children(self, f, *, on_typeof=None) -> Self:
+  def _map_children(
+      self,
+      f: Callable[[AST], AST],
+      *,
+      on_typeof: Callable[[Optional[Type]], Optional[Type]] | None = None,
+  ) -> Self:
     # Return a fresh instance of the same class with `f` applied to
     # every AST-typed value in every structural field. Lists and tuples
     # are walked element-wise; non-AST scalars (strings, ints, bools)
@@ -77,9 +84,9 @@ class AST:
     # to `self` after construction. New post-hoc attributes are
     # discouraged — declare an `Optional[...]` field on the dataclass
     # instead (see issue #480) — but the loop is kept as a safety net.
-    cls = type(self)
+    cls = cast(Any, type(self))
     non_struct = cls._NON_STRUCTURAL_FIELDS
-    new_args = {}
+    new_args: dict[str, object] = {}
     field_names = set()
     for fld in dc_fields(self):
       field_names.add(fld.name)
@@ -90,7 +97,7 @@ class AST:
         new_args[fld.name] = val
       else:
         new_args[fld.name] = _ast_map(val, f)
-    new_obj = cls(**new_args)
+    new_obj: Self = cls(**new_args)
     for k, v in self.__dict__.items():
       if k not in field_names:
         setattr(new_obj, k, v)
@@ -99,13 +106,13 @@ class AST:
   def copy(self) -> Self:
     return self._map_children(lambda x: x.copy())
 
-  def uniquify(self, env, ctx) -> Self:
+  def uniquify(self, env: object, ctx: object) -> Self:
     return self._map_children(lambda x: x.uniquify(env, ctx))
 
-  def substitute(self, sub) -> Self:
+  def substitute(self, sub: object) -> Self:
     return self._map_children(lambda x: x.substitute(sub))
 
-  def reduce(self, env) -> Self:
+  def reduce(self, env: object) -> Self:
     return self._map_children(lambda x: x.reduce(env))
 
 def _ast_map(value: object, f: Callable[[AST], AST]) -> object:
@@ -137,20 +144,20 @@ class Term(AST):
 
   _NON_STRUCTURAL_FIELDS = frozenset({'location', 'typeof'})
 
-  def subst_typeof(self, sub) -> Optional[Type]:
+  def subst_typeof(self, sub: object) -> Optional[Type]:
     # Apply `sub` to the cached `typeof` annotation. Kept as a named
     # helper because a handful of bespoke `substitute` methods (Var,
     # OverloadedVar, ResolvedVar) call it directly to short-circuit
     # when the annotation didn't actually change.
     return self.typeof.substitute(sub) if self.typeof is not None else None
 
-  def substitute(self, sub) -> Self:
+  def substitute(self, sub: object) -> Self:
     return self._map_children(
       lambda x: x.substitute(sub),
       on_typeof=lambda t: t.substitute(sub) if t is not None else None,
     )
 
-  def pretty_print(self, indent: int, afterNewline=False) -> str:
+  def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
       if afterNewline:
           return indent*' ' + str(self)
       else:
@@ -181,7 +188,7 @@ def copy_dict[T](d: dict[str, T]) -> dict[str, T]:
   return {k: v for k, v in d.items()}
 
 
-def maybe_str(o: Optional[str], default='') -> str:
+def maybe_str(o: Optional[str], default: str = '') -> str:
   return str(o) if o is not None else default
 
 def maybe_pretty_print(o: Optional["Proof"], indent: int, default: str = '') -> str:
@@ -234,7 +241,7 @@ def base_name(name: str) -> str:
   ls = name.split('.')
   return ls[0]
 
-def type_names(loc, names: List[str]):
+def type_names(loc: Meta, names: List[str]) -> list[ResolvedVar]:
   index = 0
   result: List["ResolvedVar"] = []
   for n in reversed(names):
@@ -4616,7 +4623,7 @@ class Env:
     new_env.dict['__current_module__'] = module
     return new_env
   
-  def declare_tracing(self, function_name: str):
+  def declare_tracing(self, function_name: str) -> Env:
     new_env = Env(self.dict)
     if 'tracing' not in new_env.dict:
       new_env.dict['tracing'] = set()
@@ -5156,7 +5163,7 @@ def check_post_typecheck_invariants(ast_list):
       'Post-typecheck AST sanity check failed: pre-uniquify `Var` '
       'nodes still present.\n' + '\n'.join(msgs))
 
-def uniquify_deduce(ast, ctx: UniquifyContext):
+def uniquify_deduce(ast: Sequence[Statement], ctx: UniquifyContext) -> list[Statement]:
   """Uniquify ``ast`` against ``ctx``'s counter, returning the
   post-uniquify AST.
 
@@ -5528,7 +5535,7 @@ def auto_rewrites(term, env):
 # Alpha Equivalence
 ################################################################################
 
-def alpha_equiv(t1, t2) -> bool:
+def alpha_equiv(t1: object, t2: object) -> bool:
   """Test alpha-equivalence between two ASTs.
 
   Uses a parallel walk with a two-sided binding environment: each
@@ -5549,7 +5556,8 @@ def alpha_equiv(t1, t2) -> bool:
   return _alpha_equiv(t1, t2, {}, {})
 
 
-def _alpha_equiv(t1, t2, env1, env2) -> bool:
+def _alpha_equiv(t1: object, t2: object,
+                 env1: dict[str, object], env2: dict[str, object]) -> bool:
   # TermInst / TAnnote are transparent for equality -- existing
   # __eq__ methods unwrap them. Unwrap on both sides so the rest of
   # this function only deals with the wrapped term.
@@ -5596,7 +5604,8 @@ def _alpha_equiv(t1, t2, env1, env2) -> bool:
   return True
 
 
-def _alpha_equiv_value(v1, v2, env1, env2) -> bool:
+def _alpha_equiv_value(v1: object, v2: object,
+                       env1: dict[str, object], env2: dict[str, object]) -> bool:
   if isinstance(v1, AST):
     return _alpha_equiv(v1, v2, env1, env2)
   if isinstance(v1, list):
@@ -5621,7 +5630,12 @@ def _varref_name(t: Any) -> str:
   return str(t.name)  # RecFun / GenRecFun
 
 
-def _alpha_equiv_varref(t1, t2, env1, env2) -> bool:
+def _alpha_equiv_varref(
+    t1: Var | OverloadedVar | ResolvedVar | RecFun | GenRecFun,
+    t2: object,
+    env1: dict[str, object],
+    env2: dict[str, object],
+) -> bool:
   # Names of comparable kinds. If t2 is not a comparable kind, fail.
   if not isinstance(t2, (Var, OverloadedVar, ResolvedVar, RecFun, GenRecFun)):
     return False
@@ -5723,7 +5737,9 @@ def _alpha_equiv_tlet(t1:TLet, t2:TLet,
                       _bind(env2, t2.var, tag))
 
 
-def _alpha_equiv_function_type(t1, t2, env1, env2) -> bool:
+def _alpha_equiv_function_type(t1: FunctionType, t2: object,
+                               env1: dict[str, object],
+                               env2: dict[str, object]) -> bool:
   # The only `Type`-level binder: `type_params` is a list of names
   # bound in `param_types` and `return_type`. Same parallel-walk
   # pattern as `_alpha_equiv_lambda`, but `type_params` carries no
