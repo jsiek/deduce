@@ -48,7 +48,7 @@ def name2str(s: str) -> str:
 # current_module is used during uniquify and collect_exports
 current_module = 'none'
 
-def get_current_module():
+def get_current_module() -> str:
     global current_module
     return current_module
 
@@ -441,7 +441,7 @@ class FunctionType(Type):
       + [self.return_type.free_vars()]
     return set().union(*fvs) - set(self.type_params)
 
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> FunctionType:  # type: ignore[override]
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> FunctionType:
     body_env = {x:y for (x,y) in env.items()}
     new_type_params = [generate_name(t, ctx) for t in self.type_params]
     for (old,new) in zip(self.type_params, new_type_params):
@@ -612,7 +612,7 @@ class Generic(Term):
       new_body = self.body.substitute(ren)
       return new_body == other.body
 
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> Generic:  # type: ignore[override]
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> Generic:
     body_env = {x:y for (x,y) in env.items()}
     new_type_params = [generate_name(x, ctx) for x in self.type_params]
     for (old,new) in zip(self.type_params, new_type_params):
@@ -1157,7 +1157,7 @@ def add_reduced_def(df: str) -> None:
   global reduced_defs
   reduced_defs.add(df)
 
-def complete_name(name):
+def complete_name(name: str) -> str:
     if base_name(name) in infix_precedence.keys() \
        or base_name(name) in prefix_precedence.keys():
         return 'operator ' + base_name(name)
@@ -1834,7 +1834,7 @@ class TLet(Term):
     else:
       return new_body
 
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> TLet:  # type: ignore[override]
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> TLet:
     new_rhs = self.rhs.uniquify(env, ctx)
     body_env = {x:y for (x,y) in env.items()}
     new_var = generate_name(self.var, ctx)
@@ -2107,7 +2107,7 @@ class All(Formula):
       return False
     return _alpha_equiv_all(self, other, {}, {})
 
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> All:  # type: ignore[override]
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> All:
     body_env = {x:y for (x,y) in env.items()}
     (x, ty) = self.var
     new_t = ty.uniquify(body_env, ctx)
@@ -2141,7 +2141,7 @@ class Some(Formula):
                     [(x, ty.reduce(env)) for (x,ty) in self.vars],
                     new_body)
 
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> Some:  # type: ignore[override]
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> Some:
     body_env = {x:y for (x,y) in env.items()}
     new_vars = []
     for (x, ty) in self.vars:
@@ -2535,7 +2535,7 @@ class PReflexive(Proof):
 @dataclass
 class PHole(Proof):
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
       return str(self)
 
   def __str__(self):
@@ -2544,7 +2544,7 @@ class PHole(Proof):
 @dataclass
 class PSorry(Proof):
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
       return str(self)
 
   def __str__(self):
@@ -2554,7 +2554,7 @@ class PSorry(Proof):
 class PHelpUse(Proof):
   proof : Proof
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
       return str(self)
 
   def __str__(self):
@@ -2564,7 +2564,7 @@ class PHelpUse(Proof):
 class PSymmetric(Proof):
   body: Proof
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
       return str(self)
 
   def __str__(self):
@@ -2575,7 +2575,7 @@ class PTransitive(Proof):
   first: Proof
   second: Proof
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
       return str(self)
 
   def __str__(self):
@@ -2586,7 +2586,7 @@ class PInjective(Proof):
   constr: Type
   body: Proof
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
     return indent*' ' + 'injective ' + str(self.constr) + '\n' \
         + maybe_pretty_print(self.body, indent)
 
@@ -2597,7 +2597,7 @@ class PInjective(Proof):
 class PExtensionality(Proof):
   body: Proof
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
     return indent*' ' + 'extensionality\n' \
         + maybe_pretty_print(self.body, indent)
 
@@ -2610,7 +2610,7 @@ class IndCase(AST):
   induction_hypotheses: list[Tuple[str,Formula]]
   body: Proof
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
     return indent*' ' + 'case ' + str(self.pattern) \
       + ' assume ' + ', '.join([x + ': ' + str(f) for (x,f) in self.induction_hypotheses]) \
       + '{\n' \
@@ -2622,24 +2622,27 @@ class IndCase(AST):
       + ' assume ' + ', '.join([x + ': ' + str(f) for (x,f) in self.induction_hypotheses]) \
       + '{' + str(self.body) + '}'
 
-  def uniquify(self, env, ctx):
-    body_env = copy_dict(env)
+  def uniquify(self, env: object, ctx: object) -> IndCase:
+    env_map = cast(dict[str, Any], env)
+    uniq_ctx = cast(UniquifyContext, ctx)
+    body_env = copy_dict(env_map)
+    pattern = cast(Any, self.pattern)
 
-    new_params = [generate_name(x, ctx) for x in self.pattern.parameters]
-    for (old, new) in zip(self.pattern.parameters, new_params):
+    new_params = [generate_name(x, uniq_ctx) for x in pattern.parameters]
+    for (old, new) in zip(pattern.parameters, new_params):
       overwrite(body_env, old, new, self.location)
 
-    new_hyp_labels = [generate_name(x, ctx) for (x, _) in self.induction_hypotheses]
+    new_hyp_labels = [generate_name(x, uniq_ctx) for (x, _) in self.induction_hypotheses]
     for ((old, _), new) in zip(self.induction_hypotheses, new_hyp_labels):
       overwrite(body_env, old, new, self.location)
 
-    new_hyps = []
+    new_hyps: list[Tuple[str, Formula]] = []
     for ((_, f), new_label) in zip(self.induction_hypotheses, new_hyp_labels):
-      new_f = f.uniquify(body_env, ctx) if f else None
-      new_hyps.append((new_label, new_f))
+      new_f = f.uniquify(body_env, uniq_ctx) if f else None
+      new_hyps.append((new_label, cast(Formula, new_f)))
 
-    new_pat = self.pattern.with_bindings(new_params).uniquify(body_env, ctx)
-    new_body = self.body.uniquify(body_env, ctx)
+    new_pat = pattern.with_bindings(new_params).uniquify(body_env, uniq_ctx)
+    new_body = self.body.uniquify(body_env, uniq_ctx)
     return IndCase(self.location, new_pat, new_hyps, new_body)
 
 @dataclass
@@ -2647,7 +2650,7 @@ class Induction(Proof):
   typ: Type
   cases: List[IndCase]
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
     return indent*' ' + 'induction ' + str(self.typ) + '\n' \
       + '\n'.join([c.pretty_print(indent) for c in self.cases])
 
@@ -2664,7 +2667,7 @@ class RuleInductionCase(AST):
   rule_name: str
   body: Proof
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
     return indent*' ' + 'case ' + base_name(self.rule_name) + ' {\n' \
         + self.body.pretty_print(indent+2) + '\n' + indent*' ' + '}'
 
@@ -2672,25 +2675,27 @@ class RuleInductionCase(AST):
     return 'case ' + base_name(self.rule_name) + ' { ' \
         + str(self.body) + ' }'
 
-  def uniquify(self, env, ctx):
+  def uniquify(self, env: object, ctx: object) -> RuleInductionCase:
+    env_map = cast(dict[str, Any], env)
+    uniq_ctx = cast(UniquifyContext, ctx)
     # Resolve the rule name against the env so we can match against the
     # uniquified rule names later. Wrong names are reported with a
     # did-you-mean message.
-    if self.rule_name not in env.keys():
+    if self.rule_name not in env_map.keys():
       from edit_distance import edit_distance
       from math import ceil
-      close = [v for v in env.keys()
+      close = [v for v in env_map.keys()
                if edit_distance(self.rule_name, v)
                   <= ceil(len(self.rule_name) / 5)]
       hint = '\n\tdid you intend: ' + ', '.join(close) if close else ''
       user_error(self.location,
                  "no such rule '" + self.rule_name + "'" + hint)
-    resolved = env[self.rule_name]
+    resolved = env_map[self.rule_name]
     new_rule_name = self.rule_name
     if isinstance(resolved, list) and len(resolved) >= 1:
       new_rule_name = resolved[0]
     return RuleInductionCase(self.location, new_rule_name,
-                             self.body.uniquify(env, ctx))
+                             self.body.uniquify(env_map, uniq_ctx))
 
 @dataclass
 class RuleInduction(Proof):
@@ -2701,7 +2706,7 @@ class RuleInduction(Proof):
   hyp_name: str
   cases: List[RuleInductionCase]
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
     return indent*' ' + 'rule induction ' + base_name(self.hyp_name) + '\n' \
         + '\n'.join([c.pretty_print(indent) for c in self.cases])
 
@@ -2709,23 +2714,25 @@ class RuleInduction(Proof):
     return 'rule induction ' + base_name(self.hyp_name) + ' ' \
         + ' '.join([str(c) for c in self.cases])
 
-  def uniquify(self, env, ctx):
-    if self.hyp_name not in env.keys():
+  def uniquify(self, env: object, ctx: object) -> RuleInduction:
+    env_map = cast(dict[str, Any], env)
+    uniq_ctx = cast(UniquifyContext, ctx)
+    if self.hyp_name not in env_map.keys():
       from edit_distance import edit_distance
       from math import ceil
-      close = [v for v in env.keys()
+      close = [v for v in env_map.keys()
                if edit_distance(self.hyp_name, v)
                   <= ceil(len(self.hyp_name) / 5)]
       hint = '\n\tdid you intend: ' + ', '.join(close) if close else ''
       user_error(self.location,
                  "rule induction: no such predicate '"
                  + self.hyp_name + "'" + hint)
-    resolved = env[self.hyp_name]
+    resolved = env_map[self.hyp_name]
     new_hyp_name = self.hyp_name
     if isinstance(resolved, list) and len(resolved) >= 1:
       new_hyp_name = resolved[0]
     return RuleInduction(self.location, new_hyp_name,
-                         [c.uniquify(env, ctx) for c in self.cases])
+                         [c.uniquify(env_map, uniq_ctx) for c in self.cases])
 
 @dataclass
 class RuleInversion(Proof):
@@ -2736,7 +2743,7 @@ class RuleInversion(Proof):
   hyp_name: str
   cases: List[RuleInductionCase]
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
     return indent*' ' + 'rule inversion ' + base_name(self.hyp_name) + '\n' \
         + '\n'.join([c.pretty_print(indent) for c in self.cases])
 
@@ -2744,23 +2751,25 @@ class RuleInversion(Proof):
     return 'rule inversion ' + base_name(self.hyp_name) + ' ' \
         + ' '.join([str(c) for c in self.cases])
 
-  def uniquify(self, env, ctx):
-    if self.hyp_name not in env.keys():
+  def uniquify(self, env: object, ctx: object) -> RuleInversion:
+    env_map = cast(dict[str, Any], env)
+    uniq_ctx = cast(UniquifyContext, ctx)
+    if self.hyp_name not in env_map.keys():
       from edit_distance import edit_distance
       from math import ceil
-      close = [v for v in env.keys()
+      close = [v for v in env_map.keys()
                if edit_distance(self.hyp_name, v)
                   <= ceil(len(self.hyp_name) / 5)]
       hint = '\n\tdid you intend: ' + ', '.join(close) if close else ''
       user_error(self.location,
                  "rule inversion: no such predicate '"
                  + self.hyp_name + "'" + hint)
-    resolved = env[self.hyp_name]
+    resolved = env_map[self.hyp_name]
     new_hyp_name = self.hyp_name
     if isinstance(resolved, list) and len(resolved) >= 1:
       new_hyp_name = resolved[0]
     return RuleInversion(self.location, new_hyp_name,
-                         [c.uniquify(env, ctx) for c in self.cases])
+                         [c.uniquify(env_map, uniq_ctx) for c in self.cases])
 
 @dataclass
 class SwitchProofCase(AST):
@@ -2768,7 +2777,7 @@ class SwitchProofCase(AST):
   assumptions: list[Tuple[str,Formula]]
   body: Proof
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
     return indent*' ' + 'case ' + str(self.pattern) + '{\n' \
         + self.body.pretty_print(indent+2) \
         + indent*' ' + '}\n'
@@ -2776,24 +2785,27 @@ class SwitchProofCase(AST):
   def __str__(self):
     return 'case ' + str(self.pattern) + '{' + str(self.body) + '}'
 
-  def uniquify(self, env, ctx):
-    body_env = copy_dict(env)
+  def uniquify(self, env: object, ctx: object) -> SwitchProofCase:
+    env_map = cast(dict[str, Any], env)
+    uniq_ctx = cast(UniquifyContext, ctx)
+    body_env = copy_dict(env_map)
+    pattern = cast(Any, self.pattern)
 
-    new_params = [generate_name(x, ctx) for x in self.pattern.bindings()]
-    for (old, new) in zip(self.pattern.bindings(), new_params):
+    new_params = [generate_name(x, uniq_ctx) for x in pattern.bindings()]
+    for (old, new) in zip(pattern.bindings(), new_params):
       overwrite(body_env, old, new, self.location)
 
-    new_assumption_labels = [generate_name(x, ctx) for (x, _) in self.assumptions]
+    new_assumption_labels = [generate_name(x, uniq_ctx) for (x, _) in self.assumptions]
     for ((old, _), new) in zip(self.assumptions, new_assumption_labels):
       overwrite(body_env, old, new, self.location)
 
-    new_assumptions = []
+    new_assumptions: list[Tuple[str, Formula]] = []
     for ((_, f), new_label) in zip(self.assumptions, new_assumption_labels):
-      new_f = f.uniquify(body_env, ctx) if f else None
-      new_assumptions.append((new_label, new_f))
+      new_f = f.uniquify(body_env, uniq_ctx) if f else None
+      new_assumptions.append((new_label, cast(Formula, new_f)))
 
-    new_pat = self.pattern.with_bindings(new_params).uniquify(body_env, ctx)
-    new_body = self.body.uniquify(body_env, ctx)
+    new_pat = pattern.with_bindings(new_params).uniquify(body_env, uniq_ctx)
+    new_body = self.body.uniquify(body_env, uniq_ctx)
     return SwitchProofCase(self.location, new_pat,
                            new_assumptions, new_body)
 
@@ -2802,7 +2814,7 @@ class SwitchProof(Proof):
   subject: Term
   cases: List[SwitchProofCase]
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
       return indent*' ' + 'switch ' + str(self.subject) + '{\n' \
           + '\n'.join([c.pretty_print(indent+2) for c in self.cases]) \
           + indent*' ' + '}\n'
@@ -2814,7 +2826,7 @@ class SwitchProof(Proof):
 @dataclass
 class EvaluateGoal(Proof):
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
       return str(self)
 
   def __str__(self):
@@ -2824,7 +2836,7 @@ class EvaluateGoal(Proof):
 class EvaluateFact(Proof):
   subject: Proof
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
       return str(self)
 
   def __str__(self):
@@ -2845,7 +2857,7 @@ class SimplifyFact(Proof):
   subject: Proof
   givens: List[Proof]
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
       return str(self)
 
   def __str__(self):
@@ -2892,7 +2904,7 @@ class RewriteFact(Proof):
 ################ Statements ######################################
 
 ## Updates the environment with a name, creating overloads
-def extend(env, name, new_name, loc):
+def extend(env: dict[str, Any], name: str, new_name: str, loc: Meta) -> None:
   if name in env['no overload']:
     ty = env['no overload'][name]
     user_error(loc, f"Cannot overload {ty} names. {name} is already defined as a {ty}")
@@ -2926,17 +2938,19 @@ class Postulate(Declaration):
   def __str__(self):
     return 'postulate ' + self.name + ': ' + str(self.what) + '\n\n'
 
-  def uniquify(self, env, ctx):
-    if self.name in env.keys():
+  def uniquify(self, env: object, ctx: object) -> Postulate:
+    env_map = cast(dict[str, Any], env)
+    uniq_ctx = cast(UniquifyContext, ctx)
+    if self.name in env_map.keys():
       user_error(self.location, "theorem names may not be overloaded")
-    new_what = self.what.uniquify(env, ctx)
-    new_name = generate_name(self.name, ctx)
-    overwrite(env, self.name, new_name, self.location)
-    env['no overload'][self.name] = 'theorem'
+    new_what = self.what.uniquify(env_map, uniq_ctx)
+    new_name = generate_name(self.name, uniq_ctx)
+    overwrite(env_map, self.name, new_name, self.location)
+    env_map['no overload'][self.name] = 'theorem'
     return Postulate(self.location, new_name, new_what,
                      visibility=self.visibility)
 
-  def collect_exports(self, export_env, importing_module):
+  def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
     export_env[base_name(self.name)] = [self.name]
 
 @dataclass
@@ -2956,18 +2970,20 @@ class Theorem(Declaration):
       + self.name + ': ' + str(self.what) \
       + '\nproof\n' + self.proof.pretty_print(2) + '\nend\n'
 
-  def uniquify(self, env, ctx):
-    if self.name in env.keys():
+  def uniquify(self, env: object, ctx: object) -> Theorem:
+    env_map = cast(dict[str, Any], env)
+    uniq_ctx = cast(UniquifyContext, ctx)
+    if self.name in env_map.keys():
       user_error(self.location, "theorem names may not be overloaded: " + base_name(self.name))
-    new_what = self.what.uniquify(env, ctx)
-    new_proof = self.proof.uniquify(env, ctx)
-    new_name = generate_name(self.name, ctx)
-    overwrite(env, self.name, new_name, self.location)
-    env['no overload'][self.name] = 'theorem'
+    new_what = self.what.uniquify(env_map, uniq_ctx)
+    new_proof = self.proof.uniquify(env_map, uniq_ctx)
+    new_name = generate_name(self.name, uniq_ctx)
+    overwrite(env_map, self.name, new_name, self.location)
+    env_map['no overload'][self.name] = 'theorem'
     return Theorem(self.location, new_name, new_what, new_proof, self.isLemma,
                    visibility=self.visibility)
 
-  def collect_exports(self, export_env, importing_module):
+  def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
     if importing_module == get_current_module() or not self.isLemma:
       export_env[base_name(self.name)] = [self.name]
     
