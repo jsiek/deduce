@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field, fields as dc_fields
 from lark.tree import Meta
-from typing import Any, Callable, Iterator, Tuple, List, Optional, Set, Self, overload
+from typing import Any, Callable, Iterator, Tuple, List, Optional, Set, Self, overload, TextIO, Sequence
 from error import (
     InternalError,
     MatchFailed,
@@ -54,32 +54,7 @@ def set_current_module(name):
     global current_module
     current_module = name
 
-# Back-pointers from a predicate's uniquified name to its Predicate AST
-# node. Populated during Predicate.uniquify and read by the proof checker
-# when desugaring `rule induction`. Persisted across check_deduce
-# invocations because uniquify happens once per file.
-_predicate_decls_by_unique_name: dict[str, Any] = {}
-
-def get_predicate_decl(unique_name):
-  return _predicate_decls_by_unique_name.get(unique_name)
-
 ############ AST Base Classes ###########
-
-def _ast_map(value: Any, f: Callable[[Any], Any]) -> Any:
-  # Apply `f` to AST-typed values inside a field value, preserving
-  # list / tuple structure. Non-AST scalars (str, int, bool, None) are
-  # returned unchanged. Used by `AST._map_children` to walk dataclass
-  # fields uniformly.
-  if value is None:
-    return None
-  if isinstance(value, AST):
-    return f(value)
-  if isinstance(value, list):
-    return [_ast_map(v, f) for v in value]
-  if isinstance(value, tuple):
-    return tuple(_ast_map(v, f) for v in value)
-  return value
-
 
 @dataclass
 class AST:
@@ -133,212 +108,20 @@ class AST:
   def reduce(self, env) -> Self:
     return self._map_children(lambda x: x.reduce(env))
 
-
-def alpha_equiv(t1, t2) -> bool:
-  """Test alpha-equivalence between two ASTs.
-
-  Uses a parallel walk with a two-sided binding environment: each
-  side tracks ``name -> fresh tag`` for the names it has bound. At
-  a variable reference, look up the name in the side's environment:
-  if bound on both sides, the tags must match; if bound on one side
-  only, the terms are not alpha-equivalent; if free on both, the
-  names must match (modulo the pre/post-uniquify isolation that
-  ``Var.__eq__`` already encodes).
-
-  Used by ``Lambda.__eq__`` / ``All.__eq__`` / ``Some.__eq__`` /
-  ``TLet.__eq__``. Replaces the older approach of substituting one
-  body to rename binders before comparing -- that approach was
-  per-comparison O(|body|) allocation and got the asymmetric case
-  (``Lambda(y, Var(x))`` vs ``Lambda(x, Var(x))``, the constant-x
-  function vs the identity function) wrong in one direction.
-  """
-  return _alpha_equiv(t1, t2, {}, {})
-
-
-def _alpha_equiv(t1, t2, env1, env2) -> bool:
-  # TermInst / TAnnote are transparent for equality -- existing
-  # __eq__ methods unwrap them. Unwrap on both sides so the rest of
-  # this function only deals with the wrapped term.
-  while isinstance(t1, (TermInst, TAnnote)):
-    t1 = t1.subject
-  while isinstance(t2, (TermInst, TAnnote)):
-    t2 = t2.subject
-  # Fast path: top-level (no renaming in scope). Defer to existing
-  # __eq__ which encodes the leaf-level cross-class semantics.
-  if not env1 and not env2:
-    return bool(t1 == t2)
-  if not isinstance(t1, AST):
-    return bool(t1 == t2)
-  if isinstance(t1, (Var, OverloadedVar, ResolvedVar, RecFun, GenRecFun)):
-    return _alpha_equiv_varref(t1, t2, env1, env2)
-  if isinstance(t1, Lambda):
-    return _alpha_equiv_lambda(t1, t2, env1, env2)
-  if isinstance(t1, All):
-    return _alpha_equiv_all(t1, t2, env1, env2)
-  if isinstance(t1, Some):
-    return _alpha_equiv_some(t1, t2, env1, env2)
-  if isinstance(t1, TLet):
-    return _alpha_equiv_tlet(t1, t2, env1, env2)
-  if isinstance(t1, FunctionType):
-    return _alpha_equiv_function_type(t1, t2, env1, env2)
-  # Default: structural walk. TermInst/TAnnote already unwrapped, so
-  # a class mismatch here is real.
-  if type(t1) is not type(t2):
-    return False
-  for fld in dc_fields(t1):
-    if fld.name in t1._NON_STRUCTURAL_FIELDS:
-      continue
-    if not _alpha_equiv_value(getattr(t1, fld.name),
-                              getattr(t2, fld.name), env1, env2):
-      return False
-  return True
-
-
-def _alpha_equiv_value(v1, v2, env1, env2) -> bool:
-  if isinstance(v1, AST):
-    return _alpha_equiv(v1, v2, env1, env2)
-  if isinstance(v1, list):
-    if not isinstance(v2, list) or len(v1) != len(v2):
-      return False
-    return all(_alpha_equiv_value(a, b, env1, env2) for a, b in zip(v1, v2))
-  if isinstance(v1, tuple):
-    if not isinstance(v2, tuple) or len(v1) != len(v2):
-      return False
-    return all(_alpha_equiv_value(a, b, env1, env2) for a, b in zip(v1, v2))
-  return bool(v1 == v2)
-
-
-def _varref_name(t: Any) -> str:
-  # Var / OverloadedVar / ResolvedVar / RecFun / GenRecFun all expose
-  # a canonical name -- the first three via get_name(), the others
-  # via .name. Unified here so dispatch can stay flat.
-  if isinstance(t, (Var, ResolvedVar)):
-    return t.name
-  if isinstance(t, OverloadedVar):
-    return t.resolved_names[0]
-  return str(t.name)  # RecFun / GenRecFun
-
-
-def _alpha_equiv_varref(t1, t2, env1, env2) -> bool:
-  # Names of comparable kinds. If t2 is not a comparable kind, fail.
-  if not isinstance(t2, (Var, OverloadedVar, ResolvedVar, RecFun, GenRecFun)):
-    return False
-  n1 = _varref_name(t1)
-  n2 = _varref_name(t2)
-  in1 = n1 in env1
-  in2 = n2 in env2
-  if in1 != in2:
-    # One bound, the other free -- not equal.
-    return False
-  if in1:
-    # Both bound -- tags must match (i.e. same binder pair).
-    if env1[n1] is not env2[n2]:
-      return False
-  else:
-    # Both free -- names must match.
-    if n1 != n2:
-      return False
-  # Phase isolation, mirroring the existing __eq__ rules:
-  #   * Var (pre-uniquify) only matches Var / RecFun / GenRecFun
-  #   * OverloadedVar / ResolvedVar (post-uniquify) match each other
-  #     and RecFun / GenRecFun, never Var
-  #   * RecFun / GenRecFun match any variant by name (no phase)
-  if isinstance(t1, (RecFun, GenRecFun)):
-    return True
-  if isinstance(t1, Var):
-    return isinstance(t2, (Var, RecFun, GenRecFun))
-  return isinstance(t2, (OverloadedVar, ResolvedVar, RecFun, GenRecFun))
-
-
-def _alpha_equiv_binder_types(vars1, vars2, env1, env2) -> bool:
-  # Shared by Lambda / Some: matched (name, type) pairs where `None`
-  # types match any concrete type. Types are compared under the
-  # *outer* envs -- the inner binder names are added only for the
-  # body. This matters when a type annotation references an outer
-  # bound name (e.g. `Set<T>` in `all T:type. all A:Set<T>. ...`).
-  if len(vars1) != len(vars2):
-    return False
-  for ((_, t1), (_, t2)) in zip(vars1, vars2):
-    if t1 is not None and t2 is not None and not _alpha_equiv(t1, t2, env1, env2):
-      return False
-  return True
-
-
-def _bind(env: dict[str, object], name: str, tag: object) -> dict[str, object]:
-  new = dict(env)
-  new[name] = tag
-  return new
-
-
-def _bind_all(env: dict[str, object], pairs: list[tuple[str, object]]) -> dict[str, object]:
-  new = dict(env)
-  for (name, tag) in pairs:
-    new[name] = tag
-  return new
-
-
-def _alpha_equiv_lambda(t1, t2, env1, env2) -> bool:
-  if not isinstance(t2, Lambda):
-    return False
-  if not _alpha_equiv_binder_types(t1.vars, t2.vars, env1, env2):
-    return False
-  tags = [object() for _ in t1.vars]
-  new_env1 = _bind_all(env1, [(x, tag) for ((x, _), tag) in zip(t1.vars, tags)])
-  new_env2 = _bind_all(env2, [(y, tag) for ((y, _), tag) in zip(t2.vars, tags)])
-  return _alpha_equiv(t1.body, t2.body, new_env1, new_env2)
-
-
-def _alpha_equiv_all(t1, t2, env1, env2) -> bool:
-  if not isinstance(t2, All):
-    return False
-  (x, tx) = t1.var
-  (y, ty) = t2.var
-  if tx is not None and ty is not None and not _alpha_equiv(tx, ty, env1, env2):
-    return False
-  tag = object()
-  return _alpha_equiv(t1.body, t2.body, _bind(env1, x, tag), _bind(env2, y, tag))
-
-
-def _alpha_equiv_some(t1, t2, env1, env2) -> bool:
-  if not isinstance(t2, Some):
-    return False
-  if not _alpha_equiv_binder_types(t1.vars, t2.vars, env1, env2):
-    return False
-  tags = [object() for _ in t1.vars]
-  new_env1 = _bind_all(env1, [(x, tag) for ((x, _), tag) in zip(t1.vars, tags)])
-  new_env2 = _bind_all(env2, [(y, tag) for ((y, _), tag) in zip(t2.vars, tags)])
-  return _alpha_equiv(t1.body, t2.body, new_env1, new_env2)
-
-
-def _alpha_equiv_tlet(t1, t2, env1, env2) -> bool:
-  if not isinstance(t2, TLet):
-    return False
-  if not _alpha_equiv(t1.rhs, t2.rhs, env1, env2):
-    return False
-  tag = object()
-  return _alpha_equiv(t1.body, t2.body,
-                      _bind(env1, t1.var, tag),
-                      _bind(env2, t2.var, tag))
-
-
-def _alpha_equiv_function_type(t1, t2, env1, env2) -> bool:
-  # The only `Type`-level binder: `type_params` is a list of names
-  # bound in `param_types` and `return_type`. Same parallel-walk
-  # pattern as `_alpha_equiv_lambda`, but `type_params` carries no
-  # per-parameter type annotation -- it's just names.
-  if not isinstance(t2, FunctionType):
-    return False
-  if len(t1.type_params) != len(t2.type_params):
-    return False
-  if len(t1.param_types) != len(t2.param_types):
-    return False
-  tags = [object() for _ in t1.type_params]
-  new_env1 = _bind_all(env1, list(zip(t1.type_params, tags)))
-  new_env2 = _bind_all(env2, list(zip(t2.type_params, tags)))
-  for (p1, p2) in zip(t1.param_types, t2.param_types):
-    if not _alpha_equiv(p1, p2, new_env1, new_env2):
-      return False
-  return _alpha_equiv(t1.return_type, t2.return_type, new_env1, new_env2)
+def _ast_map(value: object, f: Callable[[AST], AST]) -> object:
+  # Apply `f` to AST-typed values inside a field value, preserving
+  # list / tuple structure. Non-AST scalars (str, int, bool, None) are
+  # returned unchanged. Used by `AST._map_children` to walk dataclass
+  # fields uniformly.
+  if value is None:
+    return None
+  if isinstance(value, AST):
+    return f(value)
+  if isinstance(value, list):
+    return [_ast_map(v, f) for v in value]
+  if isinstance(value, tuple):
+    return tuple(_ast_map(v, f) for v in value)
+  return value
 
 
 @dataclass
@@ -394,7 +177,7 @@ class Statement(AST):
 
 ################ Miscellaneous Functions #####################
 
-def copy_dict(d: dict[str, Any]) -> dict[str, Any]:
+def copy_dict[T](d: dict[str, T]) -> dict[str, T]:
   return {k: v for k, v in d.items()}
 
 
@@ -632,7 +415,9 @@ class FunctionType(Type):
     return '(' + 'fn ' + typarams + ', '.join([str(ty) for ty in self.param_types]) \
       + ' -> ' + str(self.return_type) + ')'
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
+    if not isinstance(other, FunctionType):
+      return False
     return _alpha_equiv_function_type(self, other, {}, {})
 
   def free_vars(self):
@@ -1231,7 +1016,9 @@ class Lambda(Term):
         + " {\n" + self.body.pretty_print(indent+2, True) + '\n'\
         + indent*' ' + '}'
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
+      if not isinstance(other, Lambda):
+        return False
       return _alpha_equiv_lambda(self, other, {}, {})
 
   def reduce(self, env):
@@ -2048,7 +1835,9 @@ class TLet(Term):
     new_body = self.body.uniquify(body_env, ctx)
     return TLet(self.location, self.typeof, new_var, new_rhs, new_body)
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
+    if not isinstance(other, TLet):
+      return False
     return _alpha_equiv_tlet(self, other, {}, {})
 
 @dataclass
@@ -2305,7 +2094,9 @@ class All(Formula):
                    self.pos,
                    new_body)
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
+    if not isinstance(other, All):
+      return False
     return _alpha_equiv_all(self, other, {}, {})
 
   def uniquify(self, env, ctx):
@@ -2353,7 +2144,9 @@ class Some(Formula):
     new_body = self.body.uniquify(body_env, ctx)
     return Some(self.location, self.typeof, new_vars, new_body)
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
+    if not isinstance(other, Some):
+      return False
     return _alpha_equiv_some(self, other, {}, {})
   
 ################ Proofs ######################################
@@ -4990,7 +4783,7 @@ def collect_public(s: "Statement", to_print: list["Statement"]) -> None:
     elif isinstance(s, Declaration) and not s.visibility == 'private':
       to_print.append(s)
 
-def print_theorems_statement(s: "Statement", f: Any) -> None:
+def print_theorems_statement(s: Statement, f: TextIO) -> None:
     if isinstance(s, Theorem) and not s.isLemma:
         print(base_name(s.name) + ': ' + str(s.what) + '\n', file=f)
     elif isinstance(s, Postulate):
@@ -5267,13 +5060,13 @@ def extract_or(frm):
 # new class hierarchy.
 # --------------------------------------------------------------------------
 
-def _walk_ast_descendants(roots: Any) -> Iterator[Any]:
+def _walk_ast_descendants(roots: object) -> Iterator[object]:
   """Yield every AST descendant reachable from ``roots`` (a single
   node or an iterable). Memoized by ``id()`` so shared sub-ASTs
   (e.g. cached imported-module statements) aren't revisited."""
   from dataclasses import fields, is_dataclass
   seen: set[int] = set()
-  stack: list[Any] = []
+  stack: list[object] = []
   if isinstance(roots, list) or isinstance(roots, tuple):
     stack.extend(roots)
   else:
@@ -5304,7 +5097,7 @@ def _walk_ast_descendants(roots: Any) -> Iterator[Any]:
           continue
         stack.append(child)
 
-def check_post_uniquify_invariants(ast_list: Any) -> None:
+def check_post_uniquify_invariants(ast_list: Sequence[Statement]) -> None:
   """Assert that the AST is in canonical post-uniquify shape: every
   variable reference is an ``OverloadedVar`` or ``ResolvedVar``; no
   pre-uniquify ``Var`` survives. ``ResolvedVar`` is allowed because
@@ -5730,3 +5523,232 @@ def auto_rewrites(term, env):
         if current == get_num_rewrites():
             break
     return term        
+
+################################################################################
+# Alpha Equivalence
+################################################################################
+
+def alpha_equiv(t1, t2) -> bool:
+  """Test alpha-equivalence between two ASTs.
+
+  Uses a parallel walk with a two-sided binding environment: each
+  side tracks ``name -> fresh tag`` for the names it has bound. At
+  a variable reference, look up the name in the side's environment:
+  if bound on both sides, the tags must match; if bound on one side
+  only, the terms are not alpha-equivalent; if free on both, the
+  names must match (modulo the pre/post-uniquify isolation that
+  ``Var.__eq__`` already encodes).
+
+  Used by ``Lambda.__eq__`` / ``All.__eq__`` / ``Some.__eq__`` /
+  ``TLet.__eq__``. Replaces the older approach of substituting one
+  body to rename binders before comparing -- that approach was
+  per-comparison O(|body|) allocation and got the asymmetric case
+  (``Lambda(y, Var(x))`` vs ``Lambda(x, Var(x))``, the constant-x
+  function vs the identity function) wrong in one direction.
+  """
+  return _alpha_equiv(t1, t2, {}, {})
+
+
+def _alpha_equiv(t1, t2, env1, env2) -> bool:
+  # TermInst / TAnnote are transparent for equality -- existing
+  # __eq__ methods unwrap them. Unwrap on both sides so the rest of
+  # this function only deals with the wrapped term.
+  while isinstance(t1, (TermInst, TAnnote)):
+    t1 = t1.subject
+  while isinstance(t2, (TermInst, TAnnote)):
+    t2 = t2.subject
+  # Fast path: top-level (no renaming in scope). Defer to existing
+  # __eq__ which encodes the leaf-level cross-class semantics.
+  if not env1 and not env2:
+    return bool(t1 == t2)
+  if not isinstance(t1, AST):
+    return bool(t1 == t2)
+  if isinstance(t1, (Var, OverloadedVar, ResolvedVar, RecFun, GenRecFun)):
+    return _alpha_equiv_varref(t1, t2, env1, env2)
+  if isinstance(t1, Lambda):
+    if not isinstance(t2, Lambda):
+      return False
+    return _alpha_equiv_lambda(t1, t2, env1, env2)
+  if isinstance(t1, All):
+    if not isinstance(t2, All):
+      return False
+    return _alpha_equiv_all(t1, t2, env1, env2)
+  if isinstance(t1, Some):
+    if not isinstance(t2, Some):
+      return False
+    return _alpha_equiv_some(t1, t2, env1, env2)
+  if isinstance(t1, TLet):
+    if not isinstance(t2, TLet):
+      return False
+    return _alpha_equiv_tlet(t1, t2, env1, env2)
+  if isinstance(t1, FunctionType):
+    return _alpha_equiv_function_type(t1, t2, env1, env2)
+  # Default: structural walk. TermInst/TAnnote already unwrapped, so
+  # a class mismatch here is real.
+  if type(t1) is not type(t2):
+    return False
+  for fld in dc_fields(t1):
+    if fld.name in t1._NON_STRUCTURAL_FIELDS:
+      continue
+    if not _alpha_equiv_value(getattr(t1, fld.name),
+                              getattr(t2, fld.name), env1, env2):
+      return False
+  return True
+
+
+def _alpha_equiv_value(v1, v2, env1, env2) -> bool:
+  if isinstance(v1, AST):
+    return _alpha_equiv(v1, v2, env1, env2)
+  if isinstance(v1, list):
+    if not isinstance(v2, list) or len(v1) != len(v2):
+      return False
+    return all(_alpha_equiv_value(a, b, env1, env2) for a, b in zip(v1, v2))
+  if isinstance(v1, tuple):
+    if not isinstance(v2, tuple) or len(v1) != len(v2):
+      return False
+    return all(_alpha_equiv_value(a, b, env1, env2) for a, b in zip(v1, v2))
+  return bool(v1 == v2)
+
+
+def _varref_name(t: Any) -> str:
+  # Var / OverloadedVar / ResolvedVar / RecFun / GenRecFun all expose
+  # a canonical name -- the first three via get_name(), the others
+  # via .name. Unified here so dispatch can stay flat.
+  if isinstance(t, (Var, ResolvedVar)):
+    return t.name
+  if isinstance(t, OverloadedVar):
+    return t.resolved_names[0]
+  return str(t.name)  # RecFun / GenRecFun
+
+
+def _alpha_equiv_varref(t1, t2, env1, env2) -> bool:
+  # Names of comparable kinds. If t2 is not a comparable kind, fail.
+  if not isinstance(t2, (Var, OverloadedVar, ResolvedVar, RecFun, GenRecFun)):
+    return False
+  n1 = _varref_name(t1)
+  n2 = _varref_name(t2)
+  in1 = n1 in env1
+  in2 = n2 in env2
+  if in1 != in2:
+    # One bound, the other free -- not equal.
+    return False
+  if in1:
+    # Both bound -- tags must match (i.e. same binder pair).
+    if env1[n1] is not env2[n2]:
+      return False
+  else:
+    # Both free -- names must match.
+    if n1 != n2:
+      return False
+  # Phase isolation, mirroring the existing __eq__ rules:
+  #   * Var (pre-uniquify) only matches Var / RecFun / GenRecFun
+  #   * OverloadedVar / ResolvedVar (post-uniquify) match each other
+  #     and RecFun / GenRecFun, never Var
+  #   * RecFun / GenRecFun match any variant by name (no phase)
+  if isinstance(t1, (RecFun, GenRecFun)):
+    return True
+  if isinstance(t1, Var):
+    return isinstance(t2, (Var, RecFun, GenRecFun))
+  return isinstance(t2, (OverloadedVar, ResolvedVar, RecFun, GenRecFun))
+
+
+def _alpha_equiv_binder_types(vars1: List[Tuple[str,Type]],
+                              vars2: List[Tuple[str,Type]],
+                              env1:dict[str,object],
+                              env2:dict[str,object]) -> bool:
+  # Shared by Lambda / Some: matched (name, type) pairs where `None`
+  # types match any concrete type. Types are compared under the
+  # *outer* envs -- the inner binder names are added only for the
+  # body. This matters when a type annotation references an outer
+  # bound name (e.g. `Set<T>` in `all T:type. all A:Set<T>. ...`).
+  if len(vars1) != len(vars2):
+    return False
+  for ((_, t1), (_, t2)) in zip(vars1, vars2):
+    if t1 is not None and t2 is not None and not _alpha_equiv(t1, t2, env1, env2):
+      return False
+  return True
+
+
+def _bind(env: dict[str, object], name: str, tag: object) -> dict[str, object]:
+  new = dict(env)
+  new[name] = tag
+  return new
+
+
+def _bind_all(env: dict[str, object],
+              pairs: list[tuple[str, object]]) -> dict[str, object]:
+  new = dict(env)
+  for (name, tag) in pairs:
+    new[name] = tag
+  return new
+
+
+def _alpha_equiv_lambda(t1:Lambda, t2:Lambda,
+                        env1:dict[str,object], env2:dict[str,object]) -> bool:
+  if not _alpha_equiv_binder_types(t1.vars, t2.vars, env1, env2):
+    return False
+  tags = [object() for _ in t1.vars]
+  new_env1 = _bind_all(env1, [(x, tag) for ((x, _), tag) in zip(t1.vars, tags)])
+  new_env2 = _bind_all(env2, [(y, tag) for ((y, _), tag) in zip(t2.vars, tags)])
+  return _alpha_equiv(t1.body, t2.body, new_env1, new_env2)
+
+
+def _alpha_equiv_all(t1:All, t2:All,
+                     env1:dict[str,object], env2:dict[str,object]) -> bool:
+  (x, tx) = t1.var
+  (y, ty) = t2.var
+  if tx is not None and ty is not None and not _alpha_equiv(tx, ty, env1, env2):
+    return False
+  tag = object()
+  return _alpha_equiv(t1.body, t2.body, _bind(env1, x, tag), _bind(env2, y, tag))
+
+
+def _alpha_equiv_some(t1:Some, t2:Some,
+                      env1:dict[str,object], env2:dict[str,object]) -> bool:
+  if not _alpha_equiv_binder_types(t1.vars, t2.vars, env1, env2):
+    return False
+  tags = [object() for _ in t1.vars]
+  new_env1 = _bind_all(env1, [(x, tag) for ((x, _), tag) in zip(t1.vars, tags)])
+  new_env2 = _bind_all(env2, [(y, tag) for ((y, _), tag) in zip(t2.vars, tags)])
+  return _alpha_equiv(t1.body, t2.body, new_env1, new_env2)
+
+
+def _alpha_equiv_tlet(t1:TLet, t2:TLet,
+                      env1:dict[str,object], env2:dict[str,object]) -> bool:
+  if not _alpha_equiv(t1.rhs, t2.rhs, env1, env2):
+    return False
+  tag = object()
+  return _alpha_equiv(t1.body, t2.body,
+                      _bind(env1, t1.var, tag),
+                      _bind(env2, t2.var, tag))
+
+
+def _alpha_equiv_function_type(t1, t2, env1, env2) -> bool:
+  # The only `Type`-level binder: `type_params` is a list of names
+  # bound in `param_types` and `return_type`. Same parallel-walk
+  # pattern as `_alpha_equiv_lambda`, but `type_params` carries no
+  # per-parameter type annotation -- it's just names.
+  if not isinstance(t2, FunctionType):
+    return False
+  if len(t1.type_params) != len(t2.type_params):
+    return False
+  if len(t1.param_types) != len(t2.param_types):
+    return False
+  tags = [object() for _ in t1.type_params]
+  new_env1 = _bind_all(env1, list(zip(t1.type_params, tags)))
+  new_env2 = _bind_all(env2, list(zip(t2.type_params, tags)))
+  for (p1, p2) in zip(t1.param_types, t2.param_types):
+    if not _alpha_equiv(p1, p2, new_env1, new_env2):
+      return False
+  return _alpha_equiv(t1.return_type, t2.return_type, new_env1, new_env2)
+
+################################################################################
+
+# Back-pointers from a predicate's uniquified name to its Predicate AST
+# node. Populated during Predicate.uniquify and read by the proof checker
+# when desugaring `rule induction`. Persisted across check_deduce
+# invocations because uniquify happens once per file.
+_predicate_decls_by_unique_name: dict[str, Predicate] = {}
+
+def get_predicate_decl(unique_name:str) -> Predicate | None:
+  return _predicate_decls_by_unique_name.get(unique_name)
