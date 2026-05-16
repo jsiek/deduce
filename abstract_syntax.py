@@ -1684,7 +1684,7 @@ class TermInst(Term):
   type_args: List[Type]
   inferred : bool = True
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
     if isinstance(other, RecFun):
       return self.subject == other
     elif isinstance(other, TermInst):
@@ -1699,7 +1699,7 @@ class TermInst(Term):
     else:
       return '@' + str(self.subject) + '<' + ','.join([str(ty) for ty in self.type_args]) + '>'
 
-  def reduce(self, env):
+  def reduce(self, env: Env) -> Term:  # type: ignore[override]
     subject_red = self.subject.reduce(env)
     type_args_red = [t.reduce(env) for t in self.type_args]
     match subject_red:
@@ -1717,7 +1717,7 @@ class TermInst(Term):
 class Array(Term):
   elements: List[Term]
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
     if isinstance(other, Array):
       return all([elt == other_elt for (elt, other_elt) in zip(self.elements,
                                                                other.elements)])
@@ -1731,7 +1731,7 @@ class Array(Term):
 class MakeArray(Term):
   subject: Term
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
     if isinstance(other, MakeArray):
       return self.subject == other.subject
     else:
@@ -1740,7 +1740,7 @@ class MakeArray(Term):
   def __str__(self):
     return 'array(' + str(self.subject) + ')'
 
-  def reduce(self, env):
+  def reduce(self, env: Env) -> Term:  # type: ignore[override]
     subject_red = self.subject.reduce(env)
     if isNodeList(subject_red):
       elements = nodeListToList(subject_red)
@@ -1753,7 +1753,7 @@ class ArrayGet(Term):
   subject: Term
   position: Term
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
     if isinstance(other, ArrayGet):
       return self.subject == other.subject \
         and self.position == other.position
@@ -1763,7 +1763,7 @@ class ArrayGet(Term):
   def __str__(self):
     return str(self.subject) + '[' + str(self.position) + ']'
 
-  def reduce(self, env):
+  def reduce(self, env: Env) -> Term:  # type: ignore[override]
     subject_red = self.subject.reduce(env)
     position_red = self.position.reduce(env)
     index = None
@@ -1805,7 +1805,7 @@ class ArrayGet(Term):
           match list_term:
             case Call(_, _, TermInst(_, _, ctor, _, _), [_hd, tl]) \
                  if _is_named(ctor, 'node'):
-              new_pos = _array_index_predecessor(position_red, env)
+              new_pos = _array_index_predecessor(position_red, env)  # type: ignore[no-untyped-call]
               if new_pos is not None:
                 new_subject = MakeArray(loc2, marr_ty, tl)
                 new_get = ArrayGet(self.location, self.typeof,
@@ -1823,7 +1823,7 @@ class TLet(Term):
     return 'define ' + base_name(self.var) + ' = ' + str(self.rhs) + ';' \
       + '\n\t' + str(self.body)
 
-  def reduce(self, env):
+  def reduce(self, env: Env) -> Term:  # type: ignore[override]
     new_body = self.body.substitute({self.var: self.rhs})
     return new_body.reduce(env)
 
@@ -1834,7 +1834,7 @@ class TLet(Term):
     else:
       return new_body
 
-  def uniquify(self, env, ctx):
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> TLet:  # type: ignore[override]
     new_rhs = self.rhs.uniquify(env, ctx)
     body_env = {x:y for (x,y) in env.items()}
     new_var = generate_name(self.var, ctx)
@@ -1863,7 +1863,7 @@ class Omitted(Term):
 class Mark(Term):
   subject: Term
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
     if isinstance(other, Mark):
       return self.subject == other.subject
     else:
@@ -1878,26 +1878,26 @@ class Mark(Term):
 class Bool(Formula):
   value: bool
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
       if not isinstance(other, Bool):
           return False
       return self.value == other.value
   def __str__(self):
     return 'true' if self.value else 'false'
 
-def list_of_and(arg):
+def list_of_and(arg: Formula) -> list[Formula]:
   match arg:
     case And(_, _, args):
       return args
     case _:
       return [arg]
     
-def flatten_and(args):
+def flatten_and(args: Sequence[Formula]) -> list[Formula]:
   lol = [list_of_and(arg) for arg in args]
   ret = sum(lol, [])
   return ret
 
-def is_true(b):
+def is_true(b: Formula) -> bool:
   match b:
     case Bool(_, _, val):
         return val
@@ -1934,14 +1934,14 @@ class And(Formula):
 
     return '(' + ' and '.join([str(arg) for arg in ret_args]) + ')'
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
     if not isinstance(other, And):
       return False
     if len(self.args) != len(other.args):
       return False
     return all([arg1 == arg2 for arg1,arg2 in zip(self.args, other.args)])
   
-  def reduce(self, env):
+  def reduce(self, env: Env) -> Formula:  # type: ignore[override]
     #new_args = [arg.reduce(env) for arg in self.args]
     new_args = flatten_and([arg.reduce(env) for arg in self.args])
     newer_args = []
@@ -1961,14 +1961,14 @@ class And(Formula):
     else:
       return And(self.location, self.typeof, newer_args)
 
-def list_of_or(arg):
+def list_of_or(arg: Formula) -> list[Formula]:
   match arg:
     case Or(_, _, args):
       return args
     case _:
       return [arg]
 
-def flatten_or(args):
+def flatten_or(args: Sequence[Formula]) -> list[Formula]:
   lol = [list_of_or(arg) for arg in args]
   ret = sum(lol, [])
   return ret
@@ -1980,14 +1980,14 @@ class Or(Formula):
   def __str__(self):
     return '(' + ' or '.join([str(arg) for arg in self.args]) + ')'
   
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
     if not isinstance(other, Or):
       return False
     if len(self.args) != len(other.args):
       return False
     return all([arg1 == arg2 for arg1,arg2 in zip(self.args, other.args)])
   
-  def reduce(self, env):
+  def reduce(self, env: Env) -> Formula:  # type: ignore[override]
     new_args = flatten_or([arg.reduce(env) for arg in self.args])
     newer_args = []
     for arg in new_args:
@@ -2021,14 +2021,15 @@ class IfThen(Formula):
         return '(if ' + str(self.premise) \
           + ' then ' + str(self.conclusion) + ')'
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
     if not isinstance(other, IfThen):
       return False
     return self.premise == other.premise and self.conclusion == other.conclusion
   
-  def reduce(self, env):
+  def reduce(self, env: Env) -> Formula:  # type: ignore[override]
     prem = self.premise.reduce(env)
     conc = self.conclusion.reduce(env)
+    ret: Formula
     if prem == conc:
       if get_verbose():
          print('reduce if, prem == conc')
@@ -2086,7 +2087,7 @@ class All(Formula):
 
     return result
 
-  def reduce(self, env):
+  def reduce(self, env: Env) -> Formula:  # type: ignore[override]
     new_body = self.body.reduce(env)
     match new_body:
       case Bool(_, _, _):
@@ -2106,7 +2107,7 @@ class All(Formula):
       return False
     return _alpha_equiv_all(self, other, {}, {})
 
-  def uniquify(self, env, ctx):
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> All:  # type: ignore[override]
     body_env = {x:y for (x,y) in env.items()}
     (x, ty) = self.var
     new_t = ty.uniquify(body_env, ctx)
@@ -2126,7 +2127,7 @@ class Some(Formula):
                                  for (v,t) in self.vars]) \
         + '. ' + str(self.body)
   
-  def reduce(self, env):
+  def reduce(self, env: Env) -> Formula:  # type: ignore[override]
     len(self.vars)
     new_body = self.body.reduce(env)
     match new_body:
@@ -2140,7 +2141,7 @@ class Some(Formula):
                     [(x, ty.reduce(env)) for (x,ty) in self.vars],
                     new_body)
 
-  def uniquify(self, env, ctx):
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> Some:  # type: ignore[override]
     body_env = {x:y for (x,y) in env.items()}
     new_vars = []
     for (x, ty) in self.vars:
@@ -2162,7 +2163,7 @@ class Some(Formula):
 class PVar(Proof):
   name: str
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
     if not isinstance(other, PVar):
       return False
     return self.name == other.name
@@ -4344,14 +4345,14 @@ def constructor_conflict(term1, term2, env):
       return True
   return False
 
-def _is_named(node, base):
+def _is_named(node: object, base: str) -> bool:
   if isinstance(node, OverloadedVar):
     return base_name(node.resolved_names[0]) == base
   if isinstance(node, ResolvedVar):
     return base_name(node.name) == base
   return False
 
-def isNodeList(t):
+def isNodeList(t: Term) -> bool:
   match t:
     case TermInst(_, _, ctor, _, _) if _is_named(ctor, 'empty'):
       return True
@@ -4361,13 +4362,15 @@ def isNodeList(t):
     case _:
       return False
 
-def nodeListToList(t):
+def nodeListToList(t: Term) -> list[Term]:
   match t:
     case TermInst(_, _, ctor, _, _) if _is_named(ctor, 'empty'):
       return []
     case Call(_, _, TermInst(_, _, ctor, _, _),
               [arg, ls]) if _is_named(ctor, 'node'):
       return [arg] + nodeListToList(ls)
+    case _:
+      raise InternalError('nodeListToList: not a node list: ' + str(t))
 
 def nodeListToString(t):
   match t:
