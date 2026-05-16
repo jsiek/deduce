@@ -428,7 +428,7 @@ def check_implies(loc: Meta, frm1: Formula, frm2: Formula) -> None:
         raise wrap_user_error(e, context) from e
 
     case (All(_, _, _, _, body1), _):
-       matching:dict[str, Formula] = {}
+       matching:dict[str, Term] = {}
        try:
          vars, body = collect_all(frm1)
          formula_match(loc, vars, body, frm2, matching, Env(),

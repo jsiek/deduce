@@ -250,7 +250,13 @@ def type_names(loc: Meta, names: List[str]) -> list[ResolvedVar]:
   return result
 
 
-def type_match(loc, tyvars, param_ty, arg_ty, matching):
+def type_match(
+    loc: Meta,
+    tyvars: Sequence[VarRef | str],
+    param_ty: Type | VarRef | None,
+    arg_ty: Type | VarRef | None,
+    matching: dict[str, Type | VarRef | None],
+) -> None:
   if get_verbose():
     print("type_match(" + str(param_ty) + "," + str(arg_ty) + ")")
     print("\tin  " + ', '.join([str(x) for x in tyvars]))
@@ -259,9 +265,7 @@ def type_match(loc, tyvars, param_ty, arg_ty, matching):
   # OverloadedVar (if it came straight from uniquify) or a ResolvedVar
   # (if a prior narrowing has already occurred). `get_name()` gives us
   # the canonical identifier in both cases.
-  param_is_var = isinstance(param_ty, VarRef)
-  arg_is_var = isinstance(arg_ty, VarRef)
-  if param_is_var and param_ty in tyvars:
+  if isinstance(param_ty, VarRef) and param_ty in tyvars:
     tyvar_name = param_ty.get_name()
     if tyvar_name in matching.keys():
       if matching[tyvar_name] == arg_ty:
@@ -273,7 +277,7 @@ def type_match(loc, tyvars, param_ty, arg_ty, matching):
         print('matching ' + tyvar_name + ' := ' + str(arg_ty))
       matching[tyvar_name] = arg_ty
     return
-  if param_is_var and arg_is_var \
+  if isinstance(param_ty, VarRef) and isinstance(arg_ty, VarRef) \
      and param_ty.get_name() == arg_ty.get_name():
     return
   match (param_ty, arg_ty):
@@ -296,10 +300,10 @@ def type_match(loc, tyvars, param_ty, arg_ty, matching):
         match_failed(loc, str(arg_ty) + " does not match " + str(param_ty))
 
 
-def is_associative(loc, opname, typ, env):
+def is_associative(loc: Meta, opname: str, typ: Type | None, env: Env) -> bool:
   for (typarams, ty) in env.get_assoc_types(opname):
     type_params = type_names(loc, typarams)
-    matching = {}
+    matching: dict[str, Type | VarRef | None] = {}
     try:
       type_match(loc, type_params, ty, typ, matching)
       return True
@@ -307,7 +311,7 @@ def is_associative(loc, opname, typ, env):
       pass
   return False
 
-def rator_name(rator):
+def rator_name(rator: Term | RecFun | GenRecFun) -> str:
   if isinstance(rator, VarRef):
     return rator.get_name()
   match rator:
@@ -325,7 +329,7 @@ def rator_name(rator):
       return 'no_name'
 
 
-def flatten_assoc(op_name, trm):
+def flatten_assoc(op_name: str, trm: Term) -> list[Term]:
   match trm:
     case Call(_, _, rator, args) if rator_name(rator) == op_name:
       return sum([flatten_assoc(op_name, arg) for arg in args], [])
@@ -333,7 +337,7 @@ def flatten_assoc(op_name, trm):
       return [trm]
 
 
-def flatten_assoc_list(op_name, args):
+def flatten_assoc_list(op_name: str, args: Sequence[Term]) -> list[Term]:
   return sum([flatten_assoc(op_name, arg) for arg in args], [])
 
 
@@ -1092,44 +1096,44 @@ def is_match(pattern, arg, subst):
     return ret
 
 # The variables that should be reduced.
-reduce_only: List["VarRef"] = []
+reduce_only: List[VarRef] = []
 
-def set_reduce_only(defs):
+def set_reduce_only(defs: list[VarRef]) -> None:
   global reduce_only
   reduce_only = defs
 
-def get_reduce_only():
+def get_reduce_only() -> list[VarRef]:
   global reduce_only
   return reduce_only
 
 reduce_all = False
 
-def get_reduce_all():
+def get_reduce_all() -> bool:
   global reduce_all
   return reduce_all
 
-def set_reduce_all(b):
+def set_reduce_all(b: bool) -> None:
   global reduce_all
   reduce_all = b
 
 dont_reduce_opaque = False
 
-def get_dont_reduce_opaque():
+def get_dont_reduce_opaque() -> bool:
   global dont_reduce_opaque
   return dont_reduce_opaque
 
-def set_dont_reduce_opaque(b):
+def set_dont_reduce_opaque(b: bool) -> None:
   global dont_reduce_opaque
   dont_reduce_opaque = b
 
 eval_all = False
 
-def get_eval_all():
+def get_eval_all() -> bool:
   # return False
   global eval_all
   return eval_all
 
-def set_eval_all(b):
+def set_eval_all(b: bool) -> None:
   global eval_all
   eval_all = b
 
@@ -1144,7 +1148,7 @@ def get_reduced_defs():
   global reduced_defs
   return reduced_defs
 
-def add_reduced_def(df):
+def add_reduced_def(df: str) -> None:
   global reduced_defs
   reduced_defs.add(df)
 
@@ -1155,17 +1159,17 @@ def complete_name(name):
     else:
         return name2str(name)
     
-def is_operator_name(name):
+def is_operator_name(name: str) -> bool:
     return base_name(name) in infix_precedence.keys() \
         or base_name(name) in prefix_precedence.keys()
     
     
-def is_var_operator(trm):
+def is_var_operator(trm: Term) -> bool:
   # `Var.__str__` / `OverloadedVar.__str__` use this without recursing
   # through `is_operator`, which would loop on TermInst(Var(...)).
   return isinstance(trm, VarRef) and is_operator_name(trm.get_name())
 
-def is_operator(trm):
+def is_operator(trm: Term | RecFun | GenRecFun) -> bool:
   if isinstance(trm, VarRef):
     return is_operator_name(trm.get_name())
   match trm:
@@ -1178,7 +1182,7 @@ def is_operator(trm):
     case _:
       return False
 
-def operator_name(trm):
+def operator_name(trm: Term | RecFun | GenRecFun) -> str:
   if isinstance(trm, VarRef):
     nm = trm.get_name()
     return nm if get_unique_names() else base_name(nm)
@@ -1192,13 +1196,13 @@ def operator_name(trm):
     case _:
       raise InternalError('operator_name, unexpected term ' + str(trm))
 
-def is_infix_operator(trm):
+def is_infix_operator(trm: Term | RecFun | GenRecFun) -> bool:
   return is_operator(trm) and operator_name(trm) in infix_precedence.keys()
 
 def is_prefix_operator(trm):
   return is_operator(trm) and operator_name(trm) in prefix_precedence.keys()
 
-def precedence(trm):
+def precedence(trm: Term) -> int | None:
   match trm:
     case Call(_, _, rator, args) if is_operator(rator):
       op_name = operator_name(rator)
@@ -1827,7 +1831,7 @@ class TLet(Term):
     new_body = self.body.substitute({self.var: self.rhs})
     return new_body.reduce(env)
 
-  def reduceLets(self, env):
+  def reduceLets(self, env: Env) -> Term:
     new_body = self.body.substitute({self.var: self.rhs})
     if isinstance(new_body, TLet):
       return new_body.reduceLets(env)
@@ -2903,7 +2907,7 @@ def extend(env, name, new_name, loc):
     env[name] = [new_name]
 
 ## Overwrites a value in the environment, with a warning
-def overwrite(env, name, new_name, loc):
+def overwrite(env: dict[str, Any], name: str, new_name: str, loc: Meta) -> None:
   if name in env['no overload']:
     ty = env['no overload'][name]
     user_error(loc, f"Cannot overload {ty} names. {name} is already defined as a {ty}")
@@ -3887,7 +3891,7 @@ def mkEqual(loc, arg1, arg2):
   ret = Call(loc, None, ResolvedVar(loc, None, '='), [arg1, arg2])
   return ret
 
-def split_equation(loc, equation, env):
+def split_equation(loc: Meta, equation: Term, env: Env) -> tuple[Term, Term]:
   if isinstance(equation, TLet):
     equation = equation.reduceLets(env)
     
@@ -3899,7 +3903,7 @@ def split_equation(loc, equation, env):
     case _:
       internal_error(loc, 'expected an equality, not ' + str(equation))
 
-def equation_vars(formula):
+def equation_vars(formula: Formula) -> list[Term]:
   match formula:
     case Call(loc1, _, rator, [_, _]) if isinstance(rator, VarRef) and rator.get_name() == '=':
       return []
@@ -3920,7 +3924,7 @@ def is_equation(formula):
     case _:
       return False
 
-def isUInt(t):
+def isUInt(t: Term) -> bool:
   match t:
     case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'bzero':
       return True
@@ -4080,30 +4084,41 @@ def intToUInt(loc, n, bzero='bzero', dubinc='dub_inc',
     else:
         return uint_inc(loc, intToUInt(loc, n - 1, bzero, dubinc, incdub, uint_ty))
     
-def mkZero(loc, zname='zero', ty=None):
+def mkZero(loc: Meta, zname: str | bool = 'zero',
+           ty: Type | None = None) -> VarRef:
   # Use OverloadedVar when the name is already uniquified (contains
   # '.'), otherwise a pre-uniquify Var. Fast-arithmetic call sites
   # in the type checker pass uniquified names extracted from the
   # existing AST; parser call sites pass the bare source name.
+  zname = str(zname)
   if '.' in zname:
     return ResolvedVar(loc, ty, zname)
   return Var(loc, ty, zname)
 
-def mkSuc(loc, arg, sname='suc', ty=None):
+def mkSuc(loc: Meta, arg: Term, sname: str | bool = 'suc',
+          ty: Type | None = None) -> Call:
+  sname = str(sname)
+  rator: VarRef
   if '.' in sname:
     rator = ResolvedVar(loc, None, sname)
   else:
     rator = Var(loc, None, sname)
   return Call(loc, ty, rator, [arg])
 
-def intToNat(loc, n, zname='zero', sname='suc', ty=None):
+def intToNat(
+    loc: Meta,
+    n: int,
+    zname: str | bool = 'zero',
+    sname: str | bool = 'suc',
+    ty: Type | None = None,
+) -> Term:
   if n <= 0:
     return mkZero(loc, zname=zname, ty=ty)
   else:
     return mkSuc(loc, intToNat(loc, n - 1, zname=zname, sname=sname, ty=ty),
                  sname=sname, ty=ty)
 
-def isNat(t):
+def isNat(t: Term) -> bool:
   match t:
     case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'zero':
       return True
@@ -4143,7 +4158,7 @@ def isInt(t):
     case _:
       return False
   
-def getZero(t):
+def getZero(t: Term) -> str | bool:
   match t:
     case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'zero':
       return n
@@ -4153,7 +4168,7 @@ def getZero(t):
     case _:
       return False
 
-def getSuc(t):
+def getSuc(t: Term) -> str | bool:
   match t:
     case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'zero':
       return False
@@ -4163,7 +4178,7 @@ def getSuc(t):
     case _:
       return False
 
-def natToInt(t):
+def natToInt(t: Term) -> int:
   match t:
     case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'zero':
       return 0
@@ -4176,7 +4191,7 @@ def natToInt(t):
     case _:
       raise InternalError('natToInt: not a Nat: ' + str(t))
 
-def uintToInt(t):
+def uintToInt(t: Term) -> int:
   match t:
     case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'bzero':
       return 0
@@ -4192,14 +4207,14 @@ def uintToInt(t):
     case _:
       raise InternalError('uintToInt: not a uint ' + str(t))
 
-def _same_numeric_literal(t1, t2):
+def _same_numeric_literal(t1: Any, t2: Any) -> bool:
   if isNat(t1) and isNat(t2):
     return natToInt(t1) == natToInt(t2)
   if isUInt(t1) and isUInt(t2):
     return uintToInt(t1) == uintToInt(t2)
   return False
 
-def formulas_equal_modulo_numeric_literals(frm1, frm2):
+def formulas_equal_modulo_numeric_literals(frm1: Any, frm2: Any) -> bool:
   if frm1 == frm2 or _same_numeric_literal(frm1, frm2):
     return True
   match (frm1, frm2):
@@ -4257,7 +4272,7 @@ def mkIntLit(loc, n, sign):
   else:
     return mkNeg(loc, mkUIntLit(loc, n - 1))
 
-def isDeduceInt(t):
+def isDeduceInt(t: Term) -> bool:
   match t:
     case Call(_, _, (Var(_, _, name) | OverloadedVar(_, _, [name, *_]) | ResolvedVar(_, _, name)), [arg]) if base_name(name) == 'pos':
       return isUInt(arg)
@@ -4266,7 +4281,7 @@ def isDeduceInt(t):
     case _:
       return False
 
-def deduceIntToInt(t):
+def deduceIntToInt(t: Term) -> str:
   match t:
     case Call(_, _, (Var(_, _, name) | OverloadedVar(_, _, [name, *_]) | ResolvedVar(_, _, name)), [arg]) if base_name(name) == 'pos':
       return '+' + str(uintToInt(arg))
@@ -4547,13 +4562,14 @@ class Env:
                                                       module=self.get_current_module())
     return new_env
 
-  def get_auto_rewrites(self, head):
+  def get_auto_rewrites(self, head: str) -> list[Formula]:
     full_name = '__auto__'
     if full_name in self.dict.keys():
-        if head in self.dict[full_name].equations:
-            return self.dict[full_name].equations[head]
+        equations = cast(Any, self.dict[full_name]).equations
+        if head in equations:
+            return cast(list[Formula], equations[head])
         else:
-            return self.dict[full_name].equations['no_name']
+            return cast(list[Formula], equations['no_name'])
     else:
       return []
 
@@ -4712,10 +4728,10 @@ class Env:
       case _:
         raise Exception('expected proof var, not ' + str(pvar))
 
-  def get_assoc_types(self, opname):
+  def get_assoc_types(self, opname: str) -> list[Tuple[List[str], Type]]:
     full_name = '__associative_' + opname
     if full_name in self.dict.keys():
-      return self.dict['__associative_' + opname].types
+      return cast(AssociativeBinding, self.dict[full_name]).types
     else:
       return []
       
@@ -5215,7 +5231,13 @@ def make_switch_for(meta, defs, subject, cases):
                for c in cases]
   return SwitchProof(meta, subject, new_cases)
 
-def explicit_term_inst(term):
+@overload
+def explicit_term_inst(term: Term) -> Term: ...
+
+@overload
+def explicit_term_inst(term: SwitchCase) -> SwitchCase: ...
+
+def explicit_term_inst(term: Term | SwitchCase) -> Term | SwitchCase:
   match term:
     case TermInst(loc2, tyof, subject, tyargs, _):
       return TermInst(loc2, tyof, subject, tyargs, False)
@@ -5241,20 +5263,34 @@ def explicit_term_inst(term):
       return term
 
 num_rewrites = 0
+rewrite_debug: bool = False
 
 def reset_num_rewrites():
     global num_rewrites
     num_rewrites = 0
 
-def inc_rewrites():
+def inc_rewrites() -> None:
     global num_rewrites
     num_rewrites = 1 + num_rewrites
 
-def get_num_rewrites():
+def get_num_rewrites() -> int:
     global num_rewrites
     return num_rewrites
 
-def rewrite_aux(loc, formula, equation, env, depth = -1):
+@overload
+def rewrite_aux(loc: Meta, formula: Formula, equation: Formula, env: Env,
+                depth: int = -1) -> Formula: ...
+
+@overload
+def rewrite_aux(loc: Meta, formula: Term, equation: Formula, env: Env,
+                depth: int = -1) -> Term: ...
+
+@overload
+def rewrite_aux(loc: Meta, formula: SwitchCase, equation: Formula, env: Env,
+                depth: int = -1) -> SwitchCase: ...
+
+def rewrite_aux(loc: Meta, formula: Term | SwitchCase, equation: Formula,
+                env: Env, depth: int = -1) -> Term | SwitchCase:
   if depth == 0:
       return formula
   try:
@@ -5293,7 +5329,7 @@ def rewrite_aux(loc, formula, equation, env, depth = -1):
           args = flatten_assoc_list(rator_name(rator), args)
       new_rator = rewrite_aux(loc, rator, equation, env, depth - 1)
       new_args = [rewrite_aux(loc, arg, equation, env, depth - 1) for arg in args]
-      if False and get_verbose():
+      if rewrite_debug and get_verbose():
           print('while trying to rewrite ' + str(formula) + '\n\twith equation ' + str(equation))
           print('new_args: ' + ', '.join([str(arg) for arg in new_args]))
       (lhs,rhs) = split_equation(loc2, equation, env)
@@ -5384,23 +5420,35 @@ def rewrite_aux(loc, formula, equation, env, depth = -1):
     case _:
       internal_error(loc, 'internal error in rewrite function, unhandled ' + str(formula))
 
-def try_rewrite(loc, formula, equation, env):
+def try_rewrite(
+    loc: Meta,
+    formula: Term | SwitchCase,
+    equation: Formula,
+    env: Env,
+) -> Term:
   (lhs, rhs) = split_equation(loc, equation, env)
-  if False and get_verbose():
+  if rewrite_debug and get_verbose():
       print('try rewrite? ' + str(formula) + '\n\twith equation ' + str(equation))
-  matching = {}
+  matching: dict[str, Term] = {}
   eq_vars = equation_vars(equation)
   formula_match(loc, eq_vars, lhs, formula, matching, Env())
   # print('rewriting using: ' + str(equation) + '\n' \
   #       + '\t' + str(formula) \
   #       + '\t==> ' + str(rhs.substitute(matching)) + '\n')
-  if False and get_verbose():
+  if rewrite_debug and get_verbose():
       print('\tmatched LHS, rewriting to the RHS: ' + str(rhs.substitute(matching)))
   return rhs.substitute(matching).reduce(env)
 
-def formula_match(loc, vars, pattern_frm, frm, matching, env,
-                  numeric_literals=False):
-  if False and get_verbose():
+def formula_match(
+    loc: Meta,
+    vars: list[Term],
+    pattern_frm: Any,
+    frm: Any,
+    matching: dict[str, Term],
+    env: Env,
+    numeric_literals: bool = False,
+) -> None:
+  if rewrite_debug and get_verbose():
     print("formula_match:\n\t" + str(pattern_frm) + "\n\t" + str(frm) + "\n")
     print("\tin  " + ','.join([str(x) for x in vars]))
     print("\twith " + ','.join([x + ' := ' + str(f) for (x,f) in matching.items()]))
@@ -5444,7 +5492,7 @@ def formula_match(loc, vars, pattern_frm, frm, matching, env,
         
     case (Call(_, _, goal_rator, goal_rands),
           Call(loc3, tyof3, rator, rands)):
-      if False and get_verbose():
+      if rewrite_debug and get_verbose():
           print("matching Call with Call\n\trator pattern: " + str(goal_rator) + '\n'\
                 + '\trator formula: ' + str(rator))
       formula_match(loc, vars, goal_rator, rator, matching, env,
@@ -5452,6 +5500,7 @@ def formula_match(loc, vars, pattern_frm, frm, matching, env,
       if len(rands) >= len(goal_rands):
         while len(rands) > 0:
           # What is the following for? -Jeremy
+          rand: Term
           if len(goal_rands) == 1 and len(rands) > 1:
               rand = Call(loc3, tyof3, rator, rands)
               rands = []
@@ -5501,21 +5550,21 @@ def formula_match(loc, vars, pattern_frm, frm, matching, env,
           match_failed(loc, "formula: " + str(red_frm) + "\n" \
                        + "does not match expected formula: " + str(red_pattern))
 
-def call_arity(call):
+def call_arity(call: Term) -> int:
     match call:
       case Call(_, _, _, args):
         return len(args)
       case _:
         return 1 #raise Exception('call_arity: not a call ' + str(call))
 
-def term_head(term):
+def term_head(term: Term) -> str:
     match term:
       case Call(_, _, rator, _):
           return base_name(rator_name(rator)) # TODO: remove base_name -Jeremy
       case _:
           return 'no_name'
     
-def auto_rewrites(term, env):
+def auto_rewrites(term: Term, env: Env) -> Term:
     # Iterate until we can't rewrite anymore (to a fixed point)
     while True:
         current = get_num_rewrites()
