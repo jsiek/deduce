@@ -12,6 +12,19 @@ def _meta() -> Meta:
 
 def test_check_proof_of_registers_extracted_goal_handlers() -> None:
     expected = {
+        ast.PRecall,
+        ast.PVar,
+        ast.PTrue,
+        ast.PAndElim,
+        ast.EvaluateFact,
+        ast.ApplyDefsFact,
+        ast.RewriteFact,
+        ast.SimplifyFact,
+        ast.PHelpUse,
+        ast.AllElim,
+        ast.AllElimTypes,
+        ast.ModusPonens,
+        ast.PInjective,
         ast.PHole,
         ast.PSorry,
         ast.PReflexive,
@@ -63,6 +76,31 @@ def test_check_proof_of_registers_extracted_intro_and_local_handlers() -> None:
         assert proof_checker._CHECK_PROOF_OF_HANDLERS[proof_type] is handler
 
 
+def test_check_proof_of_registers_goal_agnostic_handlers() -> None:
+    expected = {
+        ast.PRecall,
+        ast.PVar,
+        ast.PTrue,
+        ast.PAndElim,
+        ast.EvaluateFact,
+        ast.ApplyDefsFact,
+        ast.RewriteFact,
+        ast.SimplifyFact,
+        ast.PHelpUse,
+        ast.AllElim,
+        ast.AllElimTypes,
+        ast.ModusPonens,
+        ast.PInjective,
+    }
+
+    assert expected == proof_checker._GOAL_AGNOSTIC_PROOF_TYPES
+    for proof_type in expected:
+        assert (
+            proof_checker._CHECK_PROOF_OF_HANDLERS[proof_type]
+            is proof_checker._check_proof_of_goal_agnostic
+        )
+
+
 def test_check_proof_of_dispatches_registered_handler(monkeypatch) -> None:
     proof = ast.PSorry(_meta())
     calls = []
@@ -98,6 +136,43 @@ def test_sorry_handler_preserves_warning_behavior(monkeypatch) -> None:
     assert calls == [(proof.location, "unfinished proof")]
 
 
+def test_goal_agnostic_handler_checks_synthesized_formula(monkeypatch) -> None:
+    proof = ast.PTrue(_meta())
+    formula = object()
+    env = object()
+    calls = []
+
+    class FakeFormula:
+        def reduce(self, env_arg):
+            calls.append(("reduce", env_arg))
+            return "reduced-form"
+
+    def fake_check_proof(proof_arg, env_arg):
+        calls.append(("check_proof", proof_arg, env_arg))
+        return FakeFormula()
+
+    def fake_remove_mark(formula_arg):
+        calls.append(("remove_mark", formula_arg))
+        return FakeFormula()
+
+    def fake_check_implies(location_arg, form_arg, formula_arg):
+        calls.append(("check_implies", location_arg, form_arg, formula_arg))
+
+    monkeypatch.setattr(proof_checker, "check_proof", fake_check_proof)
+    monkeypatch.setattr(proof_checker, "remove_mark", fake_remove_mark)
+    monkeypatch.setattr(proof_checker, "check_implies", fake_check_implies)
+
+    proof_checker._check_proof_of_goal_agnostic(proof, formula, env)
+
+    assert calls == [
+        ("check_proof", proof, env),
+        ("reduce", env),
+        ("remove_mark", formula),
+        ("reduce", env),
+        ("check_implies", proof.location, "reduced-form", "reduced-form"),
+    ]
+
+
 def test_check_proof_registers_extracted_synthesis_handlers() -> None:
     expected = {
         ast.PRecall: proof_checker._check_proof_recall,
@@ -117,6 +192,12 @@ def test_check_proof_registers_extracted_synthesis_handlers() -> None:
         ast.PTuple: proof_checker._check_proof_tuple,
         ast.ImpIntro: proof_checker._check_proof_imp_intro,
         ast.AllIntro: proof_checker._check_proof_all_intro,
+        ast.AllElim: proof_checker._check_proof_all_elim,
+        ast.AllElimTypes: proof_checker._check_proof_all_elim_types,
+        ast.ModusPonens: proof_checker._check_proof_modus_ponens,
+        ast.PInjective: proof_checker._check_proof_injective,
+        ast.PSymmetric: proof_checker._check_proof_symmetric,
+        ast.PTransitive: proof_checker._check_proof_transitive,
     }
 
     for proof_type, handler in expected.items():

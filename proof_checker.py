@@ -731,6 +731,181 @@ def _check_proof_all_intro(proof, env):
   formula = check_proof(proof.body, body_env)
   return All(loc, BoolType(loc), checked_var, proof.pos, formula)
 
+def _check_proof_all_elim(proof, env):
+  loc = proof.location
+  allfrm = check_proof(proof.univ, env)
+
+  if isinstance(allfrm, TLet):
+    allfrm = allfrm.reduceLets(env)
+
+  match allfrm:
+    case All(_, _, var, _, _):
+      sub = {}
+      _, ty = var
+      try:
+        new_arg = type_check_term(proof.arg, ty.substitute(sub), env, None, [])
+        if isinstance(new_arg, TermInst):
+            new_arg.inferred = False
+      except UserError as e:
+        if isinstance(ty, TypeType):
+          user_error(loc, f"In instantiation of\n\t{str(proof.univ)} : {str(allfrm)}\n" \
+                     + f"expected a type argument, but was given '{proof.arg}'")
+        else:
+          raise e
+      if isinstance(ty, TypeType):
+        user_error(loc, 'to instantiate:\n\t' + str(proof.univ)+' : '+str(allfrm) \
+                   +'\nwith type arguments, instead write:\n\t' \
+                   +str(proof.univ) + '<' + str(proof.arg) + '>\n')
+    case _:
+      user_error(loc, 'expected all formula to instantiate, not ' + str(allfrm) \
+                 + '\n' + style.orange('Givens:') + '\n' + env.proofs_str())
+  return instantiate(loc, allfrm, new_arg)
+
+def _check_proof_all_elim_types(proof, env):
+  loc = proof.location
+  allfrm = check_proof(proof.univ, env)
+
+  if isinstance(allfrm, TLet):
+    allfrm = allfrm.reduceLets(env)
+
+  match allfrm:
+    case All(_, _, vars, _, _):
+      sub = {}
+      var, ty = vars
+      type_arg = check_type(proof.arg, env)
+      if not isinstance(ty, TypeType):
+        user_error(loc, 'unexpected term parameter ' + str(var) + ' in type instantiation')
+      sub[var] = type_arg
+    case _:
+      user_error(loc, 'expected all formula to instantiate, not ' + str(allfrm))
+  return instantiate(loc, allfrm, type_arg)
+
+def _check_proof_modus_ponens(proof, env):
+  loc = proof.location
+  ifthen = check_proof(proof.implication, env)
+  match ifthen:
+    case IfThen() | All() | And():
+      pass
+    case _:
+      ifthen = ifthen.reduce(env)
+  match ifthen:
+    case IfThen(loc2, tyof, prem, conc):
+      _try_check_proof_of(proof.arg, prem, env)
+      return conc.reduce(env)
+    case And(loc2, tyof, _):
+      vars, imps = collect_all_if_then(loc, ifthen, env)
+      arg_frm = check_proof(proof.arg, env)
+      rets = []
+      for prem, conc in imps:
+        try:
+          with speculative_probe():
+            check_proof_of(proof.arg, prem, env)
+          rets.append(conc)
+        except UserError:
+          pass
+      if len(rets) == 1: return rets[0]
+      elif len(rets) > 1: return And(loc2, tyof, rets)
+      else:
+        user_error(loc, "could not prove that " +str(arg_frm) +
+                   " implies at least one of\n\t"\
+                   + "\n\t".join([str(p) for p, _ in imps])
+                   + "\nfor application of \n\t"+str(ifthen)
+                   + "\nto \n\t" + str(proof.arg) + ': ' + str(arg_frm))
+    case All(loc2, tyof, _, _, _):
+      (vars, imps) = collect_all_if_then(loc, ifthen, env)
+      rets = []
+      reasons = []
+      arg_frm = check_proof(proof.arg, env)
+      for prem, conc in imps:
+        try:
+          matching = {}
+          formula_match(loc, vars, prem, arg_frm, matching, env,
+                        numeric_literals=True)
+          type_vars = [x for x in vars if isinstance(x.typeof, TypeType)]
+          term_vars = [x for x in vars if not isinstance(x.typeof, TypeType)]
+          if len(type_vars) > 0:
+            var_type = {x.name : x.typeof for x in term_vars}
+            formula_matches = [(x,trm) for (x,trm) in matching.items()]
+            for (x,trm) in formula_matches:
+                if x in var_type.keys():
+                  new_var_type = var_type[x].substitute(matching)
+                  type_match(loc, type_vars, new_var_type, trm.typeof, matching)
+          for x in vars:
+            if x.name not in matching.keys():
+              match_failed(loc, "could not deduce an instantiation for variable "\
+                           + str(x) + '\n' \
+                           + 'for application of\n\t' + str(ifthen) + '\n'\
+                           + 'to\n\t' + str(proof.arg) + ': ' + str(arg_frm))
+          rets.append(conc.substitute(matching).reduce(env))
+        except MatchFailed as e:
+          reasons.append(e)
+      if len(rets) == 1: return rets[0]
+      elif len(rets) > 1: return And(loc2, tyof, rets)
+      else:
+        user_error(loc, "could not deduce an instantiation for any of the variables "\
+              + "for application of \n\t" + str(ifthen) + '\n'\
+              + 'to\n\t' + str(proof.arg) + ': ' + str(arg_frm) + '\n'\
+              + 'because:\n' + '\n\t'.join([str(e) for e in reasons]))
+    case _:
+      user_error(loc, "in 'apply', expected an if-then formula, not " + str(ifthen))
+
+def _check_proof_injective(proof, env):
+  loc = proof.location
+  check_type(proof.constr, env)
+  if not is_constructor(proof.constr.name, env):
+    user_error(loc, 'in injective, expected a constructor, not\n\t' + base_name(proof.constr.name)
+          + givens_str(env))
+  formula = check_proof(proof.body, env)
+  (a,b) = split_equation(loc, formula, env)
+  match (a,b):
+    case (Call(_, _, rator1, args1),
+          Call(_, _, rator2, args2)) if len(args1) == len(args2):
+      name1 = callable_name(rator1)
+      name2 = callable_name(rator2)
+      if name1 is None or name2 is None:
+        user_error(loc, 'in injective, expected constructor calls, not '
+              + str(formula))
+      f1 = base_name(name1)
+      f2 = base_name(name2)
+      if f1 != f2:
+        user_error(loc, 'in injective, ' + f1 + ' ≠ ' + f2)
+      if str(proof.constr) != f1:
+        user_error(loc, 'in injective, ' + str(proof.constr) + ' ≠ ' + f1)
+      if not is_constructor(name1, env):
+        user_error(loc, 'in injective, ' + name1 + ' not a constructor')
+      boolty = BoolType(loc)
+      eqs = [mkEqual(loc, arg1, arg2) for (arg1,arg2) in zip(args1, args2)]
+      if len(eqs) > 1:
+          return And(loc, boolty, eqs)
+      elif len(eqs) == 1:
+          return eqs[0]
+      else:
+          return Bool(loc, boolty, True)
+    case _:
+      user_error(loc, 'in injective, non-applicable formula: ' + str(formula))
+
+def _check_proof_symmetric(proof, env):
+  loc = proof.location
+  frm = check_proof(proof.body, env)
+  (a,b) = split_equation(loc, frm, env)
+  return mkEqual(loc, b, a)
+
+def _check_proof_transitive(proof, env):
+  loc = proof.location
+  eq1 = check_proof(proof.first, env)
+  eq2 = check_proof(proof.second, env)
+  (a,b1) = split_equation(loc, eq1, env)
+  (b2,c) = split_equation(loc, eq2, env)
+  b1r = b1.reduce(env)
+  b2r = b2.reduce(env)
+  if b1r != b2r:
+    user_error(loc, 'error in transitive,\nyou proved\n\t'
+          + str(eq1) + '\nand\n\t' + str(eq2) + '\n' \
+          + 'but the middle formulas do not match:\n\t' \
+          + str(b1r) + '\n≠\n\t' + str(b2r))
+  else:
+    return mkEqual(loc, a, c)
+
 _CHECK_PROOF_HANDLERS = {
   PRecall: _check_proof_recall,
   PVar: _check_proof_var,
@@ -749,6 +924,12 @@ _CHECK_PROOF_HANDLERS = {
   PTuple: _check_proof_tuple,
   ImpIntro: _check_proof_imp_intro,
   AllIntro: _check_proof_all_intro,
+  AllElim: _check_proof_all_elim,
+  AllElimTypes: _check_proof_all_elim_types,
+  ModusPonens: _check_proof_modus_ponens,
+  PInjective: _check_proof_injective,
+  PSymmetric: _check_proof_symmetric,
+  PTransitive: _check_proof_transitive,
 }
 
 def check_proof(proof, env):
@@ -758,185 +939,7 @@ def check_proof(proof, env):
   handler = _CHECK_PROOF_HANDLERS.get(type(proof))
   if handler is not None:
     return handler(proof, env)
-  ret = None
-  match proof:
-    case AllElim(loc, univ, arg, _):
-      allfrm = check_proof(univ, env)
-
-      if isinstance(allfrm, TLet):
-        allfrm = allfrm.reduceLets(env)
-      
-      match allfrm:
-        case All(loc2, tyof, var, _, frm):
-          sub = {}
-          v, ty = var
-          try:
-            new_arg = type_check_term(arg, ty.substitute(sub), env, None, [])
-            if isinstance(new_arg, TermInst):
-                new_arg.inferred = False
-          except UserError as e:
-            if isinstance(ty, TypeType):
-              user_error(loc, f"In instantiation of\n\t{str(univ)} : {str(allfrm)}\n" \
-                         + f"expected a type argument, but was given '{arg}'")
-            else:
-              raise e
-          if isinstance(ty, TypeType):
-            user_error(loc, 'to instantiate:\n\t' + str(univ)+' : '+str(allfrm) \
-                       +'\nwith type arguments, instead write:\n\t' \
-                       +str(univ) + '<' + str(arg) + '>\n')
-        case _:
-          user_error(loc, 'expected all formula to instantiate, not ' + str(allfrm) \
-                     + '\n' + style.orange('Givens:') + '\n' + env.proofs_str())
-      return instantiate(loc, allfrm, new_arg)
-
-    case AllElimTypes(loc, univ, type_arg, _):
-      allfrm = check_proof(univ, env)
-
-      if isinstance(allfrm, TLet):
-        allfrm = allfrm.reduceLets(env)
-
-      match allfrm:
-        case All(loc2, tyof, vars, _, frm):
-          sub = {}
-          var, ty = vars
-          type_arg = check_type(type_arg, env)
-          if not isinstance(ty, TypeType):
-            user_error(loc, 'unexpected term parameter ' + str(var) + ' in type instantiation')
-          sub[var] = type_arg
-        case _:
-          user_error(loc, 'expected all formula to instantiate, not ' + str(allfrm))
-      return instantiate(loc, allfrm, type_arg)
-  
-    case ModusPonens(loc, imp, arg):
-      ifthen = check_proof(imp, env)
-      match ifthen:
-        case IfThen(loc2, tyof, prem, conc):
-          pass
-        case All(loc2, tyof, var, _, _):
-          pass
-        case And(loc2, tyof, _):
-          pass
-        case _:
-          ifthen = ifthen.reduce(env)
-      match ifthen:
-        case IfThen(loc2, tyof, prem, conc):
-          _try_check_proof_of(arg, prem, env)
-          ret = conc.reduce(env)
-        case And(loc2, tyof, _):
-          vars, imps = collect_all_if_then(loc, ifthen, env)
-          arg_frm = check_proof(arg, env)
-          rets = []
-          for prem, conc in imps:
-            try:
-              with speculative_probe():
-                check_proof_of(arg, prem, env)
-              rets.append(conc)
-            except UserError:
-              pass
-          if len(rets) == 1: ret = rets[0]
-          elif len(rets) > 1: ret = And(loc2, tyof, rets)
-          else:
-            user_error(loc, "could not prove that " +str(arg_frm) +
-                       " implies at least one of\n\t"\
-                       + "\n\t".join([str(p) for p, _ in imps])
-                       + "\nfor application of \n\t"+str(ifthen)
-                       + "\nto \n\t" + str(arg) + ': ' + str(arg_frm))
-        case All(loc2, tyof, _, _, _):
-          (vars, imps) = collect_all_if_then(loc, ifthen, env)
-          rets = []
-          reasons = []
-          arg_frm = check_proof(arg, env)
-          for prem, conc in imps: 
-            try:
-              matching = {}
-              formula_match(loc, vars, prem, arg_frm, matching, env,
-                            numeric_literals=True)
-              type_vars = [x for x in vars if isinstance(x.typeof, TypeType)]
-              term_vars = [x for x in vars if not isinstance(x.typeof, TypeType)]
-              if len(type_vars) > 0:
-                var_type = {x.name : x.typeof for x in term_vars}
-                formula_matches = [(x,trm) for (x,trm) in matching.items()]
-                for (x,trm) in formula_matches:
-                    if x in var_type.keys():
-                      new_var_type = var_type[x].substitute(matching)
-                      type_match(loc, type_vars, new_var_type, trm.typeof, matching)
-              for x in vars:
-                if x.name not in matching.keys():
-                  match_failed(loc, "could not deduce an instantiation for variable "\
-                               + str(x) + '\n' \
-                               + 'for application of\n\t' + str(ifthen) + '\n'\
-                               + 'to\n\t' + str(arg) + ': ' + str(arg_frm))
-              rets.append(conc.substitute(matching).reduce(env))
-            except MatchFailed as e:
-              reasons.append(e)
-          if len(rets) == 1: ret = rets[0]
-          elif len(rets) > 1: ret = And(loc2, tyof, rets)
-          else:
-            user_error(loc, "could not deduce an instantiation for any of the variables "\
-                  + "for application of \n\t" + str(ifthen) + '\n'\
-                  + 'to\n\t' + str(arg) + ': ' + str(arg_frm) + '\n'\
-                  + 'because:\n' + '\n\t'.join([str(e) for e in reasons]))
-        case _:
-          user_error(loc, "in 'apply', expected an if-then formula, not " + str(ifthen))
-          
-    case PInjective(loc, constr, eq_pf):
-      check_type(constr, env)
-      if not is_constructor(constr.name, env):
-        user_error(loc, 'in injective, expected a constructor, not\n\t' + base_name(constr.name) 
-              + givens_str(env))
-      formula = check_proof(eq_pf, env)
-      (a,b) = split_equation(loc, formula, env)
-      match (a,b):
-        case (Call(loc2, _, rator1, args1),
-              Call(_, _, rator2, args2)) if len(args1) == len(args2):
-          name1 = callable_name(rator1)
-          name2 = callable_name(rator2)
-          if name1 is None or name2 is None:
-            user_error(loc, 'in injective, expected constructor calls, not '
-                  + str(formula))
-          f1 = base_name(name1)
-          f2 = base_name(name2)
-          if f1 != f2:
-            user_error(loc, 'in injective, ' + f1 + ' ≠ ' + f2)
-          if str(constr) != f1:
-            user_error(loc, 'in injective, ' + str(constr) + ' ≠ ' + f1)
-          if not is_constructor(name1, env):
-            user_error(loc, 'in injective, ' + name1 + ' not a constructor')
-          boolty = BoolType(loc)
-          eqs = [mkEqual(loc, arg1, arg2) for (arg1,arg2) in zip(args1, args2)]
-          if len(eqs) > 1:
-              return And(loc, boolty, eqs)
-          elif len(eqs) == 1:
-              return eqs[0]
-          else:
-              return Bool(loc, boolty, True)
-        case _:
-          user_error(loc, 'in injective, non-applicable formula: ' + str(formula))
-          
-    case PSymmetric(loc, eq_pf):
-      frm = check_proof(eq_pf, env)
-      (a,b) = split_equation(loc, frm, env)
-      return mkEqual(loc, b, a)
-
-    case PTransitive(loc, eq_pf1, eq_pf2):
-      eq1 = check_proof(eq_pf1, env)
-      eq2 = check_proof(eq_pf2, env)
-      (a,b1) = split_equation(loc, eq1, env)
-      (b2,c) = split_equation(loc, eq2, env)
-      b1r = b1.reduce(env)
-      b2r = b2.reduce(env)
-      if b1r != b2r:
-        user_error(loc, 'error in transitive,\nyou proved\n\t'
-              + str(eq1) + '\nand\n\t' + str(eq2) + '\n' \
-              + 'but the middle formulas do not match:\n\t' \
-              + str(b1r) + '\n≠\n\t' + str(b2r))
-      else:
-        return mkEqual(loc, a, c)
-    case _:
-      user_error(proof.location, goal_only_proof_error(proof))
-  if get_verbose():
-    print('\t=> ' + str(ret))
-  return ret
+  user_error(proof.location, goal_only_proof_error(proof))
 
 # Tactic-keyword name used for each "goal-only" Proof class. These tactics
 # transform the current goal rather than producing a proof of a formula, so
@@ -2081,7 +2084,50 @@ def _check_proof_of_switch(proof, formula, env):
           add_diagnostic(loc, "switch expected union type or bool, not " + str(ty)
                 + givens_str(env))
 
+def _check_synthesized_proof_against_goal(proof, formula, env):
+  try:
+    form = check_proof(proof, env)
+    form_red = form.reduce(env)
+    formula_red = remove_mark(formula).reduce(env)
+    check_implies(proof.location, form_red, formula_red)
+  except IncompleteProof as e:
+    raise e
+  except UserError as e:
+    # It could be that form is never reduced, such as in a PHelpUse.
+    # In that case, we don't give 'replace' advice.
+    replace_advice = ''
+    try:
+      if is_equation(form_red):
+        replace_advice = '\nDid you mean `replace ' + str(proof) + '`?'
+    finally:
+      raise wrap_user_error(e, replace_advice) from e
+
+def _check_proof_of_goal_agnostic(proof, formula, env):
+  return _check_synthesized_proof_against_goal(proof, formula, env)
+
+_GOAL_AGNOSTIC_PROOF_TYPES = {
+  PRecall,
+  PVar,
+  PTrue,
+  PAndElim,
+  EvaluateFact,
+  ApplyDefsFact,
+  RewriteFact,
+  SimplifyFact,
+  PHelpUse,
+  AllElim,
+  AllElimTypes,
+  ModusPonens,
+  PInjective,
+}
+
+_CHECK_PROOF_OF_GOAL_AGNOSTIC_HANDLERS = {
+  proof_type: _check_proof_of_goal_agnostic
+  for proof_type in _GOAL_AGNOSTIC_PROOF_TYPES
+}
+
 _CHECK_PROOF_OF_HANDLERS = {
+  **_CHECK_PROOF_OF_GOAL_AGNOSTIC_HANDLERS,
   PHole: _check_proof_of_hole,
   PSorry: _check_proof_of_sorry,
   PReflexive: _check_proof_of_reflexive,
@@ -2117,22 +2163,7 @@ def check_proof_of(proof, formula, env):
     return handler(proof, formula, env)
   match proof:
     case _:
-      try:
-        form = check_proof(proof, env)
-        form_red = form.reduce(env)
-        formula_red = remove_mark(formula).reduce(env)
-        check_implies(proof.location, form_red, formula_red)
-      except IncompleteProof as e:
-        raise e
-      except UserError as e:
-        # It could be that form is never reduced, such as in a PHelpUse
-        # In that case, we don't give 'replace' advice
-        replace_advice = ''
-        try:
-          if is_equation(form_red):
-            replace_advice = '\nDid you mean `replace ' + str(proof) + '`?'
-        finally:
-          raise wrap_user_error(e, replace_advice) from e
+      return _check_synthesized_proof_against_goal(proof, formula, env)
 
 
 def auto_simplified_hint(new_formula):
