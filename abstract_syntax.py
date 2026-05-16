@@ -313,27 +313,25 @@ def is_associative(loc: Meta, opname: str, typ: Type | None, env: Env) -> bool:
       pass
   return False
 
-def rator_name(rator: Term | RecFun | GenRecFun) -> str:
-  if isinstance(rator, VarRef):
-    return rator.get_name()
-  match rator:
-    case RecFun(_, name, _, _, _, _):
-      return name
-    case GenRecFun(_, name, _, _, _, _, _, _, _):
-      return name
-    case Lambda(_, _, _, _):
-      return 'no_name'
-    case TermInst(_, _, arg2, _):
-      return rator_name(arg2)
-    case Generic(_, _, _, _):
-      return 'no_name'
+def named_callable_name(t: VarRef | RecFun | GenRecFun) -> str:
+  if isinstance(t, VarRef):
+    return t.get_name()
+  return t.name
+
+
+def callable_name(t: Term | RecFun | GenRecFun) -> str | None:
+  if isinstance(t, VarRef | RecFun | GenRecFun):
+    return named_callable_name(t)
+  match t:
+    case TermInst(_, _, subject, _, _):
+      return callable_name(subject)
     case _:
-      return 'no_name'
+      return None
 
 
 def flatten_assoc(op_name: str, trm: Term) -> list[Term]:
   match trm:
-    case Call(_, _, rator, args) if rator_name(rator) == op_name:
+    case Call(_, _, rator, args) if callable_name(rator) == op_name:
       return sum([flatten_assoc(op_name, arg) for arg in args], [])
     case _:
       return [trm]
@@ -1173,46 +1171,38 @@ def is_operator_name(name: str) -> bool:
     
 def is_var_operator(trm: Term) -> bool:
   # `Var.__str__` / `OverloadedVar.__str__` use this without recursing
-  # through `is_operator`, which would loop on TermInst(Var(...)).
+  # through `is_operator_callable`, which would loop on TermInst(Var(...)).
   return isinstance(trm, VarRef) and is_operator_name(trm.get_name())
 
-def is_operator(trm: Term | RecFun | GenRecFun) -> bool:
-  if isinstance(trm, VarRef):
-    return is_operator_name(trm.get_name())
-  match trm:
-    case RecFun(_, name, _, _, _, _):
-      return is_operator_name(name)
-    case GenRecFun(_, name, _, _, _, _, _, _, _):
-      return is_operator_name(name)
-    case TermInst(_, _, subject, _, _):
-      return is_operator(subject)
-    case _:
-      return False
+def is_operator_callable(trm: Term | RecFun | GenRecFun) -> bool:
+  name = callable_name(trm)
+  return name is not None and is_operator_name(name)
 
-def operator_name(trm: Term | RecFun | GenRecFun) -> str:
-  if isinstance(trm, VarRef):
-    nm = trm.get_name()
-    return nm if get_unique_names() else base_name(nm)
-  match trm:
-    case RecFun(_, name, _, _, _, _):
-      return base_name(name)
-    case GenRecFun(_, name, _, _, _, _, _, _, _):
-      return base_name(name)
-    case TermInst(_, _, subject, _):
-      return operator_name(subject)
-    case _:
-      raise InternalError('operator_name, unexpected term ' + str(trm))
+def _callable_display_subject(trm: Term | RecFun | GenRecFun) -> Term | RecFun | GenRecFun:
+  while isinstance(trm, TermInst):
+    trm = trm.subject
+  return trm
+
+def operator_display_name(trm: Term | RecFun | GenRecFun) -> str:
+  name = callable_name(trm)
+  if name is None:
+    raise InternalError('operator_display_name, unexpected term ' + str(trm))
+  if isinstance(_callable_display_subject(trm), VarRef) and get_unique_names():
+    return name
+  return base_name(name)
 
 def is_infix_operator(trm: Term | RecFun | GenRecFun) -> bool:
-  return is_operator(trm) and operator_name(trm) in infix_precedence.keys()
+  name = callable_name(trm)
+  return name is not None and base_name(name) in infix_precedence.keys()
 
-def is_prefix_operator(trm):
-  return is_operator(trm) and operator_name(trm) in prefix_precedence.keys()
+def is_prefix_operator(trm: Term | RecFun | GenRecFun) -> bool:
+  name = callable_name(trm)
+  return name is not None and base_name(name) in prefix_precedence.keys()
 
 def precedence(trm: Term) -> int | None:
   match trm:
-    case Call(_, _, rator, args) if is_operator(rator):
-      op_name = operator_name(rator)
+    case Call(_, _, rator, args) if is_operator_callable(rator):
+      op_name = base_name(operator_display_name(rator))
       if len(args) >= 2:
         return infix_precedence.get(op_name, None)
       elif len(args) == 1:
@@ -1369,10 +1359,10 @@ class Call(Term):
 
   def __str__(self):
     if is_infix_operator(self.rator) and len(self.args) >= 2:
-      op_str = ' ' + operator_name(self.rator) + ' '
+      op_str = ' ' + operator_display_name(self.rator) + ' '
       return op_str.join([op_arg_str(self, arg) for arg in self.args])
     elif is_prefix_operator(self.rator) and len(self.args) == 1:
-      return operator_name(self.rator) + " " + op_arg_str(self, self.args[0])
+      return operator_display_name(self.rator) + " " + op_arg_str(self, self.args[0])
     elif isDeduceInt(self):
       return deduceIntToInt(self)
     elif isLitNat(self): # and not get_verbose():
@@ -1409,11 +1399,14 @@ class Call(Term):
     fun = self.rator.reduce(env)
     if get_eval_all():
       is_assoc = False
+      assoc_name = None
     else:
-      is_assoc = is_associative(self.location, rator_name(self.rator),
-                                self.typeof, env)
+      assoc_name = callable_name(self.rator)
+      is_assoc = assoc_name is not None and is_associative(self.location,
+                                assoc_name, self.typeof, env)
     if is_assoc:
-      flat_args = flatten_assoc_list(rator_name(self.rator), self.args)
+      assert assoc_name is not None
+      flat_args = flatten_assoc_list(assoc_name, self.args)
     else:
       flat_args = self.args
     args = [arg.reduce(env) for arg in flat_args]
@@ -1428,7 +1421,7 @@ class Call(Term):
           ret = Call(self.location, self.typeof, fun, args)
       case (OverloadedVar() | ResolvedVar()) if is_assoc:
         ret = Call(self.location, self.typeof, fun,
-                   flatten_assoc_list(rator_name(self.rator), args))
+                   flatten_assoc_list(assoc_name, args))
 
       case Lambda(loc, _, vars, body):
         # Note (Phase 5 / Step 22): no debugger hook here.
@@ -1441,11 +1434,7 @@ class Call(Term):
         # ``anonymous``; literal lambdas with no name fall back to
         # ``<lambda>``.
         call_env = fun.env if fun.env is not None else env
-        rn = rator_name(self.rator)
-        if rn == 'no_name':
-          display_name = '<lambda>'
-        else:
-          display_name = rn
+        display_name = callable_name(self.rator) or '<lambda>'
         ret = self.do_call(loc, vars, body, args, call_env, name=display_name)
     
       case GenRecFun(loc, name, [], params, returns, _, _,
@@ -1491,7 +1480,7 @@ class Call(Term):
   def do_call(self, loc, vars, body, args, env, name="anonymous"):
     # because of associativity, args can be longer than vars.
     # ``name`` is the source-visible name of the function being
-    # called -- caller passes the result of ``rator_name(self.rator)``
+    # called -- caller passes the result of ``callable_name(self.rator)``
     # so debugger traps and trace output see ``foo`` rather than
     # ``anonymous`` when the lambda came from a named binding.
     subst = {k: v for ((k,t),v) in zip(vars, args)}
@@ -1536,7 +1525,7 @@ class Call(Term):
       if get_verbose():
         print('not reducing recursive call to associative ' + str(fun))
       return Call(self.location, self.typeof, fun,
-                 flatten_assoc_list(rator_name(fun), args))
+                 flatten_assoc_list(name, args))
     else:
       if get_verbose():
         print('not reducing recursive call to ' + str(fun))
@@ -1590,7 +1579,7 @@ class Call(Term):
     set_reduce_only(old_reduce_only)
 
     new_args += worklist
-    flat_results = flatten_assoc_list(rator_name(self.rator), new_args)
+    flat_results = flatten_assoc_list(name, new_args)
     if len(flat_results) == 1:
       return explicit_term_inst(flat_results[0])
     else:
@@ -4039,8 +4028,8 @@ def _try_match_one_plus(t):
     """
     if not isinstance(t, Call) or len(t.args) != 2:
       return None
-    name = rator_name(t.rator)
-    if name == 'no_name' or base_name(name) != '+':
+    name = callable_name(t.rator)
+    if name is None or base_name(name) != '+':
       return None
     a, b = t.args
     if (isUInt(a) and uintToInt(a) == 1) \
@@ -4401,7 +4390,8 @@ def isEmptySet(t):
   match t:
     case Call(_, _, fun,
               [Lambda(_, _, _, Bool(_, _, False))]) \
-              if base_name(rator_name(fun)) == 'char_fun':
+              if (name := callable_name(fun)) is not None \
+              and base_name(name) == 'char_fun':
       return True
     case _:
       return False
@@ -4437,10 +4427,12 @@ class ProofBinding(Binding):
 
 @dataclass
 class AutoEquationBinding(Binding):
-  equations : List[Formula]
+  equations : dict[str, list[Formula]]
+  fallback_equations : list[Formula] = field(default_factory=list)
   
   def __str__(self):
-    return ', '.join([str(e) for e in self.equations])
+    head_equations = [e for equations in self.equations.values() for e in equations]
+    return ', '.join([str(e) for e in head_equations + self.fallback_equations])
 
 @dataclass
 class ViewBinding(Binding):
@@ -4554,30 +4546,32 @@ class Env:
     new_env = Env(self.dict)
     full_name = '__auto__'
     (lhs,rhs) = split_equation(loc, equation, new_env)
-    head_lhs = term_head(lhs)
+    head_lhs = call_head_name(lhs)
     #print('declare auto: ' + head_lhs + '\n\t' + str(equation))
     if full_name in self.dict:
-        if head_lhs in new_env.dict[full_name].equations:
-            new_env.dict[full_name].equations[head_lhs].append(equation)
-        else:
-            new_env.dict[full_name].equations[head_lhs] = [equation]
+        old = cast(AutoEquationBinding, self.dict[full_name])
+        new_equations = {head: [*equations]
+                         for (head, equations) in old.equations.items()}
+        new_fallback_equations = [*old.fallback_equations]
     else:
         new_equations = {}
-        new_equations[head_lhs] = [equation]
-        if 'no_name' not in new_equations:
-            new_equations['no_name'] = []
-        new_env.dict[full_name] = AutoEquationBinding(loc, new_equations,
-                                                      module=self.get_current_module())
+        new_fallback_equations = []
+    if head_lhs is None:
+        new_fallback_equations.append(equation)
+    else:
+        new_equations.setdefault(head_lhs, []).append(equation)
+    new_env.dict[full_name] = AutoEquationBinding(loc, new_equations,
+                                                  new_fallback_equations,
+                                                  module=self.get_current_module())
     return new_env
 
-  def get_auto_rewrites(self, head: str) -> list[Formula]:
+  def get_auto_rewrites(self, head: str | None) -> list[Formula]:
     full_name = '__auto__'
     if full_name in self.dict.keys():
-        equations = cast(Any, self.dict[full_name]).equations
-        if head in equations:
-            return cast(list[Formula], equations[head])
-        else:
-            return cast(list[Formula], equations['no_name'])
+        binding = cast(AutoEquationBinding, self.dict[full_name])
+        if head is None:
+            return binding.fallback_equations
+        return binding.equations.get(head, binding.fallback_equations)
     else:
       return []
 
@@ -5320,12 +5314,14 @@ def rewrite_aux(loc: Meta, formula: Term | SwitchCase, equation: Formula,
     case Some(loc2, tyof, vars, frm2):
       return Some(loc2, tyof, vars, rewrite_aux(loc, frm2, equation, env, depth - 1))
     case Call(loc2, tyof, rator, args):
-      is_assoc = is_associative(loc2, rator_name(rator), formula.typeof, env)
+      assoc_name = callable_name(rator)
+      is_assoc = assoc_name is not None \
+          and is_associative(loc2, assoc_name, formula.typeof, env)
       if get_verbose():
           print('is_assoc? ' + str(is_assoc))
       if is_assoc:
-          # args = sum([flatten_assoc(rator_name(rator), arg) for arg in args], [])
-          args = flatten_assoc_list(rator_name(rator), args)
+          assert assoc_name is not None
+          args = flatten_assoc_list(assoc_name, args)
       new_rator = rewrite_aux(loc, rator, equation, env, depth - 1)
       new_args = [rewrite_aux(loc, arg, equation, env, depth - 1) for arg in args]
       if rewrite_debug and get_verbose():
@@ -5355,7 +5351,8 @@ def rewrite_aux(loc: Meta, formula: Term | SwitchCase, equation: Formula,
                 output_terms.append(new_args[i])
                 i = i + 1
             else:
-                flat_tmp = flatten_assoc(rator_name(rator), new_tmp)
+                assert assoc_name is not None
+                flat_tmp = flatten_assoc(assoc_name, new_tmp)
                 if get_verbose():
                     print('rewrote: ' + str(tmp) + '\n\tinto: ' \
                           + ', '.join([str(a) for a in flat_tmp]))
@@ -5556,19 +5553,20 @@ def call_arity(call: Term) -> int:
       case _:
         return 1 #raise Exception('call_arity: not a call ' + str(call))
 
-def term_head(term: Term) -> str:
+def call_head_name(term: Term) -> str | None:
     match term:
       case Call(_, _, rator, _):
-          return base_name(rator_name(rator)) # TODO: remove base_name -Jeremy
+          name = callable_name(rator)
+          return base_name(name) if name is not None else None
       case _:
-          return 'no_name'
+          return None
     
 def auto_rewrites(term: Term, env: Env) -> Term:
     # Iterate until we can't rewrite anymore (to a fixed point)
     while True:
         current = get_num_rewrites()
         # Grab all the equations that are applicable to the head constructor
-        equations = env.get_auto_rewrites(term_head(term))
+        equations = env.get_auto_rewrites(call_head_name(term))
         # Rewrite using the first equation that matches 
         for eq in equations:
             current_eq = get_num_rewrites()
@@ -5667,17 +5665,6 @@ def _alpha_equiv_value(v1: object, v2: object,
   return bool(v1 == v2)
 
 
-def _varref_name(t: Any) -> str:
-  # Var / OverloadedVar / ResolvedVar / RecFun / GenRecFun all expose
-  # a canonical name -- the first three via get_name(), the others
-  # via .name. Unified here so dispatch can stay flat.
-  if isinstance(t, (Var, ResolvedVar)):
-    return t.name
-  if isinstance(t, OverloadedVar):
-    return t.resolved_names[0]
-  return str(t.name)  # RecFun / GenRecFun
-
-
 def _alpha_equiv_varref(
     t1: Var | OverloadedVar | ResolvedVar | RecFun | GenRecFun,
     t2: object,
@@ -5687,8 +5674,8 @@ def _alpha_equiv_varref(
   # Names of comparable kinds. If t2 is not a comparable kind, fail.
   if not isinstance(t2, (Var, OverloadedVar, ResolvedVar, RecFun, GenRecFun)):
     return False
-  n1 = _varref_name(t1)
-  n2 = _varref_name(t2)
+  n1 = named_callable_name(t1)
+  n2 = named_callable_name(t2)
   in1 = n1 in env1
   in2 = n2 in env2
   if in1 != in2:

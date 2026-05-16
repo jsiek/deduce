@@ -45,10 +45,10 @@ from abstract_syntax import (
     TAnnote, TLet, Term, TermInst, Theorem, Trace, Type, TypeInst, TypeType,
     Union, Var, VarRef, ViewDecl, ViewRecFun, alpha_equiv, base_name,
     check_post_typecheck_invariants, count_marks, find_file, find_mark,
-    formula_match, formulas_equal_modulo_numeric_literals, get_num_rewrites,
+    callable_name, formula_match, formulas_equal_modulo_numeric_literals, get_num_rewrites,
     get_predicate_decl, get_reduced_defs,
     get_type_name, isUInt, is_associative, is_constructor, is_equation,
-    is_true, mkEqual, name2str, print_theorems, rator_name, remove_mark,
+    is_true, mkEqual, name2str, print_theorems, remove_mark,
     replace_mark, reset_num_rewrites, reset_reduced_defs, rewrite_aux,
     set_dont_reduce_opaque, set_eval_all, set_reduce_all, split_equation,
     type_match, type_names, uintToInt, uniquify_deduce as uniquify_deduce,
@@ -889,14 +889,19 @@ def check_proof(proof, env):
       match (a,b):
         case (Call(loc2, _, rator1, args1),
               Call(_, _, rator2, args2)) if len(args1) == len(args2):
-          f1 = base_name(rator_name(rator1))
-          f2 = base_name(rator_name(rator2))
+          name1 = callable_name(rator1)
+          name2 = callable_name(rator2)
+          if name1 is None or name2 is None:
+            user_error(loc, 'in injective, expected constructor calls, not '
+                  + str(formula))
+          f1 = base_name(name1)
+          f2 = base_name(name2)
           if f1 != f2:
             user_error(loc, 'in injective, ' + f1 + ' ≠ ' + f2)
           if str(constr) != f1:
             user_error(loc, 'in injective, ' + str(constr) + ' ≠ ' + f1)
-          if not is_constructor(rator_name(rator1), env):
-            user_error(loc, 'in injective, ' + rator_name(rator1) + ' not a constructor')
+          if not is_constructor(name1, env):
+            user_error(loc, 'in injective, ' + name1 + ' not a constructor')
           boolty = BoolType(loc)
           eqs = [mkEqual(loc, arg1, arg2) for (arg1,arg2) in zip(args1, args2)]
           if len(eqs) > 1:
@@ -1332,16 +1337,14 @@ def _check_rule_induction_or_inversion(proof, goal, env, is_inversion):
           "to the predicate, got '" + str(pred_call) + "'")
 
   rator = pred_call.rator
-  rator_name = None
-  if isinstance(rator, VarRef):
-    rator_name = rator.get_name()
-  if rator_name != pred_name_in:
+  rator_callable_name = callable_name(rator)
+  if rator_callable_name != pred_name_in:
     user_error(loc, keyword_phrase + " over '" + base_name(pred_name_in)
           + "' but the goal's premise is a call to '"
           + str(rator) + "'")
-  pred_decl = get_predicate_decl(rator_name)
+  pred_decl = get_predicate_decl(rator_callable_name)
   if pred_decl is None:
-    user_error(loc, keyword_phrase + ": '" + base_name(rator_name)
+    user_error(loc, keyword_phrase + ": '" + base_name(rator_callable_name)
           + "' is not a predicate or relation declared with the "
           "'predicate' or 'relation' keyword")
 
@@ -1372,7 +1375,7 @@ def _check_rule_induction_or_inversion(proof, goal, env, is_inversion):
       user_error(c.location,
             keyword_phrase + ": '" + base
             + "' is not a rule of predicate '"
-            + base_name(rator_name) + "'")
+            + base_name(rator_callable_name) + "'")
     if c.rule_name in user_cases_by_rule:
       user_error(c.location,
             keyword_phrase + ": duplicate case for rule '"
@@ -2446,9 +2449,12 @@ def apply_rewrites(loc, formula, eqns, env, *, display_formula=None):
     
 def type_check_call_funty(loc, new_rator, args, env, recfun, subterms, ret_ty,
                           call, typarams, param_types, return_type):
-  is_assoc = is_associative(loc, rator_name(new_rator), return_type, env)
+  assoc_name = callable_name(new_rator)
+  is_assoc = assoc_name is not None and is_associative(loc, assoc_name,
+                                                       return_type, env)
   if get_verbose():
-      print('is_assoc? ' + rator_name(new_rator) + ' : ' + str(return_type) + ' = ' + str(is_assoc))
+      print('is_assoc? ' + (assoc_name or '<anonymous>') + ' : '
+            + str(return_type) + ' = ' + str(is_assoc))
   if (is_assoc and len(args) < len(param_types)) \
       or ((not is_assoc) and len(args) != len(param_types)):
     user_error(loc, 'incorrect number of arguments in call:\n\t' + str(call) \
@@ -2640,8 +2646,8 @@ def reset_recursive_call_count():
 
 def check_recursive_call(call, recfun, subterms):
   # print('check_recursive_call(' + repr(call) + ') in ' + str(recfun))
-  # print('rator_name = ' + rator_name(call.rator))
-  if rator_name(call.rator) != recfun:
+  # print('callable_name = ' + str(callable_name(call.rator)))
+  if recfun is None or callable_name(call.rator) != recfun:
       return
   increment_recursive_call_count()
 
@@ -3623,13 +3629,11 @@ def _validate_predicate_rule_shape(rule, pred_name, keyword, arity, env):
           + base_name(pred_name) + "': the rule's conclusion must apply '"
           + base_name(pred_name) + "', but found '" + str(concl) + "'")
   rator = concl.rator
-  rator_name = None
-  if isinstance(rator, VarRef):
-    rator_name = rator.get_name()
-  if rator_name != pred_name:
+  rator_callable_name = callable_name(rator)
+  if rator_callable_name != pred_name:
     suggestion = ''
-    if rator_name is not None:
-      base_rator = base_name(rator_name)
+    if rator_callable_name is not None:
+      base_rator = base_name(rator_callable_name)
       base_pred = base_name(pred_name)
       if edit_distance(base_rator, base_pred) <= max(2, len(base_pred) // 5):
         suggestion = " (did you mean '" + base_pred + "'?)"
@@ -5505,7 +5509,7 @@ def find_rec_calls(name, term, env):
     case Call(loc2, _, rator, args):
       calls = find_rec_calls(name, rator, env) + \
           sum([find_rec_calls(name, arg, env) for arg in args], [])
-      if rator_name(rator) == name:
+      if callable_name(rator) == name:
           return [RecCall([], [], args)] + calls
       else:
           return calls
