@@ -5496,6 +5496,9 @@ def collect_env(stmt, env : Env):
               assert isinstance(op, VarRef)
               resolved_op = op.get_name()
       if assoc_formula in env.proofs():
+          if resolved_op is None:
+              user_error(loc, 'Could not find an overload of ' + str(op)
+                         + ' with type ' + str(typ))
           return env.declare_assoc(loc, resolved_op, typarams, typ)
       else:
           user_error(loc, 'Could not find a proof of\n\t' + str(assoc_formula))
