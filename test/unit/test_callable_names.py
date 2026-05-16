@@ -1,0 +1,38 @@
+from __future__ import annotations
+
+from lark.tree import Meta
+
+import abstract_syntax as ast
+
+
+def _meta() -> Meta:
+    return Meta()
+
+
+def test_callable_name_distinguishes_anonymous_callable() -> None:
+    lam = ast.Lambda(_meta(), None, [("x", ast.IntType(_meta()))],
+                     ast.Var(_meta(), None, "x"))
+
+    assert ast.callable_name(ast.Var(_meta(), None, "f")) == "f"
+    assert ast.callable_name(ast.TermInst(_meta(), None,
+                                          ast.Var(_meta(), None, "f"),
+                                          [ast.IntType(_meta())],
+                                          True)) == "f"
+    assert ast.callable_name(lam) is None
+
+
+def test_auto_rewrite_fallback_bucket_is_explicit() -> None:
+    fallback = ast.Bool(_meta(), None, False)
+    direct = ast.Bool(_meta(), None, True)
+    env = ast.Env({
+        "__auto__": ast.AutoEquationBinding(
+            location=_meta(),
+            module="M",
+            equations={"f": [direct]},
+            fallback_equations=[fallback],
+        )
+    })
+
+    assert env.get_auto_rewrites("f") == [direct]
+    assert env.get_auto_rewrites("missing") == [fallback]
+    assert env.get_auto_rewrites(None) == [fallback]

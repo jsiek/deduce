@@ -566,7 +566,8 @@ def _spec_AutoEquationBinding() -> ast.AutoEquationBinding:
         module="M",
         visibility="public",
         location=_meta(),
-        equations=[_var("e")],
+        equations={"f": [ast.Bool(_meta(), None, True)]},
+        fallback_equations=[ast.Bool(_meta(), None, False)],
     )
 
 
