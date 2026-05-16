@@ -23,7 +23,7 @@
 #    reduce some formulas and terms automatically.
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple, cast
+from typing import Any, List, Optional, Tuple, cast
 from lark.tree import Meta
 
 from abstract_syntax import (
@@ -419,7 +419,7 @@ def check_implies(loc: Meta, frm1: Formula, frm2: Formula) -> None:
     case (All(_, _, var1, _, body1), All(loc2, tyof2, var2, _, body2)):
       try:
           sub = { var2[0]: OverloadedVar(loc2, var1[1], [var1[0]]) }
-          body2a = body2.substitute(sub)
+          body2a = cast(Formula, body2.substitute(sub))
           check_implies(loc, body1, body2a)
       except UserError as e:
         context = '\n\nWhile trying to prove that\n\t' + str(frm1) \
@@ -1090,8 +1090,8 @@ def make_unique(name, env):
     else:
         return name
 
-def is_recursive(name: str, typ: Type) -> bool:
-    match typ:
+def is_recursive(name: str, typ: Type | VarRef) -> bool:
+    match cast(Any, typ):
       case OverloadedVar(_, _, rs):
         return name == rs[0]
       case ResolvedVar(_, _, r):
@@ -5444,7 +5444,7 @@ def collect_env(stmt, env : Env):
     
     case Inductive(loc, typ, name):
       frm = env.get_formula_of_proof_var(name)
-      if not isinstance(typ, VarRef):
+      if not isinstance(cast(Any, typ), VarRef):
         user_error(loc, "Only able to declare uninstantiated union types inductive")
       return env.declare_inductive(loc, match_induction(frm, typ), name)
 
@@ -5642,7 +5642,7 @@ def check_proofs(stmt, env: Env):
 
       # create a formula Fi for each
       for call in calls:
-        lhs = measure.substitute({x: arg for ((x,t),arg) in zip(params,call.args)})
+        lhs = cast(Term, measure.substitute({x: arg for ((x,t),arg) in zip(params,call.args)}))
         rhs = measure.copy()
         #less = env.base_to_unique('<') # This doesn't work!
         less_ovlds = env.base_to_overloads('<')
