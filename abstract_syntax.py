@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, fields as dc_fields
 from lark.tree import Meta
-from typing import Any, Callable, Iterator, Tuple, List, Optional, Protocol, Set, Self, overload, TextIO, Sequence, cast
+from typing import Any, Callable, Iterator, Tuple, List, Optional, Protocol, Set, Self, overload, TextIO, Sequence, cast, no_type_check
 from error import (
     InternalError,
     MatchFailed,
@@ -854,7 +854,8 @@ class OverloadedVar(VarRef):
     else:
       return name2str(chosen)
 
-  def reduce(self, env):
+  @no_type_check
+  def reduce(self, env: Env) -> Term:
     if get_reduce_all() or (self in get_reduce_only()):
       chosen = self.resolved_names[0]
       if get_dont_reduce_opaque() and chosen in env.dict.keys():
@@ -875,7 +876,8 @@ class OverloadedVar(VarRef):
     else:
       return self if get_eval_all() else auto_rewrites(self, env)
 
-  def substitute(self, sub):
+  @no_type_check
+  def substitute(self, sub: dict[str, Term | Type | RecFun | GenRecFun]) -> Term | RecFun | GenRecFun:
     chosen = self.resolved_names[0]
     if chosen in sub:
       trm = sub[chosen]
@@ -888,12 +890,13 @@ class OverloadedVar(VarRef):
         return self
       return OverloadedVar(self.location, new_typeof, list(self.resolved_names))
 
-  def uniquify(self, env, ctx):
+  @no_type_check
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> OverloadedVar:
     # Already uniquified — re-uniquify is a no-op (we'd hit this if
     # uniquify_deduce were ever called twice on the same AST).
     return self
 
-  def resolve_to(self, chosen_name, ty=None):
+  def resolve_to(self, chosen_name: str, ty: Type | None = None) -> ResolvedVar:
     """Transition this OverloadedVar into a ResolvedVar bound to a
     single chosen name. Used by type-check overload resolution and
     by `check_constr_pattern` once the constructor for a pattern
@@ -921,7 +924,7 @@ class ResolvedVar(VarRef):
   def copy(self):
     return ResolvedVar(self.location, self.typeof, self.name)
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
     if isinstance(other, ResolvedVar):
       return self.name == other.name
     elif isinstance(other, OverloadedVar):
@@ -954,7 +957,8 @@ class ResolvedVar(VarRef):
     else:
       return name2str(self.name)
 
-  def reduce(self, env):
+  @no_type_check
+  def reduce(self, env: Env) -> Term:
     if get_reduce_all() or (self in get_reduce_only()):
       if get_dont_reduce_opaque() and self.name in env.dict.keys():
         binding = env.dict[self.name]
@@ -974,7 +978,8 @@ class ResolvedVar(VarRef):
     else:
       return self if get_eval_all() else auto_rewrites(self, env)
 
-  def substitute(self, sub):
+  @no_type_check
+  def substitute(self, sub: dict[str, Term | Type | RecFun | GenRecFun]) -> Term | RecFun | GenRecFun:
     if self.name in sub:
       trm = sub[self.name]
       if not isinstance(trm, RecFun) and not isinstance(trm, GenRecFun):
@@ -986,7 +991,8 @@ class ResolvedVar(VarRef):
         return self
       return ResolvedVar(self.location, new_typeof, self.name)
 
-  def uniquify(self, env, ctx):
+  @no_type_check
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> ResolvedVar:
     # Already uniquified.
     return self
 
@@ -995,7 +1001,7 @@ class ResolvedVar(VarRef):
 class Int(Term):
   value: int
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
       if isinstance(other, TermInst):
         return self == other.subject
       elif not isinstance(other, Int):
@@ -1024,7 +1030,7 @@ class Lambda(Term):
                               for (x,t) in params]) \
            + " { " + str(self.body) + " }"
 
-  def pretty_print(self, indent, afterNewline=False):
+  def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
     params = [(base_name(x), t)for (x,t) in self.vars]
     return (indent*' ' if afterNewline else '') \
         + "fun " + ', '.join([x + ':' + str(t) if t else x\
@@ -1037,14 +1043,16 @@ class Lambda(Term):
         return False
       return _alpha_equiv_lambda(self, other, {}, {})
 
-  def reduce(self, env):
+  @no_type_check
+  def reduce(self, env: Env) -> Lambda:
     if get_eval_all():
       return Lambda(self.location, self.typeof, self.vars, self.body,
                     env=self.env if self.env is not None else env)
     else:
       return Lambda(self.location, self.typeof, self.vars, self.body.reduce(env))
 
-  def uniquify(self, env, ctx):
+  @no_type_check
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> Lambda:
     body_env = {x:y for (x,y) in env.items()}
     new_var_types = [t.uniquify(env, ctx) if t else None for (x,t) in self.vars]
     new_vars = [(generate_name(x, ctx), nt) \
@@ -1054,7 +1062,7 @@ class Lambda(Term):
     new_body = self.body.uniquify(body_env, ctx)
     return Lambda(self.location, self.typeof, new_vars, new_body)
 
-def is_match(pattern, arg, subst):
+def is_match(pattern: Pattern, arg: Term, subst: dict[str, Term]) -> bool:
     ret = False
     match pattern:
       case PatternBool(loc1, value):
@@ -1212,26 +1220,32 @@ def precedence(trm: Term) -> int | None:
     case _:
       return None
 
-def left_child(parent, child):
+def left_child(parent: Term, child: Term) -> bool:
   match parent:
     case Call(_, _, _, [left, _]):
       return child is left
     case _:
       return False
     
-def op_arg_str(trm, arg):
-  if precedence(trm) is not None and precedence(arg) is not None:
-    if precedence(arg) < precedence(trm):
+def op_arg_str(trm: Term, arg: Term) -> str:
+  trm_precedence = precedence(trm)
+  arg_precedence = precedence(arg)
+  if trm_precedence is not None and arg_precedence is not None:
+    if arg_precedence < trm_precedence:
       return "(" + str(arg) + ")"
-    elif precedence(arg) == precedence(trm): # and left_child(trm, arg):
+    elif arg_precedence == trm_precedence: # and left_child(trm, arg):
       return "(" + str(arg) + ")"
   return str(arg)
 
 
 
-def do_function_call(loc, name, type_params, type_args,
-                     params, args, body, subst, env, return_type,
-                     display_args=None):
+@no_type_check
+def do_function_call(loc: Meta, name: str, type_params: list[str],
+                     type_args: list[Type], params: list[str],
+                     args: list[Term], body: Term,
+                     subst: dict[str, Term | Type], env: Env,
+                     return_type: Type | None,
+                     display_args: list[Term] | None = None) -> Term:
   # Phase 5 / Step 21 hook: trap on every named user-function reduction.
   # This single site catches RecFun, GenRecFun, and the recursive
   # case-dispatch path -- all of which funnel through here.  Lambdas
@@ -1382,7 +1396,7 @@ class Call(Term):
         + ", ".join([str(arg) for arg in self.args])\
         + ")"
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
       if isinstance(other, TermInst):
         return self == other.subject
       if not isinstance(other, Call):
@@ -1395,7 +1409,8 @@ class Call(Term):
       #print(str(self) + ' =? ' + str(other) + ' = ' + str(result))
       return result
 
-  def reduce(self, env):
+  @no_type_check
+  def reduce(self, env: Env) -> Term:
     fun = self.rator.reduce(env)
     if get_eval_all():
       is_assoc = False
@@ -1477,7 +1492,10 @@ class Call(Term):
     
     return ret
 
-  def do_call(self, loc, vars, body, args, env, name="anonymous"):
+  @no_type_check
+  def do_call(self, loc: Meta, vars: list[tuple[str, Type | None]],
+              body: Term, args: list[Term], env: Env,
+              name: str = "anonymous") -> Term:
     # because of associativity, args can be longer than vars.
     # ``name`` is the source-visible name of the function being
     # called -- caller passes the result of ``callable_name(self.rator)``
@@ -1487,8 +1505,12 @@ class Call(Term):
     return do_function_call(loc, name, [], [], [], [], body, subst, env, None,
                             display_args=args)
 
-  def do_recursive_call(self, loc, name, fun, type_params, type_args, params, args,
-                        returns, cases, is_assoc, env):
+  @no_type_check
+  def do_recursive_call(self, loc: Meta, name: str, fun: Term | RecFun,
+                        type_params: list[str], type_args: list[Type],
+                        params: list[Type], args: list[Term],
+                        returns: Type, cases: list[FunCase],
+                        is_assoc: bool, env: Env) -> Term:
     if get_verbose():
       print('call to recursive function: ' + str(fun))
       print('\targs: ' + ', '.join([str(a) for a in args]))
@@ -1531,8 +1553,12 @@ class Call(Term):
         print('not reducing recursive call to ' + str(fun))
       return Call(self.location, self.typeof, fun, args)
   
-  def reduce_associative(self, loc, name, fun, type_params, type_args,
-                         params, args, cases, env, returns):
+  @no_type_check
+  def reduce_associative(self, loc: Meta, name: str, fun: Term | RecFun,
+                         type_params: list[str], type_args: list[Type],
+                         params: list[Type], args: list[Term],
+                         cases: list[FunCase], env: Env,
+                         returns: Type) -> Term:
     if get_verbose():
       print('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
       print('begin associative operator ' + str(fun))
@@ -1594,12 +1620,13 @@ class SwitchCase(AST):
   def __str__(self):
       return 'case ' + str(self.pattern) + ' { ' + str(self.body) + ' }'
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
       return indent*' ' + 'case ' + str(self.pattern) + ' {\n' \
           + (indent+2)*' ' + str(self.body) + '\n'\
           + indent*' ' + '}'
 
-  def uniquify(self, env, ctx):
+  @no_type_check
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> SwitchCase:
     new_pat = self.pattern.uniquify(env, ctx)
     body_env = {x:y for (x,y) in env.items()}
     match new_pat:
@@ -1613,7 +1640,7 @@ class SwitchCase(AST):
     new_body = self.body.uniquify(body_env, ctx)
     return SwitchCase(self.location, new_pat, new_body)
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
     if not isinstance(other, SwitchCase):
       return False
     match self.pattern, other.pattern:
@@ -1642,12 +1669,13 @@ class Switch(Term):
           + ' '.join([str(c) for c in self.cases]) \
           + ' }'
 
-  def pretty_print(self, indent, afterNewline=False):
+  def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
       return ('' if afterNewline else '\n') + indent*' '+ 'switch ' + str(self.subject) + ' {\n' \
           + '\n'.join([c.pretty_print(indent+2) for c in self.cases]) + '\n'\
           + indent*' ' + '}'
 
-  def reduce(self, env):
+  @no_type_check
+  def reduce(self, env: Env) -> Term:
       new_subject = self.subject.reduce(env)
       for c in self.cases:
           subst = {}
@@ -1671,7 +1699,7 @@ class Switch(Term):
       ret = Switch(self.location, self.typeof, new_subject, self.cases)
       return ret
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
     if not isinstance(other, Switch):
       return False
     eq_subject = self.subject == other.subject
