@@ -1848,7 +1848,7 @@ class ArrayGet(Term):
           match list_term:
             case Call(_, _, TermInst(_, _, ctor, _, _), [_hd, tl]) \
                  if _is_named(ctor, 'node'):
-              new_pos = _array_index_predecessor(position_red, env)  # type: ignore[no-untyped-call]
+              new_pos = _array_index_predecessor(position_red, env)
               if new_pos is not None:
                 new_subject = MakeArray(loc2, marr_ty, tl)
                 new_get = ArrayGet(self.location, self.typeof,
@@ -3896,14 +3896,14 @@ class Inductive(Statement):
 class Module(Statement):
   name: str
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
       return indent*' ' + 'module ' + self.name + '\n'
   
-  def uniquify(self, env, ctx):
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> Module:
       set_current_module(self.name)
       return Module(self.location, self.name)
 
-  def collect_exports(self, export_env, importing_module):
+  def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
       set_current_module(self.name)
 
 @dataclass
@@ -3911,13 +3911,13 @@ class Export(Statement):
   name: str
   resolved_names: list[str] = field(default_factory=list)
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
       return indent*' ' + 'export ' + self.name + '\n'
   
-  def uniquify(self, env, ctx):
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> Export:
       return Export(self.location, self.name, env[self.name])
 
-  def collect_exports(self, export_env, importing_module):
+  def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
       for x in self.resolved_names:
           extend(export_env, base_name(x), x, self.location)
       
@@ -3932,7 +3932,7 @@ class Associative(Statement):
       + ('<' + ','.join(self.type_params) + '>' if len(self.type_params) > 0 else '') \
       + ' ' + str(self.typeof)
 
-  def uniquify(self, env, ctx):
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> Associative:
     new_op = self.op.uniquify(env, ctx)
     body_env = {x:y for (x,y) in env.items()}
     new_type_params = [generate_name(x, ctx) for x in self.type_params]
@@ -3941,8 +3941,8 @@ class Associative(Statement):
     new_typeof = self.typeof.uniquify(body_env, ctx)
     return Associative(self.location, new_type_params, new_op, new_typeof)
 
-  def collect_exports(self, export_env, importing_module):
-    opname = self.op.get_name()
+  def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
+    opname = cast(VarRef, self.op).get_name()
     full_name = '__associative_' + opname
     base = base_name(opname)
     full_base_name = '__associative_' + base
@@ -3955,19 +3955,20 @@ class Trace(Statement):
   def __str__(self):
     return 'trace ' + str(self.rec_fun)
 
-  def reduce(self, env):
+  def reduce(self, env: Env) -> None:  # type: ignore[override]
     # Side-effecting: drives the runtime trace flag via `Var.reduce`'s
     # env-lookup path. Returns None on purpose; the default
     # `_map_children`-based `reduce` would build a fresh Trace node,
     # which is not what callers want here.
-    self.rec_fun.reduce(env)
+    reduce_rec_fun = cast(Callable[[Env], object], self.rec_fun.reduce)
+    reduce_rec_fun(env)
 
 # ---------------------
 # Auxiliary Functions
   
-def mkEqual(loc, arg1, arg2):
+def mkEqual(loc: Meta, arg1: Term, arg2: Term) -> Formula:
   ret = Call(loc, None, ResolvedVar(loc, None, '='), [arg1, arg2])
-  return ret
+  return cast(Formula, ret)
 
 def split_equation(loc: Meta, equation: Term, env: Env) -> tuple[Term, Term]:
   if isinstance(equation, TLet):
@@ -3993,7 +3994,7 @@ def equation_vars(formula: Formula) -> list[Term]:
     case _:
       raise InternalError('equation_vars unhandled ' + str(formula))
       
-def is_equation(formula):
+def is_equation(formula: Formula) -> bool:
   match formula:
     case Call(_, _, rator, [_, _]) if isinstance(rator, VarRef) and rator.get_name() == '=':
       return True
@@ -4018,14 +4019,14 @@ def isUInt(t: Term) -> bool:
     case _:
       return False
 
-def isBZero(t):
+def isBZero(t: Term) -> bool:
   match t:
     case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'bzero':
       return True
     case _:
       return False
   
-def isDubInc(t):
+def isDubInc(t: Term) -> bool:
   match t:
     case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [_]) \
       if base_name(n) == 'dub_inc':
@@ -4033,7 +4034,7 @@ def isDubInc(t):
     case _:
       return False
   
-def isIncDub(t):
+def isIncDub(t: Term) -> bool:
   match t:
     case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [_]) \
       if base_name(n) == 'inc_dub':
@@ -4041,23 +4042,25 @@ def isIncDub(t):
     case _:
       return False
 
-def get_arg(t):
+def get_arg(t: Term) -> Term:
   match t:
     case Call(_, _, _, [arg]):
       return arg
     case _:
       raise InternalError('get_arg')
   
-def mkBZero(loc, zname='bzero', ty=None):
+def mkBZero(loc: Meta, zname: str = 'bzero', ty: Type | None = None) -> ResolvedVar:
   return ResolvedVar(loc, ty, zname)
 
-def mkIncDub(loc, arg, cname='inc_dub', ty=None):
+def mkIncDub(loc: Meta, arg: Term, cname: str = 'inc_dub',
+             ty: Type | None = None) -> Call:
   return Call(loc, ty, ResolvedVar(loc, None, cname), [arg])
 
-def mkDubInc(loc, arg, cname='dub_inc', ty=None):
+def mkDubInc(loc: Meta, arg: Term, cname: str = 'dub_inc',
+             ty: Type | None = None) -> Call:
   return Call(loc, ty, ResolvedVar(loc, None, cname), [arg])
 
-def uint_inc(loc, x):
+def uint_inc(loc: Meta, x: Term) -> Term:
     if isBZero(x):
         return mkIncDub(loc, x)
     elif isDubInc(x):
@@ -4067,7 +4070,7 @@ def uint_inc(loc, x):
     else:
         internal_error(loc, 'not a UInt constructor: ' + str(x))
 
-def isSuc(t):
+def isSuc(t: Term) -> bool:
   match t:
     case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [_]) \
          if base_name(n) == 'suc':
@@ -4075,7 +4078,7 @@ def isSuc(t):
     case _:
       return False
 
-def _array_index_predecessor(pos, env):
+def _array_index_predecessor(pos: Term, env: Env) -> Term | None:
     """Compute the predecessor of `pos` as an AST, for the index-shift
     rule in `ArrayGet.reduce` (#469).  Returns None when no decrement
     can be produced -- in which case the caller leaves the array access
@@ -4103,7 +4106,7 @@ def _array_index_predecessor(pos, env):
       return _uint_double(loc, get_arg(pos), env)
     return None
 
-def _try_match_one_plus(t):
+def _try_match_one_plus(t: Term) -> Term | None:
     """If `t` is `1 + x` or `x + 1` (a Call to `+` with a numeric `1`
     on either side), return the non-`1` argument.  Otherwise return None.
     """
@@ -4121,7 +4124,7 @@ def _try_match_one_plus(t):
       return a
     return None
 
-def _uint_double(loc, x, env):
+def _uint_double(loc: Meta, x: Term, env: Env) -> Term | None:
     """Return `2 * x` as a UInt AST.  Tries to reduce structurally
     (handling the three UInt constructor shapes); for a symbolic `x`
     falls back to a `Call` to the private library helper `dub` if it
@@ -4155,8 +4158,10 @@ def _uint_double(loc, x, env):
     return Call(loc, None, ResolvedVar(loc, None, dub_name), [x])
 
 # The parsers use this function to create unsigned integer literals.
-def intToUInt(loc, n, bzero='bzero', dubinc='dub_inc',
-              incdub='inc_dub', uint_ty=None):
+def intToUInt(loc: Meta, n: int, bzero: str = 'bzero',
+              dubinc: str = 'dub_inc',
+              incdub: str = 'inc_dub',
+              uint_ty: Type | None = None) -> Term:
     if n == 0:
         return mkBZero(loc, bzero, uint_ty)
     else:
@@ -4209,7 +4214,7 @@ def isNat(t: Term) -> bool:
     case _:
       return False
 
-def isLitNat(t):
+def isLitNat(t: Term) -> bool:
   match t:
     case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
          if base_name(n) == 'lit':
@@ -4217,7 +4222,7 @@ def isLitNat(t):
     case _:
       return False
 
-def isLitUInt(t):
+def isLitUInt(t: Term) -> bool:
   match t:
     case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
          if base_name(n) == 'fromNat':
@@ -4225,7 +4230,7 @@ def isLitUInt(t):
     case _:
       return False
   
-def isInt(t):
+def isInt(t: Term) -> bool:
   match t:
     case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
       if base_name(n) == 'pos':
@@ -4549,7 +4554,7 @@ class Env:
       self.dict = {}
 
   # This is a hack. Not reliable. Added for GenRecFun.
-  def base_to_unique(self, name):
+  def base_to_unique(self, name: str) -> str | None:
     for k in self.dict.keys():
       if base_name(k) == name:
         return k
