@@ -106,7 +106,7 @@ class AST:
   def copy(self) -> Self:
     return self._map_children(lambda x: x.copy())
 
-  def uniquify(self, env: object, ctx: object) -> Self:
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> Self:
     return self._map_children(lambda x: x.uniquify(env, ctx))
 
   def substitute(self, sub: object) -> Self:
@@ -2167,17 +2167,17 @@ class PVar(Proof):
       return False
     return self.name == other.name
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
       return str(self)
   
   def __str__(self):
       return base_name(self.name)
 
-  def uniquify(self, env, ctx):
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> PVar:
     if self.name not in env.keys():
       hits = find_private_lemma_definers(self.name)
       if hits:
-        def fmt_hit(h):
+        def fmt_hit(h: tuple[str, str | None, int | None]) -> str:
           module, filename, line = h
           if filename is not None and line is not None:
             return "module " + module + " (" + filename + ":" + str(line) + ")"
@@ -2201,7 +2201,7 @@ class PLet(Proof):
   because: Proof
   body: Proof
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
       return indent*' ' + 'have ' + base_name(self.label) + ': ' + str(self.proved) + ' by {\n' \
           + self.because.pretty_print(indent+2) + '\n' \
           + indent*' ' + '}\n' \
@@ -2211,7 +2211,7 @@ class PLet(Proof):
       return 'have ' + base_name(self.label) + ': ' + str(self.proved) \
         + ' by ' + str(self.because) + (' ' + str(self.body) if self.body else '')
 
-  def uniquify(self, env, ctx):
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> PLet:
     new_proved = self.proved.uniquify(env, ctx)
     new_because = self.because.uniquify(env, ctx)
     body_env = {x:y for (x,y) in env.items()}
@@ -2226,7 +2226,7 @@ class PTLetNew(Proof):
   rhs : Term
   body: Proof
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
       return indent*' ' + 'define ' + base_name(self.var) + ' = ' + str(self.rhs) + '\n' \
           + self.body.pretty_print(indent)
   
@@ -2234,7 +2234,7 @@ class PTLetNew(Proof):
       return 'define ' + base_name(self.var) + ' = ' + str(self.rhs) + '\n' \
          + str(self.body)
 
-  def uniquify(self, env, ctx):
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> PTLetNew:
     new_rhs = self.rhs.uniquify(env, ctx)
     body_env = {x:y for (x,y) in env.items()}
     new_var = generate_name(self.var, ctx)
@@ -2247,7 +2247,7 @@ class PTLetNew(Proof):
 class PRecall(Proof):
   facts: List[Formula]
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
       return str(self)
 
   def __str__(self):
@@ -2259,7 +2259,7 @@ class PAnnot(Proof):
   claim: Formula
   body: Proof
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
       return indent*' ' + 'conclude ' + str(self.claim) + ' by {\n' \
           + self.body.pretty_print(indent+2) + '\n' \
           + indent*' ' + '}\n'
@@ -2273,7 +2273,7 @@ class Suffices(Proof):
   reason: Proof
   body: Proof
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
       return indent*' ' + 'suffices ' + str(self.claim) + '  by {\n' \
           + self.reason.pretty_print(indent+2) + '\n' \
           + maybe_pretty_print(self.body, indent)
@@ -2284,9 +2284,9 @@ class Suffices(Proof):
 @dataclass
 class Cases(Proof):
   subject: Proof
-  cases: List[Tuple[str,Formula,Proof]]
+  cases: List[Tuple[str,Optional[Formula],Proof]]
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
       cases_str = ''
       for (label, frm, body) in self.cases:
           cases_str += indent*' ' + 'case ' + base_name(label) + ' : ' + str(frm) + '{\n' \
@@ -2294,7 +2294,7 @@ class Cases(Proof):
               + indent*' ' + '}'
       return '\n'.join(cases_str) + '\n'
       
-  def uniquify(self, env, ctx):
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> Cases:
     new_subject = self.subject.uniquify(env, ctx)
     new_cases = []
     for (label, formula, proof) in self.cases:
@@ -2311,7 +2311,7 @@ class ModusPonens(Proof):
   implication: Proof
   arg: Proof
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
       return str(self)
 
   def __str__(self):
@@ -2320,10 +2320,10 @@ class ModusPonens(Proof):
 @dataclass
 class ImpIntro(Proof):
   label: str
-  premise: Formula
+  premise: Optional[Formula]
   body: Proof
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
     return indent*' ' + 'assume ' + str(self.label) + \
       (': ' + str(self.premise) if self.premise else '') + '\n'\
       + maybe_pretty_print(self.body, indent)
@@ -2333,7 +2333,7 @@ class ImpIntro(Proof):
       (': ' + str(self.premise) if self.premise else '') + \
       ('{' + str(self.body) + '}' if self.body else '')
 
-  def uniquify(self, env, ctx):
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> ImpIntro:
     new_premise = self.premise.uniquify(env, ctx) if self.premise else None
     body_env = copy_dict(env)
     new_label = generate_name(self.label, ctx)
@@ -2350,7 +2350,7 @@ class AllIntro(Proof):
   pos: Tuple[int, int]
   body: Proof
 
-  def arbitrary_str(self):
+  def arbitrary_str(self) -> str:
     s, e = self.pos
     x, t = self.var
     res = ''
@@ -2363,14 +2363,14 @@ class AllIntro(Proof):
       res += ","
     return res
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
       return indent*' ' + self.arbitrary_str() + '\n' \
           + maybe_pretty_print(self.body, indent)
   
   def __str__(self):
     return self.arbitrary_str() + maybe_str(self.body)
 
-  def uniquify(self, env, ctx):
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> AllIntro:
     body_env = copy_dict(env)
     x, ty = self.var
     new_t = ty.uniquify(body_env, ctx)
@@ -2379,9 +2379,9 @@ class AllIntro(Proof):
     new_body = self.body.uniquify(body_env, ctx)
     return AllIntro(self.location, (new_x, new_t), self.pos, new_body)
 
-  def set_body(self, new_body):
+  def set_body(self, new_body: Proof) -> None:
     if self.body:
-      self.body.set_body(new_body)
+      cast(AllIntro, self.body).set_body(new_body)
     else:
       self.body = new_body
     
@@ -2394,7 +2394,7 @@ class AllElimTypes(Proof):
   #  s : The variable's index in the list, starting from the first var
   pos: Tuple[int, int]
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
       return str(self)
 
   def __str__(self):
@@ -2419,7 +2419,7 @@ class AllElim(Proof):
   #  s : The variable's index in the list, starting from the first var
   pos: Tuple[int, int]
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
       return str(self)
 
   def __str__(self):
@@ -2440,7 +2440,7 @@ class SomeIntro(Proof):
   witnesses: List[Term]
   body: Proof
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
     return indent*' ' + 'choose ' + ",".join([str(t) for t in self.witnesses]) + '\n' \
         + maybe_pretty_print(self.body, indent)
 
@@ -2452,11 +2452,11 @@ class SomeIntro(Proof):
 class SomeElim(Proof):
   witnesses: List[str]
   label: str
-  prop: Formula
+  prop: Optional[Formula]
   some: Proof
   body: Proof
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
     return indent*' ' + 'obtain ' + ",".join(self.witnesses) \
       + ' where ' + self.label \
       + (' : ' + str(self.prop) if self.prop else '') \
@@ -2470,7 +2470,7 @@ class SomeElim(Proof):
       + ' from ' + str(self.some) \
       + '; ' + maybe_str(self.body)
   
-  def uniquify(self, env, ctx):
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> SomeElim:
     new_some = self.some.uniquify(env, ctx)
     body_env = copy_dict(env)
     new_witnesses = []
@@ -2489,13 +2489,13 @@ class SomeElim(Proof):
 class PTuple(Proof):
   args: List[Proof]
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
       return str(self)
 
   def __str__(self):
     return ', '.join([str(arg) for arg in self.args])
 
-def extract_tuple(pf):
+def extract_tuple(pf: Proof) -> List[Proof]:
     match pf:
       case PTuple(_, pfs):
         return pfs
@@ -2507,7 +2507,7 @@ class PAndElim(Proof):
   which: int
   subject: Proof
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
       return str(self)
 
   def __str__(self):
@@ -2516,7 +2516,7 @@ class PAndElim(Proof):
 @dataclass
 class PTrue(Proof):
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
       return str(self)
 
   def __str__(self):
@@ -2525,7 +2525,7 @@ class PTrue(Proof):
 @dataclass
 class PReflexive(Proof):
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
       return str(self)
 
   def __str__(self):
@@ -3608,7 +3608,7 @@ def add_uniquified_module(module_name: str, ast: "List[Statement]") -> None:
   global uniquified_modules
   uniquified_modules[module_name] = ast
 
-def find_private_lemma_definers(name):
+def find_private_lemma_definers(name: str) -> list[tuple[str, str | None, int | None]]:
   """Return a list of (module, filename, line) tuples for every private
   `lemma` whose base name matches `name`. Used by `PVar.uniquify` to give
   a more specific error than "undefined proof variable" when a lookup
@@ -3621,8 +3621,9 @@ def find_private_lemma_definers(name):
   `module` declaration. `filename` and `line` come from the `lemma`'s
   source location and may be `None` if the location is empty."""
   global uniquified_modules
-  hits = []
-  for import_key, ast in uniquified_modules.items():
+  hits: list[tuple[str, str | None, int | None]] = []
+  modules = cast(dict[str, List[Statement] | None], uniquified_modules)
+  for import_key, ast in modules.items():
     if ast is None:
       continue
     declared_module = None
@@ -3635,8 +3636,10 @@ def find_private_lemma_definers(name):
         matching_loc = stmt.location
     if matching_loc is not None:
       reported = declared_module if declared_module is not None else import_key
-      filename = matching_loc.filename if not matching_loc.empty else None
-      line = matching_loc.line if not matching_loc.empty else None
+      filename = cast(str | None, getattr(matching_loc, "filename", None)) \
+        if not matching_loc.empty else None
+      line = cast(int | None, getattr(matching_loc, "line", None)) \
+        if not matching_loc.empty else None
       hits.append((reported, filename, line))
   return hits
 
