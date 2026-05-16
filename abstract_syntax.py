@@ -48,7 +48,7 @@ def name2str(s: str) -> str:
 # current_module is used during uniquify and collect_exports
 current_module = 'none'
 
-def get_current_module():
+def get_current_module() -> str:
     global current_module
     return current_module
 
@@ -441,7 +441,7 @@ class FunctionType(Type):
       + [self.return_type.free_vars()]
     return set().union(*fvs) - set(self.type_params)
 
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> FunctionType:  # type: ignore[override]
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> FunctionType:
     body_env = {x:y for (x,y) in env.items()}
     new_type_params = [generate_name(t, ctx) for t in self.type_params]
     for (old,new) in zip(self.type_params, new_type_params):
@@ -612,7 +612,7 @@ class Generic(Term):
       new_body = self.body.substitute(ren)
       return new_body == other.body
 
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> Generic:  # type: ignore[override]
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> Generic:
     body_env = {x:y for (x,y) in env.items()}
     new_type_params = [generate_name(x, ctx) for x in self.type_params]
     for (old,new) in zip(self.type_params, new_type_params):
@@ -1157,7 +1157,7 @@ def add_reduced_def(df: str) -> None:
   global reduced_defs
   reduced_defs.add(df)
 
-def complete_name(name):
+def complete_name(name: str) -> str:
     if base_name(name) in infix_precedence.keys() \
        or base_name(name) in prefix_precedence.keys():
         return 'operator ' + base_name(name)
@@ -1834,7 +1834,7 @@ class TLet(Term):
     else:
       return new_body
 
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> TLet:  # type: ignore[override]
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> TLet:
     new_rhs = self.rhs.uniquify(env, ctx)
     body_env = {x:y for (x,y) in env.items()}
     new_var = generate_name(self.var, ctx)
@@ -2107,7 +2107,7 @@ class All(Formula):
       return False
     return _alpha_equiv_all(self, other, {}, {})
 
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> All:  # type: ignore[override]
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> All:
     body_env = {x:y for (x,y) in env.items()}
     (x, ty) = self.var
     new_t = ty.uniquify(body_env, ctx)
@@ -2141,7 +2141,7 @@ class Some(Formula):
                     [(x, ty.reduce(env)) for (x,ty) in self.vars],
                     new_body)
 
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> Some:  # type: ignore[override]
+  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> Some:
     body_env = {x:y for (x,y) in env.items()}
     new_vars = []
     for (x, ty) in self.vars:
@@ -2892,7 +2892,7 @@ class RewriteFact(Proof):
 ################ Statements ######################################
 
 ## Updates the environment with a name, creating overloads
-def extend(env, name, new_name, loc):
+def extend(env: dict[str, Any], name: str, new_name: str, loc: Meta) -> None:
   if name in env['no overload']:
     ty = env['no overload'][name]
     user_error(loc, f"Cannot overload {ty} names. {name} is already defined as a {ty}")
@@ -3307,7 +3307,11 @@ class RecFun(Declaration):
   def substitute(self, sub):
     return self
 
-def pretty_print_function_header(name, type_params, params):
+def pretty_print_function_header(
+    name: str,
+    type_params: Sequence[str],
+    params: Sequence[tuple[str, Type | None]],
+) -> str:
     return 'fun ' + complete_name(name) \
         + ('<' + ', '.join([base_name(t) for t in type_params]) + '>' \
            if len(type_params) > 0 else '') \
@@ -3399,7 +3403,7 @@ class GenRecFun(Declaration):
     return indent*' ' + ret
       
 
-  def __eq__(self, other):
+  def __eq__(self, other: object) -> bool:
     if isinstance(other, ResolvedVar):
       return self.name == other.name
     elif isinstance(other, OverloadedVar):
@@ -3413,10 +3417,10 @@ class GenRecFun(Declaration):
     else:
       return False
   
-  def reduce(self, env):
+  def reduce(self, env: object) -> GenRecFun:
     return self
 
-  def substitute(self, sub):
+  def substitute(self, sub: object) -> GenRecFun:
     return self
 
 @dataclass
@@ -3428,7 +3432,9 @@ class ViewRecFun(Declaration):
   view_subject: Term
   cases: List[SwitchCase]
 
-  def uniquify(self, env, ctx):
+  def uniquify(self, env: object, ctx: object) -> ViewRecFun:
+    env = cast(dict[str, Any], env)
+    ctx = cast(UniquifyContext, ctx)
     new_name = generate_name(self.name, ctx)
     extend(env, self.name, new_name, self.location)
 
@@ -3440,18 +3446,20 @@ class ViewRecFun(Declaration):
     new_returns = self.returns.uniquify(body_env, ctx)
     new_var_types = [t.uniquify(body_env, ctx) if t else None
                      for (_, t) in self.vars]
-    new_vars = [(generate_name(x, ctx), nt)
-                for ((x, _), nt) in zip(self.vars, new_var_types)]
+    new_vars = cast(List[Tuple[str, Type]],
+                    [(generate_name(x, ctx), nt)
+                     for ((x, _), nt) in zip(self.vars, new_var_types)])
     for ((old, _), (new, _)) in zip(self.vars, new_vars):
       overwrite(body_env, old, new, self.location)
 
-    def uniquify_case(c):
+    def uniquify_case(c: SwitchCase) -> SwitchCase:
       case_env = copy_dict(body_env)
-      params = c.pattern.bindings()
+      pattern = cast(Any, c.pattern)
+      params = pattern.bindings()
       new_params = [generate_name(x, ctx) for x in params]
       for (old, new) in zip(params, new_params):
         case_env[old] = [new]
-      new_pat = c.pattern.with_bindings(new_params).uniquify(case_env, ctx)
+      new_pat = pattern.with_bindings(new_params).uniquify(case_env, ctx)
       new_body = c.body.uniquify(case_env, ctx)
       return SwitchCase(c.location, new_pat, new_body)
 
@@ -3468,7 +3476,7 @@ class ViewRecFun(Declaration):
                       new_view_subject, new_cases,
                       visibility=self.visibility)
 
-  def collect_exports(self, export_env, importing_module):
+  def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
     if self.visibility == 'private' and (importing_module != get_current_module()):
       return
     extend(export_env, base_name(self.name), self.name, self.location)
@@ -3476,7 +3484,7 @@ class ViewRecFun(Declaration):
   def __str__(self):
     return self.name if get_unique_names() else base_name(self.name)
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
     header = complete_name(self.name) \
         + ('<' + ','.join([name2str(t) for t in self.type_params]) + '>' \
            if len(self.type_params) > 0 else '') \
@@ -3484,7 +3492,8 @@ class ViewRecFun(Declaration):
       + ') -> ' + str(self.returns)
     ret = 'viewrec ' + header + '\nview ' + base_name(self.view_name) \
       + '(' + str(self.view_subject) + ')\n' \
-      + '\n'.join([c.pretty_print(indent+2) for c in self.cases]) + '\n'
+      + '\n'.join([cast(str, cast(Any, c).pretty_print(indent+2))
+                   for c in self.cases]) + '\n'
     return indent*' ' + ret
 
 @dataclass
@@ -3496,7 +3505,9 @@ class ViewDecl(Declaration):
   out: str
   roundtrip: str
 
-  def uniquify(self, env, ctx):
+  def uniquify(self, env: object, ctx: object) -> ViewDecl:
+    env = cast(dict[str, Any], env)
+    ctx = cast(UniquifyContext, ctx)
     if self.name in env.keys():
       user_error(self.location, "view names may not be overloaded")
     new_name = generate_name(self.name, ctx)
@@ -3508,13 +3519,13 @@ class ViewDecl(Declaration):
     for (old, new) in zip(self.type_params, new_type_params):
       extend(body_env, old, new, self.location)
 
-    def resolve_name(name, kind):
+    def resolve_name(name: str, kind: str) -> str:
       if name not in env.keys():
         user_error(self.location, "undefined " + kind + " " + name)
       if len(env[name]) != 1:
         user_error(self.location, kind + " names may not be overloaded: "
                    + name)
-      return env[name][0]
+      return cast(str, env[name][0])
 
     new_source = self.source.uniquify(body_env, ctx)
     new_target = self.target.uniquify(body_env, ctx)
@@ -3525,7 +3536,7 @@ class ViewDecl(Declaration):
                     new_source, new_target, new_into, new_out,
                     new_roundtrip, visibility=self.visibility)
 
-  def collect_exports(self, export_env, importing_module):
+  def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
     if self.visibility == 'private' and (importing_module != get_current_module()):
       return
     extend(export_env, base_name(self.name), self.name, self.location)
@@ -3533,7 +3544,7 @@ class ViewDecl(Declaration):
   def __str__(self):
     return self.name if get_unique_names() else base_name(self.name)
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
     header = complete_name(self.name) \
       + ('<' + ','.join([name2str(t) for t in self.type_params]) + '>' \
          if len(self.type_params) > 0 else '')
@@ -3551,7 +3562,7 @@ class Define(Declaration):
   typ: Optional[Type]
   body: Term
 
-  def str_header(self):
+  def str_header(self) -> str:
     if isinstance(self.body, Lambda):
         params = [(base_name(x), t) for (x,t) in self.body.vars]
         return pretty_print_function_header(self.name,[],params)
@@ -3579,13 +3590,15 @@ class Define(Declaration):
             + (' : ' + str(self.typ) if self.typ else '') \
             + ' = ' + self.body.pretty_print(4, False) + '\n'
     
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
       if self.visibility == 'opaque':
           return self.str_header()
       else:
           return str(self)
     
-  def uniquify(self, env, ctx):
+  def uniquify(self, env: object, ctx: object) -> Define:
+    env = cast(dict[str, Any], env)
+    ctx = cast(UniquifyContext, ctx)
     new_typ = self.typ.uniquify(env, ctx) if self.typ else None
     new_body = self.body.uniquify(env, ctx)
 
@@ -3594,7 +3607,7 @@ class Define(Declaration):
     return Define(self.location, new_name, new_typ, new_body,
                   visibility=self.visibility)
 
-  def collect_exports(self, export_env, importing_module):
+  def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
     if self.visibility == 'private' and (importing_module != get_current_module()):
       return
     extend(export_env, base_name(self.name), self.name, self.location)
@@ -3652,7 +3665,7 @@ class Assert(Statement):
   def __str__(self):
     return 'assert ' + str(self.formula)
 
-  def collect_exports(self, export_env, importing_module):
+  def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
     pass
 
 @dataclass
@@ -3662,18 +3675,18 @@ class Print(Statement):
   def __str__(self):
     return 'print ' + str(self.term)
 
-  def collect_exports(self, export_env, importing_module):
+  def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
     pass
 
 
-def find_file(loc, name):
+def find_file(loc: Meta, name: str) -> str:
   for dir in get_import_directories():
     filename = os.path.join(dir, name + ".pf")
     if os.path.isfile(filename):
       return filename
   user_error(loc, 'could not find a file for import: ' + name)
 
-def greatest_lower_bound(vis1, vis2):
+def greatest_lower_bound(vis1: str, vis2: str) -> str:
     if vis1 == 'public':
         return vis2
     elif vis1 == 'private' or vis1 == 'default':
@@ -3681,7 +3694,7 @@ def greatest_lower_bound(vis1, vis2):
     else:
         raise InternalError('in greatest_lower_bound: unknown visibility: ' + vis1)
 
-def _stmt_primary_name(stmt):
+def _stmt_primary_name(stmt: Statement) -> str | None:
   # The user-visible name to match against an import's using/hiding list,
   # or None for statements that don't export a name.
   name = getattr(stmt, 'name', None)
@@ -3709,24 +3722,27 @@ class Import(Declaration):
   def __str__(self):
     return 'import ' + self.name + self._filter_clause_str()
 
-  def pretty_print(self, indent):
+  def pretty_print(self, indent: int) -> str:
     return indent*' '  + str(self) + '\n'
 
-  def _filter_admits(self, stmt):
-    if self.using is None and self.hiding is None:
+  def _filter_admits(self, stmt: Statement) -> bool:
+    using = self.using
+    hiding = self.hiding
+    if using is None and hiding is None:
       return True
     name = _stmt_primary_name(stmt)
     if name is None:
       return True
-    if self.using is not None:
-      return name in self.using
-    return name not in self.hiding
+    if using is not None:
+      return name in using
+    return name not in cast(List[str], hiding)
 
-  def _validate_filter(self, new_ast):
+  def _validate_filter(self, new_ast: List[Statement]) -> None:
     if self.using is None and self.hiding is None:
       return
     exported = {n for n in (_stmt_primary_name(s) for s in new_ast) if n is not None}
     requested = self.using if self.using is not None else self.hiding
+    assert requested is not None
     for name in requested:
       if name not in exported:
         clause = 'using' if self.using is not None else 'hiding'
@@ -3734,7 +3750,9 @@ class Import(Declaration):
                    "import " + clause + ": '" + name
                    + "' is not exported by module '" + self.name + "'")
 
-  def uniquify(self, env, ctx):
+  def uniquify(self, env: object, ctx: object) -> Import:
+    env = cast(dict[str, Any], env)
+    ctx = cast(UniquifyContext, ctx)
     importing_module = get_current_module()
     set_current_module(self.name)
     if get_verbose():
@@ -3768,7 +3786,7 @@ class Import(Declaration):
     self._validate_filter(new_ast)
     for stmt in new_ast:
       if self._filter_admits(stmt):
-        stmt.collect_exports(env, importing_module)
+        cast(Any, stmt).collect_exports(env, importing_module)
     set_verbose(old_verbose)
     if get_verbose():
       print('\tuniquify finished import ' + self.name)
@@ -3777,14 +3795,14 @@ class Import(Declaration):
                   visibility=self.visibility,
                   using=self.using, hiding=self.hiding)
 
-  def collect_exports(self, export_env, importing_module):
+  def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
     module_name = '__module__' + self.name
     if self.visibility == 'public' and not (module_name in export_env.keys()):
       set_current_module(self.name)
       export_env[module_name] = None
-      for stmt in self.ast:
+      for stmt in cast(List[Statement], self.ast):
         if self._filter_admits(stmt):
-          stmt.collect_exports(export_env, importing_module)
+          cast(Any, stmt).collect_exports(export_env, importing_module)
       set_current_module(importing_module)
 
 @dataclass
@@ -3800,7 +3818,7 @@ class Auto(Statement):
   def __str__(self):
     return 'auto ' + str(self.name)
 
-  def collect_exports(self, export_env, importing_module):
+  def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
     pass
 
 @dataclass
@@ -3811,7 +3829,7 @@ class Inductive(Statement):
   def __str__(self):
     return 'inductive ' + str(self.typ) + ' by ' + str(self.thm_name)
 
-  def collect_exports(self, export_env, importing_module):
+  def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
     pass
 
 
