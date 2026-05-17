@@ -422,7 +422,7 @@ proof
   }
 end
 
-theorem uint_bzero_le: all x:UInt.
+lemma uint_bzero_le: all x:UInt.
   bzero ≤ x
 proof
   arbitrary x:UInt

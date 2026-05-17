@@ -98,7 +98,7 @@ private fun pred(x:Binary) {
   }
 }
 
-fun uint_view(x:Binary) {
+private fun uint_view(x:Binary) {
   if x = bzero then UIntZero else UIntSucc(pred(x))
 }
 
@@ -176,7 +176,7 @@ private recursive cnt_dubs(Binary) -> Binary {
   cnt_dubs(inc_dub(x)) = inc(cnt_dubs(x))
 }
 
-fun log(b : UInt) {
+opaque fun log(b : UInt) {
   cnt_dubs(pred(b))
 }
 

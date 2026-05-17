@@ -34,7 +34,7 @@ proof
   uint_toNat_fromNat
 end
 
-theorem uint_summation_bzero:
+lemma uint_summation_bzero:
   all begin:UInt, f:fn UInt->UInt.
   uint_summation(bzero, begin, f) = bzero
 proof
