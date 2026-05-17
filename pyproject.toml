@@ -134,6 +134,8 @@ exclude = [
 module = [
     "deduce",
     "error",
+    "checker_cache",
+    "checker_common",
     "compiler.closure",
     "compiler.compile_prelude",
     "compiler.emit_c",

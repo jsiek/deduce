@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """Shared imports for the checker split.
 
 File charter:
