@@ -211,7 +211,7 @@ def copy_dict[T](d: dict[str, T]) -> dict[str, T]:
   return {k: v for k, v in d.items()}
 
 
-def maybe_str(o: object | None, default: str = '') -> str:
+def maybe_str(o: Proof | str | None, default: str = '') -> str:
   return str(o) if o is not None else default
 
 def maybe_pretty_print(o: Optional["Proof"], indent: int, default: str = '') -> str:
