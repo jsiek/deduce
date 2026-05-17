@@ -139,7 +139,7 @@ def check_implies(loc: Meta, frm1: Formula, frm2: Formula) -> None:
             internal_error(loc, 'internal error, could not isolate difference for\n\t' \
                            + str(frm1) + '\nand\n\t' + str(frm2))
                     
-def instantiate(loc, allfrm, arg):
+def instantiate(loc: Meta, allfrm: Any, arg: Any) -> Any:
   match allfrm:
     case All(_, _, (var, _), (s, _), frm):
       sub = { var : arg }
@@ -153,7 +153,7 @@ def instantiate(loc, allfrm, arg):
 def str_of_env(env):
   return '{' + ', '.join([k + ": " + str(e) for (k,e) in env.items()]) + '}'
 
-def pattern_to_term(pat):
+def pattern_to_term(pat: Any) -> Any:
   match pat:
     case PatternCons(loc, constr, params):
       if len(params) > 0:
@@ -165,7 +165,7 @@ def pattern_to_term(pat):
     case _:
       internal_error(pat.location, "expected a pattern, not " + str(pat))
 
-def rewrite(loc, formula, equation, env):
+def rewrite(loc: Meta, formula: Any, equation: Any, env: Env) -> Any:
     if False and get_verbose():
         print('rewriting ' + str(formula) + '\n\twith ' + str(equation))
     num_marks = count_marks(formula)
@@ -198,7 +198,7 @@ def isolate_difference_list(list1, list2):
       return diff
   return None
   
-def isolate_difference(term1, term2):
+def isolate_difference(term1: Any, term2: Any) -> Any:
   if get_verbose():
     print('isolate_difference(' + str(term1) + ',' + str(term2) + ')')
   if term1 == term2:
@@ -233,7 +233,7 @@ def isolate_difference(term1, term2):
       case _:
         return (term1, term2)
 
-def collect_all_if_then(loc, frm, env):
+def collect_all_if_then(loc: Meta, frm: Any, env: Env) -> Any:
     """Returns a list of all variables that need be instantiated, and anythings that need applied"""
 
     if isinstance(frm, TLet):
@@ -353,7 +353,7 @@ def _expand_would_progress(residual, defs, env):
   return False
 
 
-def expand_residual_hint(residual, defs, env):
+def expand_residual_hint(residual: Any, defs: Any, env: Env) -> Any:
   # When `expand f.` fails and `f` still appears in the residual goal,
   # tell the user the unfolding depth was too shallow. The common case
   # is a recursive function whose body re-introduces its own name; one
@@ -462,7 +462,7 @@ def replace_backward_mark_hint(formula, eq, env):
       return ''
 
 
-def expand_definitions(loc, formula, defs, env):
+def expand_definitions(loc: Meta, formula: Any, defs: Any, env: Env) -> Any:
   num_marks = count_marks(formula)
   if num_marks == 0:
       new_formula = formula
@@ -538,7 +538,7 @@ def expand_definitions(loc, formula, defs, env):
   else:
       return check_formula(replace_mark(formula, new_formula).reduce(env), env)
 
-def apply_rewrites(loc, formula, eqns, env, *, display_formula=None):
+def apply_rewrites(loc: Meta, formula: Any, eqns: Any, env: Env, *, display_formula: Any = None) -> Any:
   # `formula` is the value rewrites operate over (may be auto-normalized).
   # `display_formula`, if provided, is the pre-normalized form shown in
   # error messages so users see the goal they actually wrote.

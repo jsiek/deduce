@@ -357,7 +357,7 @@ def _check_union_arity(head, given, env):
 # head (TypeInst, GenericUnknownInst) and certain declaration sites (e.g.
 # ``inductive Foo by ...``, which legitimately names a union by its bare
 # name) pass False to suppress the zero-arity error.
-def check_type(typ, env, arity_required=True):
+def check_type(typ: Any, env: Env, arity_required: bool = True) -> Any:
   match typ:
     case OverloadedVar(loc, tyof, rs):
       if not env.type_var_is_defined(typ):
@@ -410,7 +410,7 @@ def check_type(typ, env, arity_required=True):
     case _:
       internal_error(typ.location, 'error in check_type: unhandled type ' + repr(typ) + ' ' + str(type(typ)))
 
-def type_first_letter(typ):
+def type_first_letter(typ: Any) -> str:
   if isinstance(typ, VarRef):
     return typ.get_name()[0]
   match typ:
@@ -975,7 +975,7 @@ def check_constructor_pattern(loc, pat_constr, params, typ, env, cases_present):
     case _:
       user_error(loc, str(typ) + ' is not a union type')
         
-def check_pattern(pattern, typ, env, cases_present):
+def check_pattern(pattern: Any, typ: Any, env: Env, cases_present: Any) -> Any:
   if get_verbose():
     print('check pattern: ' + str(pattern))
     print('against type: ' + str(typ))
@@ -999,7 +999,7 @@ def check_pattern(pattern, typ, env, cases_present):
       user_error(pattern.location, 'expected a pattern, not\n\t' \
             + str(pattern))
 
-def check_formula(frm, env, recfun=None, subterms=[]):
+def check_formula(frm: Any, env: Env, recfun: Any = None, subterms: Any = []) -> Any:
   return type_check_term(frm, BoolType(frm.location), env, recfun, subterms)
 
 modules: set = set()
