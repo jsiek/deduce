@@ -1,3 +1,22 @@
+"""``.thm`` artifact generation for checked modules.
+
+Scope: walking a checked module's statement list and emitting the public
+theorem signatures into a sibling ``.thm`` file. Owns ``collect_public``
+(the visibility walk that follows public re-exported imports through the
+``collected_imports`` set) and ``print_theorems`` (the driver that writes
+the artifact alongside the source).
+
+Goes here:
+  * any logic for deciding what shows up in a generated ``.thm`` file
+  * the format / header / sort order of the generated file
+
+Does NOT go here:
+  * the per-statement ``print_theorems_statement`` methods themselves —
+    those live on each ``Declaration`` subclass in ``declarations``
+  * the consumer side (``.thm`` files are read by ``Import`` resolution
+    in ``declarations``)
+"""
+
 from __future__ import annotations
 
 from .core import *

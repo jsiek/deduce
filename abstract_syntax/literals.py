@@ -1,3 +1,32 @@
+"""Recognizers, builders, and conversions for built-in literal shapes.
+
+Scope: the helpers that bridge between Python-level values and the
+constructor stacks the language uses for its literals. Covers:
+  * ``Nat`` (``zero``/``suc``): ``mkZero``, ``mkSuc``, ``intToNat``,
+    ``isNat``/``isLitNat``, ``natToInt``, ``getZero``/``getSuc``.
+  * ``UInt`` (``bzero``/``inc_dub``/``dub_inc``): ``mkBZero``,
+    ``mkIncDub``, ``mkDubInc``, ``intToUInt``, ``isUInt``/``isLitUInt``,
+    ``uintToInt``, ``uint_inc``.
+  * ``Int`` (``pos``/``neg`` over ``UInt``): ``mkPos``/``mkNeg``,
+    ``mkIntLit``, ``isDeduceInt``, ``deduceIntToInt``.
+  * Lists (``empty``/``node``): ``mkEmpty``/``mkNode``,
+    ``listToNodeList``, ``isNodeList``, ``nodeListToList``,
+    ``nodeListToString``.
+  * Empty set, equation shape (``mkEqual``, ``split_equation``,
+    ``is_equation``, ``equation_vars``), and small constructor-name
+    predicates (``is_constructor``, ``constr_name``,
+    ``constructor_conflict``).
+
+Goes here:
+  * a new literal form whose surface syntax desugars to a constructor
+    stack (e.g. a new numeric encoding, a new collection literal)
+  * an equality/literal-shape recognizer used by checker passes
+
+Does NOT go here:
+  * generic term/formula AST nodes (``terms``)
+  * rewriting/marking machinery (``rewrite``)
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

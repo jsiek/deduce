@@ -1,3 +1,22 @@
+"""The proof-checker environment ``Env`` and its ``Binding`` nodes.
+
+Scope: the immutable, functionally-updated name environment that the type
+checker and proof checker thread through their recursive walks, plus the
+``Binding`` variants it stores: ``TypeBinding``, ``TermBinding``,
+``ProofBinding``, ``AutoEquationBinding``, ``ViewBinding``,
+``AssociativeBinding``. Also includes small environment-shape helpers
+such as ``type_params_str``.
+
+Goes here:
+  * a new kind of static binding the checker needs to track
+  * methods on ``Env`` for adding/looking up bindings
+
+Does NOT go here:
+  * the runtime *value* environment used by the interpreter (lives in
+    ``proof_checker`` / interpreter code)
+  * concrete AST nodes for declarations (``declarations``)
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

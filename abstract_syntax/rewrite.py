@@ -1,3 +1,26 @@
+"""``Mark``-driven rewriting machinery used by ``replace``/``rewrite``.
+
+Scope: the primitives that locate ``Mark`` nodes inside a formula, swap
+them out for a replacement, and drive the formula-matching used by
+``rewrite`` proofs. Includes ``count_marks``/``find_mark``/``MarkException``,
+the overloaded ``replace_mark`` family, ``remove_mark``, the equation
+``rewrite_aux``/``try_rewrite``/``formula_match`` engine, conjunction and
+disjunction flatteners (``extract_and``/``extract_or``), ``auto_rewrites``,
+and the small module-level state (``default_mark_LHS`` toggle,
+``num_rewrites`` counter, ``call_arity``/``call_head_name`` helpers used
+to drive the matcher).
+
+Goes here:
+  * a new rewriting heuristic or matching primitive
+  * any helper that operates over the ``Mark`` placeholder, the auto-rewrite
+    cache, or the rewrite counter
+
+Does NOT go here:
+  * the ``Mark`` AST node itself (``terms``)
+  * the proof rules that invoke rewriting (``proofs``); their checker
+    logic lives in ``proof_checker`` / ``checker_*``
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

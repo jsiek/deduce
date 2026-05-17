@@ -1,3 +1,32 @@
+"""Concrete ``Term``, ``Formula``, ``Type``, and ``Pattern`` AST nodes.
+
+Scope: every dataclass node whose category is a value-level expression, a
+type expression, a formula (logical connective/quantifier), or a pattern.
+This includes the variable family (``Var``, ``OverloadedVar``,
+``ResolvedVar``), ``Lambda``, ``Call``, ``Switch``/``SwitchCase``,
+``TermInst``, ``MakeArray``/``ArrayGet``, ``TLet``, ``Mark``, ``Hole``,
+``Omitted``; the ``Type`` nodes (``BoolType``, ``TypeType``,
+``FunctionType``, ``ArrayType``, ``TypeInst``, ``GenericUnknownInst``,
+...); the patterns (``PatternBool``, ``PatternCons``, ``PatternTerm``);
+and the formula nodes (``Bool``, ``And``, ``Or``, ``IfThen``, ``All``,
+``Some``).
+
+Also houses the module-level mutable reduction flags
+(``reduce_only``/``reduce_all``/``dont_reduce_opaque``/``eval_all``/
+``reduced_defs``) and small helpers tied to term shape (``is_match``,
+operator-name predicates).
+
+Goes here:
+  * a new concrete ``Term``/``Formula``/``Type``/``Pattern`` dataclass
+  * helpers whose signature is purely over term-level shapes
+
+Does NOT go here:
+  * proof nodes (``proofs``), top-level statements (``declarations``)
+  * literal recognizers/builders for ``zero``/``suc``/``bzero``/lists
+    (``literals``)
+  * whole-AST passes (``ops``) or rewrite-mark machinery (``rewrite``)
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

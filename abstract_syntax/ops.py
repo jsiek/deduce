@@ -1,3 +1,27 @@
+"""Cross-cutting whole-AST operations and dispatcher helpers.
+
+Scope: passes and predicates that traverse arbitrary AST shapes —
+operations that have to know about every node category and therefore
+sit at the top of the import order. Includes the driver
+``uniquify_deduce``, the invariant audits ``check_post_uniquify_invariants``
+and ``check_post_typecheck_invariants``, ``alpha_equiv`` (with its
+private ``_alpha_equiv_*`` helpers), ``explicit_term_inst``, ``type_match``,
+``flatten_assoc``/``flatten_assoc_list``, ``make_switch_for``, and the
+small symbol/name helpers that bridge categories
+(``callable_name``, ``named_callable_name``, ``is_associative``,
+``type_names``).
+
+Goes here:
+  * a new AST-wide pass / consistency check
+  * a helper that has to dispatch on more than one node category
+    (Term + Proof + Statement, etc.)
+
+Does NOT go here:
+  * the proof-checker proper — that lives in ``proof_checker`` /
+    ``checker_*`` and consumes these helpers
+  * single-category helpers; put those next to their node definitions
+"""
+
 from __future__ import annotations
 
 from .core import *
