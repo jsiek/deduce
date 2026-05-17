@@ -137,6 +137,7 @@ module = [
     "checker_cache",
     "checker_common",
     "checker_induction",
+    "checker_logic",
     "checker_pipeline",
     "checker_proofs",
     "checker_types",

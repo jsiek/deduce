@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """Formula/proof utility logic independent of whole-file orchestration.
 
 File charter:
@@ -12,7 +11,51 @@ File charter:
   ``checker_types.py``.
 """
 
+from typing import TYPE_CHECKING, Any, cast
+
+from lark.tree import Meta
+
+from abstract_syntax import (
+    All,
+    And,
+    Bool,
+    Call,
+    Env,
+    Formula,
+    IfThen,
+    Lambda,
+    MarkException,
+    Or,
+    OverloadedVar,
+    PatternCons,
+    ResolvedVar,
+    Switch,
+    SwitchCase,
+    TLet,
+    Term,
+    VarRef,
+    base_name,
+    count_marks,
+    find_mark,
+    formula_match,
+    formulas_equal_modulo_numeric_literals,
+    get_num_rewrites,
+    get_reduced_defs,
+    is_equation,
+    is_true,
+    name2str,
+    replace_mark,
+    reset_num_rewrites,
+    reset_reduced_defs,
+    rewrite_aux,
+    split_equation,
+)
 from checker_common import *
+if TYPE_CHECKING:
+    from checker_proofs import update_all_head
+from checker_types import check_formula
+from error import MatchFailed, UserError, internal_error, user_error, wrap_user_error
+from flags import get_verbose, print_verbose
 
 def check_implies(loc: Meta, frm1: Formula, frm2: Formula) -> None:
   if get_verbose():
@@ -150,7 +193,7 @@ def instantiate(loc: Meta, allfrm: Any, arg: Any) -> Any:
     case _:
       internal_error(loc, 'expected all formula to instantiate, not ' + str(allfrm))
   
-def str_of_env(env):
+def str_of_env(env: Any) -> str:
   return '{' + ', '.join([k + ": " + str(e) for (k,e) in env.items()]) + '}'
 
 def pattern_to_term(pat: Any) -> Any:
@@ -166,8 +209,6 @@ def pattern_to_term(pat: Any) -> Any:
       internal_error(pat.location, "expected a pattern, not " + str(pat))
 
 def rewrite(loc: Meta, formula: Any, equation: Any, env: Env) -> Any:
-    if False and get_verbose():
-        print('rewriting ' + str(formula) + '\n\twith ' + str(equation))
     num_marks = count_marks(formula)
     if num_marks == 0:
         ret = rewrite_aux(loc, formula, equation, env)
@@ -184,14 +225,14 @@ def rewrite(loc: Meta, formula: Any, equation: Any, env: Env) -> Any:
     else:
         internal_error(loc, 'in replace, formula contains more than one mark:\n\t' + str(formula))
 
-def facts_to_str(env):
+def facts_to_str(env: Any) -> str:
   result = ''
   for (x,p) in env.items():
     if isinstance(p, Formula) or isinstance(p, Term):
       result += x + ': ' + str(p) + '\n'
   return result
 
-def isolate_difference_list(list1, list2):
+def isolate_difference_list(list1: Any, list2: Any) -> Any:
   for (t1, t2) in zip(list1, list2):
     diff = isolate_difference(t1, t2)
     if diff:
@@ -233,7 +274,7 @@ def isolate_difference(term1: Any, term2: Any) -> Any:
       case _:
         return (term1, term2)
 
-def collect_all_if_then(loc: Meta, frm: Any, env: Env) -> Any:
+def collect_all_if_then(loc: Meta, frm: Any, env: Env) -> tuple[list[Any], list[Any]]:
     """Returns a list of all variables that need be instantiated, and anythings that need applied"""
 
     if isinstance(frm, TLet):
@@ -262,7 +303,7 @@ def collect_all_if_then(loc: Meta, frm: Any, env: Env) -> Any:
       case _:
         user_error(loc, "in 'apply', expected an if-then formula, not " + str(frm))
 
-def collect_all(frm):
+def collect_all(frm: Any) -> tuple[list[Any], Any]:
     match frm:
       case All(loc2, _, var, _, frm):
         (rest_vars, body) = collect_all(frm)
@@ -271,14 +312,14 @@ def collect_all(frm):
       case _:
         return ([], frm)
 
-def auto_simplified_hint(new_formula):
+def auto_simplified_hint(new_formula: Any) -> str:
   if is_true(new_formula):
     return '\nThe goal has been simplified to `true`, possibly by an `auto` rewrite rule.\n' \
            'Finish the proof with `.` (which closes any goal of the form `true`).'
   return ''
 
 
-def _ast_mentions_any(node, target_names):
+def _ast_mentions_any(node: Any, target_names: Any) -> bool:
   # AST traversal: does `node` reference any name in `target_names`?
   # No general `free_vars` is defined across all Term subclasses, so we
   # walk the dataclass fields directly.
@@ -309,7 +350,7 @@ def _ast_mentions_any(node, target_names):
   return False
 
 
-def _expand_would_progress(residual, defs, env):
+def _expand_would_progress(residual: Any, defs: Any, env: Any) -> bool:
   # Would running `expand_definitions` on `residual` with the same `defs`
   # actually change the formula? Used to gate the "unfold further" hint
   # so it doesn't fire when more expand wouldn't help -- e.g. when the
@@ -353,7 +394,7 @@ def _expand_would_progress(residual, defs, env):
   return False
 
 
-def expand_residual_hint(residual: Any, defs: Any, env: Env) -> Any:
+def expand_residual_hint(residual: Any, defs: Any, env: Env) -> str:
   # When `expand f.` fails and `f` still appears in the residual goal,
   # tell the user the unfolding depth was too shallow. The common case
   # is a recursive function whose body re-introduces its own name; one
@@ -361,7 +402,7 @@ def expand_residual_hint(residual: Any, defs: Any, env: Env) -> Any:
   # Only fire when another expand pass would actually change the
   # residual -- otherwise the suggestion is misdirection (e.g. the
   # function is stuck on a variable arg and the real fix is `switch`).
-  still_present = []
+  still_present: list[str] = []
   for d in defs:
     if not isinstance(d, VarRef):
       continue
@@ -389,7 +430,7 @@ def expand_residual_hint(residual: Any, defs: Any, env: Env) -> Any:
           'Chain another expand with `|` (e.g. `expand f | f.`) or use `N*f` to unfold further.')
 
 
-def expand_backward_mark_hint(formula, var, env):
+def expand_backward_mark_hint(formula: Any, var: Any, env: Any) -> str:
   # When `expand X` fails inside a marked equation `# L # = R` (or the
   # mirrored form), expand only saw the marked side. If unfolding X on
   # the *other* side would succeed, suggest wrapping that side in
@@ -426,7 +467,7 @@ def expand_backward_mark_hint(formula, var, env):
       return ''
 
 
-def replace_backward_mark_hint(formula, eq, env):
+def replace_backward_mark_hint(formula: Any, eq: Any, env: Any) -> str:
   # Mirror of `expand_backward_mark_hint` for the `replace` tactic: when
   # `replace eq` fails inside a marked equation `# L # = R` because the
   # eq's LHS doesn't appear on the marked side, but it *would* match on
