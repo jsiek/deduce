@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """Custom induction matching and generated-case helpers.
 
 File charter:
@@ -12,9 +11,43 @@ File charter:
   ``checker_proofs.py`` or ``checker_logic.py`` instead.
 """
 
-from checker_common import *
+from typing import Any
 
-def gen_conjunct_advice(conjunct, arbs, ihs):
+from lark.tree import Meta
+
+from abstract_syntax import (
+    All,
+    AllIntro,
+    And,
+    BoolType,
+    Call,
+    Formula,
+    FunctionType,
+    IfThen,
+    ImpIntro,
+    OverloadedVar,
+    PatternBool,
+    PatternCons,
+    PatternTerm,
+    Proof,
+    ResolvedVar,
+    Type,
+    TypeInst,
+    TypeType,
+    Var,
+    VarRef,
+    base_name,
+    isUInt,
+    uintToInt,
+)
+from checker_common import *
+from checker_proofs import generate_proof_name
+from checker_types import type_check_term, type_synth_term
+from error import UserError, internal_error, user_error
+from flags import get_verbose
+
+
+def gen_conjunct_advice(conjunct: Any, arbs: list[str], ihs: list[str]) -> str:
   match conjunct:
     case All(_, _, (n, _), _, b):
       return gen_conjunct_advice(b, arbs + [base_name(n)], ihs)
@@ -28,18 +61,18 @@ def gen_conjunct_advice(conjunct, arbs, ihs):
       if ihs:
         assumes = "assume " + ", ".join(ihs) +" "
       return f"\t\tcase {withs}{arg} {assumes} {'{'}\n\t\t\t?\n{'\t\t}'}"
-  pass
+  raise AssertionError(f"unsupported conjunct shape: {conjunct!r}")
 
-def gen_custom_induction_advice(conjuncts):
+def gen_custom_induction_advice(conjuncts: list[Any]) -> str:
   return "\n".join([gen_conjunct_advice(c, [], []) for c in conjuncts])
 
-def _custom_induction_expected_cases(conjuncts):
+def _custom_induction_expected_cases(conjuncts: list[Any]) -> str:
   return gen_custom_induction_advice(conjuncts).replace('\t\t', '\t')
 
-def _custom_induction_case_hint(conjunct):
+def _custom_induction_case_hint(conjunct: Any) -> str:
   return gen_conjunct_advice(conjunct, [], []).replace('\t\t', '\t')
 
-def validate_conjunct(loc, conj, fun):
+def validate_conjunct(loc: Meta, conj: Any, fun: str) -> Any:
   match conj:
     case All(loc1, _, (_, ty), _, body):
       # Make sure that  body is valid
@@ -60,14 +93,23 @@ def validate_conjunct(loc, conj, fun):
     case _:
       user_error(loc, "invalid conjunct form")
 
-def extract_conjuncts(prem, fun):
+def extract_conjuncts(prem: Any, fun: str) -> list[Any]:
   match prem:
     case And(loc, _, args):
       return [validate_conjunct(loc, c, fun) for c in args]
     case _:
       return [validate_conjunct(prem.location, prem, fun)]
 
-def generate_conjunct_body(loc, conjunct, case, fun_var, subst, env, param_i = 0, case_hint = None):
+def generate_conjunct_body(
+    loc: Meta,
+    conjunct: Any,
+    case: Any,
+    fun_var: Any,
+    subst: dict[str, Any],
+    env: Any,
+    param_i: int = 0,
+    case_hint: str | None = None,
+) -> Proof:
   if get_verbose():
     print("generate_conjunct_body", conjunct)
   if case_hint is None:
@@ -80,7 +122,7 @@ def generate_conjunct_body(loc, conjunct, case, fun_var, subst, env, param_i = 0
       inst_name = case.pattern.parameters[param_i]
       subst[inst_name]= ResolvedVar(loc, ty, name)
       env = env.declare_term_var(loc, inst_name, ty)
-      return AllIntro(loc, (inst_name, ty), (0, 1), 
+      return AllIntro(loc, (inst_name, ty), (0, 1),
                       generate_conjunct_body(loc, body, case, fun_var, subst, env, param_i + 1, case_hint))
     case IfThen(loc, ty, _, conc):
       ind_hyp = generate_proof_name("_")
@@ -140,12 +182,12 @@ def generate_conjunct_body(loc, conjunct, case, fun_var, subst, env, param_i = 0
               user_error(case.pattern.location, "custom induction case expected a constructor-like pattern"
                     + "\nExpected a case shaped like:\n" + case_hint)
         case _:
-          internal_error("Unsupported pattern type: " + str(type(case.pattern)))
+          internal_error(loc, "Unsupported pattern type: " + str(type(case.pattern)))
       return case.body
     case _:
       return case.body
 
-def match_induction_generics(frm):
+def match_induction_generics(frm: Any) -> tuple[Any, list[str]]:
   match frm:
     case All(_, _, (name, ty), _, body) if isinstance(ty, TypeType):
       new_frm, tys = match_induction_generics(body)
@@ -153,7 +195,7 @@ def match_induction_generics(frm):
     case _:
       return frm, []
 
-def match_induction_fun(frm, ty_tys, ind_ty):
+def match_induction_fun(frm: Any, ty_tys: list[str], ind_ty: Type) -> tuple[Any, Any, Any]:
   match frm:
     case All(loc, _, (_, FunctionType(_, _, [param_ty], BoolType())), _, body):
       type_mismatch = False
@@ -174,12 +216,12 @@ def match_induction_fun(frm, ty_tys, ind_ty):
 
       if type_mismatch:
         user_error(loc, "Type mismatch in inductive declaration")
-    
+
       return body, *frm.var
     case _:
       user_error(frm.location, "Expected to see a function from the inductive type to bool")
 
-def match_induction_conjuncts(frm, fun, fun_ty, ind_ty):
+def match_induction_conjuncts(frm: Any, fun: Any, fun_ty: Any, ind_ty: Type) -> list[Any]:
   match frm:
     case IfThen(loc, _, prem, conc):
       conjuncts = extract_conjuncts(prem, fun)
@@ -193,14 +235,14 @@ def match_induction_conjuncts(frm, fun, fun_ty, ind_ty):
             pass
         case _:
           user_error(conc.location, "Invalid form for inductive conclusion. Expected:\n\t" + str(expected_conc))
-      
+
       return conjuncts
     case _:
       user_error(frm.location, "Invalid form for inductive declaration theorem. \
             Inductive theorems should be of the form: \n\t \
             all P : fn T -> bool. if prem then all x : T. P(x)")
 
-def match_induction(frm, ind_ty):
+def match_induction(frm: Any, ind_ty: Type) -> dict[str, Any]:
   new_frm, ty_tys = match_induction_generics(frm)
   new_frm, fun, fun_ty = match_induction_fun(new_frm, ty_tys, ind_ty)
   conjuncts = match_induction_conjuncts(new_frm, fun, fun_ty, ind_ty)

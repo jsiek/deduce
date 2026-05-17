@@ -136,6 +136,7 @@ module = [
     "error",
     "checker_cache",
     "checker_common",
+    "checker_induction",
     "compiler.closure",
     "compiler.compile_prelude",
     "compiler.emit_c",
