@@ -46,8 +46,7 @@ def _collect_private_proof_names(stmts: List[Statement],
         continue
       visited_imports.add(s.name)
       if s.ast is not None:
-        _collect_private_proof_names(cast(List[Statement], s.ast),
-                                     visited_imports)
+        _collect_private_proof_names(s.ast, visited_imports)
 
 def _auto_target_is_private(target: AST) -> bool:
   return isinstance(target, PVar) and target.name in private_proof_names
