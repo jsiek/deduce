@@ -58,7 +58,10 @@ def _collect_view_aliases(ast: List[Statement],
   private underlying type (e.g. ``Binary``)."""
   for s in ast:
     if isinstance(s, ViewDecl) and s.visibility != 'private':
-      source = s.source
+      # ``source`` is declared as ``Type`` but post-uniquify it is a
+      # ``VarRef`` (Term subclass). Narrow via ``cast`` so mypy doesn't
+      # reject the runtime check.
+      source = cast(object, s.source)
       if isinstance(source, VarRef):
         aliases[source.get_name()] = s.name
     elif isinstance(s, Import) and s.ast is not None:
