@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """Proof checking and goal-directed tactic dispatch.
 
 File charter:
@@ -13,7 +12,54 @@ File charter:
   lowering or custom induction generation.
 """
 
+from typing import TYPE_CHECKING, Any, cast
+
+from lark.tree import Meta
+
+from abstract_syntax import (
+    All, AllElim, AllElimTypes, AllIntro, And, ApplyDefsFact,
+    ApplyDefsGoal, Bool, BoolType, Call, Cases,
+    Constructor, Env, EvaluateFact, EvaluateGoal, Formula,
+    FunctionType, Hole, IfThen, ImpIntro, Induction, Lambda,
+    ModusPonens, Omitted, Or, OverloadedVar, PAndElim, PAnnot,
+    PExtensionality, PHelpUse, PHole, PInjective, PLet, PRecall,
+    PReflexive, PSorry, PSymmetric, PTLetNew, PTransitive, PTrue,
+    PTuple, PVar, PatternBool, ProofBinding, ResolvedVar,
+    RewriteFact, RewriteGoal, RuleInduction, RuleInversion,
+    SimplifyFact, SimplifyGoal, Some, SomeElim, SomeIntro, Suffices,
+    SwitchProof, TLet, TermInst, Type, TypeInst, TypeType,
+    Union, Var, VarRef, base_name, callable_name, formula_match,
+    get_predicate_decl, get_type_name, is_constructor, is_equation,
+    mkEqual, remove_mark, set_dont_reduce_opaque, set_reduce_all,
+    split_equation, type_match,
+)
 from checker_common import *
+from checker_logic import (
+    apply_rewrites, check_implies, collect_all_if_then,
+    expand_definitions, expand_residual_hint, instantiate,
+    isolate_difference, pattern_to_term, rewrite,
+)
+from checker_types import (
+    check_formula, check_pattern, check_type, type_check_term,
+    type_first_letter, type_synth_term,
+)
+from error import (
+    Diagnostic, IncompleteProof, InternalError, MatchFailed, UserError,
+    add_diagnostic, add_incomplete, get_active_sink,
+    incomplete_error, internal_error, match_failed,
+    speculative_probe, user_error, warning, wrap_user_error,
+)
+from flags import get_target_hole_location, get_verbose
+import style
+
+# ``generate_conjunct_body`` is defined in ``checker_induction`` and injected
+# into this module's namespace at runtime by the ``proof_checker`` facade
+# (see ``proof_checker._link_modules``). The TYPE_CHECKING import avoids a
+# static cycle with ``checker_induction`` (which imports
+# ``generate_proof_name`` from this file) while still letting mypy resolve
+# the symbol.
+if TYPE_CHECKING:
+    from checker_induction import generate_conjunct_body
 
 name_id = 0
 
@@ -39,7 +85,7 @@ name_id = 0
 # ``check_proof_of`` without dragging an extra parameter through 50+
 # recursive call sites.
 
-def _try_check_proof_of(pf, frm, env):
+def _try_check_proof_of(pf: Any, frm: Any, env: Env) -> None:
   """Call ``check_proof_of`` and, when an error sink is active, catch
   any raised exception, append it to the sink, and return normally so
   the surrounding sibling loop continues.
@@ -49,13 +95,13 @@ def _try_check_proof_of(pf, frm, env):
   failure means the parent can't continue meaningfully -- stick with
   a plain ``check_proof_of`` call there.
   """
-  global _active_sink
   try:
     check_proof_of(pf, frm, env)
   except Diagnostic as e:
-    if get_active_sink() is None:
+    sink = get_active_sink()
+    if sink is None:
       raise
-    get_active_sink().add(e)
+    sink.add(e)
 
 def generate_proof_name(name: str) -> str:
     """Allocate a fresh label/binder name at proof-check time.
@@ -77,7 +123,7 @@ def generate_proof_name(name: str) -> str:
 # ---------------------------------------------------------------------------
 #
 
-def _check_proof_recall(proof, env):
+def _check_proof_recall(proof: Any, env: Env) -> Any:
   loc = proof.location
   results = []
   for fact in proof.facts:
@@ -94,7 +140,7 @@ def _check_proof_recall(proof, env):
       return results[0]
   user_error(loc, 'expected some facts after `recall`')
 
-def _check_proof_var(proof, env):
+def _check_proof_var(proof: Any, env: Env) -> Any:
   loc = proof.location
   try:
     formula = env.get_formula_of_proof_var(proof)
@@ -104,10 +150,10 @@ def _check_proof_var(proof, env):
   except UserError as e:
     user_error(loc, str(e))
 
-def _check_proof_true(proof, env):
+def _check_proof_true(proof: Any, env: Env) -> Any:
   return Bool(proof.location, BoolType(proof.location), True)
 
-def _check_proof_and_elim(proof, env):
+def _check_proof_and_elim(proof: Any, env: Env) -> Any:
   loc = proof.location
   formula = check_proof(proof.subject, env)
   if isinstance(formula, TLet):
@@ -123,7 +169,7 @@ def _check_proof_and_elim(proof, env):
     case _:
       user_error(loc, 'expected a conjunction, not ' + str(formula))
 
-def _check_proof_evaluate_fact(proof, env):
+def _check_proof_evaluate_fact(proof: Any, env: Env) -> Any:
   formula = check_proof(proof.subject, env)
   set_reduce_all(True)
   try:
@@ -131,11 +177,11 @@ def _check_proof_evaluate_fact(proof, env):
   finally:
     set_reduce_all(False)
 
-def _check_proof_apply_defs_fact(proof, env):
+def _check_proof_apply_defs_fact(proof: Any, env: Env) -> Any:
   formula = check_proof(proof.subject, env)
   return expand_definitions(proof.location, formula, proof.definitions, env)
 
-def _check_proof_rewrite_fact(proof, env):
+def _check_proof_rewrite_fact(proof: Any, env: Env) -> Any:
   formula = check_proof(proof.subject, env)
   eqns = [check_proof(equation_proof, env)
           for equation_proof in proof.equations]
@@ -143,7 +189,7 @@ def _check_proof_rewrite_fact(proof, env):
   return apply_rewrites(proof.location, red_formula, eqns, env,
                         display_formula=formula)
 
-def _check_proof_simplify_fact(proof, env):
+def _check_proof_simplify_fact(proof: Any, env: Env) -> Any:
   formula = check_proof(proof.subject, env)
   preds = [check_proof(given, env) for given in proof.givens]
   equations = [pred_to_equality(proof.location, p) for p in preds]
@@ -151,23 +197,23 @@ def _check_proof_simplify_fact(proof, env):
   new_formula = apply_rewrites(proof.location, formula, eqns, env)
   return new_formula.reduce(env)
 
-def _check_proof_hole(proof, env):
+def _check_proof_hole(proof: Any, env: Env) -> Any:
   incomplete_error(proof.location, 'unfinished proof')
 
-def _check_proof_sorry(proof, env):
+def _check_proof_sorry(proof: Any, env: Env) -> Any:
   user_error(proof.location, "can't use sorry in context with unknown goal")
 
-def _check_proof_help_use(proof, env):
+def _check_proof_help_use(proof: Any, env: Env) -> Any:
   formula = check_proof(proof.proof, env)
   user_error(proof.location, proof_use_advice(proof.proof, formula, env))
 
-def _check_proof_tlet_new(proof, env):
+def _check_proof_tlet_new(proof: Any, env: Env) -> Any:
   new_rhs = type_synth_term(proof.rhs, env, None, [])
   body_env = env.define_term_var(proof.location, proof.var,
                                  new_rhs.typeof, new_rhs)
   return check_proof(proof.body, body_env)
 
-def _check_proof_let(proof, env):
+def _check_proof_let(proof: Any, env: Env) -> Any:
   loc = proof.location
   new_frm = check_formula(proof.proved, env)
   match new_frm:
@@ -180,7 +226,7 @@ def _check_proof_let(proof, env):
                                              remove_mark(new_frm))
       return check_proof(proof.body, body_env)
 
-def _check_proof_annot(proof, env):
+def _check_proof_annot(proof: Any, env: Env) -> Any:
   loc = proof.location
   new_claim = check_formula(proof.claim, env)
   match new_claim:
@@ -191,12 +237,12 @@ def _check_proof_annot(proof, env):
       _try_check_proof_of(proof.body, new_claim, env)
       return remove_mark(new_claim)
 
-def _check_proof_tuple(proof, env):
+def _check_proof_tuple(proof: Any, env: Env) -> Any:
   loc = proof.location
   frms = [check_proof(pf, env) for pf in proof.args]
   return And(loc, BoolType(loc), frms)
 
-def _check_proof_imp_intro(proof, env):
+def _check_proof_imp_intro(proof: Any, env: Env) -> Any:
   loc = proof.location
   if proof.premise is not None:
       new_prem = check_formula(proof.premise, env)
@@ -206,7 +252,7 @@ def _check_proof_imp_intro(proof, env):
   conc = check_proof(proof.body, body_env)
   return IfThen(loc, BoolType(loc), new_prem, conc)
 
-def _check_proof_all_intro(proof, env):
+def _check_proof_all_intro(proof: Any, env: Env) -> Any:
   loc = proof.location
   body_env = env
   x, ty = proof.var
@@ -219,7 +265,7 @@ def _check_proof_all_intro(proof, env):
   formula = check_proof(proof.body, body_env)
   return All(loc, BoolType(loc), checked_var, proof.pos, formula)
 
-def _check_proof_all_elim(proof, env):
+def _check_proof_all_elim(proof: Any, env: Env) -> Any:
   loc = proof.location
   allfrm = check_proof(proof.univ, env)
 
@@ -228,7 +274,7 @@ def _check_proof_all_elim(proof, env):
 
   match allfrm:
     case All(_, _, var, _, _):
-      sub = {}
+      sub: dict[str, Any] = {}
       _, ty = var
       try:
         new_arg = type_check_term(proof.arg, ty.substitute(sub), env, None, [])
@@ -249,7 +295,7 @@ def _check_proof_all_elim(proof, env):
                  + '\n' + style.orange('Givens:') + '\n' + env.proofs_str())
   return instantiate(loc, allfrm, new_arg)
 
-def _check_proof_all_elim_types(proof, env):
+def _check_proof_all_elim_types(proof: Any, env: Env) -> Any:
   loc = proof.location
   allfrm = check_proof(proof.univ, env)
 
@@ -268,7 +314,7 @@ def _check_proof_all_elim_types(proof, env):
       user_error(loc, 'expected all formula to instantiate, not ' + str(allfrm))
   return instantiate(loc, allfrm, type_arg)
 
-def _check_proof_modus_ponens(proof, env):
+def _check_proof_modus_ponens(proof: Any, env: Env) -> Any:
   loc = proof.location
   ifthen = check_proof(proof.implication, env)
   match ifthen:
@@ -306,7 +352,7 @@ def _check_proof_modus_ponens(proof, env):
       arg_frm = check_proof(proof.arg, env)
       for prem, conc in imps:
         try:
-          matching = {}
+          matching: dict[str, Any] = {}
           formula_match(loc, vars, prem, arg_frm, matching, env,
                         numeric_literals=True)
           type_vars = [x for x in vars if isinstance(x.typeof, TypeType)]
@@ -337,7 +383,7 @@ def _check_proof_modus_ponens(proof, env):
     case _:
       user_error(loc, "in 'apply', expected an if-then formula, not " + str(ifthen))
 
-def _check_proof_injective(proof, env):
+def _check_proof_injective(proof: Any, env: Env) -> Any:
   loc = proof.location
   check_type(proof.constr, env)
   if not is_constructor(proof.constr.name, env):
@@ -372,13 +418,13 @@ def _check_proof_injective(proof, env):
     case _:
       user_error(loc, 'in injective, non-applicable formula: ' + str(formula))
 
-def _check_proof_symmetric(proof, env):
+def _check_proof_symmetric(proof: Any, env: Env) -> Any:
   loc = proof.location
   frm = check_proof(proof.body, env)
   (a,b) = split_equation(loc, frm, env)
   return mkEqual(loc, b, a)
 
-def _check_proof_transitive(proof, env):
+def _check_proof_transitive(proof: Any, env: Env) -> Any:
   loc = proof.location
   eq1 = check_proof(proof.first, env)
   eq2 = check_proof(proof.second, env)
@@ -420,7 +466,7 @@ _CHECK_PROOF_HANDLERS = {
   PTransitive: _check_proof_transitive,
 }
 
-def check_proof(proof, env):
+def check_proof(proof: Any, env: Env) -> Any:
   if get_verbose():
     print('check_proof:')
     print('\t' + str(proof))
@@ -445,7 +491,7 @@ GOAL_ONLY_TACTIC_NAME = {
   SwitchProof: 'switch',
 }
 
-def goal_only_proof_error(proof):
+def goal_only_proof_error(proof: Any) -> str:
   """Error message for a proof that can only be used in goal-directed mode.
 
   Detects common user mistakes (e.g. chaining tactics with `|` as in
@@ -466,7 +512,7 @@ def goal_only_proof_error(proof):
       + '\treplace eq\n' \
       + '\t' + tactic + ' ...'
 
-def get_type_args(ty):
+def get_type_args(ty: Any) -> Any:
   if isinstance(ty, VarRef):
     return []
   match ty:
@@ -477,16 +523,16 @@ def get_type_args(ty):
 
 label_count = 0
 
-def reset_label():
+def reset_label() -> None:
     pass
 
-def generate_label():
+def generate_label() -> str:
     global label_count
     l = 'label_' + str(label_count)
     label_count = label_count + 1
     return l
   
-def proof_use_advice(proof, formula, env):
+def proof_use_advice(proof: Any, formula: Any, env: Env) -> str:
     prefix = style.dark_green('Advice about using fact:') + '\n' \
         + '\t' + str(formula) + '\n\n'
     match formula:
@@ -572,7 +618,7 @@ def proof_use_advice(proof, formula, env):
       case _:
         return 'Sorry, I have no advice for this kind of formula.'
 
-def make_unique(name, env):
+def make_unique(name: str, env: Env) -> str:
     if name in env:
         return make_unique(name + "'", env)
     else:
@@ -581,9 +627,9 @@ def make_unique(name, env):
 def is_recursive(name: str, typ: Type | VarRef) -> bool:
     match cast(Any, typ):
       case OverloadedVar(_, _, rs):
-        return name == rs[0]
+        return bool(name == rs[0])
       case ResolvedVar(_, _, r):
-        return name == r
+        return bool(name == r)
       case TypeInst(_, ty, _):
         return is_recursive(name, ty)
       case _:
@@ -599,7 +645,7 @@ def update_all_head(r: Formula) -> Formula:
       case _:
         return r
 
-def gen_conjunct_advice(conjunct, arbs, ihs):
+def gen_conjunct_advice(conjunct: Any, arbs: list[str], ihs: list[str]) -> Any:
   match conjunct:
     case All(_, _, (n, _), _, b):
       return gen_conjunct_advice(b, arbs + [base_name(n)], ihs)
@@ -615,16 +661,17 @@ def gen_conjunct_advice(conjunct, arbs, ihs):
       return f"\t\tcase {withs}{arg} {assumes} {'{'}\n\t\t\t?\n{'\t\t}'}"
   pass
 
-def gen_custom_induction_advice(conjuncts):
+def gen_custom_induction_advice(conjuncts: list[Any]) -> str:
   return "\n".join([gen_conjunct_advice(c, [], []) for c in conjuncts])
 
-def _custom_induction_expected_cases(conjuncts):
+def _custom_induction_expected_cases(conjuncts: list[Any]) -> str:
   return gen_custom_induction_advice(conjuncts).replace('\t\t', '\t')
 
-def _custom_induction_case_hint(conjunct):
-  return gen_conjunct_advice(conjunct, [], []).replace('\t\t', '\t')
+def _custom_induction_case_hint(conjunct: Any) -> str:
+  result: Any = gen_conjunct_advice(conjunct, [], [])
+  return cast(str, result.replace('\t\t', '\t'))
 
-def proof_advice(formula, env):
+def proof_advice(formula: Any, env: Env) -> str:
     prefix = style.dark_green('Advice:') + '\n'
 
     red_formula = formula.reduce(env)
@@ -775,15 +822,15 @@ def proof_advice(formula, env):
 
         return ''
 
-def givens_str(env):
+def givens_str(env: Env) -> str:
     env_str = env.proofs_str()
     if len(env_str) > 0:
         givens = '\n' + style.orange('Givens:') + '\n' + env_str
     else:
         givens = ''
-    return givens
+    return cast(str, givens)
 
-def pred_to_equality(meta, pred):
+def pred_to_equality(meta: Meta, pred: Any) -> Any:
     match pred:
       case IfThen(_, _, p, Bool(_, _, False)):
           return Call(meta, None, ResolvedVar(meta, None, '='),
@@ -792,12 +839,12 @@ def pred_to_equality(meta, pred):
           return Call(meta, None, ResolvedVar(meta, None, '='),
                       [pred , Bool(meta, None, True)])
 
-def _check_rule_induction(proof, goal, env):
+def _check_rule_induction(proof: Any, goal: Any, env: Env) -> None:
   """See `_check_rule_inversion`: same shape, applies the
   `<pred>_rule_induction` theorem instead of the inversion theorem."""
   _check_rule_induction_or_inversion(proof, goal, env, is_inversion=False)
 
-def _check_rule_inversion(proof, goal, env):
+def _check_rule_inversion(proof: Any, goal: Any, env: Env) -> None:
   """Desugar `rule inversion <pred> case <r1> { ... } ...` to
      `apply <pred>_rule_inversion[<motive>] to (<case_1>, ..., <case_k>)`.
   Same goal shape as `rule induction`, but each case proves the rule's
@@ -805,7 +852,7 @@ def _check_rule_inversion(proof, goal, env):
   motive's induction hypothesis paired with recursive premises)."""
   _check_rule_induction_or_inversion(proof, goal, env, is_inversion=True)
 
-def _check_rule_induction_or_inversion(proof, goal, env, is_inversion):
+def _check_rule_induction_or_inversion(proof: Any, goal: Any, env: Env, is_inversion: bool) -> None:
   loc = proof.location
   pred_name_in = proof.hyp_name  # the predicate name after the keyword
   ri_cases = proof.cases
@@ -903,7 +950,7 @@ def _check_rule_induction_or_inversion(proof, goal, env, is_inversion):
 
   _try_check_proof_of(desugared, goal, env)
 
-def _check_proof_of_hole(proof, formula, env):
+def _check_proof_of_hole(proof: Any, formula: Any, env: Env) -> None:
   loc = proof.location
   new_formula = check_formula(remove_mark(formula), env)
   # Uncommented by i ran into a proof where I had to prove
@@ -923,10 +970,10 @@ def _check_proof_of_hole(proof, formula, env):
                    + givens,
                    formula=new_formula, env=env)
 
-def _check_proof_of_sorry(proof, formula, env):
+def _check_proof_of_sorry(proof: Any, formula: Any, env: Env) -> None:
   warning(proof.location, 'unfinished proof')
 
-def _check_proof_of_reflexive(proof, formula, env):
+def _check_proof_of_reflexive(proof: Any, formula: Any, env: Env) -> None:
   match formula:
     case Call(_, _, rator, [lhs, rhs]) if isinstance(rator, VarRef) and rator.get_name() == '=':
       lhsNF = lhs.reduce(env)
@@ -946,13 +993,13 @@ def _check_proof_of_reflexive(proof, formula, env):
                      + str(formula) \
                      + givens_str(env))
 
-def _check_proof_of_symmetric(proof, formula, env):
+def _check_proof_of_symmetric(proof: Any, formula: Any, env: Env) -> None:
   loc = proof.location
   (a,b) = split_equation(loc, formula, env)
   flip_formula = mkEqual(loc, b, a)
   _try_check_proof_of(proof.body, flip_formula, env)
 
-def _check_proof_of_transitive(proof, formula, env):
+def _check_proof_of_transitive(proof: Any, formula: Any, env: Env) -> None:
   loc = proof.location
   (a1,c) = split_equation(loc, formula, env)
 
@@ -972,7 +1019,7 @@ def _check_proof_of_transitive(proof, formula, env):
           + 'but that does not match the goal\n\t' + str(formula) + '\n'
           + givens_str(env))
 
-def _check_proof_of_extensionality(proof, formula, env):
+def _check_proof_of_extensionality(proof: Any, formula: Any, env: Env) -> None:
   loc = proof.location
   (lhs,rhs) = split_equation(loc, formula, env)
   match lhs.typeof:
@@ -992,7 +1039,7 @@ def _check_proof_of_extensionality(proof, formula, env):
       add_diagnostic(loc, 'extensionality expects a function, not ' + str(lhs.typeof)
             + givens_str(env))
 
-def _check_proof_of_evaluate_goal(proof, formula, env):
+def _check_proof_of_evaluate_goal(proof: Any, formula: Any, env: Env) -> None:
   loc = proof.location
   set_reduce_all(True)
   set_dont_reduce_opaque(True)
@@ -1004,7 +1051,7 @@ def _check_proof_of_evaluate_goal(proof, formula, env):
           + str(red_formula)
           + givens_str(env))
 
-def _check_proof_of_rewrite_goal(proof, formula, env):
+def _check_proof_of_rewrite_goal(proof: Any, formula: Any, env: Env) -> None:
   loc = proof.location
   equations = [check_proof(proof, env) for proof in proof.equations]
   eqns = [equation.reduce(env) for equation in equations]
@@ -1013,7 +1060,7 @@ def _check_proof_of_rewrite_goal(proof, formula, env):
                                display_formula=formula)
   _try_check_proof_of(proof.body, new_formula, env)
 
-def _check_proof_of_simplify_goal(proof, formula, env):
+def _check_proof_of_simplify_goal(proof: Any, formula: Any, env: Env) -> None:
   loc = proof.location
   preds = [check_proof(proof, env) for proof in proof.givens]
   equations = [pred_to_equality(loc, p) for p in preds]
@@ -1022,7 +1069,7 @@ def _check_proof_of_simplify_goal(proof, formula, env):
   new_formula = new_formula.reduce(env)
   _try_check_proof_of(proof.body, new_formula, env)
 
-def _check_proof_of_apply_defs_goal(proof, formula, env):
+def _check_proof_of_apply_defs_goal(proof: Any, formula: Any, env: Env) -> None:
   loc = proof.location
   new_formula = expand_definitions(loc, formula, proof.definitions, env)
   red_formula = new_formula.reduce(env)
@@ -1034,7 +1081,7 @@ def _check_proof_of_apply_defs_goal(proof, formula, env):
       raise wrap_user_error(e, hint) from e
     raise
 
-def _check_proof_of_all_intro(proof, formula, env):
+def _check_proof_of_all_intro(proof: Any, formula: Any, env: Env) -> None:
   loc = proof.location
   var = proof.var
   body = proof.body
@@ -1067,7 +1114,7 @@ def _check_proof_of_all_intro(proof, formula, env):
             + str(formula)
             + givens_str(env))
 
-def _check_proof_of_some_intro(proof, formula, env):
+def _check_proof_of_some_intro(proof: Any, formula: Any, env: Env) -> None:
   loc = proof.location
   # room for improvement, if var has type annotation, could type_check the witness
   witnesses = [type_synth_term(trm, env, None, []) for trm in proof.witnesses]
@@ -1084,7 +1131,7 @@ def _check_proof_of_some_intro(proof, formula, env):
       add_diagnostic(loc, "choose expects the goal to start with 'some', not " + str(formula)
             + givens_str(env))
 
-def _check_proof_of_some_elim(proof, formula, env):
+def _check_proof_of_some_elim(proof: Any, formula: Any, env: Env) -> None:
   loc = proof.location
   someFormula = check_proof(proof.some, env)
 
@@ -1109,7 +1156,7 @@ def _check_proof_of_some_elim(proof, formula, env):
       add_diagnostic(loc, "obtain expects 'from' to be a proof of a 'some' formula, not " + str(someFormula)
             + givens_str(env))
 
-def _check_proof_of_imp_intro(proof, formula, env):
+def _check_proof_of_imp_intro(proof: Any, formula: Any, env: Env) -> None:
   loc = proof.location
 
   if proof.premise is None:
@@ -1143,7 +1190,7 @@ def _check_proof_of_imp_intro(proof, formula, env):
       add_diagnostic(proof.location, 'the assume statement is for if-then formula, not ' + str(formula)
             + givens_str(env))
 
-def _check_proof_of_tlet_new(proof, formula, env):
+def _check_proof_of_tlet_new(proof: Any, formula: Any, env: Env) -> None:
   loc = proof.location
   new_rhs = type_synth_term(proof.rhs, env, None, [])
   body_env = env.define_term_var(loc, proof.var, new_rhs.typeof, new_rhs)
@@ -1160,7 +1207,7 @@ def _check_proof_of_tlet_new(proof, formula, env):
                        for (k,b) in body_env.dict.items()})
   _try_check_proof_of(proof.body, frm, new_body_env)
 
-def _check_proof_of_let(proof, formula, env):
+def _check_proof_of_let(proof: Any, formula: Any, env: Env) -> None:
   loc = proof.location
   new_frm = check_formula(proof.proved, env)
   match new_frm:
@@ -1173,7 +1220,7 @@ def _check_proof_of_let(proof, formula, env):
       body_env = env.declare_local_proof_var(loc, proof.label, remove_mark(new_frm))
   _try_check_proof_of(proof.body, formula, body_env)
 
-def _check_proof_of_annot(proof, formula, env):
+def _check_proof_of_annot(proof: Any, formula: Any, env: Env) -> None:
   loc = proof.location
   new_claim = check_formula(proof.claim, env)
   match new_claim:
@@ -1188,7 +1235,7 @@ def _check_proof_of_annot(proof, formula, env):
                     remove_mark(formula_red).reduce(env))
       _try_check_proof_of(proof.body, claim_red, env)
 
-def _check_proof_of_tuple(proof, formula, env):
+def _check_proof_of_tuple(proof: Any, formula: Any, env: Env) -> None:
   loc = proof.location
   try:
     with speculative_probe():
@@ -1219,7 +1266,7 @@ def _check_proof_of_tuple(proof, formula, env):
             + str(ex2)
             + givens_str(env))
 
-def _check_proof_of_cases(proof, formula, env):
+def _check_proof_of_cases(proof: Any, formula: Any, env: Env) -> None:
   loc = proof.location
   sub_frm = check_proof(proof.subject, env)
 
@@ -1245,7 +1292,7 @@ def _check_proof_of_cases(proof, formula, env):
       add_diagnostic(proof.location, "expected 'or', not " + str(sub_red)
             + givens_str(env))
 
-def _check_proof_of_suffices(proof, formula, env):
+def _check_proof_of_suffices(proof: Any, formula: Any, env: Env) -> None:
   loc = proof.location
   claim = proof.claim
   reason = proof.reason
@@ -1308,7 +1355,7 @@ def _check_proof_of_suffices(proof, formula, env):
       _try_check_proof_of(reason, imp, env)
       _try_check_proof_of(rest, claim_red, env)
 
-def _check_proof_of_induction(proof, formula, env):
+def _check_proof_of_induction(proof: Any, formula: Any, env: Env) -> None:
   loc = proof.location
   typ = check_type(proof.typ, env)
   cases = proof.cases
@@ -1356,7 +1403,7 @@ def _check_proof_of_induction(proof, formula, env):
             type_subst[k] = v
             types_elimmed = AllElimTypes(loc, types_elimmed, v, (0, 1))
         case _:
-          internal_error("Expected a type inst")
+          internal_error(loc, "Expected a type inst")
 
     pfun = Lambda(loc, fun_ty, [formula.var], formula.body)
     fun_var = ResolvedVar(loc, fun_ty, fun_name)
@@ -1389,7 +1436,7 @@ def _check_proof_of_induction(proof, formula, env):
           add_diagnostic(loc, 'expected ' + str(len(alts)) + ' cases for induction' \
                 + ', but only have ' + str(len(cases))
                 + givens_str(env))
-        cases_present = {}
+        cases_present: dict[str, Any] = {}
         for (constr,indcase) in zip(alts, cases):
           check_pattern(indcase.pattern, typ, env, cases_present)
           if get_verbose():
@@ -1449,7 +1496,7 @@ def _check_proof_of_induction(proof, formula, env):
         add_diagnostic(loc, "induction expected name of union, not " + str(typ)
               + '\nwhich resolves to\n' + str(blah) + '\nin ' + str(env))
 
-def _check_proof_of_switch(proof, formula, env):
+def _check_proof_of_switch(proof: Any, formula: Any, env: Env) -> None:
   loc = proof.location
   new_subject = type_synth_term(proof.subject, env, None, [])
   cases = proof.cases
@@ -1519,7 +1566,7 @@ def _check_proof_of_switch(proof, formula, env):
           if len(cases) != len(alts):
             add_diagnostic(loc, 'expected ' + str(len(alts)) + ' cases in switch, but only have ' + str(len(cases))
                   + givens_str(env))
-          cases_present = {}
+          cases_present: dict[str, Any] = {}
           for (constr,scase) in zip(alts, cases):
             check_pattern(scase.pattern, ty, env, cases_present)
             if scase.pattern.constructor.name != constr.name:
@@ -1572,7 +1619,7 @@ def _check_proof_of_switch(proof, formula, env):
           add_diagnostic(loc, "switch expected union type or bool, not " + str(ty)
                 + givens_str(env))
 
-def _check_synthesized_proof_against_goal(proof, formula, env):
+def _check_synthesized_proof_against_goal(proof: Any, formula: Any, env: Env) -> None:
   try:
     form = check_proof(proof, env)
     form_red = form.reduce(env)
@@ -1590,7 +1637,7 @@ def _check_synthesized_proof_against_goal(proof, formula, env):
     finally:
       raise wrap_user_error(e, replace_advice) from e
 
-def _check_proof_of_goal_agnostic(proof, formula, env):
+def _check_proof_of_goal_agnostic(proof: Any, formula: Any, env: Env) -> None:
   return _check_synthesized_proof_against_goal(proof, formula, env)
 
 _GOAL_AGNOSTIC_PROOF_TYPES = {
@@ -1642,7 +1689,7 @@ _CHECK_PROOF_OF_HANDLERS = {
   RuleInversion: _check_rule_inversion,
 }
 
-def check_proof_of(proof, formula, env):
+def check_proof_of(proof: Any, formula: Any, env: Env) -> None:
   if get_verbose():
     print('check_proof_of: ' + str(formula) + '?')
     print('\t' + str(proof))

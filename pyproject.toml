@@ -137,6 +137,7 @@ module = [
     "checker_cache",
     "checker_common",
     "checker_induction",
+    "checker_proofs",
     "compiler.closure",
     "compiler.compile_prelude",
     "compiler.emit_c",
