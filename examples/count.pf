@@ -1,0 +1,122 @@
+// count.pf
+//
+// An introductory functional-programming example: define `count` to
+// count the number of occurrences of an element in a list, then prove
+// three correctness properties of it.
+//
+//   1. count_append:  count distributes over concatenation,
+//        count(xs ++ ys, x) = count(xs, x) + count(ys, x)
+//   2. count_reverse: count is invariant under list reversal,
+//        count(reverse(xs), x) = count(xs, x)
+//   3. count_le_length: number of occurrences cannot exceed length,
+//        count(xs, x) ≤ length(xs)
+
+import List
+
+recursive count<T>(List<T>, T) -> UInt {
+  count(empty, x) = 0
+  count(node(y, ys), x) = (if y = x then 1 + count(ys, x) else count(ys, x))
+}
+
+assert count([1, 2, 1, 3, 1], 1) = 3
+assert count(@[]<UInt>, 5) = 0
+assert count([1, 2, 3], 4) = 0
+
+theorem count_append: all T:type. all xs:List<T>. all ys:List<T>, x:T.
+  count(xs ++ ys, x) = count(xs, x) + count(ys, x)
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary ys:List<T>, x:T
+    expand count | operator++.
+  }
+  case node(y, xs') assume IH: all ys:List<T>, x:T.
+      count(xs' ++ ys, x) = count(xs', x) + count(ys, x) {
+    arbitrary ys:List<T>, x:T
+    switch y = x {
+      case true assume yx_true {
+        equations
+          count(node(y, xs') ++ ys, x)
+              = count(node(y, xs' ++ ys), x)         by expand operator++.
+          ... = 1 + count(xs' ++ ys, x)              by expand count
+                                                         replace yx_true.
+          ... = 1 + (count(xs', x) + count(ys, x))   by replace IH[ys, x].
+          ... = (1 + count(xs', x)) + count(ys, x)   by .
+          ... = #count(node(y, xs'), x)# + count(ys, x)
+                                                     by expand count
+                                                         replace yx_true.
+      }
+      case false assume yx_false {
+        equations
+          count(node(y, xs') ++ ys, x)
+              = count(node(y, xs' ++ ys), x)         by expand operator++.
+          ... = count(xs' ++ ys, x)                  by expand count
+                                                         simplify with yx_false.
+          ... = count(xs', x) + count(ys, x)         by IH[ys, x]
+          ... = #count(node(y, xs'), x)# + count(ys, x)
+                                                     by expand count
+                                                         simplify with yx_false.
+      }
+    }
+  }
+end
+
+theorem count_reverse: all T:type. all xs:List<T>. all x:T.
+  count(reverse(xs), x) = count(xs, x)
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary x:T
+    expand reverse.
+  }
+  case node(y, xs') assume IH: all x:T. count(reverse(xs'), x) = count(xs', x) {
+    arbitrary x:T
+    equations
+      count(reverse(node(y, xs')), x)
+          = count(reverse(xs') ++ [y], x)            by expand reverse.
+      ... = count(reverse(xs'), x) + count([y], x)   by count_append<T>[reverse(xs')][[y], x]
+      ... = count(xs', x) + count([y], x)            by replace IH[x].
+      ... = count([y], x) + count(xs', x)            by uint_add_commute
+      ... = count([y] ++ xs', x)                     by symmetric count_append<T>[[y]][xs', x]
+      ... = count(node(y, xs'), x)                   by expand 2*operator++.
+  }
+end
+
+theorem count_le_length: all T:type. all xs:List<T>. all x:T.
+  count(xs, x) ≤ length(xs)
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary x:T
+    expand count.
+  }
+  case node(y, xs') assume IH: all x:T. count(xs', x) ≤ length(xs') {
+    arbitrary x:T
+    switch y = x {
+      case true assume yx_true {
+        have step: count(node(y, xs'), x) = 1 + count(xs', x)
+          by expand count replace yx_true.
+        have len: length(node(y, xs')) = 1 + length(xs')
+          by expand length.
+        suffices 1 + count(xs', x) ≤ 1 + length(xs')
+          by replace step | len.
+        apply uint_add_both_sides_of_less_equal[1, count(xs', x), length(xs')] to IH[x]
+      }
+      case false assume yx_false {
+        have step: count(node(y, xs'), x) = count(xs', x)
+          by expand count simplify with yx_false.
+        have len: length(node(y, xs')) = 1 + length(xs')
+          by expand length.
+        suffices count(xs', x) ≤ 1 + length(xs')
+          by replace step | len.
+        have h1: count(xs', x) ≤ length(xs')      by IH[x]
+        have h2: length(xs') ≤ 1 + length(xs')    by uint_less_equal_add_left[1, length(xs')]
+        apply uint_less_equal_trans to h1, h2
+      }
+    }
+  }
+end
+
