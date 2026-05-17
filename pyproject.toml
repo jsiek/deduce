@@ -180,14 +180,16 @@ warn_return_any = true
 #   disallow_any_generics  (6 errors, fixed here)
 #   disallow_untyped_calls (16 errors, fixed here)
 #   disallow_incomplete_defs (18 errors, fixed here)
-#   check_untyped_defs     (77)
-#   disallow_untyped_defs  (493)
+#   disallow_untyped_defs  (493 errors, fixed here)
+#   check_untyped_defs     (77 errors, fixed here)
 [[tool.mypy.overrides]]
 module = ["abstract_syntax"]
 disallow_any_generics = true
 disallow_untyped_calls = true
 disallow_untyped_decorators = true
 disallow_incomplete_defs = true
+disallow_untyped_defs = true
+check_untyped_defs = true
 warn_return_any = true
 
 # parser.py is also being ratcheted in small strictness slices for #506.
