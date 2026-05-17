@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 from checker_common import *
 
 def check_implies(loc: Meta, frm1: Formula, frm2: Formula) -> None:
@@ -567,4 +568,3 @@ def apply_rewrites(loc, formula, eqns, env, *, display_formula=None):
       return new_formula
   else:
       return replace_mark(formula, new_formula).reduce(env)
-

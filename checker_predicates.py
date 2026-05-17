@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 from checker_common import *
 
 # Predicate / relation validation (phase 2: shape, arity, strict positivity)

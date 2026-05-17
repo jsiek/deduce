@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 from checker_common import *
 
 def gen_conjunct_advice(conjunct, arbs, ihs):

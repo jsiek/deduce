@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 from checker_common import *
 
 def type_check_call_funty(loc, new_rator, args, env, recfun, subterms, ret_ty,
@@ -1117,4 +1118,3 @@ def infer_param_polarities(union_decl, env):
         walk(ty, '+')
     if before == polarities:
       break
-

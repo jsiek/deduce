@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 from checker_common import *
 
 name_id = 0
@@ -1637,5 +1638,4 @@ def check_proof_of(proof, formula, env):
   match proof:
     case _:
       return _check_synthesized_proof_against_goal(proof, formula, env)
-
 

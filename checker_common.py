@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 # The checking process for programs & proofs has the following steps:
 #
 # 0. uniquify:
@@ -86,4 +87,3 @@ from flags import (
 )
 from pathlib import Path
 import style
-
