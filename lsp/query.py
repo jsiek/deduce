@@ -3922,9 +3922,9 @@ def _formula_head_symbol(formula) -> Optional[str]:
         if isinstance(rator, TermInst):
             inner = getattr(rator, "subject", None)
             if isinstance(inner, VarRef):
-                return base_name(inner.get_name())
+                return cast(str, base_name(cast(str, inner.get_name())))
         if isinstance(rator, VarRef):
-            return base_name(rator.get_name())
+            return cast(str, base_name(cast(str, rator.get_name())))
         return None
     if isinstance(f, And):
         return "and"

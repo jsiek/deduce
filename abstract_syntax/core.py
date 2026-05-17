@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, fields as dc_fields
 from lark.tree import Meta
-from typing import Any, Callable, Iterator, Tuple, List, Mapping, Optional, Protocol, Set, Self, overload, TextIO, Sequence, cast, Iterable, NotRequired, TypedDict
+from typing import Any, Callable, Iterator, Tuple, List, Mapping, Optional, Protocol, Set, Self, overload, TextIO, Sequence, cast, Iterable, NotRequired, TypedDict, TYPE_CHECKING
 from error import (
     InternalError,
     MatchFailed,
@@ -30,6 +30,10 @@ from pathlib import Path
 from edit_distance import edit_distance
 from math import ceil
 import os
+
+if TYPE_CHECKING:
+    from .declarations import GenRecFun, RecFun
+    from .env import Env
 
 infix_precedence = {'+': 6, '-': 6, '∸': 6, '⊝': 6, '*': 7, '/': 7, '%': 7,
                     '=': 1, '<': 1, '≤': 1, '≥': 1, '>': 1, 'and': 2, 'or': 3,

@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from .core import *
 from .terms import *
 from .proofs import *
 from .declarations import *
+
+if TYPE_CHECKING:
+    from .literals import split_equation
+    from .rewrite import call_head_name
 
 @dataclass(kw_only=True)
 class Binding(AST):
@@ -414,4 +420,3 @@ class Env:
   def proofs(self) -> list[Formula]:
     return [b.formula for (name, b) in self.dict.items() \
             if isinstance(b, ProofBinding)]
-

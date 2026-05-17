@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from .core import *
 from .terms import *
 from .proofs import *
 from .declarations import *
 from .env import *
+
+if TYPE_CHECKING:
+    from .ops import callable_name
 
 # ---------------------
 # Auxiliary Functions
@@ -529,4 +534,3 @@ def isEmptySet(t: Term) -> bool:
       return True
     case _:
       return False
-

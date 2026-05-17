@@ -1,6 +1,44 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from .core import *
+
+if TYPE_CHECKING:
+    from .declarations import FunCase, GenRecFun, RecFun, Union, overwrite
+    from .env import Env
+    from .literals import (
+        _array_index_predecessor,
+        _is_named,
+        constructor_conflict,
+        deduceIntToInt,
+        getSuc,
+        getZero,
+        intToNat,
+        isDeduceInt,
+        isEmptySet,
+        isLitNat,
+        isLitUInt,
+        isNat,
+        isNodeList,
+        isUInt,
+        natToInt,
+        nodeListToList,
+        nodeListToString,
+        uintToInt,
+    )
+    from .ops import (
+        _alpha_equiv_all,
+        _alpha_equiv_function_type,
+        _alpha_equiv_lambda,
+        _alpha_equiv_some,
+        _alpha_equiv_tlet,
+        callable_name,
+        explicit_term_inst,
+        flatten_assoc_list,
+        is_associative,
+    )
+    from .rewrite import auto_rewrites
 
 ################ Types ######################################
 

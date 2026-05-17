@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from .core import *
 from .terms import *
 from .proofs import *
 from .declarations import *
 from .env import *
 from .literals import *
+
+if TYPE_CHECKING:
+    from .ops import callable_name, flatten_assoc, flatten_assoc_list, is_associative
 
 ############# Marks for controlling rewriting and definitions ##################
 
@@ -559,4 +564,3 @@ def auto_rewrites(term: Term, env: Env) -> Term:
         if current == get_num_rewrites():
             break
     return term        
-

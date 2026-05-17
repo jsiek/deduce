@@ -198,13 +198,9 @@ disallow_untyped_defs = true
 check_untyped_defs = true
 warn_return_any = true
 
-# The split implementation modules currently preserve the former monolithic
-# module's late-bound sibling lookups through the compatibility facade. Mypy
-# cannot model that injection, so keep the internals ignored until the direct
-# intra-package imports are tightened.
 [[tool.mypy.overrides]]
 module = ["abstract_syntax.*"]
-ignore_errors = true
+implicit_reexport = true
 
 # parser.py is also being ratcheted in small strictness slices for #506.
 # These cheap flags are clean; later passes should add check_untyped_defs

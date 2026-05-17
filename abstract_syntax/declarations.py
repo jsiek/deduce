@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from .core import *
 from .terms import *
 from .proofs import *
+
+if TYPE_CHECKING:
+    from .env import Env
+    from .ops import uniquify_deduce
 
 @dataclass
 class Declaration(Statement):

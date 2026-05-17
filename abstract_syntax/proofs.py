@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from .core import *
 from .terms import *
+
+if TYPE_CHECKING:
+    from .declarations import find_private_lemma_definers, overwrite
 
 ################ Proofs ######################################
   
@@ -746,4 +751,3 @@ class RewriteFact(Proof):
   def __str__(self) -> str:
       return 'replace ' + ','.join([str(eqn) for eqn in self.equations]) \
         + ' in ' + str(self.subject)
-
