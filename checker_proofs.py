@@ -57,7 +57,7 @@ def _try_check_proof_of(pf, frm, env):
       raise
     get_active_sink().add(e)
 
-def generate_proof_name(name):
+def generate_proof_name(name: str) -> str:
     """Allocate a fresh label/binder name at proof-check time.
 
     Uses ``proof_checker.name_id`` rather than a ``UniquifyContext`` —

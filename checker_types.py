@@ -473,7 +473,7 @@ def type_check_term_inst_var(loc, subject_var, tyargs, inferred, env):
                       tyargs, inferred)
   internal_error(loc, 'internal error, expected variable, not ' + str(subject_var))
 
-def type_synth_term(term, env, recfun, subterms):
+def type_synth_term(term: Term, env: Env, recfun: Any, subterms: Any) -> Term:
   if get_verbose():
     print('type_synth_term: ' + str(term) + '\n' \
           + '\tin ' + str(recfun))
@@ -725,7 +725,7 @@ def type_synth_term(term, env, recfun, subterms):
 def type_check_formula(term, env):
   return type_check_term(term, BoolType(term.location), env, None, [])
 
-def type_check_term(term, typ, env, recfun, subterms):
+def type_check_term(term: Term, typ: Type, env: Env, recfun: Any, subterms: Any) -> Term:
   if get_verbose():
     print('\ntype_check_term: ' + str(term) + ' : ' + str(typ) + '?\n')
   match term:
