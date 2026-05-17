@@ -106,6 +106,7 @@ package:
 	cp flags.py deduce
 	cp parser.py deduce
 	cp proof_checker.py deduce
+	cp checker_*.py deduce
 	cp example.pf deduce
 	cp README.md deduce
 	cp rec_desc_parser.py deduce
