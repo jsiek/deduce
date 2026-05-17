@@ -211,7 +211,7 @@ def copy_dict[T](d: dict[str, T]) -> dict[str, T]:
   return {k: v for k, v in d.items()}
 
 
-def maybe_str(o: Optional[str], default: str = '') -> str:
+def maybe_str(o: Proof | str | None, default: str = '') -> str:
   return str(o) if o is not None else default
 
 def maybe_pretty_print(o: Optional["Proof"], indent: int, default: str = '') -> str:
@@ -382,7 +382,7 @@ class Declaration(Statement):
 @dataclass
 class IntType(Type):
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'int'
 
   def __eq__(self, other: object) -> bool:
@@ -394,32 +394,32 @@ class IntType(Type):
 @dataclass
 class BoolType(Type):
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'bool'
 
   def __eq__(self, other: object) -> bool:
     return isinstance(other, BoolType)
 
-  def free_vars(self):
+  def free_vars(self) -> Set[str]:
     return set()
 
 @dataclass
 class TypeType(Type):
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'type'
 
   def __eq__(self, other: object) -> bool:
     return isinstance(other, TypeType)
 
-  def free_vars(self):
+  def free_vars(self) -> Set[str]:
     return set()
 
 @dataclass
 class OverloadType(Type):
   types: List[Tuple[str,Type]]
 
-  def __str__(self):
+  def __str__(self) -> str:
     return '(' + ' & '.join([base_name(x) + ': ' + str(ty) \
                              for (x,ty) in self.types]) + ')'
 
@@ -433,7 +433,7 @@ class OverloadType(Type):
       case _:
         return False
 
-  def free_vars(self):
+  def free_vars(self) -> Set[str]:
     fvs = [t.free_vars() for (x,t) in self.types]
     return set().union(*fvs)
 
@@ -444,7 +444,7 @@ class FunctionType(Type):
   param_types: List[Type]
   return_type: Type
 
-  def __str__(self):
+  def __str__(self) -> str:
     if len(self.type_params) > 0:
       typarams = '<' + ','.join([(x if get_verbose() else base_name(x)) for x in self.type_params]) + '> '
     else:
@@ -457,7 +457,7 @@ class FunctionType(Type):
       return False
     return _alpha_equiv_function_type(self, other, {}, {})
 
-  def free_vars(self):
+  def free_vars(self) -> Set[str]:
     fvs = [pt.free_vars() for pt in self.param_types] \
       + [self.return_type.free_vars()]
     return set().union(*fvs) - set(self.type_params)
@@ -476,7 +476,7 @@ class FunctionType(Type):
 class ArrayType(Type):
   elt_type: Type
 
-  def __str__(self):
+  def __str__(self) -> str:
     return '[' + str(self.elt_type) + ']'
 
   def __eq__(self, other: object) -> bool:
@@ -486,7 +486,7 @@ class ArrayType(Type):
       case _:
         return False
 
-  def free_vars(self):
+  def free_vars(self) -> Set[str]:
     return self.elt_type.free_vars()
 
 @dataclass
@@ -494,7 +494,7 @@ class TypeInst(Type):
   typ: Type
   arg_types: List[Type]
 
-  def __str__(self):
+  def __str__(self) -> str:
     return str(self.typ) + \
       '<' + ','.join([str(arg) for arg in self.arg_types]) + '>'
 
@@ -508,7 +508,7 @@ class TypeInst(Type):
       case _:
         return False
 
-  def free_vars(self):
+  def free_vars(self) -> Set[str]:
     return set().union(*[at.free_vars() for at in self.arg_types])
 
 # This is the type of a constructor such as 'empty' of a generic union
@@ -517,7 +517,7 @@ class TypeInst(Type):
 class GenericUnknownInst(Type):
   typ: Type
 
-  def __str__(self):
+  def __str__(self) -> str:
     return str(self.typ) + '<?>'
 
   def __eq__(self, other: object) -> bool:
@@ -529,7 +529,7 @@ class GenericUnknownInst(Type):
       case _:
         return False
 
-  def free_vars(self):
+  def free_vars(self) -> Set[str]:
     return set()
 
   # The inner `typ` is the bare constructor name from a generic union
@@ -573,7 +573,7 @@ class Pattern(AST):
 class PatternBool(Pattern):
   value : bool
 
-  def __str__(self):
+  def __str__(self) -> str:
       return "true" if self.value else "false"
 
   def bindings(self) -> list[str]:
@@ -593,7 +593,7 @@ class PatternCons(Pattern):
   def with_bindings(self, params: list[str]) -> PatternCons:
     return PatternCons(self.location, self.constructor, params)
 
-  def __str__(self):
+  def __str__(self) -> str:
       if len(self.parameters) > 0:
         return str(self.constructor) \
           + '(' + ', '.join([base_name(p) for p in self.parameters]) + ')'
@@ -611,7 +611,7 @@ class PatternTerm(Pattern):
   def with_bindings(self, params: list[str]) -> PatternTerm:
     return PatternTerm(self.location, self.term, params)
 
-  def __str__(self):
+  def __str__(self) -> str:
     return str(self.term)
     
 ################ Terms ######################################
@@ -621,7 +621,7 @@ class Generic(Term):
   type_params: List[str]
   body: Term
 
-  def __str__(self):
+  def __str__(self) -> str:
     return "generic " + ",".join([(t if get_verbose() else base_name(t)) for t in self.type_params]) \
       + " { " + str(self.body) + " }"
 
@@ -654,7 +654,7 @@ class Conditional(Term):
   thn: Term
   els: Term
 
-  def __str__(self):
+  def __str__(self) -> str:
       return '(if ' + str(self.cond) \
         + ' then ' + str(self.thn) \
         + ' else ' + str(self.els) + ')'
@@ -697,7 +697,7 @@ class TAnnote(Term):
   subject: Term
   typ: Type
 
-  def __str__(self):
+  def __str__(self) -> str:
       return str(self.subject) + ':' + str(self.typ)
 
   def reduce(self, env: Env) -> Term:
@@ -720,10 +720,10 @@ class VarRef(Term):
   def get_name(self) -> str:
     internal_error(self.location, 'get_name not implemented on VarRef base')
 
-  def free_vars(self):
+  def free_vars(self) -> Set[str]:
     return {self.get_name()}
 
-  def operator_str(self):
+  def operator_str(self) -> str:
     return name2str(self.get_name())
 
 
@@ -736,10 +736,10 @@ class Var(VarRef):
   # operates on.
   name: str
 
-  def get_name(self):
+  def get_name(self) -> str:
     return self.name
 
-  def copy(self):
+  def copy(self) -> Var:
     return Var(self.location, self.typeof, self.name)
 
   def __eq__(self, other: object) -> bool:
@@ -760,7 +760,7 @@ class Var(VarRef):
         result = self.name == other.name
       return result
 
-  def __str__(self):
+  def __str__(self) -> str:
       if base_name(self.name) == 'empty' and not get_unique_names() and not get_verbose():
           return '[]'
       elif get_unique_names():
@@ -830,23 +830,23 @@ class OverloadedVar(VarRef):
   # it via `base_name(self.get_name())` when you need to display it.
   resolved_names: list[str]
 
-  def __post_init__(self):
+  def __post_init__(self) -> None:
     if len(self.resolved_names) == 0:
       internal_error(self.location,
             'OverloadedVar must have at least one resolved name')
 
   @property
-  def name(self):
+  def name(self) -> str:
     # Derived, read-only. Always equal to the canonical chosen name.
     # Exposed so ``.name`` access works uniformly with `Var`, but
     # there is no `name` field that could drift out of sync with
     # `resolved_names`.
     return self.resolved_names[0]
 
-  def get_name(self):
+  def get_name(self) -> str:
     return self.resolved_names[0]
 
-  def copy(self):
+  def copy(self) -> OverloadedVar:
     return OverloadedVar(self.location, self.typeof,
                        list(self.resolved_names))
 
@@ -870,7 +870,7 @@ class OverloadedVar(VarRef):
     else:
       return False
 
-  def __str__(self):
+  def __str__(self) -> str:
     chosen = self.resolved_names[0]
     if base_name(chosen) == 'empty' and not get_unique_names() and not get_verbose():
       return '[]'
@@ -942,10 +942,10 @@ class ResolvedVar(VarRef):
   # different node entirely.
   name: str
 
-  def get_name(self):
+  def get_name(self) -> str:
     return self.name
 
-  def copy(self):
+  def copy(self) -> ResolvedVar:
     return ResolvedVar(self.location, self.typeof, self.name)
 
   def __eq__(self, other: object) -> bool:
@@ -971,7 +971,7 @@ class ResolvedVar(VarRef):
     else:
       return False
 
-  def __str__(self):
+  def __str__(self) -> str:
     if base_name(self.name) == 'empty' and not get_unique_names() and not get_verbose():
       return '[]'
     elif get_unique_names():
@@ -1029,7 +1029,7 @@ class Int(Term):
           return False
       return self.value == other.value
 
-  def __str__(self):
+  def __str__(self) -> str:
     return str(self.value)
 
 
@@ -1042,7 +1042,7 @@ class Lambda(Term):
   # un-reduced lambda.
   env: Optional['Env'] = None
 
-  def __str__(self):
+  def __str__(self) -> str:
     if get_unique_names():
       params = self.vars
     else:
@@ -1174,11 +1174,11 @@ def set_eval_all(b: bool) -> None:
 # Definitions that were reduced.
 reduced_defs: set[str] = set()
 
-def reset_reduced_defs():
+def reset_reduced_defs() -> None:
   global reduced_defs
   reduced_defs = set()
 
-def get_reduced_defs():
+def get_reduced_defs() -> set[str]:
   global reduced_defs
   return reduced_defs
 
@@ -1388,7 +1388,7 @@ class Call(Term):
   rator: Term
   args: list[Term]
 
-  def __str__(self):
+  def __str__(self) -> str:
     if is_infix_operator(self.rator) and len(self.args) >= 2:
       op_str = ' ' + operator_display_name(self.rator) + ' '
       return op_str.join([op_arg_str(self, arg) for arg in self.args])
@@ -1405,7 +1405,9 @@ class Call(Term):
     elif isUInt(self) and not get_verbose():
       return str(uintToInt(self))
     elif isNodeList(self):
-      return '[' + nodeListToString(self)[:-2] + ']'
+      node_list = nodeListToString(self)
+      assert node_list is not None
+      return '[' + node_list[:-2] + ']'
     elif isEmptySet(self) and not get_verbose():
       return '∅'
     else:
@@ -1642,7 +1644,7 @@ class SwitchCase(AST):
   pattern: Pattern
   body: Term
 
-  def __str__(self):
+  def __str__(self) -> str:
       return 'case ' + str(self.pattern) + ' { ' + str(self.body) + ' }'
 
   def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
@@ -1688,7 +1690,7 @@ class Switch(Term):
   subject: Term
   cases: List[SwitchCase]
 
-  def __str__(self):
+  def __str__(self) -> str:
       return 'switch ' + str(self.subject) + ' { ' \
           + ' '.join([str(c) for c in self.cases]) \
           + ' }'
@@ -1744,7 +1746,7 @@ class TermInst(Term):
     else:
       return self.subject == other
 
-  def __str__(self):
+  def __str__(self) -> str:
     if self.inferred and not get_verbose():
       return str(self.subject)
     else:
@@ -1775,7 +1777,7 @@ class Array(Term):
     else:
       return False
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'array(' + ', '.join([str(elt) for elt in self.elements]) + ')'
 
 @dataclass
@@ -1788,7 +1790,7 @@ class MakeArray(Term):
     else:
       return False
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'array(' + str(self.subject) + ')'
 
   def reduce(self, env: Env) -> Term:
@@ -1811,7 +1813,7 @@ class ArrayGet(Term):
     else:
       return False
 
-  def __str__(self):
+  def __str__(self) -> str:
     return str(self.subject) + '[' + str(self.position) + ']'
 
   def reduce(self, env: Env) -> Term:
@@ -1870,7 +1872,7 @@ class TLet(Term):
   rhs: Term
   body: Term
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'define ' + base_name(self.var) + ' = ' + str(self.rhs) + ';' \
       + '\n\t' + str(self.body)
 
@@ -1901,13 +1903,13 @@ class TLet(Term):
 @dataclass
 class Hole(Term):
 
-  def __str__(self):
+  def __str__(self) -> str:
       return '?'
 
 @dataclass
 class Omitted(Term):
 
-  def __str__(self):
+  def __str__(self) -> str:
       return '--'
 
 @dataclass
@@ -1920,7 +1922,7 @@ class Mark(Term):
     else:
       return self.subject == other
 
-  def __str__(self):
+  def __str__(self) -> str:
     return '#' + str(self.subject) + '#'
 
 ################ Formulas ######################################
@@ -1933,7 +1935,7 @@ class Bool(Formula):
       if not isinstance(other, Bool):
           return False
       return self.value == other.value
-  def __str__(self):
+  def __str__(self) -> str:
     return 'true' if self.value else 'false'
 
 def list_of_and(arg: Formula) -> list[Formula]:
@@ -1959,8 +1961,8 @@ def is_true(b: Formula) -> bool:
 class And(Formula):
   args: list[Formula]
 
-  def __str__(self):
-    ret_args = []
+  def __str__(self) -> str:
+    ret_args: list[str | Formula] = []
     skip = False
     for i in range(len(self.args) - 1):
       if skip: 
@@ -2028,7 +2030,7 @@ def flatten_or(args: Sequence[Formula]) -> list[Formula]:
 class Or(Formula):
   args: list[Formula]
 
-  def __str__(self):
+  def __str__(self) -> str:
     return '(' + ' or '.join([str(arg) for arg in self.args]) + ')'
   
   def __eq__(self, other: object) -> bool:
@@ -2062,7 +2064,7 @@ class IfThen(Formula):
   premise: Formula
   conclusion : Formula
 
-  def __str__(self):
+  def __str__(self) -> str:
     match self.conclusion:
       case Bool(_, _, False):
         return str(Call(self.location, self.typeof,
@@ -2116,7 +2118,7 @@ class All(Formula):
   pos: Tuple[int, int]
   body: Formula
 
-  def __str__(self):
+  def __str__(self) -> str:
     v, t = self.var
     v = name2str(v)
 
@@ -2173,7 +2175,7 @@ class Some(Formula):
   vars: list[Tuple[str,Type]]
   body: Formula
 
-  def __str__(self):
+  def __str__(self) -> str:
       return 'some ' + ",".join([(v if get_verbose() else base_name(v)) + ":" + str(t) \
                                  for (v,t) in self.vars]) \
         + '. ' + str(self.body)
@@ -2222,7 +2224,7 @@ class PVar(Proof):
   def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
       return str(self)
   
-  def __str__(self):
+  def __str__(self) -> str:
       return base_name(self.name)
 
   def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> PVar:
@@ -2259,7 +2261,7 @@ class PLet(Proof):
           + indent*' ' + '}\n' \
           + maybe_pretty_print(self.body, indent)
   
-  def __str__(self):
+  def __str__(self) -> str:
       return 'have ' + base_name(self.label) + ': ' + str(self.proved) \
         + ' by ' + str(self.because) + (' ' + str(self.body) if self.body else '')
 
@@ -2282,7 +2284,7 @@ class PTLetNew(Proof):
       return indent*' ' + 'define ' + base_name(self.var) + ' = ' + str(self.rhs) + '\n' \
           + self.body.pretty_print(indent)
   
-  def __str__(self):
+  def __str__(self) -> str:
       return 'define ' + base_name(self.var) + ' = ' + str(self.rhs) + '\n' \
          + str(self.body)
 
@@ -2302,7 +2304,7 @@ class PRecall(Proof):
   def pretty_print(self, indent: int) -> str:
       return str(self)
 
-  def __str__(self):
+  def __str__(self) -> str:
       return 'recall ' + ', '.join([str(f) for f in self.facts])
 
 
@@ -2316,7 +2318,7 @@ class PAnnot(Proof):
           + self.body.pretty_print(indent+2) + '\n' \
           + indent*' ' + '}\n'
 
-  def __str__(self):
+  def __str__(self) -> str:
       return 'conclude ' + str(self.claim) + ' by ' + str(self.body)
 
 @dataclass
@@ -2330,7 +2332,7 @@ class Suffices(Proof):
           + self.reason.pretty_print(indent+2) + '\n' \
           + maybe_pretty_print(self.body, indent)
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'suffices ' + str(self.claim) + '  by ' + str(self.reason) + '\n' + maybe_str(self.body)
 
 @dataclass
@@ -2366,7 +2368,7 @@ class ModusPonens(Proof):
   def pretty_print(self, indent: int) -> str:
       return str(self)
 
-  def __str__(self):
+  def __str__(self) -> str:
       return 'apply ' + str(self.implication) + ' to ' + str(self.arg)
 
 @dataclass
@@ -2380,7 +2382,7 @@ class ImpIntro(Proof):
       (': ' + str(self.premise) if self.premise else '') + '\n'\
       + maybe_pretty_print(self.body, indent)
   
-  def __str__(self):
+  def __str__(self) -> str:
     return 'assume ' + str(self.label) + \
       (': ' + str(self.premise) if self.premise else '') + \
       ('{' + str(self.body) + '}' if self.body else '')
@@ -2419,7 +2421,7 @@ class AllIntro(Proof):
       return indent*' ' + self.arbitrary_str() + '\n' \
           + maybe_pretty_print(self.body, indent)
   
-  def __str__(self):
+  def __str__(self) -> str:
     return self.arbitrary_str() + maybe_str(self.body)
 
   def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> AllIntro:
@@ -2449,7 +2451,7 @@ class AllElimTypes(Proof):
   def pretty_print(self, indent: int) -> str:
       return str(self)
 
-  def __str__(self):
+  def __str__(self) -> str:
     s, e = self.pos
     res = str(self.univ)
     if s == 0:
@@ -2474,7 +2476,7 @@ class AllElim(Proof):
   def pretty_print(self, indent: int) -> str:
       return str(self)
 
-  def __str__(self):
+  def __str__(self) -> str:
     s, e = self.pos
     res = str(self.univ)
     if s == 0:
@@ -2496,7 +2498,7 @@ class SomeIntro(Proof):
     return indent*' ' + 'choose ' + ",".join([str(t) for t in self.witnesses]) + '\n' \
         + maybe_pretty_print(self.body, indent)
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'choose ' + ",".join([str(t) for t in self.witnesses]) \
         + '; ' + maybe_str(self.body)
 
@@ -2515,7 +2517,7 @@ class SomeElim(Proof):
       + ' from ' + str(self.some)  + '\n'\
       + maybe_pretty_print(self.body, indent)
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'obtain ' + ",".join(self.witnesses) \
       + ' where ' + self.label \
       + (' : ' + str(self.prop) if self.prop else '') \
@@ -2544,7 +2546,7 @@ class PTuple(Proof):
   def pretty_print(self, indent: int) -> str:
       return str(self)
 
-  def __str__(self):
+  def __str__(self) -> str:
     return ', '.join([str(arg) for arg in self.args])
 
 def extract_tuple(pf: Proof) -> List[Proof]:
@@ -2562,7 +2564,7 @@ class PAndElim(Proof):
   def pretty_print(self, indent: int) -> str:
       return str(self)
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'conjunct ' + str(self.which) + ' of ' + str(self.subject)
 
 @dataclass
@@ -2571,7 +2573,7 @@ class PTrue(Proof):
   def pretty_print(self, indent: int) -> str:
       return str(self)
 
-  def __str__(self):
+  def __str__(self) -> str:
     return '.'
 
 @dataclass
@@ -2580,7 +2582,7 @@ class PReflexive(Proof):
   def pretty_print(self, indent: int) -> str:
       return str(self)
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'reflexive'
 
 @dataclass
@@ -2589,7 +2591,7 @@ class PHole(Proof):
   def pretty_print(self, indent: int) -> str:
       return str(self)
 
-  def __str__(self):
+  def __str__(self) -> str:
       return '?'
 
 @dataclass
@@ -2598,7 +2600,7 @@ class PSorry(Proof):
   def pretty_print(self, indent: int) -> str:
       return str(self)
 
-  def __str__(self):
+  def __str__(self) -> str:
       return 'sorry'
 
 @dataclass
@@ -2608,7 +2610,7 @@ class PHelpUse(Proof):
   def pretty_print(self, indent: int) -> str:
       return str(self)
 
-  def __str__(self):
+  def __str__(self) -> str:
       return 'help ' + str(self.proof)
 
 @dataclass
@@ -2618,7 +2620,7 @@ class PSymmetric(Proof):
   def pretty_print(self, indent: int) -> str:
       return str(self)
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'symmetric ' + str(self.body)
 
 @dataclass
@@ -2629,7 +2631,7 @@ class PTransitive(Proof):
   def pretty_print(self, indent: int) -> str:
       return str(self)
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'transitive ' + str(self.first) + ' ' + str(self.second)
 
 @dataclass
@@ -2641,7 +2643,7 @@ class PInjective(Proof):
     return indent*' ' + 'injective ' + str(self.constr) + '\n' \
         + maybe_pretty_print(self.body, indent)
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'injective ' + str(self.constr) + '; ' + maybe_str(self.body)
 
 @dataclass
@@ -2652,7 +2654,7 @@ class PExtensionality(Proof):
     return indent*' ' + 'extensionality\n' \
         + maybe_pretty_print(self.body, indent)
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'extensionality\n' + maybe_str(self.body)
 
 @dataclass
@@ -2668,7 +2670,7 @@ class IndCase(AST):
       + self.body.pretty_print(indent+2) \
       + indent*' ' + '}\n'
       
-  def __str__(self):
+  def __str__(self) -> str:
     return 'case ' + str(self.pattern) \
       + ' assume ' + ', '.join([x + ': ' + str(f) for (x,f) in self.induction_hypotheses]) \
       + '{' + str(self.body) + '}'
@@ -2705,7 +2707,7 @@ class Induction(Proof):
     return indent*' ' + 'induction ' + str(self.typ) + '\n' \
       + '\n'.join([c.pretty_print(indent) for c in self.cases])
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'induction ' + str(self.typ) + '\n' \
       + '\n'.join([str(c) for c in self.cases])
 
@@ -2722,7 +2724,7 @@ class RuleInductionCase(AST):
     return indent*' ' + 'case ' + base_name(self.rule_name) + ' {\n' \
         + self.body.pretty_print(indent+2) + '\n' + indent*' ' + '}'
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'case ' + base_name(self.rule_name) + ' { ' \
         + str(self.body) + ' }'
 
@@ -2761,7 +2763,7 @@ class RuleInduction(Proof):
     return indent*' ' + 'rule induction ' + base_name(self.hyp_name) + '\n' \
         + '\n'.join([c.pretty_print(indent) for c in self.cases])
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'rule induction ' + base_name(self.hyp_name) + ' ' \
         + ' '.join([str(c) for c in self.cases])
 
@@ -2798,7 +2800,7 @@ class RuleInversion(Proof):
     return indent*' ' + 'rule inversion ' + base_name(self.hyp_name) + '\n' \
         + '\n'.join([c.pretty_print(indent) for c in self.cases])
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'rule inversion ' + base_name(self.hyp_name) + ' ' \
         + ' '.join([str(c) for c in self.cases])
 
@@ -2833,7 +2835,7 @@ class SwitchProofCase(AST):
         + self.body.pretty_print(indent+2) \
         + indent*' ' + '}\n'
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'case ' + str(self.pattern) + '{' + str(self.body) + '}'
 
   def uniquify(self, env: object, ctx: object) -> SwitchProofCase:
@@ -2870,7 +2872,7 @@ class SwitchProof(Proof):
           + '\n'.join([c.pretty_print(indent+2) for c in self.cases]) \
           + indent*' ' + '}\n'
 
-  def __str__(self):
+  def __str__(self) -> str:
       return 'switch ' + str(self.subject) \
         + '{' + '\n'.join([str(c) for c in self.cases]) + '}'
 
@@ -2880,7 +2882,7 @@ class EvaluateGoal(Proof):
   def pretty_print(self, indent: int) -> str:
       return str(self)
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'evaluate'
 
 @dataclass
@@ -2890,7 +2892,7 @@ class EvaluateFact(Proof):
   def pretty_print(self, indent: int) -> str:
       return str(self)
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'evaluate in ' + str(self.subject)
 
 @dataclass
@@ -2898,7 +2900,7 @@ class SimplifyGoal(Proof):
   body: Proof
   givens: List[Proof]
 
-  def __str__(self):
+  def __str__(self) -> str:
       return 'simplify ' + ' | '.join([str(p) for p in self.givens]) + '\n' \
           + str(self.body)
 
@@ -2911,7 +2913,7 @@ class SimplifyFact(Proof):
   def pretty_print(self, indent: int) -> str:
       return str(self)
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'simplify ' \
         + ' | '.join([str(p) for p in self.givens]) \
         + ' in ' + str(self.subject)
@@ -2921,7 +2923,7 @@ class ApplyDefsGoal(Proof):
   definitions: List[Term]
   body: Proof
 
-  def __str__(self):
+  def __str__(self) -> str:
       return 'expand ' + ' | '.join([str(d) for d in self.definitions]) \
         + ' ' + str(self.body)
 
@@ -2930,7 +2932,7 @@ class ApplyDefsFact(Proof):
   definitions: List[Term]
   subject: Proof
 
-  def __str__(self):
+  def __str__(self) -> str:
       return 'expand ' + ' | '.join([str(d) for d in self.definitions]) \
         + ' in ' + str(self.subject)
 
@@ -2939,7 +2941,7 @@ class RewriteGoal(Proof):
   equations: List[Proof]
   body: Proof
 
-  def __str__(self):
+  def __str__(self) -> str:
       return 'replace ' + '|'.join([str(eqn) for eqn in self.equations]) \
         + '\n' + str(self.body)
 
@@ -2948,7 +2950,7 @@ class RewriteFact(Proof):
   subject: Proof
   equations: List[Proof]
 
-  def __str__(self):
+  def __str__(self) -> str:
       return 'replace ' + ','.join([str(eqn) for eqn in self.equations]) \
         + ' in ' + str(self.subject)
 
@@ -2986,7 +2988,7 @@ class Postulate(Declaration):
   def print_theorems_statement(self, f: TextIO) -> None:
       print(base_name(self.name) + ': ' + str(self.what) + '\n', file=f)
   
-  def __str__(self):
+  def __str__(self) -> str:
     return 'postulate ' + self.name + ': ' + str(self.what) + '\n\n'
 
   def uniquify(self, env: object, ctx: object) -> Postulate:
@@ -3016,7 +3018,7 @@ class Theorem(Declaration):
   def print_theorems_statement(self, f: TextIO) -> None:
       print(base_name(self.name) + ': ' + str(self.what) + '\n', file=f)
   
-  def __str__(self):
+  def __str__(self) -> str:
     return ('lemma ' if self.isLemma else 'theorem ') \
       + self.name + ': ' + str(self.what) \
       + '\nproof\n' + self.proof.pretty_print(2) + '\nend\n'
@@ -3060,7 +3062,7 @@ class Constructor(AST):
     extend(env_map, self.name, new_name, self.location)
     return Constructor(self.location, new_name, new_params)
 
-  def __str__(self):
+  def __str__(self) -> str:
     if get_verbose():
       name = self.name
     else:
@@ -3099,7 +3101,7 @@ class Rule(AST):
     env_map['no overload'][self.name] = 'rule'
     return Rule(self.location, new_name, new_formula)
 
-  def __str__(self):
+  def __str__(self) -> str:
     return base_name(self.name) + ' : ' + str(self.formula)
 
   def pretty_print(self, indent: int) -> str:
@@ -3204,7 +3206,7 @@ class Predicate(Declaration):
       extend(export_env, base_name(self.rule_induction_name),
              self.rule_induction_name, self.location)
 
-  def __str__(self):
+  def __str__(self) -> str:
     if get_verbose():
       shown_name = self.name
     else:
@@ -3276,7 +3278,7 @@ class Union(Declaration):
       
       return indent*' ' + ret
   
-  def __str__(self):
+  def __str__(self) -> str:
     if get_verbose():
       return 'union ' + self.name + '<' + ','.join(self.type_params) + '> {' \
         + ' '.join([str(c) for c in self.alternatives]) + '}'
@@ -3296,7 +3298,7 @@ class FunCase(AST):
           + (', ' + ', '.join([base_name(p) for p in self.parameters]) if len(self.parameters) > 0 else '') \
           + ') = ' + self.body.pretty_print(indent+2)
   
-  def __str__(self):
+  def __str__(self) -> str:
       return str(self.rator) + '(' + str(self.pattern) + ',' + ",".join(self.parameters) \
           + ') = ' + str(self.body)
 
@@ -3369,13 +3371,13 @@ class RecFun(Declaration):
       return
     extend(export_env, base_name(self.name), self.name, self.location)
 
-  def __str__(self):
+  def __str__(self) -> str:
     if get_verbose():
       return '`' + name2str(self.name)
     else:
       return name2str(self.name)
     
-  def to_string(self):
+  def to_string(self) -> str:
     return 'recursive ' + self.name + '<' + ','.join([name2str(t) for t in self.type_params]) + '>' \
       + '(' + ','.join([str(ty) for ty in self.params]) + ')' \
       + ' -> ' + str(self.returns) + '{\n' \
@@ -3496,13 +3498,13 @@ class GenRecFun(Declaration):
       return
     extend(export_env, base_name(self.name), self.name, self.location)
 
-  def __str__(self):
+  def __str__(self) -> str:
     if get_verbose():
       return self.to_string()
     else:
       return self.name if get_unique_names() else base_name(self.name)
     
-  def to_string(self):
+  def to_string(self) -> str:
     return 'recfun ' + self.name + '<' + ','.join(self.type_params) + '>' \
         + '(' + ', '.join([x + ':' + str(t) if t else x\
                            for (x,t) in self.vars]) + ')' \
@@ -3605,7 +3607,7 @@ class ViewRecFun(Declaration):
       return
     extend(export_env, base_name(self.name), self.name, self.location)
 
-  def __str__(self):
+  def __str__(self) -> str:
     return self.name if get_unique_names() else base_name(self.name)
 
   def pretty_print(self, indent: int) -> str:
@@ -3665,7 +3667,7 @@ class ViewDecl(Declaration):
       return
     extend(export_env, base_name(self.name), self.name, self.location)
 
-  def __str__(self):
+  def __str__(self) -> str:
     return self.name if get_unique_names() else base_name(self.name)
 
   def pretty_print(self, indent: int) -> str:
@@ -3699,7 +3701,7 @@ class Define(Declaration):
         return 'define ' + complete_name(self.name) \
             + (' : ' + str(self.typ) if self.typ else '') + '\n'
   
-  def __str__(self):
+  def __str__(self) -> str:
     if isinstance(self.body, Lambda):
         params = [(base_name(x), t) for (x,t) in self.body.vars]
         return pretty_print_function(self.name,[],params, self.body.body)
@@ -3786,7 +3788,7 @@ def find_private_lemma_definers(name: str) -> list[tuple[str, str | None, int | 
 class Assert(Statement):
   formula : Term
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'assert ' + str(self.formula)
 
   def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
@@ -3796,7 +3798,7 @@ class Assert(Statement):
 class Print(Statement):
   term : Term
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'print ' + str(self.term)
 
   def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
@@ -3836,14 +3838,14 @@ class Import(Declaration):
   using:  Optional[List[str]] = None    # whitelist; None means no whitelist
   hiding: Optional[List[str]] = None    # blacklist; None means no blacklist
 
-  def _filter_clause_str(self):
+  def _filter_clause_str(self) -> str:
     if self.using is not None:
       return ' using ' + ' | '.join(self.using)
     if self.hiding is not None:
       return ' hiding ' + ' | '.join(self.hiding)
     return ''
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'import ' + self.name + self._filter_clause_str()
 
   def pretty_print(self, indent: int) -> str:
@@ -3939,7 +3941,7 @@ class Auto(Statement):
   def print_theorems_statement(self, f: TextIO) -> None:
       print('auto ' + str(self.name) + '\n', file=f)
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'auto ' + str(self.name)
 
   def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
@@ -3950,7 +3952,7 @@ class Inductive(Statement):
   typ: Type
   thm_name: Term
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'inductive ' + str(self.typ) + ' by ' + str(self.thm_name)
 
   def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
@@ -3992,7 +3994,7 @@ class Associative(Statement):
   op: Term
   typeof: Type
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'associative ' + str(self.op) \
       + ('<' + ','.join(self.type_params) + '>' if len(self.type_params) > 0 else '') \
       + ' ' + str(self.typeof)
@@ -4017,7 +4019,7 @@ class Associative(Statement):
 class Trace(Statement):
   rec_fun: Var
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'trace ' + str(self.rec_fun)
 
   def reduce(self, env: Env) -> None:  # type: ignore[override]
@@ -4561,7 +4563,7 @@ class Binding(AST):
 class TypeBinding(Binding):
   defn : Optional[AST] = None
 
-  def __str__(self):
+  def __str__(self) -> str:
     return str(self.defn)
 
 @dataclass
@@ -4570,7 +4572,7 @@ class TermBinding(Binding):
   defn : Optional[Term | RecFun | GenRecFun | ViewRecFun] = None
   local : bool = False
   
-  def __str__(self):
+  def __str__(self) -> str:
     return str(self.typ) + (' = ' + str(self.defn) if self.defn else '')
 
 @dataclass
@@ -4578,7 +4580,7 @@ class ProofBinding(Binding):
   formula : Formula
   local : bool
   
-  def __str__(self):
+  def __str__(self) -> str:
     return str(self.formula)
 
 @dataclass
@@ -4586,7 +4588,7 @@ class AutoEquationBinding(Binding):
   equations : dict[str, list[Formula]]
   fallback_equations : list[Formula] = field(default_factory=list)
   
-  def __str__(self):
+  def __str__(self) -> str:
     head_equations = [e for equations in self.equations.values() for e in equations]
     return ', '.join([str(e) for e in head_equations + self.fallback_equations])
 
@@ -4594,7 +4596,7 @@ class AutoEquationBinding(Binding):
 class ViewBinding(Binding):
   view: ViewDecl
 
-  def __str__(self):
+  def __str__(self) -> str:
     return str(self.view)
 
 
@@ -4609,7 +4611,7 @@ class AssociativeBinding(Binding):
   opname: str
   types: List[Tuple[List[str], Type]]
 
-  def __str__(self):
+  def __str__(self) -> str:
     return 'associative ' + self.opname \
       + ' ' + ', '.join(type_params_str(type_params) + str(t) \
                         for (type_params, t) in self.types)
@@ -4635,19 +4637,19 @@ class Env:
         overloads.append(k)
     return overloads
 
-  def __str__(self):
+  def __str__(self) -> str:
     return ',\n'.join(['\t' + name2str(k) + ': ' + str(v) \
                        for (k,v) in reversed(self.dict.items())])
 
   def __contains__(self, item: str) -> bool:
     return item in self.dict.keys()
     
-  def proofs_str(self):
+  def proofs_str(self) -> str:
     return ',\n'.join(['\t' + name2str(k) + ': ' + str(v) \
                        for (k,v) in reversed(self.dict.items()) \
                        if isinstance(v,ProofBinding) and (v.local or get_verbose() == VerboseLevel.FULL)])
 
-  def term_vars_str(self):
+  def term_vars_str(self) -> str:
     return ',\n'.join(['\t' + base_name(k) + ': ' + str(v.typ) \
                        for (k,v) in reversed(self.dict.items()) \
                        if isinstance(v,TermBinding) and v.local])
@@ -4954,11 +4956,11 @@ class Env:
   def get_tracing(self, function_name: str) -> bool:
     return 'tracing' in self.dict and function_name in self.dict['tracing']
 
-  def local_proofs(self):
+  def local_proofs(self) -> list[Formula]:
     return [b.formula for (name, b) in self.dict.items() \
             if isinstance(b, ProofBinding) and b.local]
 
-  def proofs(self):
+  def proofs(self) -> list[Formula]:
     return [b.formula for (name, b) in self.dict.items() \
             if isinstance(b, ProofBinding)]
 
@@ -5011,7 +5013,7 @@ def set_default_mark_LHS(b: bool) -> None:
   global default_mark_LHS
   default_mark_LHS = b
   
-def get_default_mark_LHS():
+def get_default_mark_LHS() -> bool:
   global default_mark_LHS
   return default_mark_LHS
 
@@ -5433,7 +5435,7 @@ def explicit_term_inst(term: Term | SwitchCase) -> Term | SwitchCase:
 num_rewrites = 0
 rewrite_debug: bool = False
 
-def reset_num_rewrites():
+def reset_num_rewrites() -> None:
     global num_rewrites
     num_rewrites = 0
 
