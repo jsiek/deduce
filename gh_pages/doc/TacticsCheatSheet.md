@@ -42,6 +42,7 @@ If a name on this page is unfamiliar, follow the link in the Reference column fo
 | `replace eq` | Rewrite the **goal** left-to-right using `eq : LHS = RHS`. |
 | `replace eq in p` | Rewrite within proof `p`'s formula and return a new proof of the rewritten formula. |
 | `replace eq1 \| eq2 \| ...` | Apply rewrites in sequence. |
+| `simplify with h` | Like `replace`, but accepts non-equation hypotheses: `h : not P` substitutes `P` with `false` in the goal; `h : P` (bare boolean) substitutes `P` with `true`. Use in the `case false` arm of a boolean `switch`, where `replace` rejects the `not P` hypothesis. |
 | `symmetric p` | If `p : a = b`, returns a proof of `b = a`. |
 | `transitive p1 p2` | `p1 : a = b` together with `p2 : b = c` gives a proof of `a = c`. |
 | `equations a = b by r1   ... = c by r2   ... = d by r3` | Equational chain — a readable form of nested `transitive`. |
@@ -106,6 +107,8 @@ Use these when `apply lemma to p` doesn't typecheck because `p` is a wider conju
 7. **Numeric literals don't always reduce eagerly.** `0:UInt` parses as `fromNat(lit(zero))`, so `toNat(0:UInt)` is not definitionally `ℕ0` — it requires `evaluate` or `expand` to bridge. A common pattern: stash `have toNat_zero: toNat((0:UInt)) = ℕ0 by evaluate` near the top of the proof.
 
 8. **Views need their law before use.** A `view` declaration checks the supplied `roundtrip` theorem exactly. For a target type `T`, prove `all v:T. into(out(v)) = v` before the `view` declaration; for generic views, quantify type parameters first.
+
+9. **`switch P` on a boolean introduces asymmetric assumptions.** `case true assume h { ... }` makes `h : P` available — an equation usable in `replace`. `case false assume h { ... }` makes `h : not P` available — a *negation*, not an equation — so `replace h` fails with "expected an equation". Use `simplify with h` in the false branch (it substitutes `P` with `false` and reduces). Also: the introduced formula is `P` (resp. `not P`), not `P = true` (resp. `P = false`) — annotating `assume h: P = true` will fail to match the expected assumption.
 
 ## Working tips
 
