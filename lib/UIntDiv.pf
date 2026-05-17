@@ -296,6 +296,15 @@ proof
   expand P in apply uint_induction[P] to base_case, ind
 end
 
+theorem uint_mult_div_left_inverse: all n:UInt, m:UInt.
+  (if 0 < m then (m * n) / m = n)
+proof
+  arbitrary n:UInt, m:UInt
+  assume m_pos: 0 < m
+  replace uint_mult_commute[m, n]
+  apply uint_mult_div_inverse[n, m] to m_pos
+end
+
 theorem uint_mult_mod_right_zero: all n:UInt, m:UInt.
   if 0 < m then (n * m) % m = 0
 proof
@@ -356,6 +365,15 @@ proof
   expand P in apply uint_induction[P] to base_case, ind
 end
 
+theorem uint_add_mult_div: all n:UInt, k:UInt, m:UInt.
+  if 0 < m then (n + k * m) / m = k + n / m
+proof
+  arbitrary n:UInt, k:UInt, m:UInt
+  assume m_pos: 0 < m
+  replace uint_add_commute[n, k * m]
+  apply uint_mult_add_div[k, n, m] to m_pos
+end
+
 theorem uint_mult_add_mod: all k:UInt, n:UInt, m:UInt.
   if 0 < m then (k * m + n) % m = n % m
 proof
@@ -365,6 +383,15 @@ proof
   replace (apply uint_mult_add_div[k, n, m] to m_pos)
   replace uint_dist_mult_add_right[k, n / m, m]
   uint_add_both_monus[k * m, n, (n / m) * m]
+end
+
+theorem uint_add_mult_mod: all n:UInt, k:UInt, m:UInt.
+  if 0 < m then (n + k * m) % m = n % m
+proof
+  arbitrary n:UInt, k:UInt, m:UInt
+  assume m_pos: 0 < m
+  replace uint_add_commute[n, k * m]
+  apply uint_mult_add_mod[k, n, m] to m_pos
 end
 
 theorem uint_mod_mod: all n:UInt, m:UInt.
@@ -470,6 +497,57 @@ proof
   equations
     (a * b) % m = ((a % m) * b) % m by reduce_a
     ... = ((a % m) * (b % m)) % m by reduce_b
+end
+
+theorem uint_div_less_equal: all n:UInt, m:UInt.
+  if 0 < m then n / m ≤ n
+proof
+  arbitrary n:UInt, m:UInt
+  assume m_pos: 0 < m
+  have one_le_m: 1 ≤ m by apply uint_pos_implies_one_le to m_pos
+  have q_le_qm: (n / m) * 1 ≤ (n / m) * m
+    by apply uint_mult_mono_le[n / m, 1, m] to one_le_m
+  have qm_le_n: (n / m) * m ≤ n by {
+    have qmr: (n / m) * m ≤ (n / m) * m + (n % m) by uint_less_equal_add
+    replace apply uint_div_mod[n, m] to m_pos in qmr
+  }
+  apply uint_less_equal_trans to q_le_qm, qm_le_n
+end
+
+theorem uint_div_less: all n:UInt, m:UInt.
+  if 0 < n and 1 < m then n / m < n
+proof
+  arbitrary n:UInt, m:UInt
+  assume prem
+  have n_pos: 0 < n by prem
+  have one_lt_m: 1 < m by prem
+  have zero_lt_one: 0 < 1 by .
+  have m_pos: 0 < m by apply uint_less_trans to zero_lt_one, one_lt_m
+  have q_le_n: n / m ≤ n by apply uint_div_less_equal[n, m] to m_pos
+  cases expand operator≤ in q_le_n
+  case q_lt_n: n / m < n {
+    q_lt_n
+  }
+  case q_eq_n: n / m = n {
+    have n_lt_nm: n < n * m by {
+      have q_pos: 0 < n / m by replace symmetric q_eq_n in n_pos
+      have q_lt_qm: (n / m) * 1 < (n / m) * m
+        by apply uint_pos_mult_both_sides_of_less[n / m, 1, m] to q_pos, one_lt_m
+      replace q_eq_n in q_lt_qm
+    }
+    have nm_le_n: n * m ≤ n by {
+      have qm_le_n: (n / m) * m ≤ n by {
+        have qmr: (n / m) * m ≤ (n / m) * m + (n % m) by uint_less_equal_add
+        replace apply uint_div_mod[n, m] to m_pos in qmr
+      }
+      replace q_eq_n in qm_le_n
+    }
+    have nat_n_lt_nm: toNat(n) < toNat(n * m) by apply toNat_less to n_lt_nm
+    have nat_nm_le_n: toNat(n * m) ≤ toNat(n) by apply toNat_less_equal to nm_le_n
+    have nat_n_lt_n: toNat(n) < toNat(n)
+      by apply less_le_trans[toNat(n), toNat(n * m), toNat(n)] to nat_n_lt_nm, nat_nm_le_n
+    conclude false by apply less_irreflexive to nat_n_lt_n
+  }
 end
 
 theorem uint_div_zero: all n:UInt. n / 0 = 0

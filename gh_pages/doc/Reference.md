@@ -669,6 +669,10 @@ theorem is `uint_div_mod` which states, assuming `m` is positive, that
 (n / m) * m + (n % m) = n
 ```
 
+Useful companion theorems include `uint_mult_div_inverse`,
+`uint_mult_div_left_inverse`, `uint_mult_add_div`, `uint_add_mult_div`,
+`uint_div_less_equal`, and `uint_div_less`.
+
 Example:
 
 ```{.deduce^#division_example}
@@ -1498,6 +1502,11 @@ The modulo operator is defined in `UInt.pf` as follows.
 ```
 n % m = n ∸ (n / m) * m
 ```
+
+Useful companion theorems include `uint_mod_less_divisor`,
+`uint_mod_small`, `uint_mult_mod_right_zero`, `uint_mult_mod_left_zero`,
+`uint_mult_add_mod`, `uint_add_mult_mod`, `uint_mod_mod`,
+`uint_add_mod`, and `uint_mult_mod`.
 
 Example:
 
