@@ -1,3 +1,31 @@
+"""Concrete top-level ``Statement`` nodes — the declarations of a module.
+
+Scope: every dataclass node that can appear at the top level of a ``.pf``
+file, together with the bookkeeping that supports them across imports.
+This covers the ``Declaration`` family (``Theorem``, ``Postulate``,
+``Predicate``, ``Union``, ``RecFun``, ``GenRecFun``, ``ViewRecFun``,
+``ViewDecl``, ``Define``, ``Import``) and the non-``Declaration``
+statements (``Auto``, ``Inductive``, ``Module``, ``Export``,
+``Associative``, ``Trace``, ``Assert``, ``Print``). Their AST helpers
+(``Constructor``, ``Rule``, ``FunCase``) also live here because they only
+make sense as parts of these declarations.
+
+Module-level state for cross-module bookkeeping lives here too:
+``uniquified_modules`` (the registry of already-checked modules consulted
+by ``Import``), ``find_private_lemma_definers``, ``find_file`` (the
+import-path resolver), ``get_predicate_decl``, and helpers like
+``extend``/``overwrite`` for inserting into name environments.
+
+Goes here:
+  * a new top-level statement form
+  * helpers/registries scoped to one declaration kind, or to whole-module
+    import bookkeeping
+
+Does NOT go here:
+  * the immutable proof-checker ``Env`` and ``Binding`` types (``env``)
+  * proof-checking logic — that lives in ``proof_checker`` / ``checker_*``
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

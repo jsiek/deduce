@@ -1,3 +1,28 @@
+"""Concrete ``Proof`` AST nodes — every syntactic form usable in a proof.
+
+Scope: dataclass nodes for every tactic and proof-term constructor parsed
+out of a ``proof: ... end`` block. Examples: ``PVar``, ``PLet``, ``PRecall``,
+``ModusPonens``, ``ImpIntro``, ``AllIntro``/``AllElim``, ``SomeIntro``/
+``SomeElim``, ``PTuple``/``PAndElim``, ``Induction``/``RuleInduction``/
+``RuleInversion``, ``SwitchProof``, ``EvaluateGoal``/``EvaluateFact``,
+``SimplifyGoal``/``SimplifyFact``, ``ApplyDefsGoal``/``ApplyDefsFact``,
+``RewriteGoal``/``RewriteFact``, ``PReflexive``/``PSymmetric``/
+``PTransitive``, ``PInjective``/``PExtensionality``, ``PHole``/``PSorry``/
+``PHelpUse``, ``Suffices``, ``Cases``.
+
+Also houses the small AST helpers that exist only to support proof
+structure: ``IndCase``, ``RuleInductionCase``, ``SwitchProofCase``, and
+``extract_tuple``.
+
+Goes here:
+  * a new proof / tactic syntactic form (a new ``Proof`` subclass)
+  * an auxiliary AST node that appears only inside a proof
+
+Does NOT go here:
+  * proof-checking logic — that lives in ``proof_checker`` / ``checker_*``
+  * term/formula nodes (``terms``) or declarations (``declarations``)
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

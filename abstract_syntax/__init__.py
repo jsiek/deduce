@@ -1,9 +1,28 @@
-from __future__ import annotations
+"""Compatibility facade for the split ``abstract_syntax`` package.
 
-# Compatibility facade for the split abstract_syntax package.  Existing
-# callers can keep using `import abstract_syntax as ast` or
-# `from abstract_syntax import Var, Env, uniquify_deduce` while the
-# implementation lives in cohesive submodules.
+Scope: re-export every public name from the cohesive submodules so that
+callers can keep writing ``import abstract_syntax as ast`` or
+``from abstract_syntax import Var, Env, uniquify_deduce`` even though the
+implementation is spread across ``core``, ``terms``, ``proofs``,
+``declarations``, ``env``, ``literals``, ``rewrite``, ``ops``, and
+``theorems``.
+
+Also seeds each submodule's ``globals()`` with the union of public names,
+matching the lookup behaviour of the previous single-file module so that
+methods migrated unchanged can still resolve peer classes/helpers as
+module globals.
+
+Goes here:
+  * additions to ``_MODULE_NAMES`` when a new submodule joins the package
+  * additions to ``_DYNAMIC_NAMES`` / ``_DYNAMIC_OWNERS`` for new
+    module-level mutable globals whose canonical home is one submodule
+
+Does NOT go here:
+  * any AST node, helper, or pass — pick the submodule whose charter
+    matches and add it there
+"""
+
+from __future__ import annotations
 
 from importlib import import_module
 from types import ModuleType

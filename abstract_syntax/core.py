@@ -1,3 +1,22 @@
+"""AST foundation for the abstract_syntax package.
+
+Scope: the abstract base classes that every concrete AST node inherits from
+(``AST``, ``Type``, ``Term``, ``Formula``, ``Proof``, ``Statement``), the
+shared dataclass plumbing they rely on (generic ``copy``/``_ast_map``), and
+the uniquify-time bookkeeping (``UniquifyContext``, ``generate_name``,
+``name2str``, ``current_module``) that downstream modules consume.
+
+Goes here:
+  * a new top-level AST supertype (a new sibling of ``Term``/``Proof``/...)
+  * dataclass machinery or naming helpers that every node uses
+  * the ``UniquifyContext`` and module-name globals
+
+Does NOT go here:
+  * concrete node dataclasses — those live in ``terms``, ``proofs``,
+    ``declarations``, or ``env`` depending on category
+  * passes over whole AST trees (those live in ``ops``)
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field, fields as dc_fields
