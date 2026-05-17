@@ -22,3 +22,34 @@ assert (5 + 4 * 3) / 3 = 4 + 5 / 3
 assert (5 + 4 * 3) % 3 = 5 % 3
 assert 7 / 3 <= 7
 assert 7 / 3 < 7
+
+assert gcd(12, 8) = 4
+assert gcd(17, 13) = 1
+assert gcd(42, 0) = 42
+assert gcd(0, 42) = 42
+
+theorem gcd_12_8_divides_left: divides(gcd(12, 8), 12)
+proof
+  uint_gcd_divides_left[12, 8]
+end
+
+theorem gcd_12_8_divides_right: divides(gcd(12, 8), 8)
+proof
+  uint_gcd_divides_right[12, 8]
+end
+
+theorem two_divides_gcd_12_8: divides(2, gcd(12, 8))
+proof
+  have two_12: divides(2, 12) by {
+    expand divides
+    choose 6
+    .
+  }
+  have two_8: divides(2, 8) by {
+    expand divides
+    choose 4
+    .
+  }
+  have both: divides(2, 12) and divides(2, 8) by two_12, two_8
+  apply uint_gcd_greatest[2, 12, 8] to both
+end
