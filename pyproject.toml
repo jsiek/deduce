@@ -139,6 +139,7 @@ module = [
     "checker_induction",
     "checker_logic",
     "checker_pipeline",
+    "checker_predicates",
     "checker_proofs",
     "checker_types",
     "compiler.closure",

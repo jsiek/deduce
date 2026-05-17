@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """Predicate/relation validation and lowering.
 
 File charter:
@@ -14,7 +13,69 @@ File charter:
   ``checker_proofs.py``.
 """
 
+from dataclasses import dataclass
+from typing import Any
+
+from lark.tree import Meta
+
+from abstract_syntax import (
+    All,
+    AllElim,
+    AllIntro,
+    And,
+    ApplyDefsFact,
+    ApplyDefsGoal,
+    Bool,
+    BoolType,
+    Call,
+    Constructor,
+    Declaration,
+    Define,
+    Env,
+    Formula,
+    FunCase,
+    FunctionType,
+    Generic,
+    IfThen,
+    ImpIntro,
+    IndCase,
+    Induction,
+    Lambda,
+    ModusPonens,
+    Or,
+    OverloadedVar,
+    PAndElim,
+    PLet,
+    PReflexive,
+    PTrue,
+    PTuple,
+    PVar,
+    PatternCons,
+    Predicate,
+    Proof,
+    RecFun,
+    ResolvedVar,
+    RewriteGoal,
+    Rule,
+    Some,
+    SomeElim,
+    SomeIntro,
+    Switch,
+    SwitchCase,
+    Term,
+    Theorem,
+    Type,
+    TypeInst,
+    Union,
+    VarRef,
+    base_name,
+    callable_name,
+)
 from checker_common import *
+from checker_proofs import generate_proof_name
+from checker_types import check_type
+from edit_distance import edit_distance
+from error import user_error, warning
 
 # Predicate / relation validation (phase 2: shape, arity, strict positivity)
 # ============================================================
@@ -36,7 +97,7 @@ from checker_common import *
 # Error messages name the rule (`In rule 'NAME' of predicate 'FOO': ...`) so
 # the user can locate which rule misfired without re-reading the whole block.
 
-def _validate_predicate_signature(sig, name, keyword, env):
+def _validate_predicate_signature(sig: Any, name: str, keyword: str, env: Env) -> tuple[int, list[Type], Any]:
   checked_sig = check_type(sig, env)
   if isinstance(checked_sig, BoolType):
     return 0, [], checked_sig
@@ -50,7 +111,7 @@ def _validate_predicate_signature(sig, name, keyword, env):
         "the type of " + keyword + " '" + base_name(name)
         + "' must be 'bool' or 'fn ... -> bool', not '" + str(sig) + "'")
 
-def _predicate_style_hint(loc, name, keyword, arity):
+def _predicate_style_hint(loc: Meta, name: str, keyword: str, arity: int) -> None:
   if keyword == 'predicate' and arity >= 2:
     warning(loc,
             "style hint: '" + base_name(name) + "' has arity "
@@ -61,7 +122,7 @@ def _predicate_style_hint(loc, name, keyword, arity):
             "style hint: '" + base_name(name) + "' has arity 1; consider "
             "'predicate' instead of 'relation' for unary properties.")
 
-def _decompose_rule_body(formula):
+def _decompose_rule_body(formula: Any) -> tuple[Any, Any]:
   """Strip outer 'all' quantifiers, then split optional 'if prem then conc'.
   Returns (binders, premise_or_None, conclusion). The conclusion is whatever
   is left after stripping 'all's and an optional outermost implication."""
@@ -71,7 +132,7 @@ def _decompose_rule_body(formula):
     return formula.premise, formula.conclusion
   return None, formula
 
-def _validate_predicate_rule_shape(rule, pred_name, keyword, arity, env):
+def _validate_predicate_rule_shape(rule: Any, pred_name: str, keyword: str, arity: int, env: Env) -> None:
   _, concl = _decompose_rule_body(rule.formula)
   if not isinstance(concl, Call):
     user_error(concl.location,
@@ -99,13 +160,13 @@ def _validate_predicate_rule_shape(rule, pred_name, keyword, arity, env):
           + " argument" + plural + ", but rule '" + base_name(rule.name)
           + "' applies it to " + str(len(concl.args)))
 
-def _check_predicate_strict_positivity(rule, pred_name, keyword, env):
+def _check_predicate_strict_positivity(rule: Any, pred_name: str, keyword: str, env: Env) -> None:
   premise, _concl = _decompose_rule_body(rule.formula)
   if premise is None:
     return
   _walk_pred_premise(premise, pred_name, keyword, rule, forbidden=False)
 
-def _walk_pred_premise(formula, pred_name, keyword, rule, forbidden):
+def _walk_pred_premise(formula: Any, pred_name: str, keyword: str, rule: Any, forbidden: bool) -> None:
   """Walk a premise looking for occurrences of the predicate. The
   `forbidden` flag flips on under 'not' / 'if/then' premises and stays on
   through subsequent nesting (sticky semantics, matching the union check)."""
@@ -181,46 +242,46 @@ def _walk_pred_premise(formula, pred_name, keyword, rule, forbidden):
 
 @dataclass
 class _PremiseInfo:
-  atom: object                  # the premise atom, copied
+  atom: Any                     # the premise atom, copied
   is_recursive: bool
   orig_idx: int                 # index in the original conjunction (for PAndElim)
-  sub_deriv_name: object        # str if recursive (the obtain'd witness), else None
-  deriv_label: object           # str if recursive (the obtain'd proof label), else None
-  rec_args: object              # list[Term] if recursive (atom.args), else None
+  sub_deriv_name: Any           # str if recursive (the obtain'd witness), else None
+  deriv_label: Any              # str if recursive (the obtain'd proof label), else None
+  rec_args: Any                 # list[Term] if recursive (atom.args), else None
 
 @dataclass
 class _RuleTranslation:
-  rule: object                  # the original Rule
-  bound_vars: list              # [(name, type)] outer all-bound
-  premise_top: object           # the original premise formula (or None)
-  premises: list                # list of _PremiseInfo, in original order
-  conclusion_args: list         # the rule conclusion's args, copied
-  conclusion_loc: object        # location of the conclusion (for proof spans)
-  validator_arg_names: list     # fresh names for the validator's arity-many extra params
+  rule: Any                     # the original Rule
+  bound_vars: list[Any]         # [(name, type)] outer all-bound
+  premise_top: Any              # the original premise formula (or None)
+  premises: list[_PremiseInfo]  # list of _PremiseInfo, in original order
+  conclusion_args: list[Any]    # the rule conclusion's args, copied
+  conclusion_loc: Any           # location of the conclusion (for proof spans)
+  validator_arg_names: list[str]  # fresh names for the validator's arity-many extra params
 
   @property
-  def recursive_premises(self):
+  def recursive_premises(self) -> list[_PremiseInfo]:
     return [p for p in self.premises if p.is_recursive]
 
   @property
-  def non_recursive_premises(self):
+  def non_recursive_premises(self) -> list[_PremiseInfo]:
     return [p for p in self.premises if not p.is_recursive]
 
-def _flatten_and(formula):
+def _flatten_and(formula: Any) -> list[Any]:
   if isinstance(formula, And):
     return list(formula.args)
   return [formula]
 
-def _is_recursive_atom(atom, pred_name):
+def _is_recursive_atom(atom: Any, pred_name: str) -> bool:
   if not isinstance(atom, Call):
     return False
   rator = atom.rator
   if not isinstance(rator, VarRef):
     return False
   rname = rator.get_name()
-  return rname == pred_name
+  return bool(rname == pred_name)
 
-def _premise_too_complex(prem):
+def _premise_too_complex(prem: Any) -> bool:
   # Anything whose top is something we don't peel away in `_flatten_and`
   # signals a premise shape we won't translate yet. Bare atoms, calls,
   # and conjunctions of those are fine.
@@ -230,7 +291,7 @@ def _premise_too_complex(prem):
     return any(_premise_too_complex(p) for p in prem.args)
   return False
 
-def _decompose_rule_for_translation(rule, pred_name, keyword):
+def _decompose_rule_for_translation(rule: Any, pred_name: str, keyword: str) -> _RuleTranslation:
   formula = rule.formula
   bound_vars = []
   while isinstance(formula, All):
@@ -279,7 +340,7 @@ def _decompose_rule_for_translation(rule, pred_name, keyword):
                           conclusion_loc=conclusion.location,
                           validator_arg_names=validator_arg_names)
 
-def _build_predicate_translation(decl, param_types):
+def _build_predicate_translation(decl: Any, param_types: list[Any]) -> list[Any]:
   loc = decl.location
   pred_name = decl.name
   typarams = decl.type_params
@@ -439,7 +500,7 @@ def _build_predicate_translation(decl, param_types):
   return [deriv_union, validator, define_decl] + intro_theorems + \
          [rule_ind_theorem, rule_inv_theorem]
 
-def _build_intro_theorem(rt, pred_name, pred_var, is_deriv_var, constr_name):
+def _build_intro_theorem(rt: _RuleTranslation, pred_name: str, pred_var: Any, is_deriv_var: Any, constr_name: str) -> Theorem:
   """Build a `Theorem` for one rule's intro lemma."""
   loc = rt.rule.location
   hyp_label = generate_proof_name('hyp')
@@ -521,9 +582,9 @@ def _build_intro_theorem(rt, pred_name, pred_var, is_deriv_var, constr_name):
 # the derivation `union`. Once `rule induction` proof-form sugar lands
 # in a follow-up commit, this theorem is the workhorse it desugars to.
 
-def _build_rule_induction_theorem(decl, param_types, rule_translations,
-                                  constr_names, pred_var, is_deriv_var,
-                                  deriv_type_inst, is_inversion=False):
+def _build_rule_induction_theorem(decl: Any, param_types: list[Any], rule_translations: list[_RuleTranslation],
+                                  constr_names: list[str], pred_var: Any, is_deriv_var: Any,
+                                  deriv_type_inst: Any, is_inversion: bool = False) -> Theorem:
   """Build the `<pred>_rule_induction` (or `_rule_inversion`) theorem.
 
   When `is_inversion` is True, generate the strictly weaker inversion
@@ -549,27 +610,27 @@ def _build_rule_induction_theorem(decl, param_types, rule_translations,
   else:
     motive_type = BoolType(loc)
 
-  def motive_var(l):
+  def motive_var(l: Meta) -> ResolvedVar:
     return ResolvedVar(l, None, motive_name)
 
-  def apply_motive(args, l=loc):
+  def apply_motive(args: list[Any], l: Meta = loc) -> Any:
     if args:
       return Call(l, BoolType(l), motive_var(l), args)
     return motive_var(l)
 
-  def apply_pred(args, l=loc):
+  def apply_pred(args: list[Any], l: Meta = loc) -> Any:
     if args:
       return Call(l, BoolType(l), pred_var(l), args)
     return pred_var(l)
 
-  def wrap_alls(formula, vars_with_types):
+  def wrap_alls(formula: Any, vars_with_types: list[Any]) -> Any:
     n = len(vars_with_types)
     out = formula
     for i, (vname, vty) in enumerate(reversed(vars_with_types)):
       out = All(loc, BoolType(loc), (vname, vty.copy()), (i, n), out)
     return out
 
-  def wrap_all_intros(proof, vars_with_types):
+  def wrap_all_intros(proof: Any, vars_with_types: list[Any]) -> Any:
     n = len(vars_with_types)
     out = proof
     for i, (vname, vty) in enumerate(reversed(vars_with_types)):
@@ -681,11 +742,11 @@ def _build_rule_induction_theorem(decl, param_types, rule_translations,
 
   return Theorem(loc, thm_name, full_statement, proof_body, False)
 
-def _build_rule_induction_case(constr_name, rt, rule_idx, n_rules,
-                               pred_var, is_deriv_var, apply_motive,
-                               apply_pred, rules_hyp_label, arity,
-                               param_types, wrap_alls, wrap_all_intros,
-                               is_inversion=False):
+def _build_rule_induction_case(constr_name: str, rt: _RuleTranslation, rule_idx: int, n_rules: int,
+                               pred_var: Any, is_deriv_var: Any, apply_motive: Any,
+                               apply_pred: Any, rules_hyp_label: str, arity: int,
+                               param_types: list[Any], wrap_alls: Any, wrap_all_intros: Any,
+                               is_inversion: bool = False) -> IndCase:
   """Build one ind_case for the helper's `induction <Deriv>`.
 
   The case proves: all m1,...,mn. if is_<pred>_deriv(C(<bound>, <subs>), ms)
@@ -746,7 +807,7 @@ def _build_rule_induction_case(constr_name, rt, rule_idx, n_rules,
   dh_unfolded_label = generate_proof_name('dh_u')
   # If total_conjuncts == 1 the validator body isn't a conjunction; we use
   # the unfolded fact directly and conjunct extraction is a no-op.
-  def conj_proof(idx):
+  def conj_proof(idx: int) -> Any:
     if total_conjuncts == 1:
       return PVar(loc, dh_unfolded_label)
     return PAndElim(loc, idx, PVar(loc, dh_unfolded_label))
@@ -857,7 +918,7 @@ def _build_rule_induction_case(constr_name, rt, rule_idx, n_rules,
 
   return IndCase(loc, pattern, ind_hyps, body)
 
-def _build_validator_body_formula(rt, m_vars, is_deriv_var, pred_var, loc):
+def _build_validator_body_formula(rt: _RuleTranslation, m_vars: list[Any], is_deriv_var: Any, pred_var: Any, loc: Meta) -> Any:
   """The conjunction the validator-body unfolds to for this rule."""
   clauses = []
   for (m_var, c) in zip(m_vars, rt.conclusion_args):
