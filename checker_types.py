@@ -69,14 +69,18 @@ from abstract_syntax import (
     type_names,
 )
 from checker_common import *
-import checker_pipeline as _checker_pipeline
 from error import MatchFailed, UserError, internal_error, user_error, wrap_user_error, error_header
 from flags import get_verbose
 
-# Re-export under a typed signature so callers don't trip
-# ``disallow_untyped_calls`` (checker_pipeline is still on
-# ``# mypy: ignore-errors``).
-_instantiate_view_type: Any = _checker_pipeline._instantiate_view_type
+# Lazy adapter for checker_pipeline._instantiate_view_type: a module-level
+# import would close the cycle
+# checker_types -> checker_pipeline -> checker_induction -> checker_proofs
+# -> checker_types and crash at import time. The Any return tag also keeps
+# strict callers off ``disallow_untyped_calls`` while checker_pipeline is
+# still on ``# mypy: ignore-errors``.
+def _instantiate_view_type(loc: Any, typ: Any, env: Any) -> Any:
+  import checker_pipeline
+  return checker_pipeline._instantiate_view_type(loc, typ, env)
 
 def type_check_call_funty(loc: Meta, new_rator: Any, args: list[Any], env: Env, recfun: Any, subterms: Any, ret_ty: Any,
                           call: Any, typarams: list[Any], param_types: list[Any], return_type: Any) -> Any:
