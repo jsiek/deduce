@@ -16,9 +16,7 @@ This file fills both gaps:
   through them.
 * ``RecFun`` / ``GenRecFun`` compare by name across the post-uniquify
   variable forms; ``substitute`` on either is identity. The cross-class
-  branches in [abstract_syntax.py:3435](../../abstract_syntax.py) and
-  [abstract_syntax.py:3547](../../abstract_syntax.py) have no property
-  coverage today.
+  branches have property coverage here.
 """
 
 import sys
@@ -264,8 +262,7 @@ def test_recfun_equals_overloaded_var_by_name(name):
 def test_recfun_equals_var_by_name(name):
     # RecFun is name-equal even to a pre-uniquify Var (the phase-
     # isolation rule is between Var <-> OverloadedVar / ResolvedVar
-    # only; RecFun is exempt). Documented at
-    # [abstract_syntax.py:3440](../../abstract_syntax.py).
+    # only; RecFun is exempt).
     rf = _make_recfun(name)
     v = Var(_m(), None, name)
     assert rf == v

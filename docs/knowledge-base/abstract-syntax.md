@@ -2,8 +2,11 @@
 
 *Work in progress*
 
-The file contains an overview of each of the abstract syntax
-tree nodes defined in [`abstract_syntax.py`](../../abstract_syntax.py)
+This file contains an overview of the abstract syntax tree nodes defined
+under the [`abstract_syntax/`](../../abstract_syntax/) package. The package
+keeps a compatibility facade in `abstract_syntax/__init__.py`, so callers
+can still use `import abstract_syntax as ast` or import public names directly
+from `abstract_syntax`.
 
 This file uses Python [dataclasses](https://docs.python.org/3/library/dataclasses.html)
 to generate `__init__` methods for the classes.

@@ -6,7 +6,7 @@ The generator covers Var, Int, Bool, Call, and Lambda.
 
 Lambda equality is only well-defined post-uniquify (Lambda.__eq__
 substitutes bodies with ResolvedVar, which compares False against the
-pre-uniquify Var — see abstract_syntax.py:1024). So the substitute
+pre-uniquify Var. So the substitute
 properties use the Lambda-free sub-grammar (Var, Int, Bool, Call),
 and the uniquify properties use the full grammar but never compare
 Lambda nodes structurally.

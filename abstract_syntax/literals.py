@@ -1,0 +1,536 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from .core import *
+from .terms import *
+from .proofs import *
+from .declarations import *
+from .env import *
+
+if TYPE_CHECKING:
+    from .ops import callable_name
+
+# ---------------------
+# Auxiliary Functions
+  
+def mkEqual(loc: Meta, arg1: Term, arg2: Term) -> Formula:
+  ret = Call(loc, None, ResolvedVar(loc, None, '='), [arg1, arg2])
+  return cast(Formula, ret)
+
+def split_equation(loc: Meta, equation: Term, env: Env) -> tuple[Term, Term]:
+  if isinstance(equation, TLet):
+    equation = equation.reduceLets(env)
+    
+  match equation:
+    case Call(_, _, rator, [L, R]) if isinstance(rator, VarRef) and rator.get_name() == '=':
+      return (L, R)
+    case All(_, _, _, _, body):
+      return split_equation(loc, body, env)
+    case _:
+      internal_error(loc, 'expected an equality, not ' + str(equation))
+
+def equation_vars(formula: Formula) -> list[Term]:
+  match formula:
+    case Call(loc1, _, rator, [_, _]) if isinstance(rator, VarRef) and rator.get_name() == '=':
+      return []
+    case All(loc1, _, var, _, body):
+      x, t = var
+      v = ResolvedVar(loc1, None, x)
+      v.typeof = t
+      return [v] + equation_vars(body)
+    case _:
+      raise InternalError('equation_vars unhandled ' + str(formula))
+      
+def is_equation(formula: Formula) -> bool:
+  match formula:
+    case Call(_, _, rator, [_, _]) if isinstance(rator, VarRef) and rator.get_name() == '=':
+      return True
+    case All(_, _, _, _, body):
+      return is_equation(body)
+    case _:
+      return False
+
+def isUInt(t: Term) -> bool:
+  match t:
+    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'bzero':
+      return True
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
+      if base_name(n) == 'inc_dub':
+        return isUInt(arg)
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
+      if base_name(n) == 'dub_inc':
+        return isUInt(arg)
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
+      if base_name(n) == 'fromNat':
+        return isNat(arg)
+    case _:
+      return False
+
+def isBZero(t: Term) -> bool:
+  match t:
+    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'bzero':
+      return True
+    case _:
+      return False
+  
+def isDubInc(t: Term) -> bool:
+  match t:
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [_]) \
+      if base_name(n) == 'dub_inc':
+        return True
+    case _:
+      return False
+  
+def isIncDub(t: Term) -> bool:
+  match t:
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [_]) \
+      if base_name(n) == 'inc_dub':
+        return True
+    case _:
+      return False
+
+def get_arg(t: Term) -> Term:
+  match t:
+    case Call(_, _, _, [arg]):
+      return arg
+    case _:
+      raise InternalError('get_arg')
+  
+def mkBZero(loc: Meta, zname: str = 'bzero', ty: Type | None = None) -> ResolvedVar:
+  return ResolvedVar(loc, ty, zname)
+
+def mkIncDub(loc: Meta, arg: Term, cname: str = 'inc_dub',
+             ty: Type | None = None) -> Call:
+  return Call(loc, ty, ResolvedVar(loc, None, cname), [arg])
+
+def mkDubInc(loc: Meta, arg: Term, cname: str = 'dub_inc',
+             ty: Type | None = None) -> Call:
+  return Call(loc, ty, ResolvedVar(loc, None, cname), [arg])
+
+def uint_inc(loc: Meta, x: Term) -> Term:
+    if isBZero(x):
+        return mkIncDub(loc, x)
+    elif isDubInc(x):
+        return mkIncDub(loc, uint_inc(loc, get_arg(x)))
+    elif isIncDub(x):
+        return mkDubInc(loc, get_arg(x))
+    else:
+        internal_error(loc, 'not a UInt constructor: ' + str(x))
+
+def isSuc(t: Term) -> bool:
+  match t:
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [_]) \
+         if base_name(n) == 'suc':
+      return True
+    case _:
+      return False
+
+def _array_index_predecessor(pos: Term, env: Env) -> Term | None:
+    """Compute the predecessor of `pos` as an AST, for the index-shift
+    rule in `ArrayGet.reduce` (#469).  Returns None when no decrement
+    can be produced -- in which case the caller leaves the array access
+    unreduced.
+
+    Handles these positive-shape positions:
+      * `1 + j` / `j + 1` (UInt) -> j  (the form produced by
+        `induction UInt` / `case with i'. 1 + i'`)
+      * `dub_inc(j)`      (UInt) -> `inc_dub(j)`
+      * `inc_dub(j)`      (UInt) -> 2*j, computed via `_uint_double`
+      * `suc(j)`          (Nat)  -> j
+    """
+    one_plus_arg = _try_match_one_plus(pos)
+    if one_plus_arg is not None:
+      return one_plus_arg
+    loc = pos.location
+    if isSuc(pos):
+      return get_arg(pos)
+    if isDubInc(pos):
+      inc_dub_name = env.base_to_unique('inc_dub')
+      if inc_dub_name is None:
+        return None
+      return mkIncDub(loc, get_arg(pos), cname=inc_dub_name)
+    if isIncDub(pos):
+      return _uint_double(loc, get_arg(pos), env)
+    return None
+
+def _try_match_one_plus(t: Term) -> Term | None:
+    """If `t` is `1 + x` or `x + 1` (a Call to `+` with a numeric `1`
+    on either side), return the non-`1` argument.  Otherwise return None.
+    """
+    if not isinstance(t, Call) or len(t.args) != 2:
+      return None
+    name = callable_name(t.rator)
+    if name is None or base_name(name) != '+':
+      return None
+    a, b = t.args
+    if (isUInt(a) and uintToInt(a) == 1) \
+       or (isNat(a) and natToInt(a) == 1):
+      return b
+    if (isUInt(b) and uintToInt(b) == 1) \
+       or (isNat(b) and natToInt(b) == 1):
+      return a
+    return None
+
+def _uint_double(loc: Meta, x: Term, env: Env) -> Term | None:
+    """Return `2 * x` as a UInt AST.  Tries to reduce structurally
+    (handling the three UInt constructor shapes); for a symbolic `x`
+    falls back to a `Call` to the private library helper `dub` if it
+    is reachable in `env`.  Returns None if neither path works.
+    """
+    if isBZero(x):
+      bzero_name = env.base_to_unique('bzero')
+      if bzero_name is None:
+        return None
+      return mkBZero(loc, zname=bzero_name)
+    if isDubInc(x):
+      # 2 * dub_inc(k) = dub_inc(inc_dub(k))
+      dub_inc_name = env.base_to_unique('dub_inc')
+      inc_dub_name = env.base_to_unique('inc_dub')
+      if dub_inc_name is None or inc_dub_name is None:
+        return None
+      return mkDubInc(loc, mkIncDub(loc, get_arg(x), cname=inc_dub_name),
+                      cname=dub_inc_name)
+    if isIncDub(x):
+      # 2 * inc_dub(k) = dub_inc(2 * k)
+      inner = _uint_double(loc, get_arg(x), env)
+      if inner is None:
+        return None
+      dub_inc_name = env.base_to_unique('dub_inc')
+      if dub_inc_name is None:
+        return None
+      return mkDubInc(loc, inner, cname=dub_inc_name)
+    dub_name = env.base_to_unique('dub')
+    if dub_name is None:
+      return None
+    return Call(loc, None, ResolvedVar(loc, None, dub_name), [x])
+
+# The parsers use this function to create unsigned integer literals.
+def intToUInt(loc: Meta, n: int, bzero: str = 'bzero',
+              dubinc: str = 'dub_inc',
+              incdub: str = 'inc_dub',
+              uint_ty: Type | None = None) -> Term:
+    if n == 0:
+        return mkBZero(loc, bzero, uint_ty)
+    else:
+        return uint_inc(loc, intToUInt(loc, n - 1, bzero, dubinc, incdub, uint_ty))
+    
+def mkZero(loc: Meta, zname: str | bool = 'zero',
+           ty: Type | None = None) -> VarRef:
+  # Use OverloadedVar when the name is already uniquified (contains
+  # '.'), otherwise a pre-uniquify Var. Fast-arithmetic call sites
+  # in the type checker pass uniquified names extracted from the
+  # existing AST; parser call sites pass the bare source name.
+  zname = str(zname)
+  if '.' in zname:
+    return ResolvedVar(loc, ty, zname)
+  return Var(loc, ty, zname)
+
+def mkSuc(loc: Meta, arg: Term, sname: str | bool = 'suc',
+          ty: Type | None = None) -> Call:
+  sname = str(sname)
+  rator: VarRef
+  if '.' in sname:
+    rator = ResolvedVar(loc, None, sname)
+  else:
+    rator = Var(loc, None, sname)
+  return Call(loc, ty, rator, [arg])
+
+def intToNat(
+    loc: Meta,
+    n: int,
+    zname: str | bool = 'zero',
+    sname: str | bool = 'suc',
+    ty: Type | None = None,
+) -> Term:
+  if n <= 0:
+    return mkZero(loc, zname=zname, ty=ty)
+  else:
+    return mkSuc(loc, intToNat(loc, n - 1, zname=zname, sname=sname, ty=ty),
+                 sname=sname, ty=ty)
+
+def isNat(t: Term) -> bool:
+  match t:
+    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'zero':
+      return True
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
+         if base_name(n) == 'suc':
+      return isNat(arg)
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
+         if base_name(n) == 'lit':
+      return isNat(arg)
+    case _:
+      return False
+
+def isLitNat(t: Term) -> bool:
+  match t:
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
+         if base_name(n) == 'lit':
+      return isNat(arg)
+    case _:
+      return False
+
+def isLitUInt(t: Term) -> bool:
+  match t:
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
+         if base_name(n) == 'fromNat':
+      return isLitNat(arg)
+    case _:
+      return False
+  
+def isInt(t: Term) -> bool:
+  match t:
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
+      if base_name(n) == 'pos':
+      return isUInt(arg)
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
+      if base_name(n) == 'negsuc':
+      return isUInt(arg)
+    case _:
+      return False
+  
+def getZero(t: Term) -> str | bool:
+  match t:
+    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'zero':
+      return n
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
+      if base_name(n) == 'suc':
+      return getZero(arg)
+    case _:
+      return False
+
+def getSuc(t: Term) -> str | bool:
+  match t:
+    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'zero':
+      return False
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [_]) \
+      if base_name(n) == 'suc':
+      return n
+    case _:
+      return False
+
+def natToInt(t: Term) -> int:
+  match t:
+    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'zero':
+      return 0
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
+      if base_name(n) == 'suc':
+      return 1 + natToInt(arg)
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
+      if base_name(n) == 'lit':
+      return natToInt(arg)
+    case _:
+      raise InternalError('natToInt: not a Nat: ' + str(t))
+
+def uintToInt(t: Term) -> int:
+  match t:
+    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'bzero':
+      return 0
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
+      if base_name(n) == 'dub_inc':
+      return 2 * (1 + uintToInt(arg))
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
+      if base_name(n) == 'inc_dub':
+      return 1 + 2 * uintToInt(arg)
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
+      if base_name(n) == 'fromNat':
+      return natToInt(arg)
+    case _:
+      raise InternalError('uintToInt: not a uint ' + str(t))
+
+def _same_numeric_literal(t1: Any, t2: Any) -> bool:
+  if isNat(t1) and isNat(t2):
+    return natToInt(t1) == natToInt(t2)
+  if isUInt(t1) and isUInt(t2):
+    return uintToInt(t1) == uintToInt(t2)
+  return False
+
+def formulas_equal_modulo_numeric_literals(frm1: Any, frm2: Any) -> bool:
+  if frm1 == frm2 or _same_numeric_literal(frm1, frm2):
+    return True
+  match (frm1, frm2):
+    case (Call(_, _, rator1, args1), Call(_, _, rator2, args2)) \
+         if len(args1) == len(args2):
+      return formulas_equal_modulo_numeric_literals(rator1, rator2) \
+          and all(formulas_equal_modulo_numeric_literals(arg1, arg2)
+                  for (arg1, arg2) in zip(args1, args2))
+    case (And(_, _, args1), And(_, _, args2)) if len(args1) == len(args2):
+      return all(formulas_equal_modulo_numeric_literals(arg1, arg2)
+                 for (arg1, arg2) in zip(args1, args2))
+    case (Or(_, _, args1), Or(_, _, args2)) if len(args1) == len(args2):
+      return all(formulas_equal_modulo_numeric_literals(arg1, arg2)
+                 for (arg1, arg2) in zip(args1, args2))
+    case (IfThen(_, _, prem1, conc1), IfThen(_, _, prem2, conc2)):
+      return formulas_equal_modulo_numeric_literals(prem1, prem2) \
+          and formulas_equal_modulo_numeric_literals(conc1, conc2)
+    case (All(_, _, _, _, body1), All(_, _, _, _, body2)):
+      return formulas_equal_modulo_numeric_literals(body1, body2)
+    case (Some(_, _, vars1, body1), Some(_, _, vars2, body2)) \
+         if len(vars1) == len(vars2):
+      return formulas_equal_modulo_numeric_literals(body1, body2)
+    case (TermInst(_, _, subject1, tyargs1, _),
+          TermInst(_, _, subject2, tyargs2, _)) \
+         if len(tyargs1) == len(tyargs2):
+      return formulas_equal_modulo_numeric_literals(subject1, subject2) \
+          and all(formulas_equal_modulo_numeric_literals(tyarg1, tyarg2)
+                  for (tyarg1, tyarg2) in zip(tyargs1, tyargs2))
+    case (TermInst(_, _, subject, _, _), _):
+      return formulas_equal_modulo_numeric_literals(subject, frm2)
+    case (_, TermInst(_, _, subject, _, _)):
+      return formulas_equal_modulo_numeric_literals(frm1, subject)
+    case (TAnnote(_, _, subject1, _), _):
+      return formulas_equal_modulo_numeric_literals(subject1, frm2)
+    case (_, TAnnote(_, _, subject2, _)):
+      return formulas_equal_modulo_numeric_literals(frm1, subject2)
+    case _:
+      return False
+
+def mkUIntLit(loc: Meta, num: int) -> Term:
+    return Call(loc, None, Var(loc, None, 'fromNat'),
+                [Call(loc, None, Var(loc, None, 'lit'),
+                      [intToNat(loc, num)])])
+  
+def mkPos(loc: Meta, arg: Term) -> Term:
+  return Call(loc, None, Var(loc, None, 'pos'), [arg])
+
+def mkNeg(loc: Meta, arg: Term) -> Term:
+  return Call(loc, None, Var(loc, None, 'negsuc'), [arg])
+
+# The following is used in the parser.
+def mkIntLit(loc: Meta, n: int, sign: str) -> Term:
+  if sign == 'PLUS':
+    return mkPos(loc, mkUIntLit(loc, n))
+  else:
+    return mkNeg(loc, mkUIntLit(loc, n - 1))
+
+def isDeduceInt(t: Term) -> bool:
+  match t:
+    case Call(_, _, (Var(_, _, name) | OverloadedVar(_, _, [name, *_]) | ResolvedVar(_, _, name)), [arg]) if base_name(name) == 'pos':
+      return isUInt(arg)
+    case Call(_, _, (Var(_, _, name) | OverloadedVar(_, _, [name, *_]) | ResolvedVar(_, _, name)), [arg]) if base_name(name) == 'negsuc':
+      return isUInt(arg)
+    case _:
+      return False
+
+def deduceIntToInt(t: Term) -> str:
+  match t:
+    case Call(_, _, (Var(_, _, name) | OverloadedVar(_, _, [name, *_]) | ResolvedVar(_, _, name)), [arg]) if base_name(name) == 'pos':
+      return '+' + str(uintToInt(arg))
+    case Call(_, _, (Var(_, _, name) | OverloadedVar(_, _, [name, *_]) | ResolvedVar(_, _, name)), [arg]) if base_name(name) == 'negsuc':
+      return '-' + str(1 + uintToInt(arg))
+    case _:
+      internal_error(t.location, 'deduceIntToInt: expected an int, not ' + str(t))
+
+def is_constructor(constr_name: str, env: Env) -> bool:
+  for (name,binding) in env.dict.items():
+    if isinstance(binding, TypeBinding):
+      match binding.defn:
+        case Union(_, _, _, alts):
+          for constr in alts:
+            if constr.name == constr_name:
+              return True
+        case _:
+          continue
+  return False
+
+def is_constr_term(term: Term, env: Env) -> bool:
+  if isinstance(term, VarRef):
+    return is_constructor(term.get_name(), env)
+  match term:
+    case TermInst(_, _, body):
+      return is_constr_term(body, env)
+    case _:
+      return False
+
+def constr_name(term: Term) -> str:
+  if isinstance(term, VarRef):
+    return term.get_name()
+  match term:
+    case TermInst(_, _, body):
+      return constr_name(body)
+    case _:
+      raise InternalError('constr_name unhandled ' + str(term))
+    
+def constructor_conflict(term1: Term, term2: Term, env: Env) -> bool:
+  match (term1, term2):
+    case (Call(_, _, rator1, rands1),
+          Call(_, _, rator2, rands2)) if is_constr_term(rator1, env) and is_constr_term(rator2, env):
+     if constr_name(rator1) != constr_name(rator2):
+       return True
+     else:
+       return any([constructor_conflict(rand1, rand2, env) \
+                   for (rand1, rand2) in zip(rands1, rands2)])
+    case (Call(_, _, rator1, rands1), term2) if is_constr_term(rator1, env) and is_constr_term(term2, env):
+      if constr_name(rator1) != constr_name(term2):
+        return True
+    case (term1, term2) if is_constr_term(term1, env) and is_constr_term(term2, env):
+      if constr_name(term1) != constr_name(term2):
+        return True
+    case (term1, Call(_, _, rator2, rands2)) if is_constr_term(term1, env) and is_constr_term(rator2, env):
+      if constr_name(term1) != constr_name(rator2):
+        return True
+    case (Bool(_, _, True), Bool(_, _, False)):
+      return True
+    case (Bool(_, _, False), Bool(_, _, True)):
+      return True
+  return False
+
+def _is_named(node: object, base: str) -> bool:
+  if isinstance(node, OverloadedVar):
+    return base_name(node.resolved_names[0]) == base
+  if isinstance(node, ResolvedVar):
+    return base_name(node.name) == base
+  return False
+
+def isNodeList(t: Term) -> bool:
+  match t:
+    case TermInst(_, _, ctor, _, _) if _is_named(ctor, 'empty'):
+      return True
+    case Call(_, _, TermInst(_, _, ctor, _, _),
+              [_, ls]) if _is_named(ctor, 'node'):
+      return isNodeList(ls)
+    case _:
+      return False
+
+def nodeListToList(t: Term) -> list[Term]:
+  match t:
+    case TermInst(_, _, ctor, _, _) if _is_named(ctor, 'empty'):
+      return []
+    case Call(_, _, TermInst(_, _, ctor, _, _),
+              [arg, ls]) if _is_named(ctor, 'node'):
+      return [arg] + nodeListToList(ls)
+    case _:
+      raise InternalError('nodeListToList: not a node list: ' + str(t))
+
+def nodeListToString(t: Term) -> str | None:
+  match t:
+    case TermInst(_, _, ctor, _, _) if _is_named(ctor, 'empty'):
+      return ''
+    case Call(_, _, TermInst(_, _, ctor, _, _),
+              [arg, ls]) if _is_named(ctor, 'node'):
+      rest = nodeListToString(ls)
+      return str(arg) + ', ' + rest if rest is not None else None
+    case _:
+      return None
+
+def mkEmpty(loc: Meta) -> Term:
+  return Var(loc, None, 'empty')
+
+def mkNode(loc: Meta, arg: Term, ls: Term) -> Term:
+  return Call(loc, None, Var(loc, None, 'node'), [arg, ls])
+
+def listToNodeList(loc: Meta, lst: Sequence[Term]) -> Term:
+  if len(lst) == 0:
+    return mkEmpty(loc)
+  else:
+    return mkNode(loc, lst[0], listToNodeList(loc, lst[1:]))
+
+def isEmptySet(t: Term) -> bool:
+  match t:
+    case Call(_, _, fun,
+              [Lambda(_, _, _, Bool(_, _, False))]) \
+              if (name := callable_name(fun)) is not None \
+              and base_name(name) == 'char_fun':
+      return True
+    case _:
+      return False

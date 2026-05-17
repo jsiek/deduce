@@ -4567,7 +4567,7 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
       # Type wherever a Deduce type is named by an identifier (e.g.
       # `T<X>` parses to `TypeInst(typ=ResolvedVar("T"), ...)`).
       # Cast at the construction sites rather than widening every
-      # `typ: Type` annotation across abstract_syntax.py.
+      # `typ: Type` annotation across abstract_syntax.
       union_type = cast(Type, ResolvedVar(loc, None, name))
       body_env = env.declare_type_vars(loc, typarams)
       body_union_type = union_type

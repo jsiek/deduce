@@ -3922,9 +3922,9 @@ def _formula_head_symbol(formula) -> Optional[str]:
         if isinstance(rator, TermInst):
             inner = getattr(rator, "subject", None)
             if isinstance(inner, VarRef):
-                return base_name(inner.get_name())
+                return cast(str, base_name(cast(str, inner.get_name())))
         if isinstance(rator, VarRef):
-            return base_name(rator.get_name())
+            return cast(str, base_name(cast(str, rator.get_name())))
         return None
     if isinstance(f, And):
         return "and"
@@ -4469,7 +4469,7 @@ def _preview_expand(
 # declaration is responsible without grepping the prelude.  This
 # function returns every `auto` rule visible at the cursor in
 # declaration order -- the same order ``auto_rewrites`` (in
-# ``abstract_syntax.py``) tries them when several heads match.
+# ``abstract_syntax``) tries them when several heads match.
 
 
 def auto_rules_at(

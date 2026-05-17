@@ -3,9 +3,7 @@
 The ``typeof`` field on ``Term`` is a cached type annotation populated
 by the type checker. It is non-structural for equality and copy, but
 ``substitute`` *does* rewrite it via the ``on_typeof`` hook in
-``Term.substitute`` / ``Term._map_children`` (see
-[abstract_syntax.py:74](../../abstract_syntax.py) and
-[abstract_syntax.py:315](../../abstract_syntax.py)).
+``Term.substitute`` / ``Term._map_children``.
 
 #480 fixed a class of bugs where ``typeof`` was a post-hoc-assigned
 attribute that disappeared after ``_map_children`` rebuilt the node;
@@ -199,7 +197,7 @@ def test_var_hit_takes_replacements_typeof(t1, t2, name):
     # A ``Var`` with ``typeof=t1`` that is hit by a substitution
     # returns the replacement (with the replacement's own typeof),
     # *not* the original ``Var`` with its annotation. This pins down
-    # the documented behaviour in [abstract_syntax.py:916](../../abstract_syntax.py).
+    # the documented behaviour for OverloadedVar.
     original = Var(_m(), t1, name)
     replacement = Int(_m(), t2, 7)
     s = original.substitute({name: replacement})

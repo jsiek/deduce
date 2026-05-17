@@ -16,7 +16,7 @@ Assert. MakeArray/ArrayGet/GenRecFun/Array etc. raise CompileError.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple, cast
 
 from lark.tree import Meta
 
@@ -43,7 +43,7 @@ def _format_loc(loc: Optional[Meta]) -> str:
         if getattr(loc, "empty", True):
             return ""
         # `filename` is stashed onto Meta by the parser
-        # (see abstract_syntax.py / parser.py); not a declared field.
+        # (see abstract_syntax / parser.py); not a declared field.
         return f"{getattr(loc, 'filename', '?')}:{loc.line}: "
     except Exception:
         return ""
@@ -584,7 +584,7 @@ class LoweringCtx:
         # Pre-uniquify `Var` would return the source name, which is
         # only sensible if the lowering is processing a sub-AST that
         # bypasses uniquify (rare; left intact).
-        return v.get_name()
+        return cast(str, v.get_name())
 
 
 # --------------------------------------------------------------------------

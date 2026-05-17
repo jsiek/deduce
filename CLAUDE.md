@@ -66,7 +66,7 @@ The pipeline lives in five Python files. The flow for one file is in `deduce.py:
 
 Steps 3–6 all run inside `proof_checker.check_deduce`. The four-phase comment at the top of `proof_checker.py` is the canonical reference.
 
-`abstract_syntax.py` (~5000 lines) defines every AST node as a dataclass under base classes `AST`, `Type`, `Term` (with `Formula` as a subclass), `Proof`, `Statement`, plus `Pattern`. Each node implements `copy`, `uniquify`, `substitute`, `reduce` as needed. `docs/knowledge-base/abstract-syntax.md` documents the major nodes.
+`abstract_syntax/` defines every AST node as a dataclass under base classes `AST`, `Type`, `Term` (with `Formula` as a subclass), `Proof`, `Statement`, plus `Pattern`. The package is split into cohesive modules for core primitives, terms/formulas, proofs, declarations, environments, literals, rewriting, cross-cutting operations, and theorem printing. `abstract_syntax/__init__.py` is the compatibility facade for existing callers. `docs/knowledge-base/abstract-syntax.md` documents the major nodes.
 
 `flags.py` holds all global compiler state (verbosity, unique-name display, parser choice, import directories, quiet mode). `error.py` defines the exception types (`Exception` for normal errors, `IncompleteProof`, `StaticError`, `MatchFailed`, `ParseError`) and the location-prefixed message format.
 
@@ -84,7 +84,7 @@ Steps 3–6 all run inside `proof_checker.check_deduce`. The four-phase comment 
 
 ## When changing syntax
 
-Per `docs/knowledge-base/what-to-update.md`, a syntax change touches: `Deduce.lark`, `parser.py`, `rec_desc_parser.py`, `abstract_syntax.py`, `gh_pages/scripts/keywords.py`, `gh_pages/js/codeUtils.js`, `gh_pages/js/sandbox.js`. The in-tree editor integrations at `editor/emacs/` and `editor/vscode/` may also need updates — neither ships syntax highlighting today, but those additions will live alongside the existing files.
+Per `docs/knowledge-base/what-to-update.md`, a syntax change touches: `Deduce.lark`, `parser.py`, `rec_desc_parser.py`, `abstract_syntax/`, `gh_pages/scripts/keywords.py`, `gh_pages/js/codeUtils.js`, `gh_pages/js/sandbox.js`. The in-tree editor integrations at `editor/emacs/` and `editor/vscode/` may also need updates — neither ships syntax highlighting today, but those additions will live alongside the existing files.
 
 ## Stdlib naming convention
 
