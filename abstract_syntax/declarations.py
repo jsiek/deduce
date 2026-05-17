@@ -782,6 +782,19 @@ class ViewDecl(Declaration):
       + '}\n'
     return indent*' ' + ret
 
+  def print_theorems_statement(self, f: TextIO) -> None:
+    # In .thm output, suppress the view body. The source / out /
+    # roundtrip slots typically name private internals (the
+    # representation type and its private bridge function/lemma); the
+    # ``into`` function and the ``target`` constructors are exported
+    # separately, so consumers don't need the body to use the view.
+    if self.visibility == 'private':
+      return
+    header = base_name(self.name) \
+      + ('<' + ','.join([name2str(t) for t in self.type_params]) + '>' \
+         if len(self.type_params) > 0 else '')
+    print('view ' + header + '\n', file=f)
+
 @dataclass
 class Define(Declaration):
   typ: Optional[Type]
