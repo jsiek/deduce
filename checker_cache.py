@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """Per-statement proof-check cache and dependency fingerprint helpers.
 
 File charter:
@@ -11,6 +10,18 @@ File charter:
   a Deduce program is valid except by reporting cache hits and misses.
 """
 
+from typing import Any
+
+from abstract_syntax import (
+    Auto,
+    Import,
+    Predicate,
+    PVar,
+    Union,
+    VarRef,
+    ViewDecl,
+    ViewRecFun,
+)
 from checker_common import *
 
 # ---------------------------------------------------------------------------
@@ -33,11 +44,11 @@ from checker_common import *
 # prelude key changes (different prelude => different baseline =>
 # cache invalid).
 
-_stmt_cache: dict = {}
+_stmt_cache: dict[Any, Any] = {}
 
 # Hits and misses bucketed by loop, for the test instrumentation
 # the plan requires ("untouched statements were cache hits").
-_cache_stats: dict = {"hits": {}, "misses": {}}
+_cache_stats: dict[str, dict[str, int]] = {"hits": {}, "misses": {}}
 
 
 def reset_stmt_cache() -> None:
@@ -50,7 +61,7 @@ def reset_stmt_cache() -> None:
     _cache_stats["misses"].clear()
 
 
-def get_cache_stats() -> dict:
+def get_cache_stats() -> dict[str, dict[str, int]]:
     """Return a copy of the per-loop hit/miss counters."""
     return {
         "hits": dict(_cache_stats["hits"]),
@@ -66,7 +77,7 @@ def _record_miss(loop_tag: str) -> None:
     _cache_stats["misses"][loop_tag] = _cache_stats["misses"].get(loop_tag, 0) + 1
 
 
-def _hash_ast(node) -> int:
+def _hash_ast(node: Any) -> int:
     """Stable structural hash of a (post-uniquify) AST.
 
     Skips the ``location`` (Meta) attribute, which carries source
@@ -88,7 +99,7 @@ def _hash_ast(node) -> int:
         return hash(
             tuple(sorted((k, _hash_ast(v)) for k, v in node.items()))
         )
-    cached = getattr(node, "__hash_cache__", None)
+    cached: int | None = getattr(node, "__hash_cache__", None)
     if cached is not None:
         return cached
     if hasattr(node, "__dict__"):
@@ -106,7 +117,9 @@ def _hash_ast(node) -> int:
     return hash(repr(node))
 
 
-def _collect_referenced_names(node, out=None) -> set:
+def _collect_referenced_names(
+    node: Any, out: set[str] | None = None
+) -> set[str]:
     """Walk a statement's post-uniquify AST and gather every uniquified
     name it references via ``VarRef`` (``Var`` / ``OverloadedVar`` /
     ``ResolvedVar``) or ``PVar``.
@@ -156,7 +169,7 @@ def _collect_referenced_names(node, out=None) -> set:
     return out
 
 
-def _collect_defined_names(stmt) -> set:
+def _collect_defined_names(stmt: Any) -> set[str]:
     """Return the uniquified names a top-level statement introduces.
 
     Includes the statement's own name plus any auxiliary names it
@@ -166,7 +179,7 @@ def _collect_defined_names(stmt) -> set:
     ``Print``, ``Auto``, ``Module``, ``Trace``, ``Import``) return
     the empty set; ``Import`` and ``Auto`` are handled separately by
     the caller as global barriers."""
-    names: set = set()
+    names: set[str] = set()
     name = getattr(stmt, "name", None)
     if isinstance(name, str):
         names.add(name)
@@ -187,7 +200,7 @@ def _collect_defined_names(stmt) -> set:
     return names
 
 
-def _is_global_barrier(stmt) -> bool:
+def _is_global_barrier(stmt: Any) -> bool:
     """Statements with global side-effects on later checking.
 
     ``Import`` brings a module's exports into the environment;
