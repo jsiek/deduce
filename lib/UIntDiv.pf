@@ -162,6 +162,108 @@ fun divides(a : UInt, b : UInt) {
   some k:UInt. a * k = b
 }
 
+theorem uint_divides_refl: all n:UInt. divides(n, n)
+proof
+  arbitrary n:UInt
+  expand divides
+  choose 1
+  uint_mult_one[n]
+end
+
+theorem uint_divides_zero: all n:UInt. divides(n, 0)
+proof
+  arbitrary n:UInt
+  expand divides
+  choose 0
+  uint_mult_zero[n]
+end
+
+theorem uint_divides_trans: all a:UInt, b:UInt, c:UInt.
+  if divides(a, b) and divides(b, c) then divides(a, c)
+proof
+  arbitrary a:UInt, b:UInt, c:UInt
+  assume prem
+  obtain k where ak_b: a * k = b from expand divides in conjunct 0 of prem
+  obtain l where bl_c: b * l = c from expand divides in conjunct 1 of prem
+  expand divides
+  choose k * l
+  have eq1: (a * k) * l = c by replace symmetric ak_b in bl_c
+  eq1
+end
+
+theorem uint_divides_add: all d:UInt, m:UInt, n:UInt.
+  if divides(d, m) and divides(d, n) then divides(d, m + n)
+proof
+  arbitrary d:UInt, m:UInt, n:UInt
+  assume prem
+  obtain k where dk_m: d * k = m from expand divides in conjunct 0 of prem
+  obtain l where dl_n: d * l = n from expand divides in conjunct 1 of prem
+  expand divides
+  choose k + l
+  replace uint_dist_mult_add[d, k, l]
+  replace dk_m | dl_n.
+end
+
+theorem uint_divides_mult_right: all d:UInt, n:UInt, m:UInt.
+  if divides(d, n) then divides(d, n * m)
+proof
+  arbitrary d:UInt, n:UInt, m:UInt
+  assume dn
+  obtain k where dk_n: d * k = n from expand divides in dn
+  expand divides
+  choose k * m
+  replace dk_n.
+end
+
+theorem uint_divides_mult_left: all d:UInt, n:UInt, m:UInt.
+  if divides(d, n) then divides(d, m * n)
+proof
+  arbitrary d:UInt, n:UInt, m:UInt
+  assume dn
+  replace uint_mult_commute[m, n]
+  apply uint_divides_mult_right[d, n, m] to dn
+end
+
+theorem uint_divides_monus: all d:UInt, m:UInt, n:UInt.
+  if divides(d, m) and divides(d, n) then divides(d, m ∸ n)
+proof
+  arbitrary d:UInt, m:UInt, n:UInt
+  assume prem
+  obtain k where dk_m: d * k = m from expand divides in conjunct 0 of prem
+  obtain l where dl_n: d * l = n from expand divides in conjunct 1 of prem
+  expand divides
+  choose k ∸ l
+  replace uint_dist_mult_monus[d, k, l]
+  replace dk_m | dl_n.
+end
+
+theorem uint_divides_mod_of_divides: all d:UInt, m:UInt, n:UInt.
+  if divides(d, m) and divides(d, n) then divides(d, m % n)
+proof
+  arbitrary d:UInt, m:UInt, n:UInt
+  assume prem
+  expand operator%
+  have d_m: divides(d, m) by conjunct 0 of prem
+  have d_n: divides(d, n) by conjunct 1 of prem
+  have d_qn: divides(d, (m / n) * n)
+    by apply uint_divides_mult_left[d, n, m / n] to d_n
+  have both: divides(d, m) and divides(d, (m / n) * n) by d_m, d_qn
+  apply uint_divides_monus[d, m, (m / n) * n] to both
+end
+
+recfun gcd(a : UInt, b : UInt) -> UInt
+  measure b of UInt
+{
+  if b = 0 then a
+  else gcd(b, a % b)
+}
+terminates {
+  arbitrary a:UInt, b:UInt
+  assume bnz: not (b = 0)
+  have b_pos: 0 < b by apply or_not to uint_zero_or_positive[b], bnz
+  conclude a % b < b by apply uint_mod_less_divisor[a,b] to b_pos
+}
+
 theorem uint_divides_mod: all d:UInt, m:UInt, n:UInt.
   if divides(d, n) and divides(d, m % n) and 0 < n then divides(d, m)
 proof
@@ -179,6 +281,162 @@ proof
   have eq5: d*((m/n)*k1 + k2) = m by replace symmetric uint_dist_mult_add[d, (m/n)*k1, k2] in eq4
   choose (m/n)*k1 + k2
   eq5
+end
+
+theorem uint_gcd_divides: all b:UInt, a:UInt. divides(gcd(a,b), a) and divides(gcd(a,b), b)
+proof
+  define P = fun b':UInt {all a:UInt. divides(gcd(a,b'), a) and divides(gcd(a,b'), b')}
+  have X: all j:UInt. (if (all i:UInt. (if i < j then P(i))) then P(j)) by {
+    arbitrary j:UInt
+    assume IH: all i:UInt. (if i < j then P(i))
+    expand P
+    cases uint_zero_or_positive[j]
+      case j_z {
+        arbitrary a:UInt
+        have A: divides(gcd(a, j), a) by {
+          replace j_z
+          expand divides | gcd
+          choose 1
+          conclude a * 1 = a by uint_mult_one
+        }
+        have B: divides(gcd(a, j), j) by {
+          replace j_z
+          expand divides | gcd
+          choose 0
+          conclude a * 0 = 0 by uint_mult_zero
+        }
+        A, B
+      }
+      case j_pos {
+        arbitrary a:UInt
+        have smaller: a % j < j
+          by apply uint_mod_less_divisor[a,j] to j_pos
+        have div_j_div_aj: divides(gcd(j, a % j), j) and divides(gcd(j, a % j), a % j)
+          by (expand P in apply IH[a%j] to smaller)[j]
+        have j_ne_z: not (j = 0) by apply uint_pos_not_zero to j_pos
+        have A: divides(gcd(a, j), a) by {
+          expand gcd
+          replace apply eq_false to j_ne_z
+          conclude divides(gcd(j, a % j), a)
+            by apply uint_divides_mod[gcd(j, a % j), a, j] to div_j_div_aj, j_pos
+        }
+        have B: divides(gcd(a, j), j) by {
+          expand gcd
+          replace apply eq_false to j_ne_z
+          conclude divides(gcd(j, a % j), j) by div_j_div_aj
+        }
+        A, B
+      }
+  }
+  arbitrary b:UInt
+  expand P in apply uint_strong_induction[P,b] to X
+end
+
+theorem uint_gcd_divides_left: all a:UInt, b:UInt. divides(gcd(a,b), a)
+proof
+  arbitrary a:UInt, b:UInt
+  conjunct 0 of uint_gcd_divides[b, a]
+end
+
+theorem uint_gcd_divides_right: all a:UInt, b:UInt. divides(gcd(a,b), b)
+proof
+  arbitrary a:UInt, b:UInt
+  conjunct 1 of uint_gcd_divides[b, a]
+end
+
+theorem uint_divides_less_equal: all a:UInt, b:UInt.
+  if divides(a, b) and 0 < b then a ≤ b
+proof
+  arbitrary a:UInt, b:UInt
+  assume prem
+  obtain k where ak_b: a * k = b from expand divides in conjunct 0 of prem
+  have k_ne_z: not (k = 0) by {
+    assume k_z
+    have a0_b: a * 0 = b by replace k_z in ak_b
+    have z_b: 0 = b by a0_b
+    have b_z: b = 0 by symmetric z_b
+    have b_nz: not (b = 0) by apply uint_pos_not_zero to conjunct 1 of prem
+    apply b_nz to b_z
+  }
+  have k_pos: 0 < k by apply uint_not_zero_pos to k_ne_z
+  have one_le_k: 1 ≤ k by apply uint_pos_implies_one_le to k_pos
+  have a_le_ak: a * 1 ≤ a * k by apply uint_mult_mono_le[a, 1, k] to one_le_k
+  have a_le_ak2: a ≤ a * k by a_le_ak
+  replace ak_b in a_le_ak2
+end
+
+theorem uint_divides_antisymmetric: all a:UInt, b:UInt.
+  if divides(a, b) and divides(b, a) then a = b
+proof
+  arbitrary a:UInt, b:UInt
+  assume prem
+  cases uint_zero_or_positive[a]
+  case a_z {
+    obtain k where ak_b: a * k = b from expand divides in conjunct 0 of prem
+    have z_b: 0 = b by replace a_z in ak_b
+    have b_z: b = 0 by symmetric z_b
+    replace a_z | b_z.
+  }
+  case a_pos {
+    have b_ne_z: not (b = 0) by {
+      assume b_z
+      obtain k where bk_a: b * k = a from expand divides in conjunct 1 of prem
+      have z_k_a: 0 * k = a by replace b_z in bk_a
+      have z_a: 0 = a by z_k_a
+      have a_z: a = 0 by symmetric z_a
+      have a_ne_z: not (a = 0) by apply uint_pos_not_zero to a_pos
+      apply a_ne_z to a_z
+    }
+    have b_pos: 0 < b by apply uint_not_zero_pos to b_ne_z
+    have div_ab: divides(a, b) by conjunct 0 of prem
+    have div_ba: divides(b, a) by conjunct 1 of prem
+    have ab: divides(a, b) and 0 < b by div_ab, b_pos
+    have ba: divides(b, a) and 0 < a by div_ba, a_pos
+    have a_le_b: a ≤ b by apply uint_divides_less_equal[a, b] to ab
+    have b_le_a: b ≤ a by apply uint_divides_less_equal[b, a] to ba
+    apply uint_less_equal_antisymmetric to a_le_b, b_le_a
+  }
+end
+
+theorem uint_gcd_greatest: all d:UInt, a:UInt, b:UInt.
+  if divides(d, a) and divides(d, b) then divides(d, gcd(a,b))
+proof
+  define P = fun b':UInt {all a:UInt, d:UInt.
+    if divides(d, a) and divides(d, b') then divides(d, gcd(a,b'))}
+  have X: all j:UInt. (if (all i:UInt. (if i < j then P(i))) then P(j)) by {
+    arbitrary j:UInt
+    assume IH: all i:UInt. (if i < j then P(i))
+    expand P
+    cases uint_zero_or_positive[j]
+      case j_z {
+        arbitrary a:UInt, d:UInt
+        assume prem
+        replace j_z
+        expand gcd
+        conjunct 0 of prem
+      }
+      case j_pos {
+        arbitrary a:UInt, d:UInt
+        assume prem
+        have smaller: a % j < j
+          by apply uint_mod_less_divisor[a,j] to j_pos
+        have d_aj: divides(d, a % j)
+          by apply uint_divides_mod_of_divides[d, a, j] to prem
+        have IH_aj: all a0:UInt, d0:UInt.
+          if divides(d0, a0) and divides(d0, a % j) then divides(d0, gcd(a0, a % j))
+          by expand P in apply IH[a%j] to smaller
+        have j_ne_z: not (j = 0) by apply uint_pos_not_zero to j_pos
+        expand gcd
+        replace apply eq_false to j_ne_z
+        have d_j: divides(d, j) by conjunct 1 of prem
+        have both: divides(d, j) and divides(d, a % j) by d_j, d_aj
+        apply IH_aj[j, d] to both
+      }
+  }
+  arbitrary d:UInt, a:UInt, b:UInt
+  assume prem
+  have Pb: P(b) by apply uint_strong_induction[P,b] to X
+  apply (expand P in Pb)[a, d] to prem
 end
 
 theorem uint_div_cancel: all y:UInt. if 0 < y then y / y = 1

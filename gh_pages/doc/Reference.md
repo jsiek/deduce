@@ -682,6 +682,26 @@ assert 8 / 3 = 2
 assert 9 / 3 = 3
 ```
 
+## GCD
+
+The `UInt` library provides Euclid's algorithm as `gcd(a, b)`. It is
+implemented over `UInt`, so it keeps the binary representation used by
+unsigned integer arithmetic.
+
+The theorem `uint_gcd_divides` proves that `gcd(a, b)` divides both
+arguments. The helper theorems `uint_gcd_divides_left` and
+`uint_gcd_divides_right` project the two sides. The theorem
+`uint_gcd_greatest` proves that any common divisor divides the gcd.
+The `divides(a, b)` predicate means there is some `k:UInt` with
+`a * k = b`.
+
+Example:
+
+```{.deduce^#gcd_example}
+assert gcd(12, 8) = 4
+assert gcd(17, 13) = 1
+```
+
 ## Expand (Proof)
 
 ```
@@ -2820,6 +2840,7 @@ import Pair
 <<expand_example>>
 <<expand_in_example>>
 <<division_example>>
+<<gcd_example>>
 <<equations_example>>
 <<equations_expand_example>>
 <<greater_example>>
