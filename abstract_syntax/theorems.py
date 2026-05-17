@@ -26,6 +26,31 @@ from .declarations import *
 from .env import *
 
 collected_imports: set[str] = set()
+private_proof_names: set[str] = set()
+
+def _collect_private_proof_names(stmts: List[Statement],
+                                 visited_imports: set[str]) -> None:
+  """Walk the reachable AST (including imports) and record the uniquified
+  names of theorems/postulates that are private to their defining module.
+  Used by ``collect_public`` to filter out ``auto`` declarations whose
+  target wouldn't resolve outside the module."""
+  for s in stmts:
+    if isinstance(s, Theorem):
+      if s.isLemma or s.visibility == 'private':
+        private_proof_names.add(s.name)
+    elif isinstance(s, Postulate):
+      if s.visibility == 'private':
+        private_proof_names.add(s.name)
+    elif isinstance(s, Import):
+      if s.name in visited_imports:
+        continue
+      visited_imports.add(s.name)
+      if s.ast is not None:
+        _collect_private_proof_names(cast(List[Statement], s.ast),
+                                     visited_imports)
+
+def _auto_target_is_private(target: AST) -> bool:
+  return isinstance(target, PVar) and target.name in private_proof_names
 
 def collect_public(s: Statement, to_print: list[TheoremFilePrinting]) -> None:
     global collected_imports
@@ -35,7 +60,8 @@ def collect_public(s: Statement, to_print: list[TheoremFilePrinting]) -> None:
     elif isinstance(s, Postulate):
       to_print.append(s)
     elif isinstance(s, Auto):
-      to_print.append(s)
+      if not _auto_target_is_private(s.name):
+        to_print.append(s)
     elif isinstance(s, Import):
       if s.name in collected_imports:
           return
@@ -45,14 +71,16 @@ def collect_public(s: Statement, to_print: list[TheoremFilePrinting]) -> None:
             collect_public(stmt, to_print)
     elif isinstance(s, Declaration) and not s.visibility == 'private':
       to_print.append(s)
-      
+
 def print_theorems(filename: str, ast: List[Statement]) -> None:
-  global collected_imports
+  global collected_imports, private_proof_names
   collected_imports = set()
+  private_proof_names = set()
+  _collect_private_proof_names(ast, set())
   fullpath = Path(filename)
   theorem_filename = fullpath.with_suffix('.thm')
   to_print: list[TheoremFilePrinting] = []
-  
+
   for s in ast:
     collect_public(s, to_print)
   
