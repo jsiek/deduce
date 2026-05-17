@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """Top-level checker phases and whole-file orchestration.
 
 File charter:
@@ -14,12 +13,107 @@ File charter:
   phase ordering or statement-level orchestration.
 """
 
+from dataclasses import dataclass
+from typing import Any, List, Optional, Tuple, cast
+
+from lark.tree import Meta
+
+from abstract_syntax import (
+    All, And, Array, ArrayGet, Assert, Associative, Auto, Bool,
+    Call, Conditional, Constructor, Declaration, Define, Env, Export,
+    Formula, FunCase, FunctionType, GenRecFun, Generic, GenericUnknownInst,
+    Hole, IfThen, Import, Inductive, Lambda, MakeArray, Module, Omitted,
+    Or, OverloadType, OverloadedVar, PSorry, PVar, PatternBool, PatternCons,
+    Postulate, Predicate, Print, RecFun, ResolvedVar, Rule, Some,
+    Statement, Switch, SwitchCase, TAnnote, TLet, Term, TermInst, Theorem,
+    Trace, Type, TypeInst, TypeType, Union, Var, VarRef, VerboseLevel,
+    ViewDecl, ViewRecFun, alpha_equiv, base_name, callable_name,
+    check_post_typecheck_invariants, find_file, mkEqual, print_theorems,
+    set_eval_all, set_reduce_all, type_match, type_names,
+)
+from checker_cache import (
+    _collect_defined_names, _collect_referenced_names, _hash_ast,
+    _is_global_barrier, _record_hit, _record_miss, _stmt_cache,
+)
 from checker_common import *
+# The remaining checker_* modules still carry ``# mypy: ignore-errors`` and
+# their functions are untyped from mypy's perspective. Importing them through
+# an ``Any``-typed indirection keeps cross-module calls compatible with
+# ``disallow_untyped_calls`` until those files are strictified in turn.
+from checker_predicates import (
+    _build_predicate_translation as _build_predicate_translation_raw,
+    _check_predicate_strict_positivity as _check_predicate_strict_positivity_raw,
+    _predicate_style_hint as _predicate_style_hint_raw,
+    _validate_predicate_rule_shape as _validate_predicate_rule_shape_raw,
+    _validate_predicate_signature as _validate_predicate_signature_raw,
+)
+from checker_induction import match_induction as match_induction_raw
+from checker_logic import pattern_to_term as pattern_to_term_raw
+from checker_proofs import (
+    _try_check_proof_of as _try_check_proof_of_raw,
+    generate_proof_name as generate_proof_name_raw,
+)
+from checker_types import (
+    check_constructor_pattern as check_constructor_pattern_raw,
+    check_formula as check_formula_raw,
+    check_no_recfun_escape as check_no_recfun_escape_raw,
+    check_pattern as check_pattern_raw,
+    check_strict_positivity as check_strict_positivity_raw,
+    check_type as check_type_raw,
+    dirty_files,
+    get_recursive_call_count as get_recursive_call_count_raw,
+    infer_param_polarities as infer_param_polarities_raw,
+    is_modified as is_modified_raw,
+    lookup_union as lookup_union_raw,
+    reset_recursive_call_count as reset_recursive_call_count_raw,
+    type_check_formula as type_check_formula_raw,
+    type_check_term as type_check_term_raw,
+    type_synth_term as type_synth_term_raw,
+)
+from error import (
+    Diagnostic, ErrorSink, MatchFailed, error_header, get_active_sink,
+    internal_error, set_active_sink, user_error,
+)
+from flags import (
+    get_check_imports, get_debugger, get_quiet_mode,
+    get_target_hole_location, get_verbose, set_verbose,
+)
 
-imported_modules: set = set()
-checked_modules: set = set()
+# Any-typed re-exports so the cross-checker calls below pass
+# ``disallow_untyped_calls`` without adding signatures to the still-ratcheting
+# modules (those files are being strictified in parallel and any signature
+# added here would risk a merge conflict).
+_build_predicate_translation: Any = _build_predicate_translation_raw
+_check_predicate_strict_positivity: Any = _check_predicate_strict_positivity_raw
+_predicate_style_hint: Any = _predicate_style_hint_raw
+_validate_predicate_rule_shape: Any = _validate_predicate_rule_shape_raw
+_validate_predicate_signature: Any = _validate_predicate_signature_raw
+match_induction: Any = match_induction_raw
+pattern_to_term: Any = pattern_to_term_raw
+_try_check_proof_of: Any = _try_check_proof_of_raw
+generate_proof_name: Any = generate_proof_name_raw
+check_constructor_pattern: Any = check_constructor_pattern_raw
+check_formula: Any = check_formula_raw
+check_no_recfun_escape: Any = check_no_recfun_escape_raw
+check_pattern: Any = check_pattern_raw
+check_strict_positivity: Any = check_strict_positivity_raw
+check_type: Any = check_type_raw
+get_recursive_call_count: Any = get_recursive_call_count_raw
+infer_param_polarities: Any = infer_param_polarities_raw
+is_modified: Any = is_modified_raw
+lookup_union: Any = lookup_union_raw
+reset_recursive_call_count: Any = reset_recursive_call_count_raw
+type_check_formula: Any = type_check_formula_raw
+type_check_term: Any = type_check_term_raw
+type_synth_term: Any = type_synth_term_raw
 
-def process_declaration_visibility(decl : Declaration, env: Env, module_chain, downstream_needs_checking):
+imported_modules: set[str] = set()
+checked_modules: set[str] = set()
+
+def process_declaration_visibility(decl: Declaration, env: Env,
+                                   module_chain: list[str],
+                                   downstream_needs_checking: list[bool]
+                                   ) -> tuple[Any, Env]:
   match decl:
     case Define(loc, name, ty, body):
       if ty == None:
@@ -316,7 +410,10 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
       internal_error(decl.location, "unrecognized declaration:\n" + str(decl))
 
 
-def process_declaration(stmt : Statement, env : Env, module_chain, downstream_needs_checking):
+def process_declaration(stmt: Statement, env: Env,
+                        module_chain: list[str],
+                        downstream_needs_checking: list[bool]
+                        ) -> tuple[Any, Env]:
   if get_verbose():
     print('process_declaration(' + str(stmt) + ')')
     
@@ -364,7 +461,9 @@ def process_declaration(stmt : Statement, env : Env, module_chain, downstream_ne
     case _:
       internal_error(stmt.location, "in process_declaration, unrecognized statement:\n" + str(stmt))
 
-def type_check_fun_case(fun_case, name, params, returns, body_env, cases_present):
+def type_check_fun_case(fun_case: Any, name: str, params: list[Type],
+                        returns: Type, body_env: Env,
+                        cases_present: dict[str, Any]) -> Any:
     body_env = check_pattern(fun_case.pattern, params[0], body_env, cases_present)
     fun_case.rator = type_synth_term(fun_case.rator, body_env, None, [])
     if len(fun_case.parameters) != len(params[1:]):
@@ -382,7 +481,7 @@ def type_check_fun_case(fun_case, name, params, returns, body_env, cases_present
     return FunCase(fun_case.location, fun_case.rator,
                    fun_case.pattern, fun_case.parameters, new_body)
 
-def type_check_view_recursive_fun(stmt, env, view_info):
+def type_check_view_recursive_fun(stmt: Any, env: Env, view_info: Any) -> Any:
   loc = stmt.location
   name = stmt.name
   typarams = stmt.type_params
@@ -411,7 +510,7 @@ def type_check_view_recursive_fun(stmt, env, view_info):
   checked_view = type_check_term(_view_call(loc, view_decl.into,
                                            checked_subject),
                                  view_ty, case_env, None, [])
-  cases_present = {}
+  cases_present: dict[str, Any] = {}
   new_cases = []
   reset_recursive_call_count()
   rec_ty = checked_params[0]
@@ -449,14 +548,15 @@ def type_check_view_recursive_fun(stmt, env, view_info):
                    measure, rec_ty, body, PSorry(loc), True,
                    visibility=stmt.visibility)
 
-def _viewrec_function_type(loc, typarams, params, returns):
+def _viewrec_function_type(loc: Meta, typarams: list[str],
+                           params: list[Any], returns: Type) -> Any:
   new_typarams = [generate_proof_name(t) for t in typarams]
   sub = {x: ResolvedVar(loc, None, y) for (x,y) in zip(typarams, new_typarams)}
   return FunctionType(loc, new_typarams,
                       [t.substitute(sub) for (_, t) in params],
                       returns.substitute(sub))
 
-def _view_type_head_and_args(typ):
+def _view_type_head_and_args(typ: Any) -> tuple[Any, list[Any]]:
   if isinstance(typ, VarRef):
     return typ, []
   match typ:
@@ -465,7 +565,7 @@ def _view_type_head_and_args(typ):
     case _:
       return None, []
 
-def _instantiate_view_type(loc, typ, env):
+def _instantiate_view_type(loc: Meta, typ: Any, env: Env) -> Any:
   head, args = _view_type_head_and_args(typ)
   if head is None:
     return None
@@ -483,16 +583,18 @@ def _instantiate_view_type(loc, typ, env):
   target = view.target.substitute(sub)
   return view, source, target
 
-def _as_param_pairs(names, types):
+def _as_param_pairs(names: list[str], types: list[Type]) -> list[tuple[str, Type]]:
   return [(x, t) for (x, t) in zip(names, types)]
 
-def _viewrec_placeholder(loc, name, typarams, params, returns, visibility):
+def _viewrec_placeholder(loc: Meta, name: str, typarams: list[str],
+                         params: list[Any], returns: Type,
+                         visibility: Any) -> Any:
   return GenRecFun(loc, name, typarams, params, returns,
                    ResolvedVar(loc, None, params[0][0]), params[0][1],
                    Hole(loc, None), PSorry(loc), True,
                    visibility=visibility)
 
-def _viewrec_recursive_binders(pattern, rec_ty, env):
+def _viewrec_recursive_binders(pattern: Any, rec_ty: Type, env: Env) -> list[str]:
   binders = []
   match pattern:
     case PatternCons(_, _, params):
@@ -502,7 +604,8 @@ def _viewrec_recursive_binders(pattern, rec_ty, env):
           binders.append(name)
   return binders
 
-def _check_view_function_type(loc, name, expected, env, label):
+def _check_view_function_type(loc: Meta, name: str, expected: Type,
+                              env: Env, label: str) -> None:
   actual = env.get_type_of_term_var(ResolvedVar(loc, None, name))
   if actual is None:
     user_error(loc, "undefined " + label + " function for view: "
@@ -512,10 +615,10 @@ def _check_view_function_type(loc, name, expected, env, label):
                + " has type\n\t" + str(actual)
                + "\nbut expected\n\t" + str(expected))
 
-def _view_call(loc, fun_name, arg):
+def _view_call(loc: Meta, fun_name: str, arg: Term) -> Call:
   return Call(loc, None, ResolvedVar(loc, None, fun_name), [arg])
 
-def _view_roundtrip_formula(loc, view):
+def _view_roundtrip_formula(loc: Meta, view: Any) -> Formula:
   value_name = generate_proof_name("v")
   value = ResolvedVar(loc, view.target, value_name)
   formula = mkEqual(loc,
@@ -528,7 +631,7 @@ def _view_roundtrip_formula(loc, view):
                   (i, len(view.type_params)), formula)
   return formula
 
-def _check_view_roundtrip(loc, view, env):
+def _check_view_roundtrip(loc: Meta, view: Any, env: Env) -> None:
   expected = type_check_formula(_view_roundtrip_formula(loc, view), env)
   actual = env.get_formula_of_proof_var(PVar(loc, view.roundtrip))
   if actual is None:
@@ -539,15 +642,17 @@ def _check_view_roundtrip(loc, view, env):
                + " proves\n\t" + str(actual)
                + "\nbut expected\n\t" + str(expected))
 
-def _instantiate_view_for_subject(loc, view, subject_ty):
-  matching = {}
+def _instantiate_view_for_subject(loc: Meta, view: Any,
+                                  subject_ty: Type
+                                  ) -> tuple[Type, Type, dict[Any, Any]]:
+  matching: dict[Any, Any] = {}
   type_match(loc, type_names(loc, view.type_params),
              view.source, subject_ty, matching)
   return (view.source.substitute(matching),
           view.target.substitute(matching),
           matching)
 
-def type_check_viewrec(stmt, env):
+def type_check_viewrec(stmt: Any, env: Env) -> Any:
   loc = stmt.location
   name = stmt.name
   typarams = stmt.type_params
@@ -582,7 +687,7 @@ def type_check_viewrec(stmt, env):
   checked_view = type_check_term(_view_call(loc, view_decl.into,
                                            checked_subject),
                                  view_ty, case_env, None, [])
-  cases_present = {}
+  cases_present: dict[str, Any] = {}
   new_cases = []
   reset_recursive_call_count()
   rec_ty = checked_params[0][1]
@@ -609,7 +714,9 @@ def type_check_viewrec(stmt, env):
                    measure, rec_ty, body, PSorry(loc), True,
                    visibility=stmt.visibility)
 
-def type_check_stmt(stmt, env, error_on_next_import : dict[str, bool]):
+def type_check_stmt(stmt: Statement, env: Env,
+                    error_on_next_import: dict[str, bool]
+                    ) -> Optional[Statement]:
   if get_verbose():
     print('type_check_stmt(' + str(stmt) + ')')
   match stmt:
@@ -658,7 +765,7 @@ def type_check_stmt(stmt, env, error_on_next_import : dict[str, bool]):
 
       env = env.define_term_var(loc, name, fun_type, stmt.reduce(env),
                                 stmt.visibility)
-      cases_present: dict = {}
+      cases_present: dict[str, Any] = {}
       reset_recursive_call_count()
       new_cases = [type_check_fun_case(c, name, checked_params, checked_returns,
                                        body_env, cases_present) \
@@ -777,7 +884,7 @@ def type_check_stmt(stmt, env, error_on_next_import : dict[str, bool]):
                      "type checking, unrecognized statement:\n" + str(stmt))
 
 
-def collect_env(stmt, env : Env):
+def collect_env(stmt: Statement, env: Env) -> Env:
   if get_verbose():
     print('collect_env(' + str(stmt) + ')')
   match stmt:
@@ -858,7 +965,7 @@ def collect_env(stmt, env : Env):
       n_var = ResolvedVar(loc, typ, n_name)
       o_name = generate_proof_name("o")
       o_var = ResolvedVar(loc, typ, o_name)
-      def makeOp(left, right):
+      def makeOp(left: Term, right: Term) -> Call:
           return Call(loc, typ, op, [left,right])
       assoc_formula = mkEqual(loc, makeOp(makeOp(m_var, n_var), o_var),
                               makeOp(m_var, makeOp(n_var, o_var)))
@@ -880,7 +987,7 @@ def collect_env(stmt, env : Env):
                   match funty:
                       case FunctionType(_, typarams2, param_types, _):
                           try:
-                              matching: dict = {}
+                              matching: dict[Any, Any] = {}
                               type_match(loc, typarams2, param_types[0], typ, matching)
                               resolved_op = x
                               break
@@ -910,13 +1017,13 @@ class RecCall:
   conditions: List[Term]
   args: List[Term]    
 
-def add_condition(cond, call):
+def add_condition(cond: Term, call: "RecCall") -> "RecCall":
     return RecCall(call.vars, [cond] + call.conditions, call.args)
 
-def add_vars(vars, call):
+def add_vars(vars: list[tuple[str, Type]], call: "RecCall") -> "RecCall":
     return RecCall(vars + call.vars, call.conditions, call.args)
 
-def find_rec_calls(name, term, env):
+def find_rec_calls(name: str, term: Any, env: Env) -> list["RecCall"]:
   match term:
     case TermInst(loc2, _, subject, _, _):
       return find_rec_calls(name, subject, env)
@@ -952,7 +1059,7 @@ def find_rec_calls(name, term, env):
           case PatternCons(loc3, cons, params):
             cond = mkEqual(loc3, subject, pattern_to_term(c.pattern))
             new_c_body_calls = [add_condition(cond, call) for call in c_body_calls]
-            cases_present = {}
+            cases_present: dict[str, Any] = {}
             new_cons, params_types = check_constructor_pattern(
                 loc3, cons, params, subject.typeof, env, cases_present)
             c.pattern.constructor = new_cons
@@ -993,11 +1100,11 @@ def find_rec_calls(name, term, env):
     case Omitted(loc2, _):
       return []
     case _:
-      internal_error(getattr(term, 'location', None),
+      internal_error(cast(Meta, getattr(term, 'location', None)),
                      'in find_rec_calls, unhandled ' + str(term))
     
 
-def check_proofs(stmt, env: Env):
+def check_proofs(stmt: Statement, env: Env) -> None:
   if get_verbose():
     print('\n\ncheck_proofs(' + str(stmt) + ')')
   # Phase 5 / Step 21 hook: trap before evaluating each top-level
@@ -1194,11 +1301,14 @@ def check_deduce(ast: List[Statement], module_name: str, modified: bool,
     set_active_sink(prev_sink)
 
 
-def _check_deduce_body(ast, module_name, modified, tracing_functions, error_sink, env, needs_checking):
+def _check_deduce_body(ast: list[Statement], module_name: str, modified: bool,
+                       tracing_functions: list[str],
+                       error_sink: Optional[ErrorSink], env: Env,
+                       needs_checking: list[bool]) -> list[Statement]:
   """Body of ``check_deduce``, split out so the ``_active_sink``
   push/pop in the caller stays a tidy try/finally."""
-  
-  def _collect_diagnostic(exc):
+
+  def _collect_diagnostic(exc: Diagnostic) -> None:
     """Append ``exc`` to the sink, or re-raise when no sink is set."""
     if error_sink is None:
       raise exc
@@ -1283,10 +1393,10 @@ def _check_deduce_body(ast, module_name, modified, tracing_functions, error_sink
     # that was previously treated as ``sorry`` should now raise, or
     # vice versa).
     target = get_target_hole_location()
-    defined_to_idx: dict = {}
-    barrier_idxs: set = set()
-    auto_idxs: list = []
-    stmt_hashes_so_far: list = []
+    defined_to_idx: dict[str, int] = {}
+    barrier_idxs: set[int] = set()
+    auto_idxs: list[int] = []
+    stmt_hashes_so_far: list[int] = []
     for i, (s, sh) in enumerate(zip(ast3, ast3_hashes)):
       try:
         env = collect_env(s, env)
@@ -1310,9 +1420,9 @@ def _check_deduce_body(ast, module_name, modified, tracing_functions, error_sink
         referenced |= _collect_referenced_names(ast3[j])
       dep_idxs = set(barrier_idxs)
       for n in referenced:
-        j = defined_to_idx.get(n)
-        if j is not None:
-          dep_idxs.add(j)
+        idx = defined_to_idx.get(n)
+        if idx is not None:
+          dep_idxs.add(idx)
       deps_fingerprint = hash(
         tuple(stmt_hashes_so_far[j] for j in sorted(dep_idxs))
       )
@@ -1327,7 +1437,8 @@ def _check_deduce_body(ast, module_name, modified, tracing_functions, error_sink
         # Bypass the cache for them; ``check_proofs`` on these is
         # cheap anyway.
         try:
-          pre_n = len(get_active_sink()) if get_active_sink() is not None else 0
+          _sink = get_active_sink()
+          pre_n = len(_sink) if _sink is not None else 0
           # Phase 5 / Step 21: when a debugger is attached, every
           # ``check_proofs`` call must run its hooks -- a cache hit
           # would silently skip the trap.  Re-check unconditionally;
@@ -1346,7 +1457,8 @@ def _check_deduce_body(ast, module_name, modified, tracing_functions, error_sink
             # Don't cache if check_proofs absorbed errors into the
             # sink -- next run must re-check so the diagnostic is
             # re-emitted.
-            if get_active_sink() is None or len(get_active_sink()) == pre_n:
+            _sink2 = get_active_sink()
+            if _sink2 is None or len(_sink2) == pre_n:
               _stmt_cache[key] = True
             _record_miss("check_proofs")
         except Diagnostic as e:
