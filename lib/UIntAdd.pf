@@ -159,7 +159,7 @@ end
 
 auto uint_add_bzero
 
-theorem uint_bzero_less_one_add: all n:UInt.
+lemma uint_bzero_less_one_add: all n:UInt.
   bzero < inc_dub(bzero) + n
 proof
   arbitrary n:UInt
@@ -191,7 +191,7 @@ proof
   fwd, bkwd
 end
 
-theorem uint_add_to_bzero: all n:UInt, m:UInt.
+lemma uint_add_to_bzero: all n:UInt, m:UInt.
   if n + m = bzero
   then n = bzero and m = bzero
 proof
@@ -223,7 +223,7 @@ proof
   uint_less_equal_add
 end
 
-theorem uint_less_add_pos: all x:UInt, y:UInt.
+lemma uint_less_add_pos: all x:UInt, y:UInt.
   if bzero < y
   then x < x + y
 proof

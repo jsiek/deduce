@@ -162,13 +162,13 @@ proof
   }
 end
 
-theorem uint_bzero_monus: all x:UInt. bzero ∸ x = bzero
+lemma uint_bzero_monus: all x:UInt. bzero ∸ x = bzero
 proof
   arbitrary x:UInt
   expand operator∸.
 end
 
-theorem uint_monus_bzero: all n:UInt. n ∸ bzero = n
+lemma uint_monus_bzero: all n:UInt. n ∸ bzero = n
 proof
   arbitrary n:UInt
   have X: toNat(n ∸ bzero) = toNat(n) by {
@@ -179,7 +179,7 @@ proof
   conclude n ∸ bzero = n by apply uint_toNat_injective to X
 end
 
-theorem uint_monus_cancel_bzero: all n:UInt. n ∸ n = bzero
+lemma uint_monus_cancel_bzero: all n:UInt. n ∸ n = bzero
 proof
   arbitrary n:UInt
   have X: toNat(n ∸ n) = toNat(bzero) by {
@@ -336,7 +336,7 @@ end
 
 auto uint_monus_cancel
 
-theorem uint_pred_monus: all n:UInt. pred(n) = n ∸ 1
+lemma uint_pred_monus: all n:UInt. pred(n) = n ∸ 1
 proof
   arbitrary n:UInt
   suffices toNat(pred(n)) = toNat(n ∸ 1) by uint_toNat_injective
