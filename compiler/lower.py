@@ -43,7 +43,7 @@ def _format_loc(loc: Optional[Meta]) -> str:
         if getattr(loc, "empty", True):
             return ""
         # `filename` is stashed onto Meta by the parser
-        # (see abstract_syntax.py / parser.py); not a declared field.
+        # (see abstract_syntax / parser.py); not a declared field.
         return f"{getattr(loc, 'filename', '?')}:{loc.line}: "
     except Exception:
         return ""

@@ -4469,7 +4469,7 @@ def _preview_expand(
 # declaration is responsible without grepping the prelude.  This
 # function returns every `auto` rule visible at the cursor in
 # declaration order -- the same order ``auto_rewrites`` (in
-# ``abstract_syntax.py``) tries them when several heads match.
+# ``abstract_syntax``) tries them when several heads match.
 
 
 def auto_rules_at(

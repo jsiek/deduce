@@ -1,6 +1,6 @@
 // Issue #204: arrays should be supported inside formulas.
 // Exercises Array / MakeArray cases in count_marks, find_mark,
-// replace_mark, rewrite_aux (abstract_syntax.py) and find_rec_calls
+// replace_mark, rewrite_aux (abstract_syntax) and find_rec_calls
 // (proof_checker.py), plus the partial-spine reduction in
 // ArrayGet.reduce.
 import UInt

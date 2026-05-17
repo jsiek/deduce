@@ -259,7 +259,7 @@ bool deduce_equal(deduce_value a, deduce_value b) {
 
 /* --- pretty-printer for special-cased shapes --------------------------
  * Mirrors what the interpreter does in `Call.__str__` and the helpers
- * around `isUInt` / `isDeduceInt` / `isNodeList` in abstract_syntax.py:
+ * around `isUInt` / `isDeduceInt` / `isNodeList` in abstract_syntax:
  * UInt values print in decimal, Int values with a sign, and lists with
  * brackets. Dispatch is by base name on the constructor (i.e. any union
  * with `bzero`/`dub_inc`/`inc_dub` constructors prints as decimal),

@@ -97,7 +97,7 @@ package:
 	$(PYTHON) ./deduce.py ./lib
 	mkdir deduce
 	cp -r lib deduce
-	cp abstract_syntax.py deduce
+	cp -r abstract_syntax deduce
 	cp alist.py deduce
 	cp Deduce.lark deduce
 	cp deduce.py deduce

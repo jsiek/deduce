@@ -11,7 +11,9 @@ Any changes to the Deduce syntax should be reflected in the following places:
 - `Deduce.lark`: syntax rules for the lark parser
 - `parser.py`: code for the lark parser
 - `recursive-descent.py`: code for the recursive descent parser
-- `abstract_syntax.py`: code for all of the AST nodes
+- `abstract_syntax/`: code for AST nodes, proofs, declarations, environments,
+  literals, rewriting, and cross-cutting AST operations. Keep the package
+  facade compatible when adding public syntax classes or helpers.
 - `gh_pages/scripts/keywords.py`: The list of known tokens mapping to token type should be updated.
 - `gh_pages/js/codeUtils.js`: syntax highlighting for the site codeblocks.
 - `gh_pages/js/sandbox.js`: syntax highlighting for live code monaco editor.

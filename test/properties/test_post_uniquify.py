@@ -234,9 +234,7 @@ def test_var_never_equals_resolved_var(name):
 
 @given(st.sampled_from(POST_NAMES))
 def test_overloaded_and_resolved_var_cross_equal_on_chosen_name(name):
-    # Documented symmetry between the two post-uniquify forms (see
-    # [abstract_syntax.py:990](../../abstract_syntax.py) /
-    # [abstract_syntax.py:1088](../../abstract_syntax.py)).
+    # Documented symmetry between the two post-uniquify forms.
     ov = OverloadedVar(_m(), None, [name])
     rv = ResolvedVar(_m(), None, name)
     assert ov == rv
