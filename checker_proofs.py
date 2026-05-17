@@ -1,4 +1,18 @@
 # mypy: ignore-errors
+"""Proof checking and goal-directed tactic dispatch.
+
+File charter:
+- Put code here when it checks proof terms, checks proofs against goals,
+  dispatches proof/tactic handler tables, produces proof advice, manages
+  proof-time fresh names, or handles proof-local diagnostic collection.
+- This module may call type checking and formula logic, but it should not own
+  the implementation of term/type synthesis, predicate lowering, statement
+  caching, or whole-file phase orchestration.
+- When adding a new proof syntax form, place its handler and dispatch-table
+  entry here unless the form is only an implementation detail of predicate
+  lowering or custom induction generation.
+"""
+
 from checker_common import *
 
 name_id = 0
@@ -1638,4 +1652,3 @@ def check_proof_of(proof, formula, env):
   match proof:
     case _:
       return _check_synthesized_proof_against_goal(proof, formula, env)
-

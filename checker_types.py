@@ -1,4 +1,19 @@
 # mypy: ignore-errors
+"""Type checking for Deduce types, terms, calls, patterns, and unions.
+
+File charter:
+- Put code here when it checks or synthesizes term types, validates type
+  expressions, resolves overloaded calls, checks patterns and constructors,
+  enforces recursive-call escape/count rules, or validates union strict
+  positivity and parameter polarity.
+- Keep proof rules in ``checker_proofs.py`` and statement phase ordering in
+  ``checker_pipeline.py``. This module should answer "what type does this
+  expression have?" and "is this type-shaped thing valid?".
+- Helpers for view-recursive declarations may live here only when they are
+  needed by type checking itself; orchestration of view declarations belongs in
+  ``checker_pipeline.py``.
+"""
+
 from checker_common import *
 
 def type_check_call_funty(loc, new_rator, args, env, recfun, subterms, ret_ty,

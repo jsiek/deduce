@@ -1,4 +1,17 @@
 # mypy: ignore-errors
+"""Formula/proof utility logic independent of whole-file orchestration.
+
+File charter:
+- Put implication checking, formula instantiation, formula difference
+  reporting, explicit rewrite/expand operations, and rewrite/expand hints here.
+- This module may depend on already-checked terms and formulas, but it should
+  not own top-level declaration processing, recursive-call checks, or proof
+  tactic dispatch.
+- If a helper primarily synthesizes or checks a proof object, place it in
+  ``checker_proofs.py``. If it primarily assigns types to terms, place it in
+  ``checker_types.py``.
+"""
+
 from checker_common import *
 
 def check_implies(loc: Meta, frm1: Formula, frm2: Formula) -> None:

@@ -1,4 +1,16 @@
 # mypy: ignore-errors
+"""Shared imports for the checker split.
+
+File charter:
+- Keep only common imports, type aliases, and narrowly shared constants needed
+  by several checker modules during the facade transition.
+- Do not add checker behavior, mutable checker state, or phase-specific helper
+  functions here; those belong in the module that owns the phase.
+- If a helper starts here because it is genuinely shared, move it out once a
+  clearer owner emerges. This file should keep the split mechanically simple,
+  not become a second monolith.
+"""
+
 # The checking process for programs & proofs has the following steps:
 #
 # 0. uniquify:

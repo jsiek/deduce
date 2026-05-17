@@ -1,4 +1,19 @@
 # mypy: ignore-errors
+"""Predicate/relation validation and lowering.
+
+File charter:
+- Put code here when it validates predicate signatures or rules, checks
+  predicate strict positivity, decomposes predicate premises, or builds the
+  generated derivation unions, intro theorems, validators, rule induction, or
+  rule inversion declarations.
+- Keep the decision about when generated declarations enter the main pipeline
+  in ``checker_pipeline.py``; this module should build and validate predicate
+  artifacts, not run the whole checker over them.
+- Predicate-generated proof AST construction belongs here when it is part of
+  lowering predicates. General proof tactic behavior belongs in
+  ``checker_proofs.py``.
+"""
+
 from checker_common import *
 
 # Predicate / relation validation (phase 2: shape, arity, strict positivity)

@@ -1,4 +1,16 @@
 # mypy: ignore-errors
+"""Per-statement proof-check cache and dependency fingerprint helpers.
+
+File charter:
+- Put cache storage, cache statistics, stable AST hashing, and dependency-name
+  collection here.
+- Put logic here only when it affects whether a top-level statement's cached
+  proof-check verdict is reused or invalidated.
+- Keep declaration processing, type checking, proof rules, and formula rewrite
+  behavior in their own checker modules; this module should not decide whether
+  a Deduce program is valid except by reporting cache hits and misses.
+"""
+
 from checker_common import *
 
 # ---------------------------------------------------------------------------

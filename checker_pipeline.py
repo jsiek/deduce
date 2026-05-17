@@ -1,4 +1,19 @@
 # mypy: ignore-errors
+"""Top-level checker phases and whole-file orchestration.
+
+File charter:
+- Put code here when it sequences checker phases over statements: declaration
+  processing, statement type checking, environment collection, proof-check
+  scheduling, import/module bookkeeping, and the public ``check_deduce`` entry.
+- Keep phase internals in their owners: term/type rules in ``checker_types.py``,
+  proof tactic rules in ``checker_proofs.py``, predicate lowering in
+  ``checker_predicates.py``, formula rewrites in ``checker_logic.py``, and
+  cache mechanics in ``checker_cache.py``.
+- This module may coordinate those services and maintain pipeline state, but it
+  should not become the home for new local rules unless the rule is truly about
+  phase ordering or statement-level orchestration.
+"""
+
 from checker_common import *
 
 imported_modules: set = set()

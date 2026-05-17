@@ -1,4 +1,17 @@
 # mypy: ignore-errors
+"""Custom induction matching and generated-case helpers.
+
+File charter:
+- Put helpers here when they recognize a user-supplied induction theorem,
+  validate custom induction conjuncts, generate custom induction proof bodies,
+  or format custom induction case advice.
+- Keep ordinary proof tactic dispatch in ``checker_proofs.py`` and ordinary
+  term/type validation in ``checker_types.py``. This module may call those
+  services, but it should only own induction-specific structure.
+- If a helper is useful for non-induction proof advice, move it to
+  ``checker_proofs.py`` or ``checker_logic.py`` instead.
+"""
+
 from checker_common import *
 
 def gen_conjunct_advice(conjunct, arbs, ihs):

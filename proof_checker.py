@@ -3,6 +3,17 @@
 The implementation now lives in cohesive ``checker_*`` modules.  This
 module intentionally preserves the historical ``proof_checker`` import
 surface while downstream callers migrate to the narrower modules.
+
+File charter:
+- Keep only compatibility wiring here: imports from checker modules,
+  re-exports of the historical public and test-visible surface, and forwarding
+  for mutable state that older callers access through ``proof_checker``.
+- Put new checker behavior in a focused ``checker_*`` module instead of adding
+  it here. This file should answer "how do old imports still work?", not "how
+  does the checker decide something?".
+- Add facade entries here only when a new module-level state object or
+  compatibility export must remain visible through ``proof_checker`` during the
+  transition.
 """
 
 from types import ModuleType
