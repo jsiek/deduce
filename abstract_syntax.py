@@ -4394,19 +4394,19 @@ def formulas_equal_modulo_numeric_literals(frm1: Any, frm2: Any) -> bool:
     case _:
       return False
 
-def mkUIntLit(loc, num):
+def mkUIntLit(loc: Meta, num: int) -> Term:
     return Call(loc, None, Var(loc, None, 'fromNat'),
                 [Call(loc, None, Var(loc, None, 'lit'),
                       [intToNat(loc, num)])])
   
-def mkPos(loc, arg):
+def mkPos(loc: Meta, arg: Term) -> Term:
   return Call(loc, None, Var(loc, None, 'pos'), [arg])
 
-def mkNeg(loc, arg):
+def mkNeg(loc: Meta, arg: Term) -> Term:
   return Call(loc, None, Var(loc, None, 'negsuc'), [arg])
 
 # The following is used in the parser.
-def mkIntLit(loc, n, sign):
+def mkIntLit(loc: Meta, n: int, sign: str) -> Term:
   if sign == 'PLUS':
     return mkPos(loc, mkUIntLit(loc, n))
   else:
@@ -4511,27 +4511,30 @@ def nodeListToList(t: Term) -> list[Term]:
     case _:
       raise InternalError('nodeListToList: not a node list: ' + str(t))
 
-def nodeListToString(t):
+def nodeListToString(t: Term) -> str | None:
   match t:
     case TermInst(_, _, ctor, _, _) if _is_named(ctor, 'empty'):
       return ''
     case Call(_, _, TermInst(_, _, ctor, _, _),
               [arg, ls]) if _is_named(ctor, 'node'):
-      return str(arg) + ', ' + nodeListToString(ls)
+      rest = nodeListToString(ls)
+      return str(arg) + ', ' + rest if rest is not None else None
+    case _:
+      return None
 
-def mkEmpty(loc):
+def mkEmpty(loc: Meta) -> Term:
   return Var(loc, None, 'empty')
 
-def mkNode(loc, arg, ls):
+def mkNode(loc: Meta, arg: Term, ls: Term) -> Term:
   return Call(loc, None, Var(loc, None, 'node'), [arg, ls])
 
-def listToNodeList(loc, lst):
+def listToNodeList(loc: Meta, lst: Sequence[Term]) -> Term:
   if len(lst) == 0:
     return mkEmpty(loc)
   else:
     return mkNode(loc, lst[0], listToNodeList(loc, lst[1:]))
 
-def isEmptySet(t):
+def isEmptySet(t: Term) -> bool:
   match t:
     case Call(_, _, fun,
               [Lambda(_, _, _, Bool(_, _, False))]) \
@@ -4587,7 +4590,7 @@ class ViewBinding(Binding):
     return str(self.view)
 
 
-def type_params_str(type_params):
+def type_params_str(type_params: Sequence[str]) -> str:
   if len(type_params) > 0:
     return '<' + ','.join(type_params) + '>'
   else:
@@ -4617,7 +4620,7 @@ class Env:
         return k
     return None
 
-  def base_to_overloads(self, name):
+  def base_to_overloads(self, name: str) -> list[str]:
     overloads = []
     for k in self.dict.keys():
       if base_name(k) == name:
@@ -4628,7 +4631,7 @@ class Env:
     return ',\n'.join(['\t' + name2str(k) + ': ' + str(v) \
                        for (k,v) in reversed(self.dict.items())])
 
-  def __contains__(self, item):
+  def __contains__(self, item: str) -> bool:
     return item in self.dict.keys()
     
   def proofs_str(self):
@@ -4641,12 +4644,12 @@ class Env:
                        for (k,v) in reversed(self.dict.items()) \
                        if isinstance(v,TermBinding) and v.local])
   
-  def declare_type(self, loc, name, vis = 'public'):
+  def declare_type(self, loc: Meta, name: str, vis: str = 'public') -> Env:
     new_env = Env(self.dict)
     new_env.dict[name] = TypeBinding(loc, module=self.get_current_module(), visibility=vis)
     return new_env
 
-  def declare_type_vars(self, loc, type_vars):
+  def declare_type_vars(self, loc: Meta, type_vars: Sequence[str]) -> Env:
     new_env = self
     for x in type_vars:
       new_env = new_env.declare_type(loc, x)
@@ -4660,14 +4663,16 @@ class Env:
     new_env.dict[name] = TypeBinding(loc, defn, module=self.get_current_module(), visibility=visibility)
     return new_env
 
-  def declare_view(self, loc, view, visibility='public'):
+  def declare_view(self, loc: Meta, view: ViewDecl,
+                   visibility: str = 'public') -> Env:
     new_env = Env(self.dict)
     new_env.dict[view.name] = ViewBinding(loc, view,
                                           module=self.get_current_module(),
                                           visibility=visibility)
     return new_env
   
-  def declare_term_var(self, loc, name, typ, local = False, visibility='public'):
+  def declare_term_var(self, loc: Meta, name: str, typ: Type,
+                       local: bool = False, visibility: str = 'public') -> Env:
     if typ == None:
       internal_error(loc, 'None not allowed as type of variable in declare_term_var')
     new_env = Env(self.dict)
@@ -4675,7 +4680,8 @@ class Env:
     new_env.dict[name].local = local
     return new_env
 
-  def declare_assoc(self, loc, opname, typarams, typ):
+  def declare_assoc(self, loc: Meta, opname: str, typarams: List[str],
+                    typ: Type) -> Env:
     #print('declaring assoc ' + opname + ' ' + str(typ))
     new_env = Env(self.dict)
     full_name = '__associative_' + opname
@@ -4688,7 +4694,7 @@ class Env:
                                                    module=self.get_current_module())
     return new_env
 
-  def declare_auto_rewrite(self, loc, equation):
+  def declare_auto_rewrite(self, loc: Meta, equation: Formula) -> Env:
     new_env = Env(self.dict)
     full_name = '__auto__'
     (lhs,rhs) = split_equation(loc, equation, new_env)
