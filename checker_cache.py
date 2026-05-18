@@ -17,6 +17,7 @@ from abstract_syntax import (
     Import,
     Predicate,
     PVar,
+    Statement,
     Union,
     VarRef,
     ViewDecl,
@@ -44,7 +45,12 @@ from checker_common import *
 # prelude key changes (different prelude => different baseline =>
 # cache invalid).
 
-_stmt_cache: dict[Any, Any] = {}
+# Key shape is ``("check_proofs", stmt_hash, deps_fingerprint, target,
+# module_name)``; ``target`` is the LSP target hole location (``None`` outside
+# the LSP). The value is always ``True`` -- a sentinel marking "verified
+# under this dependency set"; absent keys mean "must re-check".
+_StmtCacheKey = tuple[str, int, int, tuple[int, int] | None, str]
+_stmt_cache: dict[_StmtCacheKey, bool] = {}
 
 # Hits and misses bucketed by loop, for the test instrumentation
 # the plan requires ("untouched statements were cache hits").
@@ -169,7 +175,7 @@ def _collect_referenced_names(
     return out
 
 
-def _collect_defined_names(stmt: Any) -> set[str]:
+def _collect_defined_names(stmt: Statement) -> set[str]:
     """Return the uniquified names a top-level statement introduces.
 
     Includes the statement's own name plus any auxiliary names it
@@ -200,7 +206,7 @@ def _collect_defined_names(stmt: Any) -> set[str]:
     return names
 
 
-def _is_global_barrier(stmt: Any) -> bool:
+def _is_global_barrier(stmt: Statement) -> bool:
     """Statements with global side-effects on later checking.
 
     ``Import`` brings a module's exports into the environment;
