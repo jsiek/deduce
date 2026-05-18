@@ -6,7 +6,10 @@ TEST_ERROR_DIR = ./test/should-error
 TEST_IMPORT_DIR = ./test/test-imports
 EXAMPLES_DIR = ./examples
 
-default: static tests-tokens tests
+default: check-settings static tests-tokens tests
+
+check-settings:
+	$(PYTHON) -c "import json; json.load(open('.claude/settings.json'))"
 
 static:
 	$(PYTHON) -m ruff check .
