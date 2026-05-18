@@ -36,7 +36,8 @@
       "Bash(python3 gh_pages/scripts/keywords.py *)",
       "Bash(python3.13 gh_pages/scripts/keywords.py)",
       "Bash(python3.13 gh_pages/scripts/keywords.py *)",
-      "Bash(/Applications/Emacs.app/Contents/MacOS/Emacs *)"
+        "Bash(/Applications/Emacs.app/Contents/MacOS/Emacs *)"
+    ] },
   "hooks": {
     "PostToolUse": [
       {
