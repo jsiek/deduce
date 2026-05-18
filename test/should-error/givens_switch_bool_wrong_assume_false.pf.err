@@ -1,0 +1,8 @@
+./test/should-error/givens_switch_bool_wrong_assume_false.pf:6.5-6.41: expected assumption
+not b
+but got
+b = false
+
+In a `switch <expr>` where `<expr>` is a boolean, `case true` introduces
+an assumption of formula `<expr>` directly (here: `b`), not `<expr> = true`.
+`case false` introduces `not <expr>`.
