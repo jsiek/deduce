@@ -599,9 +599,18 @@ def apply_rewrites(loc: Meta, formula: Any, eqns: Any, env: Env, *, display_form
     if is_true(eq):
         user_error(loc, 'no need for replace because this equation is handled automatically\n\t' + str(eq))
     if not is_equation(eq):
-        user_error(loc, 'in replace, expected an equation, not:\n\t' + str(eq)
-                   + '\n\twhile replacing '
-                   + ', '.join([str(eq) for eq in eqns]))
+        msg = 'in replace, expected an equation, not:\n\t' + str(eq) \
+              + '\n\twhile replacing ' \
+              + ', '.join([str(e) for e in eqns])
+        match eq:
+            case IfThen(_, _, p, Bool(_, _, False)):
+                msg += '\n\n`replace` only rewrites with equations of the form `a = b`.' \
+                       '\nSince this hypothesis is `not P`, try `simplify with` instead,' \
+                       '\nwhich substitutes\n\t' + str(p) + '\nwith `false` in the goal.'
+            case _:
+                msg += '\n\n`replace` only rewrites with equations of the form `a = b`.' \
+                       '\nFor other boolean hypotheses, use `simplify with` instead.'
+        user_error(loc, msg)
     reset_num_rewrites()
     new_formula = rewrite_aux(loc, new_formula, eq, env)
     if get_num_rewrites() == 0:

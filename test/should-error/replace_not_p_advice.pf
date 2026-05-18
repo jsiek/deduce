@@ -1,0 +1,8 @@
+import Nat
+
+theorem T: all x:Nat, y:Nat. if not (x = y) then (if x = y then false else true)
+proof
+  arbitrary x:Nat, y:Nat
+  assume neq: not (x = y)
+  replace neq
+end
