@@ -27,6 +27,7 @@ from abstract_syntax import (
     MarkException,
     Or,
     OverloadedVar,
+    Pattern,
     PatternCons,
     ResolvedVar,
     Switch,
@@ -196,7 +197,7 @@ def instantiate(loc: Meta, allfrm: Any, arg: Any) -> Any:
 def str_of_env(env: Any) -> str:
   return '{' + ', '.join([k + ": " + str(e) for (k,e) in env.items()]) + '}'
 
-def pattern_to_term(pat: Any) -> Any:
+def pattern_to_term(pat: Pattern) -> Term:
   match pat:
     case PatternCons(loc, constr, params):
       if len(params) > 0:
@@ -303,23 +304,24 @@ def collect_all_if_then(loc: Meta, frm: Any, env: Env) -> tuple[list[Any], list[
       case _:
         user_error(loc, "in 'apply', expected an if-then formula, not " + str(frm))
 
-def collect_all(frm: Any) -> tuple[list[Any], Any]:
+def collect_all(frm: Formula) -> tuple[list[Term], Formula]:
     match frm:
       case All(loc2, _, var, _, frm):
         (rest_vars, body) = collect_all(frm)
         x, t = var
-        return ([ResolvedVar(loc2, t, x)] + rest_vars, body)
+        prefix: list[Term] = [ResolvedVar(loc2, t, x)]
+        return (prefix + rest_vars, body)
       case _:
         return ([], frm)
 
-def auto_simplified_hint(new_formula: Any) -> str:
+def auto_simplified_hint(new_formula: Formula) -> str:
   if is_true(new_formula):
     return '\nThe goal has been simplified to `true`, possibly by an `auto` rewrite rule.\n' \
            'Finish the proof with `.` (which closes any goal of the form `true`).'
   return ''
 
 
-def _ast_mentions_any(node: Any, target_names: Any) -> bool:
+def _ast_mentions_any(node: Any, target_names: set[str]) -> bool:
   # AST traversal: does `node` reference any name in `target_names`?
   # No general `free_vars` is defined across all Term subclasses, so we
   # walk the dataclass fields directly.
