@@ -1541,10 +1541,13 @@ def _check_proof_of_switch(proof: Any, formula: Any, env: Env) -> None:
         assumptions = [(label, check_formula(asm, body_env) if asm else None) for (label,asm) in scase.assumptions]
         if len(assumptions) == 1:
           if assumptions[0][1] != None and assumptions[0][1] != predicate:
-            (small_case_asm, small_eqn) = isolate_difference(assumptions[0][1], predicate)
+            subject_str = str(new_subject)
             msg = 'expected assumption\n' + str(predicate) \
-                + '\nnot\n' + str(assumptions[0][1]) \
-                + '\nbecause\n\t' + str(small_case_asm) + ' ≠ ' + str(small_eqn)
+                + '\nbut got\n' + str(assumptions[0][1]) \
+                + '\n\nIn a `switch <expr>` where `<expr>` is a boolean,' \
+                + ' `case true` introduces\nan assumption of formula `<expr>`' \
+                + ' directly (here: `' + subject_str + '`), not' \
+                + ' `<expr> = true`.\n`case false` introduces `not <expr>`.'
             add_diagnostic(scase.location, msg
                   + givens_str(env))
           body_env = body_env.declare_local_proof_var(loc, assumptions[0][0], predicate)

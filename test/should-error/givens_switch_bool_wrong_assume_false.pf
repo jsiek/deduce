@@ -1,0 +1,8 @@
+theorem T: all b:bool. b = b
+proof
+  arbitrary b:bool
+  switch b {
+    case true { . }
+    case false assume h: b = false { . }
+  }
+end
