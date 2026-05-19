@@ -181,3 +181,13 @@ fun operator >(x : Int, y : Int) {
 fun operator ≥(x : Int, y : Int) {
   y ≤ x
 }
+
+fun max(x : Int, y : Int) {
+  if x < y then y
+  else x
+}
+
+fun min(x : Int, y : Int) {
+  if x < y then x
+  else y
+}
