@@ -44,7 +44,7 @@ import re
 import traceback as _traceback
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, Optional, Sequence, Union, cast
+from typing import Any, Callable, Iterator, Optional, Sequence, Union, cast
 
 
 __all__ = [
@@ -204,7 +204,7 @@ class Goal:
     """
 
     formula: str
-    givens: tuple
+    givens: tuple[Given, ...]
     range: Range
     formula_normalized: Optional[str] = None
 
@@ -251,7 +251,7 @@ REFINE_SUPPORTED_SHAPES: tuple[str, ...] = (
 # eventually replace the three copies).  Categorisation feeds the
 # LSP-side ``CompletionItemKind`` mapping: ``keyword`` -> Keyword,
 # ``constant`` -> Constant, ``type`` -> Class.
-COMPLETION_KEYWORDS: tuple = (
+COMPLETION_KEYWORDS: tuple[str, ...] = (
     # declaration / structure
     "theorem", "lemma", "postulate", "define", "recursive", "recfun",
     "union", "inductive", "predicate", "relation", "import", "export",
@@ -276,8 +276,8 @@ COMPLETION_KEYWORDS: tuple = (
     "fn", "array",
 )
 
-COMPLETION_CONSTANT_KEYWORDS: tuple = ("true", "false")
-COMPLETION_TYPE_KEYWORDS: tuple = ("bool", "type")
+COMPLETION_CONSTANT_KEYWORDS: tuple[str, ...] = ("true", "false")
+COMPLETION_TYPE_KEYWORDS: tuple[str, ...] = ("bool", "type")
 
 
 @dataclass(frozen=True)
@@ -413,8 +413,8 @@ class HoleContext:
 
     hole_range: Range
     goal: str
-    givens: tuple
-    lemmas_in_scope: tuple
+    givens: tuple[Given, ...]
+    lemmas_in_scope: tuple[LemmaInfo, ...]
     fingerprint: str
 
 
@@ -709,7 +709,7 @@ def goal_at(
     return _goal_from_exception(result.exception, goal_range)
 
 
-def _insert_hole(content: str, pos: Position) -> Optional[tuple]:
+def _insert_hole(content: str, pos: Position) -> Optional[tuple[str, Position]]:
     """Modify ``content`` so that the proof at ``pos`` halts on a ``?``.
 
     Strategy: find the byte offset for ``pos``, then scan forward
@@ -901,7 +901,9 @@ def _normalize_formula(formula_ast, env, rendered: str) -> Optional[str]:
     return text
 
 
-def _attach_normalized_givens(givens: tuple, env: Any) -> tuple:
+def _attach_normalized_givens(
+    givens: tuple[Given, ...], env: Any
+) -> tuple[Given, ...]:
     """Add ``formula_normalized`` to each given when env exposes its AST.
 
     Walks ``env``'s ``ProofBinding`` entries to map each printed label
@@ -917,7 +919,7 @@ def _attach_normalized_givens(givens: tuple, env: Any) -> tuple:
     except Exception:
         return givens
 
-    by_label: dict = {}
+    by_label: dict[str, Any] = {}
     for unique, binding in env.dict.items():
         if not isinstance(binding, ProofBinding):
             continue
@@ -972,7 +974,7 @@ def _extract_goal_formula(body: str) -> Optional[str]:
     return None
 
 
-def _parse_givens_section(body: str) -> tuple:
+def _parse_givens_section(body: str) -> tuple[Given, ...]:
     """Pull a ``Givens:`` block (if any) into a tuple of ``Given``.
 
     Each entry has the form ``<label>: <formula>``, joined by ``,\\n``
@@ -1100,7 +1102,7 @@ def list_symbols(
 
 def completions_at(
     path: str, content: str, pos: Position, prelude: Sequence[str] = (),
-) -> tuple:
+) -> tuple[CompletionCandidate, ...]:
     """Return completion candidates visible at ``pos``.
 
     Candidate set:
@@ -1191,7 +1193,7 @@ def completions_at(
 
 def _completion_env_and_goal(
     path: str, content: str, pos: Position, prelude: Sequence[str],
-) -> tuple:
+) -> tuple[Any, Any]:
     """Return ``(env, goal)`` visible at ``pos``, or ``(None, None)``.
 
     Two paths:
@@ -1253,7 +1255,9 @@ def _is_completion_ident_char(c: str) -> bool:
     return False
 
 
-def _strip_partial_word(content: str, pos: Position) -> Optional[tuple]:
+def _strip_partial_word(
+    content: str, pos: Position
+) -> Optional[tuple[str, Position]]:
     """Return ``(content with partial word at pos removed, adjusted_pos)``.
 
     Scans backward from the cursor over identifier characters and
@@ -1278,7 +1282,9 @@ def _strip_partial_word(content: str, pos: Position) -> Optional[tuple]:
     return (stripped, Position(line=line_no, column=col))
 
 
-def _local_completion_candidates(env, seen: set):
+def _local_completion_candidates(
+    env: Any, seen: set[str]
+) -> Iterator[CompletionCandidate]:
     """Yield :class:`CompletionCandidate` items for in-scope bindings
     in ``env`` whose base name isn't already in ``seen``.
 
@@ -1848,7 +1854,7 @@ def _indent_continuation(template: str, indent: str) -> str:
     return template.replace("\n", "\n" + indent)
 
 
-def _offset_to_line_col(content: str, offset: int) -> tuple:
+def _offset_to_line_col(content: str, offset: int) -> tuple[int, int]:
     """Inverse of ``_line_col_to_offset``: 0-indexed offset to 1-indexed (line, col)."""
     line = 1
     line_start = 0
@@ -2008,7 +2014,7 @@ def case_split_at(
 
 def splittable_vars_at(
     path: str, content: str, pos: Position, prelude: Sequence[str] = ()
-) -> tuple:
+) -> tuple[str, ...]:
     """Return base names of in-scope variables that case-split can target.
 
     Computes the env at the ``?`` token the cursor is on (via the
@@ -2043,7 +2049,7 @@ def splittable_vars_at(
     return _splittable_vars(env)
 
 
-def _splittable_vars(env) -> tuple:
+def _splittable_vars(env: Any) -> tuple[str, ...]:
     """Names of bindings whose ``case_split`` would succeed.
 
     Excludes constructor names: the env stores each union's
@@ -2474,7 +2480,7 @@ def eliminate_at(
 
 def eliminable_vars_at(
     path: str, content: str, pos: Position, prelude: Sequence[str] = ()
-) -> tuple:
+) -> tuple[str, ...]:
     """Return base names of in-scope proof bindings that
     ``eliminate_at'' can target.
 
@@ -2507,7 +2513,7 @@ def eliminable_vars_at(
     return _eliminable_vars(env)
 
 
-def _eliminable_vars(env) -> tuple:
+def _eliminable_vars(env: Any) -> tuple[str, ...]:
     """Names of local proof bindings whose ``eliminate'' would
     produce a meaningful edit."""
     from abstract_syntax import (
@@ -2617,7 +2623,7 @@ def _eliminate_template_for_formula(
     return None
 
 
-def _fresh_h_labels(env, count: int) -> list:
+def _fresh_h_labels(env: Any, count: int) -> list[str]:
     """Generate ``count`` fresh ``H<N>``-style labels not in env."""
     from abstract_syntax import base_name
     used = {base_name(k) for k in env.dict.keys()}
@@ -2815,7 +2821,7 @@ def fill_from_given_at(
 
 def matching_givens_at(
     path: str, content: str, pos: Position, prelude: Sequence[str] = ()
-) -> tuple:
+) -> tuple[str, ...]:
     """Return base names of in-scope local proof bindings whose
     formula equals the goal at the hole at ``pos``.
 
@@ -2970,7 +2976,7 @@ def preview_conclude_at(
     path: str, content: str, pos: Position,
     label: str,
     prelude: Sequence[str] = (),
-) -> Optional[dict]:
+) -> Optional[dict[str, Any]]:
     """Preview ``conclude <goal> by <label>`` modulo auto-rule
     normalization.
 
@@ -3086,7 +3092,7 @@ def apply_at(
     theorem: str,
     args: Optional[Sequence[str]] = None,
     prelude: Sequence[str] = (),
-) -> Optional[dict]:
+) -> Optional[dict[str, Any]]:
     """Preview ``apply <theorem>[<args>] to ?`` at the cursor's hole.
 
     The cursor must sit on (or immediately adjacent to) a ``?`` token.
@@ -3228,7 +3234,7 @@ _APPLY_AT_ARG_PREFIX = "_apply_at_arg_"
 
 def _splice_apply_args(
     path: str, content: str, hole_range: Range, args: Sequence[str]
-) -> tuple:
+) -> tuple[str, str, tuple[int, int]]:
     """Splice ``define _apply_at_arg_N = <arg_N>`` statements before
     the hole and return ``(path, modified_content, target_pos)``.
 
@@ -3252,7 +3258,9 @@ def _splice_apply_args(
     return path, spliced, (new_line, new_col)
 
 
-def _apply_match_manual(formula, goal, env, goal_str: str) -> dict:
+def _apply_match_manual(
+    formula: Any, goal: Any, env: Any, goal_str: str
+) -> dict[str, Any]:
     """Compute the result of ``apply <formula> to ?`` against ``goal``.
 
     Mirrors what ``ModusPonens`` does in ``proof_checker``:
@@ -3446,7 +3454,9 @@ def hole_context_at(
     )
 
 
-def _collect_lemmas_in_scope(ast_nodes, prelude: Sequence[str]) -> tuple:
+def _collect_lemmas_in_scope(
+    ast_nodes: Any, prelude: Sequence[str]
+) -> tuple[LemmaInfo, ...]:
     """Build the ``lemmas_in_scope`` tuple for :class:`HoleContext`.
 
     Walks two sources of top-level declarations:
@@ -3588,7 +3598,7 @@ def available_lemmas_at(
     query: Optional[str] = None,
     prelude: Sequence[str] = (),
     limit: int = 50,
-) -> tuple:
+) -> tuple[LemmaMatch, ...]:
     """Return ranked lemmas visible at ``pos``, best matches first.
 
     Driven by zero, one, or both of two signals:
@@ -3658,8 +3668,8 @@ def _module_for_path(path: str) -> str:
 
 
 def _collect_lemma_candidates(
-    path: str, ast_nodes, prelude: Sequence[str]
-) -> tuple:
+    path: str, ast_nodes: Any, prelude: Sequence[str]
+) -> tuple[tuple[LemmaInfo, Any, str], ...]:
     """Build the ranking input: theorems/lemmas/postulates with their
     formula AST and module of origin.
 
@@ -3688,7 +3698,7 @@ def _collect_lemma_candidates(
     seen_names: set[str] = set()
     user_module = _module_for_path(path)
     prelude_set = set(prelude)
-    seen_modules: set = set()
+    seen_modules: set[str] = set()
 
     def _collect_from_module(
         module_ast, module_name: str, importer
@@ -3879,7 +3889,7 @@ _TOKEN_RE = re.compile(
 )
 
 
-def _goal_tokens(text: Optional[str]) -> frozenset:
+def _goal_tokens(text: Optional[str]) -> frozenset[str]:
     """Operator and function-name tokens appearing in rendered goal
     text, with stopwords (binders, language keywords) and short
     identifiers (1 char) filtered out."""
@@ -3936,7 +3946,7 @@ def _formula_head_symbol(formula) -> Optional[str]:
     return None
 
 
-def _formula_symbols(formula) -> frozenset:
+def _formula_symbols(formula: Any) -> frozenset[str]:
     """Set of all rator names appearing in ``formula`` (recursively).
 
     Drives the symbol-overlap signal in lemma ranking.  Bound
@@ -4003,11 +4013,11 @@ def _query_pattern(query: Optional[str]) -> Optional[re.Pattern[str]]:
 
 
 def _rank_lemmas(
-    candidates: tuple,
+    candidates: tuple[tuple[LemmaInfo, Any, str], ...],
     goal_text: Optional[str],
     query: Optional[str],
     user_module: str,
-) -> list:
+) -> list[LemmaMatch]:
     """Score and sort candidate lemmas.
 
     ``candidates`` is the tuple from :func:`_collect_lemma_candidates`.
@@ -4039,7 +4049,7 @@ def _rank_lemmas(
     has_substring_query = bool(query_substr) and pattern is None
     browse_mode = goal_text is None and not query
 
-    raw_scores: list = []
+    raw_scores: list[tuple[float, LemmaInfo, str]] = []
     for info, formula, module in candidates:
         proximity = 1.0 if module == user_module else 0.0
 
@@ -4126,7 +4136,7 @@ def _rank_lemmas(
     return matches
 
 
-def _hole_fingerprint(goal_formula: str, givens: tuple) -> str:
+def _hole_fingerprint(goal_formula: str, givens: tuple[Given, ...]) -> str:
     """Hex SHA-256 over a canonical rendering of goal + givens.
 
     Givens are sorted alphabetically by ``"label: formula"`` so the
@@ -4406,7 +4416,7 @@ def preview_expand_at(
 
 
 def _preview_expand(
-    names: list, formula, env, loc
+    names: list[str], formula: Any, env: Any, loc: Any
 ) -> ExpandPreview:
     """Resolve each name then call ``expand_definitions`` with the
     constructed var list. Pre-checks unknown / all-opaque names so the
@@ -4478,7 +4488,7 @@ def auto_rules_at(
     content: str,
     pos: Position,
     prelude: Sequence[str] = (),
-) -> tuple:
+) -> tuple[AutoRule, ...]:
     """Return the ``auto`` rewrite rules in scope at ``pos``.
 
     The returned tuple lists rules in *declaration order* -- the same
