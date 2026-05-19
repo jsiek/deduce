@@ -515,9 +515,14 @@ assert length(list_example) = 3
 
 ```
 conclusion ::= "cases" proof case_list
-case_list ::= case | case case_list
+```
+
+```deduce-grammar
+case_list ::= case
+case_list ::= case case_list
 case ::= "case" identifier "{" proof "}"
 case ::= "case" identifier ":" term "{" proof "}"
+case ::= "case" ":" term "{" proof "}"
 ```
 
 In Deduce, you can use an `or` fact by doing case analysis with the
@@ -1382,8 +1387,14 @@ assert 1 ∈ S and 2 ∈ S and 3 ∈ S and not (4 ∈ S)
 ## Induction
 
 ```
-conclusion ::= "induction" type induction_case*
+conclusion ::= "induction" type induction_case_list
+```
+
+```deduce-grammar
+induction_case_list ::= induction_case
+induction_case_list ::= induction_case induction_case_list
 induction_case ::= "case" pattern "{" proof "}"
+induction_case ::= "case" pattern "suppose" assumption_list "{" proof "}"
 induction_case ::= "case" pattern "assume" assumption_list "{" proof "}"
 ```
 
@@ -1837,10 +1848,12 @@ A term, formula, or a proof may be surrounded in parentheses.
 
 ## Pattern
 
-```
+```deduce-grammar
 pattern ::= identifier
+pattern ::= "0"
 pattern ::= "true"
 pattern ::= "false"
+pattern ::= "[" "]"
 pattern ::= identifier "(" identifier_list ")"
 pattern ::= "with" identifier_list "." term
 ```
@@ -1851,7 +1864,7 @@ and [Recursive Function (Statement)](#function-statement) via a Parameter List.
 
 ## Parameter List
 
-```
+```deduce-grammar
 pattern_list ::= ε
 pattern_list ::= pattern
 pattern_list ::= pattern "," identifier_list
@@ -2516,7 +2529,12 @@ See the entry for [Assume](#assume).
 ## Switch (Term)
 
 ```
-term ::= "switch" term "{" switch_case* "}"
+term ::= "switch" term "{" switch_list "}"
+```
+
+```deduce-grammar
+switch_list ::= switch_case
+switch_list ::= switch_case switch_list
 switch_case ::= "case" pattern "{" term "}"
 ```
 
@@ -2543,10 +2561,16 @@ assert not flip(true)
 ## Switch (Proof)
 
 ```
-conclusion ::= "switch" term "{" switch_proof_case* "}"
+conclusion ::= "switch" term "{" switch_proof_case_list "}"
+conclusion ::= "switch" term "for" identifier_list "{" switch_proof_case_list "}"
+```
+
+```deduce-grammar
+switch_proof_case_list ::= switch_proof_case
+switch_proof_case_list ::= switch_proof_case switch_proof_case_list
 switch_proof_case ::= "case" pattern "{" proof "}"
-switch_proof_case ::= "case" pattern assumptions "{" proof "}"
-assumptions ::= "suppose" assumption_list | "assume" assumption_list
+switch_proof_case ::= "case" pattern "suppose" assumption_list "{" proof "}"
+switch_proof_case ::= "case" pattern "assume" assumption_list "{" proof "}"
 ```
 
 (See entry for Assumption List for the syntax of `assumption_list`.)
