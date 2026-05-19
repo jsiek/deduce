@@ -410,13 +410,14 @@ end
 
 ## Assumption and Assumption List
 
-```
-assumption ::= identifier
-assumption ::= identifier ":" formula
-assumption ::= ":" formula
-
-assumption_list ::= assumption
-assumption_list ::= assumption "," assumption_list
+```deduce-grammar
+assumption_list ::= ε
+assumption_list ::= ident
+assumption_list ::= ident ":" term
+assumption_list ::= ":" term
+assumption_list ::= ident "," assumption_list
+assumption_list ::= ident ":" term "," assumption_list
+assumption_list ::= ":" term "," assumption_list
 ```
 
 See the entry for [Assume](#assume) to see how assumptions are used.
@@ -1276,9 +1277,10 @@ can also be an operator, which starts with the keyword
 
 A comma-separated sequence of identifiers.
 
-```
-identifier_list ::= identifier
-identifier_list ::= identifier "," identifier_list
+```deduce-grammar
+ident_list ::= ε
+ident_list ::= ident
+ident_list ::= ident "," ident_list
 ```
 
 ## Identifier List Bar
@@ -1289,11 +1291,12 @@ which definitions to expand.  To tell Deduce to expand a definition
 multiple times (e.g. for a recursive function), preceed the identifier
 by a number and the multiplication sign.
 
-```
-identifier_list_bar ::= identifier
-identifier_list_bar ::= natural_number "*" identifier
-identifier_list_bar ::= identifier "|" identifier_list_bar
-identifier_list_bar ::= natural_number "*" identifier "|" identifier_list_bar
+```deduce-grammar
+ident_list_bar ::= ε
+ident_list_bar ::= ident
+ident_list_bar ::= number "*" ident
+ident_list_bar ::= ident "|" ident_list_bar
+ident_list_bar ::= number "*" ident "|" ident_list_bar
 ```
 
 ## If and only if (iff)
@@ -2651,7 +2654,7 @@ lemma), plus `<pred>_rule_induction` and `<pred>_rule_inversion`.
 
 A term list is a comma-separated sequence of zero or more terms.
 
-```
+```deduce-grammar
 term_list ::= ε
 term_list ::= term
 term_list ::= term "," term_list
@@ -2748,10 +2751,12 @@ Specifies the type parameters of a generic union or generic function.
 
 ## Union (Statement)
 
-```
-statement ::= visibility "union" identifier type_params_opt "{" constructor* "}"
-constructor ::= identifier
-constructor ::= identifier "(" type_list ")"
+```deduce-grammar
+union ::= visibility "union" IDENT type_params_opt "{" constructor_list "}"
+constructor_list ::= constructor
+constructor_list ::= constructor constructor_list
+constructor ::= IDENT
+constructor ::= IDENT "(" type_list ")"
 ```
 
 The `union` statement defines a new type whose values are created by
@@ -2813,12 +2818,12 @@ An unsigned integer literal is a sequence of one or more digits.
 
 ## Variable List
 
-```
+```deduce-grammar
 var_list ::= ε
 var_list ::= ident
+var_list ::= ident "," var_list
 var_list ::= ident ":" type
 var_list ::= ident ":" type "," var_list
-var_list ::= ident "," var_list
 ```
 
 A comma-separated list of variable declarations. Each variable may
