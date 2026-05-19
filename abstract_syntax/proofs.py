@@ -65,8 +65,15 @@ class PVar(Proof):
                + " from other modules. To make it accessible here, change"
                + " `lemma` to `theorem` there.")
         user_error(self.location, msg)
+      from edit_distance import edit_distance
+      from math import ceil
+      close = [v for v in env.keys()
+               if edit_distance(self.name, v)
+                  <= ceil(len(self.name) / 5)]
+      hint = '\n\tdid you intend: ' + ', '.join(close) if close else ''
       env_str = ('\n' + ', '.join(env.keys())) if get_verbose() else ''
-      user_error(self.location, "undefined proof variable " + self.name + env_str)
+      user_error(self.location,
+                 "undefined proof variable " + self.name + hint + env_str)
     if not isinstance(env[self.name], list):
       user_error(self.location, "proof variable not bound to list " + self.name)
     return PVar(self.location, env[self.name][0])
