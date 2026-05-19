@@ -16,27 +16,34 @@ import NatMult
  Odd and Even Numbers
  */
 
+// Parity counted by flipping `b` once per `suc`: `parity(n, b)` is
+// `b` xor (n is odd).
 recursive parity(Nat, bool) -> bool {
   parity(zero, b) = b
   parity(suc(n'), b) = parity(n', not b)
 }
 
+// Computable test for even.
 fun is_even(n : Nat) {
   parity(n, true)
 }
 
+// Computable test for odd.
 fun is_odd(n : Nat) {
   parity(n, false)
 }
 
+// Propositional even: `n` equals `2 * m` for some `m`.
 fun EvenNat(n : Nat) {
   some m:Nat. n = suc(suc(zero)) * m
 }
 
+// Propositional odd: `n` equals `1 + 2 * m` for some `m`.
 fun OddNat(n : Nat) {
   some m:Nat. n = suc (suc(suc(zero)) * m)
 }
 
+// Any multiple of two is even.
 lemma two_even: all n:Nat. EvenNat(suc(suc(zero)) * n)
 proof
   arbitrary n:Nat
@@ -44,6 +51,7 @@ proof
   choose n.
 end
 
+// `1 + 2*n` is odd for every `n`.
 lemma one_two_odd: all n:Nat. OddNat(suc(zero) + suc(suc(zero)) * n)
 proof
   arbitrary n:Nat
@@ -52,6 +60,7 @@ proof
   evaluate
 end
 
+// Every natural is either computably even or computably odd.
 theorem even_or_odd: all n:Nat. is_even(n) or is_odd(n)
 proof
   induction Nat
@@ -74,6 +83,7 @@ proof
 end
 
 
+// Sum of two even numbers is even.
 theorem addition_of_evens:
   all x:Nat, y:Nat.
   if EvenNat(x) and EvenNat(y) then EvenNat(x + y)
@@ -92,6 +102,7 @@ proof
   ... = #suc(suc(zero)) * (a + b)#   by replace dist_mult_add.
 end
 
+// Computable parity implies propositional parity in each direction.
 theorem is_even_odd:
   all n:Nat.
   (if is_even(n) then EvenNat(n))
@@ -142,6 +153,7 @@ proof
   }
 end
 
+// Every natural is either propositionally even or propositionally odd.
 theorem Even_or_Odd: all n:Nat. EvenNat(n) or OddNat(n)
 proof
   arbitrary n:Nat
@@ -154,6 +166,7 @@ proof
   }
 end
 
+// Subtracting one from an odd successor leaves an even number.
 lemma odd_one_even: all n:Nat. if OddNat(suc(zero) + n) then EvenNat(n)
 proof
   arbitrary n:Nat
@@ -166,6 +179,7 @@ proof
   n2k
 end
 
+// Subtracting one from a positive even number leaves an odd number.
 lemma even_one_odd: all n:Nat. if EvenNat(suc(zero) + n) then OddNat(n)
 proof
   arbitrary n:Nat
@@ -189,6 +203,7 @@ proof
   }
 end
 
+// Even and not-odd are equivalent: a number is even iff it is not odd.
 theorem Even_not_Odd: all n:Nat. EvenNat(n) ⇔ not OddNat(n)
 proof
   induction Nat

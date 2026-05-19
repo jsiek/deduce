@@ -17,6 +17,7 @@ import NatMonus
  Properties of Multiplication
 */
 
+// Left zero of multiplication. Folded into auto rewrites.
 lemma zero_mult: all n:Nat.
   zero * n = zero
 proof
@@ -26,6 +27,7 @@ end
 
 auto zero_mult
 
+// Literal-form left zero, so `lit(0) * lit(y)` rewrites under auto.
 theorem nat_zero_mult: all y:Nat.
   lit(zero) * lit(y) = lit(zero)
 proof
@@ -35,6 +37,7 @@ end
 
 auto nat_zero_mult
 
+// Right zero of multiplication.
 lemma mult_zero: all n:Nat.
   n * zero = zero
 proof
@@ -50,6 +53,7 @@ end
 
 auto mult_zero
 
+// Unfold `suc(m) * n` to `n + m * n` (the recursive definition).
 lemma suc_mult: all m:Nat, n:Nat.
   suc(m) * n = n + m * n
 proof
@@ -57,6 +61,7 @@ proof
   expand operator*.
 end
 
+// Literal-form of `suc_mult`, registered as an auto rewrite.
 theorem lit_suc_mult: all m:Nat, n:Nat.
   lit(suc(m)) * lit(n) = lit(n) + lit(m) * lit(n)
 proof
@@ -66,6 +71,7 @@ end
 
 auto lit_suc_mult
 
+// Step the right operand of `*` through `suc`.
 lemma mult_suc: all m:Nat. all n:Nat.
   m * suc(n) = m + m * n
 proof
@@ -84,6 +90,7 @@ proof
   }
 end
 
+// Literal-form of `mult_suc` for both sides.
 theorem lit_mult_lit_suc: all m:Nat, n:Nat.
   lit(m) * lit(suc(n)) = lit(m) + lit(m) * lit(n)
 proof
@@ -94,6 +101,7 @@ end
 
 auto lit_mult_lit_suc
 
+// Variant of `lit_mult_lit_suc` without `lit` around the right `suc`.
 theorem lit_mult_suc: all m:Nat, n:Nat.
   lit(m) * suc(n) = lit(m) + lit(m) * n
 proof
@@ -104,6 +112,7 @@ end
 
 auto lit_mult_suc
 
+// Multiplication is commutative.
 theorem mult_commute: all m:Nat. all n:Nat.
   m * n = n * m
 proof
@@ -122,6 +131,7 @@ proof
   }
 end
 
+// Left identity (using the `suc(zero)` form of one).
 theorem one_mult: all n:Nat.
   suc(zero) * n = n
 proof
@@ -133,6 +143,7 @@ end
 
 auto one_mult
 
+// Literal-form left identity.
 theorem nat_one_mult: all n:Nat.
   lit(suc(zero)) * n = n
 proof
@@ -142,6 +153,7 @@ end
 
 auto nat_one_mult
 
+// Right identity.
 lemma mult_one: all n:Nat.
   n * suc(zero) = n
 proof
@@ -152,6 +164,7 @@ end
 
 auto mult_one
 
+// Literal-form right identity.
 theorem nat_mult_one: all n:Nat.
   n * lit(suc(zero)) = n
 proof
@@ -161,6 +174,7 @@ end
 
 auto nat_mult_one
 
+// Nat has no zero divisors: a product is zero only if one factor is.
 theorem mult_to_zero : all n :Nat, m : Nat.
   if m * n = zero then m = zero or n = zero
 proof
@@ -178,6 +192,7 @@ proof
   }
 end
 
+// A product equals one only if both factors are one.
 lemma one_mult_one : all x : Nat, y : Nat.
   if x * y = suc(zero) then x = suc(zero) and y = suc(zero)
 proof
@@ -213,6 +228,7 @@ proof
   }
 end
 
+// Doubling: `2 * n` is `n + n`.
 lemma two_mult: all n:Nat.
   suc(suc(zero)) * n = n + n
 proof
@@ -221,6 +237,7 @@ proof
                 ... = n + n           by .
 end
 
+// Literal-form doubling.
 theorem lit_two_mult: all n:Nat.
   ℕ2 * n = n + n
 proof
@@ -229,6 +246,7 @@ proof
   replace two_mult.
 end
 
+// Left distributivity of `*` over `+`.
 theorem dist_mult_add:
   all a:Nat, x:Nat, y:Nat.
   a * (x + y) = a * x + a * y
@@ -252,6 +270,7 @@ proof
   }
 end
 
+// Right distributivity of `*` over `+`.
 theorem dist_mult_add_right:
   all x:Nat, y:Nat, a:Nat.
   (x + y) * a = x * a + y * a
@@ -263,6 +282,7 @@ proof
           ... = x * a + y * a       by replace mult_commute.
 end
   
+// Multiplication is associative.
 theorem mult_assoc: all m:Nat. all n:Nat, o:Nat.
   (m * n) * o = m * (n * o)
 proof
@@ -286,6 +306,7 @@ end
 
 associative operator* in Nat
 
+// Right cancellation when the right factor is positive.
 lemma mult_right_cancel : all m : Nat, n : Nat, o : Nat.
   if m * suc(o) = n * suc(o) then m = n
 proof
@@ -320,6 +341,7 @@ proof
   }
 end
 
+// Left cancellation when the left factor is positive.
 lemma mult_left_cancel : all m : Nat, a : Nat, b : Nat.
   if suc(m) * a = suc(m) * b then a = b
 proof
