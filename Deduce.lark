@@ -71,20 +71,20 @@ ARROW: "->"
 ?switch_list: switch_case                           -> single
     | switch_case switch_list                       -> push
 
-ident: IDENT              -> ident
-    | "operator" OPERATOR -> ident
-    | "operator" "++"     -> ident_append
-    | "operator" "/"      -> ident_div
-    | "operator" "|"      -> ident_union
-    | "operator" "&"      -> ident_intersect
-    | "operator" "in"      -> ident_member
-    | "operator" ".+."      -> ident_multiset_sum
-    | "operator" ".-."      -> ident_nat_sub
-    | "operator" ".o."      -> ident_circ
-    | "operator" "(="      -> ident_subset_equal
-    | "operator" "<="      -> ident_less_equal
-    | "operator" ">="      -> ident_greater_equal
-    | "operator" "/="      -> ident_not_equal
+identifier: IDENT              -> identifier
+    | "operator" OPERATOR -> identifier
+    | "operator" "++"     -> identifier_append
+    | "operator" "/"      -> identifier_div
+    | "operator" "|"      -> identifier_union
+    | "operator" "&"      -> identifier_intersect
+    | "operator" "in"      -> identifier_member
+    | "operator" ".+."      -> identifier_multiset_sum
+    | "operator" ".-."      -> identifier_nat_sub
+    | "operator" ".o."      -> identifier_circ
+    | "operator" "(="      -> identifier_subset_equal
+    | "operator" "<="      -> identifier_less_equal
+    | "operator" ">="      -> identifier_greater_equal
+    | "operator" "/="      -> identifier_not_equal
 
 ?term_hi: INT                                      -> int
     | NAT                                          -> nat
@@ -100,13 +100,13 @@ ident: IDENT              -> ident
     | "array" "(" term ")"                         -> make_array
     | term_hi "(" term_list ")"                    -> call
     | term_hi "[" term "]"                         -> array_get
-    | "λ" type_params_opt var_list "{" term "}"    -> lambda
-    | "fun" type_params_opt var_list "{" term "}"  -> lambda
-    | "generic" ident_list "{" term "}"            -> generic
+    | "λ" type_params_opt variable_list "{" term "}"    -> lambda
+    | "fun" type_params_opt variable_list "{" term "}"  -> lambda
+    | "generic" identifier_list "{" term "}"            -> generic
     | "switch" term "{" switch_list "}"            -> switch
-    | "all" type_annot_list "." term               -> all_formula
-    | "<" ident_list ">" term                      -> alltype_formula
-    | "some" type_annot_list "." term              -> some_formula
+    | "all" type_annotation_list "." term               -> all_formula
+    | "<" identifier_list ">" term                      -> alltype_formula
+    | "some" type_annotation_list "." term              -> some_formula
     | "define" IDENT "=" term ";" term             -> define_term
     | "?"                                          -> hole_term
     | "─"                                          -> omitted_term
@@ -122,51 +122,51 @@ ident: IDENT              -> ident
     | term                                         -> single
     | term "," term_list                           -> push
     
-?ident_list:                                       -> empty
-    | ident                                        -> single
-    | ident "," ident_list                         -> push
+?identifier_list:                                       -> empty
+    | identifier                                        -> single
+    | identifier "," identifier_list                         -> push
 
-?ident_list_bar:                                   -> empty
-    | ident                                        -> single
-    | INT "*" ident                                -> repeat
-    | ident "|" ident_list_bar                     -> push
-    | INT "*" ident "|" ident_list_bar             -> push_repeat
+?identifier_list_bar:                                   -> empty
+    | identifier                                        -> single
+    | INT "*" identifier                                -> repeat
+    | identifier "|" identifier_list_bar                     -> push
+    | INT "*" identifier "|" identifier_list_bar             -> push_repeat
 
-?type_annot_list:                                  -> empty_binding
-    | ident ":" type                               -> single_binding
-    | ident ":" type "," type_annot_list           -> push_binding
+?type_annotation_list:                                  -> empty_binding
+    | identifier ":" type                               -> single_binding
+    | identifier ":" type "," type_annotation_list           -> push_binding
 
-?var_list:                                         -> empty_binding
-    | ident ":" type                               -> single_binding
-    | ident ":" type "," var_list                  -> push_binding
-    | ident "," var_list                           -> push_var
-    | ident                                        -> single_var
+?variable_list:                                         -> empty_binding
+    | identifier ":" type                               -> single_binding
+    | identifier ":" type "," variable_list                  -> push_binding
+    | identifier "," variable_list                           -> push_var
+    | identifier                                        -> single_var
 
 ?assumption_list:                                  -> empty_binding
-    | ident ":" term                               -> single_binding
+    | identifier ":" term                               -> single_binding
     | ":" term                                     -> single_anon_binding
-    | ident                                        -> single_var
-    | ident ":" term "," assumption_list           -> push_binding
+    | identifier                                        -> single_var
+    | identifier ":" term "," assumption_list           -> push_binding
     | ":" term "," assumption_list                 -> push_anon_binding
-    | ident "," assumption_list                    -> push_var
+    | identifier "," assumption_list                    -> push_var
 
-?ind_case: "case" pattern "{" proof "}"            -> ind_case
-    | "case" pattern "suppose" assumption_list "{" proof "}" -> ind_case_assume
-    | "case" pattern "assume" assumption_list "{" proof "}" -> ind_case_assume
+?induction_case: "case" pattern "{" proof "}"            -> induction_case
+    | "case" pattern "suppose" assumption_list "{" proof "}" -> induction_case_assume
+    | "case" pattern "assume" assumption_list "{" proof "}" -> induction_case_assume
 
-?ind_case_list: ind_case                           -> single
-    | ind_case ind_case_list                       -> push
+?induction_case_list: induction_case                           -> single
+    | induction_case induction_case_list                       -> push
 
-?rule_ind_case: "case" IDENT "{" proof "}"         -> rule_ind_case
-?rule_ind_case_list: rule_ind_case                 -> single
-    | rule_ind_case rule_ind_case_list             -> push
+?rule_induction_case: "case" IDENT "{" proof "}"         -> rule_induction_case
+?rule_induction_case_list: rule_induction_case                 -> single
+    | rule_induction_case rule_induction_case_list             -> push
 
-?switch_pf_case: "case" pattern "{" proof "}"      -> switch_pf_case
-    | "case" pattern "suppose" assumption_list "{" proof "}"      -> switch_pf_case_assume
-    | "case" pattern "assume" assumption_list "{" proof "}"      -> switch_pf_case_assume    
+?switch_proof_case: "case" pattern "{" proof "}"      -> switch_proof_case
+    | "case" pattern "suppose" assumption_list "{" proof "}"      -> switch_proof_case_assume
+    | "case" pattern "assume" assumption_list "{" proof "}"      -> switch_proof_case_assume
 
-?switch_pf_case_list: switch_pf_case               -> single
-    | switch_pf_case switch_pf_case_list           -> push
+?switch_proof_case_list: switch_proof_case               -> single
+    | switch_proof_case switch_proof_case_list           -> push
 
 ?equation: term_compare "=" term_add reason    -> equation
 
@@ -191,16 +191,16 @@ ident: IDENT              -> ident
     | "contradict" proof                                 -> contradict
     | "conjunct" INT "of" proof                          -> conjunct
     | "cases" proof case_list                            -> cases
-    | "induction" type ind_case_list                     -> induction
-    | "rule" "induction" IDENT rule_ind_case_list        -> rule_induction
-    | "rule" "inversion" IDENT rule_ind_case_list        -> rule_inversion
-    | "expand" ident_list_bar "in" proof                 -> apply_defs_fact
+    | "induction" type induction_case_list                     -> induction
+    | "rule" "induction" IDENT rule_induction_case_list        -> rule_induction
+    | "rule" "inversion" IDENT rule_induction_case_list        -> rule_inversion
+    | "expand" identifier_list_bar "in" proof                 -> apply_defs_fact
     | "replace" proof_list "in" proof                    -> rewrite_fact
     | "evaluate"                                         -> eval_goal
     | "evaluate" "in" proof                              -> eval_fact
-    | "simplify" opt_proof_list "in" proof               -> simplify_fact
-    | "switch" term "{" switch_pf_case_list "}"          -> switch_proof
-    | "switch" term "for" ident_list "{" switch_pf_case_list "}" -> switch_proof_for
+    | "simplify" optional_proof_list "in" proof               -> simplify_fact
+    | "switch" term "{" switch_proof_case_list "}"          -> switch_proof
+    | "switch" term "for" identifier_list "{" switch_proof_case_list "}" -> switch_proof_for
     | "equations" equation                               -> equation_proof
     | "equations" equation equation_list                 -> equations_proof
     | "recall" term_list                                 -> recall_proof
@@ -219,25 +219,25 @@ ident: IDENT              -> ident
     | "sorry"                                            -> sorry_proof
     | "{" proof "}"
 
-?opt_proof_list:                                    -> empty
+?optional_proof_list:                                    -> empty
     | "with" proof_list
 
-?proof_stmt: "arbitrary" type_annot_list            -> all_intro
+?proof_stmt: "arbitrary" type_annotation_list            -> all_intro
     | "assume" IDENT                                -> imp_intro
     | "assume" IDENT ":" term                       -> imp_intro_explicit
     | "assume" ":" term                             -> imp_intro_anon
     | "choose" term_list                            -> some_intro
     | "define" IDENT "=" term                       -> define_term_proof
-    | "expand" ident_list_bar                       -> expand
+    | "expand" identifier_list_bar                       -> expand
     | "replace" proof_list                          -> rewrite_goal
     | "show" term                                   -> annot_stmt
-    | "simplify" opt_proof_list                     -> simplify_goal
+    | "simplify" optional_proof_list                     -> simplify_goal
     | "extensionality"                              -> extensionality_proof
     | "have" IDENT ":" term reason              -> let
     | "have" ":" term reason                    -> let_anon
     | "injective" term                              -> injective_proof
-    | "obtain" ident_list "where" IDENT "from" proof          -> some_elim
-    | "obtain" ident_list "where" IDENT ":" term "from" proof -> some_elim_explicit
+    | "obtain" identifier_list "where" IDENT "from" proof          -> some_elim
+    | "obtain" identifier_list "where" IDENT ":" term "from" proof -> some_elim_explicit
     | "stop" "?"                                     -> hole_in_middle_proof
     | "suffices" term reason                    -> suffices
     | "suppose" IDENT                               -> imp_intro
@@ -270,7 +270,7 @@ ident: IDENT              -> ident
     | type "," type_list                         -> push
 
 ?type_params_opt:                                -> empty
-   | "<" ident_list ">"
+   | "<" identifier_list ">"
 
 ?constructor: IDENT                                   -> constructor_id
     | IDENT "(" type_list ")"                    -> constructor_apply
@@ -285,78 +285,78 @@ ident: IDENT              -> ident
 
 ?union: visibility "union" IDENT type_params_opt "{" constructor_list "}" -> union
 
-?pred_rule: IDENT ":" term                                 -> pred_rule
+?predicate_rule: IDENT ":" term                                 -> predicate_rule
 
-?pred_rule_list:                                           -> empty
-    | pred_rule pred_rule_list                             -> push
+?predicate_rule_list:                                           -> empty
+    | predicate_rule predicate_rule_list                             -> push
 
-?predicate_decl: visibility "predicate" ident type_params_opt ":" type "{" pred_rule_list "}" -> predicate_decl
-?relation_decl:  visibility "relation"  ident type_params_opt ":" type "{" pred_rule_list "}" -> relation_decl
+?predicate_declaration: visibility "predicate" identifier type_params_opt ":" type "{" predicate_rule_list "}" -> predicate_declaration
+?relation_declaration:  visibility "relation"  identifier type_params_opt ":" type "{" predicate_rule_list "}" -> relation_declaration
 
-?pattern: ident                                  -> pattern_id
+?pattern: identifier                                  -> pattern_id
     | "0"                                        -> pattern_zero
     | "true"                                     -> pattern_true
     | "false"                                    -> pattern_false
     | "[" "]"                                    -> pattern_empty_list
-    | IDENT "(" ident_list ")"                   -> pattern_apply
-    | "with" ident_list "." term                 -> pattern_term
+    | IDENT "(" identifier_list ")"                   -> pattern_apply
+    | "with" identifier_list "." term                 -> pattern_term
 
-?param_list:                                      -> empty
+?pattern_list:                                      -> empty
     | pattern                                       -> single
-    | pattern "," ident_list                        -> push
+    | pattern "," identifier_list                        -> push
     
-?fun_case: ident "(" param_list ")" "=" term      -> fun_case
+?fun_case: identifier "(" pattern_list ")" "=" term      -> fun_case
 
 ?fun_case_list: fun_case                               -> single
     | fun_case fun_case_list                           -> push
 
-?rec_function: visibility "recursive" ident type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> rec_fun
+?recursive_function: visibility "recursive" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> recursive_function
 
-?function: visibility "fun" ident type_params_opt "(" var_list ")" "{" term "}" -> fun
+?function: visibility "fun" identifier type_params_opt "(" variable_list ")" "{" term "}" -> fun
 
-?gen_rec_fun: visibility "recfun" ident type_params_opt "(" var_list ")" "->" type "measure" term "of" type "{" term "}" "terminates" proof -> gen_rec_fun
+?general_recursive_function: visibility "recfun" identifier type_params_opt "(" variable_list ")" "->" type "measure" term "of" type "{" term "}" "terminates" proof -> general_recursive_function
 
-?view_decl: visibility "view" IDENT type_params_opt "{" "source" type "target" type "into" ident "out" ident "roundtrip" ident "}" -> view_decl
+?view_declaration: visibility "view" IDENT type_params_opt "{" "source" type "target" type "into" identifier "out" identifier "roundtrip" identifier "}" -> view_declaration
 
-?definition: visibility "define" ident "=" term        -> define
- | visibility "define" ident ":" type "=" term         -> define_annot
+?definition: visibility "define" identifier "=" term        -> define
+ | visibility "define" identifier ":" type "=" term         -> define_annot
 
 ?import: visibility "import" IDENT                 -> import
        | visibility "import" IDENT "using" import_filter_list  -> import_using
        | visibility "import" IDENT "hiding" import_filter_list -> import_hiding
-?import_filter_list: ident ("|" ident)*            -> import_filter_list
+?import_filter_list: identifier ("|" identifier)*            -> import_filter_list
 ?export: "export" IDENT                            -> export
 
 ?assert: "assert" term                             -> assert
 
 ?print: "print" term                               -> print
 
-?assoc_decl: "associative" ident type_params_opt "in" type -> assoc_decl
+?associative_declaration: "associative" identifier type_params_opt "in" type -> associative_declaration
 
-?auto_decl: "auto" proof_hi -> auto_decl
+?auto_declaration: "auto" proof_hi -> auto_declaration
 
-?module_decl: "module" ident  -> module_decl
+?module_declaration: "module" identifier  -> module_declaration
 
-?trace: "trace" ident -> trace
+?trace: "trace" identifier -> trace
 
 ?inductive_decl: "inductive" type "by" proof_hi
 
 ?statement: union
- | predicate_decl
- | relation_decl
- | rec_function
+ | predicate_declaration
+ | relation_declaration
+ | recursive_function
  | function
- | gen_rec_fun
- | view_decl
+ | general_recursive_function
+ | view_declaration
  | definition
- | assoc_decl
- | auto_decl
+ | associative_declaration
+ | auto_declaration
  | import
  | export
  | assert
  | print
  | theorem
- | module_decl
+ | module_declaration
  | trace
  | inductive_decl
 

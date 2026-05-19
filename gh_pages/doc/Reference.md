@@ -190,7 +190,7 @@ assert cnt(X)(7) = 0
 ## All (Universal Quantifier)
 
 ```
-formula ::= "all" var_list "." formula
+formula ::= "all" variable_list "." formula
 ```
 
 A formula of the form `all x1:T1,...,xn:Tn. P` is true
@@ -337,7 +337,7 @@ end
 ## Arbitrary (Forall Introduction)
 
 ```
-proof_stmt ::= "arbitrary" var_list
+proof_stmt ::= "arbitrary" variable_list
 ```
 
 A proof of the form
@@ -412,11 +412,11 @@ end
 
 ```deduce-grammar
 assumption_list ::= ε
-assumption_list ::= ident
-assumption_list ::= ident ":" term
+assumption_list ::= identifier
+assumption_list ::= identifier ":" term
 assumption_list ::= ":" term
-assumption_list ::= ident "," assumption_list
-assumption_list ::= ident ":" term "," assumption_list
+assumption_list ::= identifier "," assumption_list
+assumption_list ::= identifier ":" term "," assumption_list
 assumption_list ::= ":" term "," assumption_list
 ```
 
@@ -752,8 +752,8 @@ end
 ## Define (Statement)
 
 ```
-statement ::= visibility "define" ident ":" type "=" term
-            | visibility "define" ident "=" term
+statement ::= visibility "define" identifier ":" type "=" term
+            | visibility "define" identifier "=" term
 ```
 
 The `define` feature of Deduce associates a name with a value.  For
@@ -1051,8 +1051,8 @@ formula ::= term
 ## Function (Term)
 
 ```
-term ::= "fun" var_list "{" term "}"
-term ::= "λ" var_list "{" term "}"
+term ::= "fun" variable_list "{" term "}"
+term ::= "λ" variable_list "{" term "}"
 ```
 
 Functions are created with a `fun` expression.  Their syntax starts with
@@ -1079,7 +1079,7 @@ To add type parameters to a function (to make it generic), see
 ## Function (Statement)
 
 ```
-statement ::= visibility "fun" ident type_params_opt "(" var_list ")" "{" term "}"
+statement ::= visibility "fun" identifier type_params_opt "(" variable_list ")" "{" term "}"
 ```
 
 The `fun` statement is for defining a function (non-recursive).
@@ -1154,8 +1154,8 @@ statement (see [Recursive Function](#recursive-function-statement)).
 ## Generic Function (Term)
 
 ```
-term ::= "fun" type_params_opt var_list "{" term "}"
-term ::= "λ" type_params_opt var_list "{" term "}"
+term ::= "fun" type_params_opt variable_list "{" term "}"
+term ::= "λ" type_params_opt variable_list "{" term "}"
 ```
 
 To make a [Function](#function-term) generic, add type parameters surrounded
@@ -1278,9 +1278,9 @@ can also be an operator, which starts with the keyword
 A comma-separated sequence of identifiers.
 
 ```deduce-grammar
-ident_list ::= ε
-ident_list ::= ident
-ident_list ::= ident "," ident_list
+identifier_list ::= ε
+identifier_list ::= identifier
+identifier_list ::= identifier "," identifier_list
 ```
 
 ## Identifier List Bar
@@ -1292,11 +1292,11 @@ multiple times (e.g. for a recursive function), preceed the identifier
 by a number and the multiplication sign.
 
 ```deduce-grammar
-ident_list_bar ::= ε
-ident_list_bar ::= ident
-ident_list_bar ::= number "*" ident
-ident_list_bar ::= ident "|" ident_list_bar
-ident_list_bar ::= number "*" ident "|" ident_list_bar
+identifier_list_bar ::= ε
+identifier_list_bar ::= identifier
+identifier_list_bar ::= number "*" identifier
+identifier_list_bar ::= identifier "|" identifier_list_bar
+identifier_list_bar ::= number "*" identifier "|" identifier_list_bar
 ```
 
 ## If and only if (iff)
@@ -1382,9 +1382,9 @@ assert 1 ∈ S and 2 ∈ S and 3 ∈ S and not (4 ∈ S)
 ## Induction
 
 ```
-conclusion ::= "induction" type ind_case*
-ind_case ::= "case" pattern "{" proof "}"
-ind_case ::= "case" pattern "assume" assumption_list "{" proof "}"
+conclusion ::= "induction" type induction_case*
+induction_case ::= "case" pattern "{" proof "}"
+induction_case ::= "case" pattern "assume" assumption_list "{" proof "}"
 ```
 
 A proof of the form
@@ -1852,9 +1852,9 @@ and [Recursive Function (Statement)](#function-statement) via a Parameter List.
 ## Parameter List
 
 ```
-param_list ::= ε
-param_list ::= pattern
-param_list ::= pattern "," identifier_list
+pattern_list ::= ε
+pattern_list ::= pattern
+pattern_list ::= pattern "," identifier_list
 ```
 
 A parameter list begins with a pattern (for the first function
@@ -2191,8 +2191,8 @@ end
 ## Rule Induction (Proof)
 
 ```
-conclusion ::= "rule" "induction" identifier rule_ind_case+
-rule_ind_case ::= "case" identifier "{" proof "}"
+conclusion ::= "rule" "induction" identifier rule_induction_case+
+rule_induction_case ::= "case" identifier "{" proof "}"
 ```
 
 A proof of the form
@@ -2265,8 +2265,8 @@ induction hypothesis.
 ## Rule Inversion (Proof)
 
 ```
-conclusion ::= "rule" "inversion" identifier rule_ind_case+
-rule_ind_case ::= "case" identifier "{" proof "}"
+conclusion ::= "rule" "inversion" identifier rule_induction_case+
+rule_induction_case ::= "case" identifier "{" proof "}"
 ```
 
 The structurally-identical companion to
@@ -2379,7 +2379,7 @@ sure that the given formula matches the current goal.
 ## Some (Formula)
 
 ```
-formula ::= "some" var_list "." formula
+formula ::= "some" variable_list "." formula
 ```
 
 The formula `some x1:T1,...,xn:Tn. P` is true when there exists
@@ -2819,11 +2819,11 @@ An unsigned integer literal is a sequence of one or more digits.
 ## Variable List
 
 ```deduce-grammar
-var_list ::= ε
-var_list ::= ident
-var_list ::= ident "," var_list
-var_list ::= ident ":" type
-var_list ::= ident ":" type "," var_list
+variable_list ::= ε
+variable_list ::= identifier
+variable_list ::= identifier "," variable_list
+variable_list ::= identifier ":" type
+variable_list ::= identifier ":" type "," variable_list
 ```
 
 A comma-separated list of variable declarations. Each variable may

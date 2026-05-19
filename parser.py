@@ -75,7 +75,7 @@ def parse_tree_to_str_list(e):
 
 def parse_tree_to_list(e, parent):
     # Returns a list to match the recursive-descent parser's convention.
-    # The inner 2-tuples like (ident, typ) are paired data, not collections,
+    # The inner 2-tuples like (identifier, typ) are paired data, not collections,
     # and stay as tuples.
     if e.data == 'empty':
         return []
@@ -96,25 +96,25 @@ def parse_tree_to_list(e, parent):
     elif e.data == 'empty_binding':
         return []
     elif e.data == 'single_binding':
-        ident = parse_tree_to_ast(e.children[0], parent)
+        identifier = parse_tree_to_ast(e.children[0], parent)
         typ = parse_tree_to_ast(e.children[1], parent)
-        return [(ident,typ)]
+        return [(identifier,typ)]
     elif e.data == 'single_anon_binding':
         typ = parse_tree_to_ast(e.children[0], parent)
         return [('_',typ)]
     elif e.data == 'single_var':
-        ident = parse_tree_to_ast(e.children[0], parent)
-        return [(ident,None)]
+        identifier = parse_tree_to_ast(e.children[0], parent)
+        return [(identifier,None)]
     elif e.data == 'push_binding':
-        ident = parse_tree_to_ast(e.children[0], parent)
+        identifier = parse_tree_to_ast(e.children[0], parent)
         typ = parse_tree_to_ast(e.children[1], parent)
-        return [(ident,typ)] + parse_tree_to_list(e.children[2], parent)
+        return [(identifier,typ)] + parse_tree_to_list(e.children[2], parent)
     elif e.data == 'push_anon_binding':
         typ = parse_tree_to_ast(e.children[0], parent)
         return [('_',typ)] + parse_tree_to_list(e.children[1], parent)
     elif e.data == 'push_var':
-        ident = parse_tree_to_ast(e.children[0], parent)
-        return [(ident,None)] + parse_tree_to_list(e.children[1], parent)
+        identifier = parse_tree_to_ast(e.children[0], parent)
+        return [(identifier,None)] + parse_tree_to_list(e.children[1], parent)
     else:
         raise Exception('parse_tree_to_str_list, unexpected ' + str(e))
 
@@ -305,31 +305,31 @@ def parse_tree_to_ast(e, parent):
         return Hole(e.meta, None)
     elif e.data == 'omitted_term':
         return Omitted(e.meta, None)
-    elif e.data == 'ident':
+    elif e.data == 'identifier':
         return str(e.children[0].value)
-    elif e.data == 'ident_div':
+    elif e.data == 'identifier_div':
         return '/'
-    elif e.data == 'ident_append':
+    elif e.data == 'identifier_append':
         return '++'
-    elif e.data == 'ident_union':
+    elif e.data == 'identifier_union':
         return '∪'
-    elif e.data == 'ident_intersect':
+    elif e.data == 'identifier_intersect':
         return '∩'
-    elif e.data == 'ident_member':
+    elif e.data == 'identifier_member':
         return '∈'
-    elif e.data == 'ident_multiset_sum':
+    elif e.data == 'identifier_multiset_sum':
         return '⨄'
-    elif e.data == 'ident_nat_sub':
+    elif e.data == 'identifier_nat_sub':
         return '∸'
-    elif e.data == 'ident_subset_equal':
+    elif e.data == 'identifier_subset_equal':
         return '⊆'
-    elif e.data == 'ident_less_equal':
+    elif e.data == 'identifier_less_equal':
         return '≤'
-    elif e.data == 'ident_greater_equal':
+    elif e.data == 'identifier_greater_equal':
         return '≥'
-    elif e.data == 'ident_not_equal':
+    elif e.data == 'identifier_not_equal':
         return '≠'
-    elif e.data == 'ident_circ':
+    elif e.data == 'identifier_circ':
         return '∘'
     elif e.data == 'true_literal':
         return Bool(e.meta, None, True)
@@ -549,15 +549,15 @@ def parse_tree_to_ast(e, parent):
         hyp = str(e.children[0].value)
         cases = parse_tree_to_list(e.children[1], e)
         return RuleInversion(e.meta, hyp, cases)
-    elif e.data == 'rule_ind_case':
+    elif e.data == 'rule_induction_case':
         rule_name = str(e.children[0].value)
         body = parse_tree_to_ast(e.children[1], e)
         return RuleInductionCase(e.meta, rule_name, body)
-    elif e.data == 'switch_pf_case':
+    elif e.data == 'switch_proof_case':
         pat = parse_tree_to_ast(e.children[0], e)
         body = parse_tree_to_ast(e.children[1], e)
         return SwitchProofCase(e.meta, pat, [], body)
-    elif e.data == 'switch_pf_case_assume':
+    elif e.data == 'switch_proof_case_assume':
         pat = parse_tree_to_ast(e.children[0], e)
         assms = parse_tree_to_list(e.children[1], e)
         body = parse_tree_to_ast(e.children[2], e)
@@ -573,11 +573,11 @@ def parse_tree_to_ast(e, parent):
         return ApplyDefsGoal(e.meta, [Var(e.meta, None, t) \
                                       for t in definitions],
                              SwitchProof(e.meta, subject, cases))
-    elif e.data == 'ind_case':
+    elif e.data == 'induction_case':
         pat = parse_tree_to_ast(e.children[0], e)
         body = parse_tree_to_ast(e.children[1], e)
         return IndCase(e.meta, pat, [], body)
-    elif e.data == 'ind_case_assume':
+    elif e.data == 'induction_case_assume':
         pat = parse_tree_to_ast(e.children[0], e)
         ind_hyps = parse_tree_to_list(e.children[1], e)
         body = parse_tree_to_ast(e.children[2], e)
@@ -665,8 +665,8 @@ def parse_tree_to_ast(e, parent):
         return statement
 
     # predicate / relation definitions
-    elif e.data == 'predicate_decl' or e.data == 'relation_decl':
-        keyword = 'predicate' if e.data == 'predicate_decl' else 'relation'
+    elif e.data == 'predicate_declaration' or e.data == 'relation_declaration':
+        keyword = 'predicate' if e.data == 'predicate_declaration' else 'relation'
         visibility = parse_tree_to_ast(e.children[0], e)
         name = parse_tree_to_ast(e.children[1], e)
         typarams = parse_tree_to_list(e.children[2], e)
@@ -675,7 +675,7 @@ def parse_tree_to_ast(e, parent):
         statement = Predicate(e.meta, name, typarams, signature, rules, keyword)
         set_visibility(statement, visibility)
         return statement
-    elif e.data == 'pred_rule':
+    elif e.data == 'predicate_rule':
         return Rule(e.meta, str(e.children[0].value),
                     parse_tree_to_ast(e.children[1], e))
     
@@ -705,13 +705,13 @@ def parse_tree_to_ast(e, parent):
                               parse_tree_to_ast(e.children[2], e))
         set_visibility(statement, visibility)
         return statement
-    elif e.data == 'assoc_decl':
+    elif e.data == 'associative_declaration':
         op_var = parse_tree_to_ast(e.children[0], e)
         typarams = parse_tree_to_list(e.children[1], e)
         typ = parse_tree_to_ast(e.children[2], e)
         return Associative(e.meta, typarams, Var(e.meta, None, op_var), typ)
 
-    elif e.data == 'auto_decl':
+    elif e.data == 'auto_declaration':
         pvar = parse_tree_to_ast(e.children[0], e)
         return Auto(e.meta, pvar)
     
@@ -721,7 +721,7 @@ def parse_tree_to_ast(e, parent):
         return Inductive(e.meta, ty, thm)
     
     
-    elif e.data == 'module_decl':
+    elif e.data == 'module_declaration':
         return Module(e.meta, parse_tree_to_ast(e.children[0], e))
     
     # patterns in function definitions
@@ -770,7 +770,7 @@ def parse_tree_to_ast(e, parent):
         return statement
     
     # structurally recursive functions
-    elif e.data == 'rec_fun':
+    elif e.data == 'recursive_function':
         visibility = parse_tree_to_ast(e.children[0], e)
         statement = RecFun(e.meta, parse_tree_to_ast(e.children[1], e),
                            parse_tree_to_list(e.children[2], e),
@@ -781,7 +781,7 @@ def parse_tree_to_ast(e, parent):
         return statement
 
     # general recursion
-    elif e.data == 'gen_rec_fun':
+    elif e.data == 'general_recursive_function':
         visibility = parse_tree_to_ast(e.children[0], e)
         statement = GenRecFun(e.meta,
                               parse_tree_to_ast(e.children[1], e),
@@ -795,7 +795,7 @@ def parse_tree_to_ast(e, parent):
         set_visibility(statement, visibility)
         return statement
 
-    elif e.data == 'view_decl':
+    elif e.data == 'view_declaration':
         visibility = parse_tree_to_ast(e.children[0], e)
         statement = ViewDecl(e.meta,
                              str(e.children[1]),
