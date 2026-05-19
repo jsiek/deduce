@@ -164,3 +164,36 @@ def get_debugger() -> Optional[Any]:
 def set_debugger(d: Optional[Any]) -> None:
   global debugger
   debugger = d
+
+# Display-only aliases mapping a view's source-type name to the view's
+# public name. Populated when a `view` declaration is processed
+# (`Env.declare_view`). Consulted by `name2str` so a private source
+# type like `Binary` is shown as `UInt` in printed types and goals.
+
+view_source_aliases: dict[str, str] = {}
+
+def register_view_source_alias(source_name: str, view_name: str) -> None:
+  global view_source_aliases
+  view_source_aliases[source_name] = view_name
+
+def lookup_view_source_alias(name: str) -> Optional[str]:
+  global view_source_aliases
+  return view_source_aliases.get(name)
+
+# Nested counter that suppresses view-source aliasing in `name2str`.
+# Bumped by `ViewDecl.pretty_print` so the view's own declaration
+# still names its underlying source type instead of self-referentially
+# rendering as the view name.
+
+_suppress_view_alias_depth: int = 0
+
+def push_suppress_view_alias() -> None:
+  global _suppress_view_alias_depth
+  _suppress_view_alias_depth += 1
+
+def pop_suppress_view_alias() -> None:
+  global _suppress_view_alias_depth
+  _suppress_view_alias_depth -= 1
+
+def view_aliasing_suppressed() -> bool:
+  return _suppress_view_alias_depth > 0

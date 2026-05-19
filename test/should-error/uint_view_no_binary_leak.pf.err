@@ -1,0 +1,8 @@
+./test/should-error/uint_view_no_binary_leak.pf:18.3-18.4: incomplete proof
+Goal:
+	max(x, maximum(@[]<UInt>)) = x
+Advice:
+	To prove this equality, one of these statements might help:
+		expand
+		replace
+		equations

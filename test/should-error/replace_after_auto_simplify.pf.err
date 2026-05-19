@@ -4,6 +4,6 @@ could not find any matches for
 in
 	true
 while trying to replace using the below equation, left to right
-	(all x:Binary, y:Binary. toNat(x * y) = toNat(x) * toNat(y))
+	(all x:UInt, y:UInt. toNat(x * y) = toNat(x) * toNat(y))
 The goal has been simplified to `true`, possibly by an `auto` rewrite rule.
 Finish the proof with `.` (which closes any goal of the form `true`).

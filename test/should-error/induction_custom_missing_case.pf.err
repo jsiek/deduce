@@ -1,4 +1,4 @@
-./test/should-error/induction_custom_missing_case.pf:5.3-8.4: expected 2 cases for custom induction on Binary, but have 1
+./test/should-error/induction_custom_missing_case.pf:5.3-8.4: expected 2 cases for custom induction on UInt, but have 1
 Expected cases:
 	case 0  {
 		?

@@ -41,9 +41,13 @@ from flags import (
     get_unique_names,
     get_verbose,
     init_import_directories as init_import_directories,
+    lookup_view_source_alias,
+    pop_suppress_view_alias,
+    push_suppress_view_alias,
     set_check_imports as set_check_imports,
     set_recursive_descent as set_recursive_descent,
     set_verbose,
+    view_aliasing_suppressed,
 )
 from pathlib import Path
 from edit_distance import edit_distance
@@ -65,8 +69,11 @@ recursion_depth = 0
 def name2str(s: str) -> str:
     if get_unique_names():
         return s
-    else:
-        return base_name(s)
+    if not view_aliasing_suppressed():
+        aliased = lookup_view_source_alias(s)
+        if aliased is not None:
+            return base_name(aliased)
+    return base_name(s)
 
 # current_module is used during uniquify and collect_exports
 current_module = 'none'
