@@ -626,6 +626,67 @@ proof
   }
 end
 
+theorem int_add_left_inverse: all x:Int. -x + x = +0
+proof
+  arbitrary x:Int
+  replace int_add_commute[-x, x]
+  int_add_inverse[x]
+end
+
+theorem int_add_both_sides_of_equal: all x:Int, y:Int, z:Int.
+  if x + y = x + z then y = z
+proof
+  arbitrary x:Int, y:Int, z:Int
+  assume prem
+  have step: (-x) + (x + y) = (-x) + (x + z) by replace prem.
+  have lhs: (-x) + (x + y) = y by {
+    equations
+          (-x) + (x + y)
+        = ((-x) + x) + y by symmetric int_add_assoc[-x, x, y]
+    ... = +0 + y             by replace int_add_left_inverse[x].
+    ... = y                  by int_zero_add[y]
+  }
+  have rhs: (-x) + (x + z) = z by {
+    equations
+          (-x) + (x + z)
+        = ((-x) + x) + z by symmetric int_add_assoc[-x, x, z]
+    ... = +0 + z             by replace int_add_left_inverse[x].
+    ... = z                  by int_zero_add[z]
+  }
+  equations
+        y
+      = (-x) + (x + y) by symmetric lhs
+  ... = (-x) + (x + z) by step
+  ... = z              by rhs
+end
+
+theorem int_add_both_sides_of_equal_iff: all x:Int, y:Int, z:Int.
+  x + y = x + z ⇔ y = z
+proof
+  arbitrary x:Int, y:Int, z:Int
+  have fwd: if x + y = x + z then y = z by {
+    assume prem
+    apply int_add_both_sides_of_equal[x, y, z] to prem
+  }
+  have bkwd: if y = z then x + y = x + z by {
+    assume prem
+    replace prem.
+  }
+  fwd, bkwd
+end
+
+theorem int_add_both_sides_of_equal_right: all x:Int, y:Int, z:Int.
+  if y + x = z + x then y = z
+proof
+  arbitrary x:Int, y:Int, z:Int
+  assume prem
+  have step: x + y = x + z by {
+    replace int_add_commute[x, y] | int_add_commute[x, z]
+    prem
+  }
+  apply int_add_both_sides_of_equal[x, y, z] to step
+end
+
 lemma neg_uint: all x:UInt. -x = -pos(x)
 proof
   arbitrary x:UInt
