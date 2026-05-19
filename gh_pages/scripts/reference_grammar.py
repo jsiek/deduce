@@ -26,7 +26,7 @@ FENCE_RE = re.compile(r"^```(?P<info>.*)$")
 
 TOKEN_ALIASES = {
     "identifier": "IDENT",
-    "identifier_list": "ident_list",
+    "identifier_list": "identifier_list",
     "natural_number": "NAT",
     "number": "INT",
     "unsigned_integer": "INT",

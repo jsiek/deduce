@@ -8,7 +8,7 @@ from lark import Lark
 ## Other types:
 ##      comment
 ##      whitespace
-##      ident
+##      identifier
 known_tokens = {
     'ALL' : 'keyword', 
     'AMPERSAND': 'operator', 
@@ -56,7 +56,7 @@ known_tokens = {
     'HASH': 'operator',
     'HAVE': 'keyword',
     'HELP': 'keyword',
-    'IDENT': 'ident',
+    'IDENT': 'identifier',
     'IF': 'keyword',
     'IFF': 'operator',
     'IMPORT': 'keyword',
