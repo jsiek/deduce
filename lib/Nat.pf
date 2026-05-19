@@ -565,7 +565,13 @@ proof
 end
 auto lit_add_div_suc
 
-postulate lit_add_div_zero: all a:Nat, y:Nat. if a < y then add_div(a, zero, y) = lit(zero)
+theorem lit_add_div_zero: all a:Nat, y:Nat. if a < y then add_div(a, zero, y) = lit(zero)
+proof
+  arbitrary a:Nat, y:Nat
+  assume a_y: a < y
+  expand add_div | lit | operator/
+  replace (apply eq_true to a_y).
+end
 auto lit_add_div_zero
 
 theorem lit_less_zero_false: all x:Nat. (x < lit(zero)) = false
