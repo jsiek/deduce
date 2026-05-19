@@ -568,9 +568,27 @@ end
 
 // Without positivity premises this is false: e.g., m = 0, n = 4 gives
 //   log(0) + log(4) = 0 + 2 = 2, log(0 * 4) = log(0) = 0, but 2 ≤ 0 is false.
-postulate uint_log_add_le_log_mult: all m:UInt, n:UInt.
+theorem uint_log_add_le_log_mult: all m:UInt, n:UInt.
   if 0 < m and 0 < n
   then log(m) + log(n) ≤ log(m * n)
+proof
+  arbitrary m:UInt, n:UInt
+  assume prem
+  have m_pos: 0 < m by conjunct 0 of prem
+  have n_pos: 0 < n by conjunct 1 of prem
+  have pow_m_le: 2^log(m) ≤ m by apply uint_expt_log_less_equal to m_pos
+  have pow_n_le: 2^log(n) ≤ n by apply uint_expt_log_less_equal to n_pos
+  have prod_le: 2^log(m) * 2^log(n) ≤ m * n
+    by apply uint_mult_mono_le2 to pow_m_le, pow_n_le
+  have pow_add: 2^log(m) * 2^log(n) = 2^(log(m) + log(n))
+    by symmetric uint_pow_add_r[2, log(m), log(n)]
+  have pow_sum_le: 2^(log(m) + log(n)) ≤ m * n
+    by replace pow_add in prod_le
+  have log_step: log(2^(log(m) + log(n))) ≤ log(m * n)
+    by apply uint_log_mono to pow_sum_le
+  conclude log(m) + log(n) ≤ log(m * n)
+    by replace log_pow in log_step
+end
 
 lemma uint_one_le_pow2: all k:UInt. 1 ≤ 2^k
 proof
