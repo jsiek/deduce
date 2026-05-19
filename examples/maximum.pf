@@ -1,0 +1,96 @@
+// maximum.pf
+//
+// A classic introductory-functional-programming example: define
+// `maximum` over a list of unsigned integers, then prove three
+// correctness properties of it.
+//
+//   1. maximum_append:      maximum distributes over concatenation:
+//        maximum(xs ++ ys) = max(maximum(xs), maximum(ys))
+//   2. maximum_reverse:     maximum is invariant under list reversal:
+//        maximum(reverse(xs)) = maximum(xs)
+//   3. maximum_upper_bound: every element of the list is bounded by
+//        the maximum: if contains(xs, x) then x ≤ maximum(xs)
+//
+// `maximum` returns 0 on the empty list, which makes it behave as a
+// fold of the commutative monoid (UInt, max, 0).
+
+recursive maximum(List<UInt>) -> UInt {
+  maximum(empty) = 0
+  maximum(node(x, xs)) = max(x, maximum(xs))
+}
+
+assert maximum([3, 1, 4, 1, 5, 9, 2, 6]) = 9
+assert maximum(@[]<UInt>) = 0
+
+theorem maximum_append: all xs:List<UInt>, ys:List<UInt>.
+  maximum(xs ++ ys) = max(maximum(xs), maximum(ys))
+proof
+  induction List<UInt>
+  case empty {
+    arbitrary ys:List<UInt>
+    expand maximum | operator++
+    replace uint_zero_max[maximum(ys)].
+  }
+  case node(x, xs') assume IH: (all ys:List<UInt>.
+      maximum(xs' ++ ys) = max(maximum(xs'), maximum(ys))) {
+    arbitrary ys:List<UInt>
+    equations
+      maximum(node(x, xs') ++ ys)
+          = max(x, maximum(xs' ++ ys))            by expand operator++ | maximum.
+      ... = max(x, max(maximum(xs'), maximum(ys)))
+                                                  by replace IH[ys].
+      ... = max(max(x, maximum(xs')), maximum(ys))
+                                                  by symmetric uint_max_assoc[x, maximum(xs'), maximum(ys)]
+      ... = #max(maximum(node(x, xs')), maximum(ys))#
+                                                  by expand maximum.
+  }
+end
+
+theorem maximum_reverse: all xs:List<UInt>.
+  maximum(reverse(xs)) = maximum(xs)
+proof
+  induction List<UInt>
+  case empty {
+    expand reverse.
+  }
+  case node(x, xs') assume IH: maximum(reverse(xs')) = maximum(xs') {
+    have singleton_max: maximum([x]) = x
+      by expand 2*maximum
+         replace uint_max_zero[x].
+    equations
+      maximum(reverse(node(x, xs')))
+          = maximum(reverse(xs') ++ [x])           by expand reverse.
+      ... = max(maximum(reverse(xs')), maximum([x]))
+                                                   by maximum_append[reverse(xs'), [x]]
+      ... = max(maximum(xs'), x)                   by replace IH | singleton_max.
+      ... = max(x, maximum(xs'))                   by uint_max_symmetric[maximum(xs'), x]
+      ... = #maximum(node(x, xs'))#                by expand maximum.
+  }
+end
+
+theorem maximum_upper_bound: all xs:List<UInt>. all x:UInt.
+  if contains(xs, x) then x ≤ maximum(xs)
+proof
+  induction List<UInt>
+  case empty {
+    arbitrary x:UInt
+    suppose cf: contains(@empty<UInt>, x)
+    expand contains in cf
+  }
+  case node(y, xs') assume IH: all x:UInt. if contains(xs', x) then x ≤ maximum(xs') {
+    arbitrary x:UInt
+    suppose cn: contains(node(y, xs'), x)
+    have disj: y = x or contains(xs', x) by expand contains in cn
+    cases disj
+    case yx: y = x {
+      suffices x ≤ max(y, maximum(xs'))  by expand maximum.
+      replace yx
+      uint_max_greater_left[x, maximum(xs')]
+    }
+    case cxs: contains(xs', x) {
+      suffices x ≤ max(y, maximum(xs'))  by expand maximum.
+      apply uint_less_equal_trans[x, maximum(xs'), max(y, maximum(xs'))]
+        to (apply IH[x] to cxs), uint_max_greater_right[y, maximum(xs')]
+    }
+  }
+end
