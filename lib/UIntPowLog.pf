@@ -325,6 +325,90 @@ proof
   }
 end
 
+theorem uint_pow_gt_one: all n:UInt, m:UInt.
+  if 1 < n then (0 < m ⇔ 1 < n^m)
+proof
+  arbitrary n:UInt, m:UInt
+  assume one_lt_n
+  have fwd: if 0 < m then 1 < n^m by {
+    assume m_pos
+    apply (apply uint_pow_lt_mono_l[m, 1, n] to m_pos) to one_lt_n
+  }
+  have bkwd: if 1 < n^m then 0 < m by {
+    assume nm_g1
+    cases uint_zero_or_positive[m]
+    case mz: m = 0 {
+      conclude false by replace mz in nm_g1
+    }
+    case mp: 0 < m { mp }
+  }
+  fwd, bkwd
+end
+
+theorem uint_pow_lt_implies_lt: all c:UInt, a:UInt, b:UInt.
+  if 0 < c then if a^c < b^c then a < b
+proof
+  arbitrary c:UInt, a:UInt, b:UInt
+  assume c_pos
+  assume pow_lt: a^c < b^c
+  cases uint_trichotomy[a, b]
+  case a_lt_b: a < b { a_lt_b }
+  case a_eq_b: a = b {
+    have absurd: a^c < a^c by replace symmetric a_eq_b in pow_lt
+    conclude false by apply uint_less_irreflexive to absurd
+  }
+  case b_lt_a: b < a {
+    have contra: b^c < a^c
+      by apply (apply uint_pow_lt_mono_l[c, b, a] to c_pos) to b_lt_a
+    have ac_lt_ac: a^c < a^c by apply uint_less_trans to pow_lt, contra
+    conclude false by apply uint_less_irreflexive to ac_lt_ac
+  }
+end
+
+theorem uint_pow_inj_l: all a:UInt, b:UInt, c:UInt.
+  if 0 < c then if a^c = b^c then a = b
+proof
+  arbitrary a:UInt, b:UInt, c:UInt
+  assume c_pos
+  assume ac_eq_bc
+  cases uint_trichotomy[a, b]
+  case a_lt_b: a < b {
+    have contra: a^c < b^c
+      by apply (apply uint_pow_lt_mono_l[c, a, b] to c_pos) to a_lt_b
+    have ac_lt_ac: a^c < a^c by replace symmetric ac_eq_bc in contra
+    conclude false by apply uint_less_irreflexive to ac_lt_ac
+  }
+  case a_eq_b: a = b { a_eq_b }
+  case b_lt_a: b < a {
+    have contra: b^c < a^c
+      by apply (apply uint_pow_lt_mono_l[c, b, a] to c_pos) to b_lt_a
+    have ac_lt_ac: a^c < a^c by replace ac_eq_bc in contra
+    conclude false by apply uint_less_irreflexive to ac_lt_ac
+  }
+end
+
+theorem uint_pow_inj_r: all a:UInt, b:UInt, c:UInt.
+  if 1 < a then if a^b = a^c then b = c
+proof
+  arbitrary a:UInt, b:UInt, c:UInt
+  assume one_lt_a
+  assume ab_eq_ac
+  cases uint_trichotomy[b, c]
+  case b_lt_c: b < c {
+    have contra: a^b < a^c
+      by apply (apply uint_pow_lt_mono_r[c, a, b] to one_lt_a) to b_lt_c
+    have ab_lt_ab: a^b < a^b by replace symmetric ab_eq_ac in contra
+    conclude false by apply uint_less_irreflexive to ab_lt_ab
+  }
+  case b_eq_c: b = c { b_eq_c }
+  case c_lt_b: c < b {
+    have contra: a^c < a^b
+      by apply (apply uint_pow_lt_mono_r[b, a, c] to one_lt_a) to c_lt_b
+    have ab_lt_ab: a^b < a^b by replace ab_eq_ac in contra
+    conclude false by apply uint_less_irreflexive to ab_lt_ab
+  }
+end
+
 lemma pow_cnt_dubs_le_inc: all n:UInt. 2 ^ cnt_dubs(n) ≤ inc(n)
 proof
   induction UInt
