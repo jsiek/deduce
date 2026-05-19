@@ -182,7 +182,7 @@ proof
 end
 
 
-lemma pow_zero_l : all a : Nat. if zero<a then zero^a = zero
+theorem pow_zero_l : all a : Nat. if zero<a then zero^a = zero
 proof
   arbitrary a : Nat
   switch a {
@@ -196,7 +196,7 @@ proof
 end
 
 
-lemma pow_eq_zero : all n : Nat, m : Nat.
+theorem pow_eq_zero : all n : Nat, m : Nat.
   if m ^ n = zero then m = zero
 proof
   induction Nat
@@ -222,7 +222,7 @@ proof
   }
 end
 
-lemma exp_one_implies_zero_or_one : all m : Nat, n : Nat.
+theorem exp_one_implies_zero_or_one : all m : Nat, n : Nat.
   if m ^ n = suc(zero) then n = zero or m = suc(zero)
 proof 
   arbitrary m : Nat, n : Nat
@@ -238,7 +238,7 @@ proof
   }
 end
 
-lemma pow_lt_mono_l : all  c : Nat, a : Nat, b : Nat.
+theorem pow_lt_mono_l : all  c : Nat, a : Nat, b : Nat.
   if zero < c then if a < b then a ^ c < b ^ c
 proof
   induction Nat
@@ -329,7 +329,7 @@ proof
   }
 end
 
-lemma pow_lt_mono_r : all c : Nat, a : Nat, b : Nat.
+theorem pow_lt_mono_r : all c : Nat, a : Nat, b : Nat.
   if suc(zero) < a then if b < c then a^b < a^c
 proof
   arbitrary c : Nat, a : Nat, b : Nat
