@@ -963,3 +963,33 @@ proof
   replace uint_less_is_less_equal[0, log(n)]
   one_logn
 end
+
+theorem uint_log_lt: all n:UInt, m:UInt.
+  if 0 < n then (log(n) < m ⇔ n < 2^m)
+proof
+  arbitrary n:UInt, m:UInt
+  assume n_pos
+  have fwd: if log(n) < m then n < 2^m by {
+    assume log_lt: log(n) < m
+    have one_log_le: 1 + log(n) ≤ m by replace uint_less_is_less_equal in log_lt
+    have pow_le: 2^(1 + log(n)) ≤ 2^m by apply uint_pow2_mono to one_log_le
+    have n_lt: n < 2^(1 + log(n)) by apply less_pow_log to n_pos
+    have or_eq: 2^(1 + log(n)) < 2^m or 2^(1 + log(n)) = 2^m
+      by expand operator≤ in pow_le
+    cases or_eq
+    case lt { apply uint_less_trans to n_lt, lt }
+    case eq { replace symmetric eq n_lt }
+  }
+  have bkwd: if n < 2^m then log(n) < m by {
+    assume n_lt: n < 2^m
+    have log_le: 2^log(n) ≤ n by apply uint_expt_log_less_equal to n_pos
+    have or_eq: 2^log(n) < n or 2^log(n) = n by expand operator≤ in log_le
+    have pow_lt: 2^log(n) < 2^m by {
+      cases or_eq
+      case lt { apply uint_less_trans to lt, n_lt }
+      case eq { replace eq n_lt }
+    }
+    apply uint_pow2_lt_implies_lt to pow_lt
+  }
+  fwd, bkwd
+end
