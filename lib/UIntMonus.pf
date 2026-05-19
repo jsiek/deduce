@@ -16,6 +16,8 @@ import UIntMult
   addition and order.
 */
 
+// Internal helper: when `x < y`, the binary-form subtraction
+// `inc_dub(x) ∸ dub_inc(y)` is zero.
 lemma inc_dub_monus_dub_inc_less: all x:UInt, y:UInt.
   if x < y
   then inc_dub(x) ∸ dub_inc(y) = bzero
@@ -26,6 +28,8 @@ proof
   simplify with prem.
 end
 
+// Internal helper: when `not (x < y)`, that subtraction is
+// `pred(dub(x ∸ y))`.
 lemma inc_dub_monus_dub_inc_greater: all x:UInt, y:UInt.
   if not (x < y)
   then inc_dub(x) ∸ dub_inc(y) = pred(dub(x ∸ y))
@@ -36,6 +40,7 @@ proof
   replace apply eq_false to prem.
 end
 
+// Specification: UInt subtraction agrees with Nat subtraction under `toNat`.
 theorem toNat_monus: all x:UInt, y:UInt.
   toNat(x ∸ y) = toNat(x) ∸ toNat(y)
 proof
@@ -162,12 +167,14 @@ proof
   }
 end
 
+// Zero (as `bzero`) minus anything is zero.
 lemma uint_bzero_monus: all x:UInt. bzero ∸ x = bzero
 proof
   arbitrary x:UInt
   expand operator∸.
 end
 
+// Subtracting `bzero` is the identity.
 lemma uint_monus_bzero: all n:UInt. n ∸ bzero = n
 proof
   arbitrary n:UInt
@@ -179,6 +186,7 @@ proof
   conclude n ∸ bzero = n by apply uint_toNat_injective to X
 end
 
+// Subtraction cancels itself.
 lemma uint_monus_cancel_bzero: all n:UInt. n ∸ n = bzero
 proof
   arbitrary n:UInt
@@ -190,7 +198,8 @@ proof
   conclude n ∸ n = bzero by apply uint_toNat_injective to X
 end
 
-theorem uint_add_monus_identity: all m:UInt, n:UInt. 
+// Adding then subtracting `m` is the identity.
+theorem uint_add_monus_identity: all m:UInt, n:UInt.
   (m + n) ∸ m = n
 proof
   arbitrary m:UInt, n:UInt
@@ -203,6 +212,7 @@ end
 
 auto uint_add_monus_identity
 
+// Chained subtractions combine into one.
 theorem uint_monus_monus_eq_monus_add : all x:UInt, y:UInt, z:UInt.
   (x ∸ y) ∸ z = x ∸ (y + z)
 proof
@@ -214,6 +224,7 @@ proof
   conclude (x ∸ y) ∸ z = x ∸ (y + z) by apply uint_toNat_injective to X
 end
 
+// Two consecutive subtractions can be swapped.
 theorem uint_monus_order : all x : UInt, y : UInt, z : UInt.
   (x ∸ y) ∸ z = (x ∸ z) ∸ y
 proof
@@ -227,6 +238,7 @@ proof
   conclude (x ∸ y) ∸ z = (x ∸ z) ∸ y by apply uint_toNat_injective to X
 end
 
+// Adding the same prefix to both sides cancels in `∸`.
 theorem uint_add_both_monus: all z:UInt, y:UInt, x:UInt.
   (z + y) ∸ (z + x) = y ∸ x
 proof
@@ -236,6 +248,7 @@ proof
   add_both_monus
 end
 
+// Multiplication distributes over (truncated) subtraction.
 theorem uint_dist_mult_monus: all x:UInt. all y:UInt, z:UInt.
   x * (y ∸ z) = x * y ∸ x * z
 proof
@@ -245,6 +258,7 @@ proof
   dist_mult_monus
 end
 
+// Literal `fromNat` distributes over `∸`.
 theorem lit_monus_fromNat: all x:Nat, y:Nat. fromNat(lit(x)) ∸ fromNat(lit(y)) = fromNat(lit(x) ∸ lit(y))
 proof
   arbitrary x:Nat, y:Nat
@@ -254,6 +268,7 @@ end
 
 auto lit_monus_fromNat
 
+// If `m ≤ n`, then `m + (n ∸ m) = n` (no truncation happens).
 theorem uint_monus_add_identity: all n:UInt. all m:UInt.
   if m ≤ n
   then m + (n ∸ m) = n
@@ -268,6 +283,7 @@ proof
     by apply monus_add_identity to A
 end
 
+// `n ≤ m` witnesses the existence of a difference `x` with `m = n + x`.
 theorem uint_le_exists_monus : all n : UInt, m : UInt.
   if n <= m then some x : UInt. m = n + x
 proof
@@ -277,6 +293,7 @@ proof
   symmetric apply uint_monus_add_identity[m, n] to prem
 end
 
+// `x ∸ y = 0` characterises `x ≤ y` and vice versa.
 theorem uint_monus_zero_iff_less_eq : all x : UInt, y : UInt.
   x ≤ y ⇔ x ∸ y = 0
 proof
@@ -306,6 +323,7 @@ proof
   fwd, bkwd
 end
 
+// When the subtraction does not truncate, `+` can be reassociated with `∸`.
 theorem uint_monus_add_assoc: all n:UInt, l:UInt,m:UInt.
   if m ≤ n
   then l + (n ∸ m) = (l + n) ∸ m
@@ -320,6 +338,7 @@ proof
   lnm
 end
 
+// Literal-form of `uint_monus_bzero`.
 theorem uint_monus_zero: all n:UInt. n ∸ 0 = n
 proof
   expand lit | fromNat
@@ -328,6 +347,7 @@ end
 
 auto uint_monus_zero
 
+// Literal-form of `uint_monus_cancel_bzero`.
 theorem uint_monus_cancel: all n:UInt. n ∸ n = 0
 proof
   expand lit | fromNat
@@ -336,6 +356,7 @@ end
 
 auto uint_monus_cancel
 
+// `pred` is the same as subtracting one.
 lemma uint_pred_monus: all n:UInt. pred(n) = n ∸ 1
 proof
   arbitrary n:UInt
@@ -343,6 +364,7 @@ proof
   replace toNat_pred | toNat_monus | uint_toNat_fromNat | nat_monus_one_pred.
 end
 
+// Subtracting one from a positive UInt strictly decreases it.
 theorem uint_monus_one_less: all n:UInt.
   if not (n = 0) then n ∸ 1 < n
 proof

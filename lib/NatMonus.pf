@@ -17,11 +17,13 @@ import NatAdd
  Properties of Subtraction
  */
  
+// Zero minus anything is zero.
 lemma zero_monus: all x:Nat. zero ∸ x = zero
 proof
   evaluate
 end
 
+// Subtraction cancels itself.
 lemma monus_cancel: all n:Nat. n ∸ n = zero
 proof
   induction Nat
@@ -35,6 +37,7 @@ proof
   }
 end
 
+// Subtracting zero is the identity.
 lemma monus_zero: all n:Nat.
   n ∸ zero = n
 proof
@@ -47,6 +50,7 @@ proof
   }
 end
 
+// Adding the same prefix to both sides cancels in `∸`.
 theorem add_both_monus: all z:Nat, y:Nat, x:Nat.
   (z + y) ∸ (z + x) = y ∸ x
 proof
@@ -66,16 +70,19 @@ end
  Properties of pred
 */
 
+// Predecessor of one is zero.
 lemma pred_one: pred(suc(zero)) = zero
 proof
  expand pred.
 end
 
+// `pred` undoes `suc`.
 lemma pred_suc_n: all n:Nat. pred(suc(n)) = n
 proof
   evaluate
 end
 
+// Subtracting one is the same as taking the predecessor.
 lemma monus_one_pred : all x : Nat. x ∸ suc(zero) = pred(x)
 proof
  induction Nat
@@ -92,7 +99,8 @@ end
  Properties of Addition and Subtraction
  */
 
-theorem add_monus_identity: all m:Nat. all n:Nat. 
+// Adding then subtracting `m` is the identity.
+theorem add_monus_identity: all m:Nat. all n:Nat.
   (m + n) ∸ m = n
 proof
   induction Nat
@@ -110,6 +118,7 @@ proof
   }
 end
 
+// Chained subtractions combine into a single subtraction.
 theorem monus_monus_eq_monus_add : all x : Nat. all y:Nat. all z:Nat.
   (x ∸ y) ∸ z = x ∸ (y + z)
 proof
@@ -139,6 +148,7 @@ proof
   }
 end
 
+// The order of two consecutive subtractions does not matter.
 theorem monus_order : all x : Nat, y : Nat, z : Nat.
   (x ∸ y) ∸ z = (x ∸ z) ∸ y
 proof

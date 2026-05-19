@@ -12,14 +12,17 @@ import UIntMult
   is one plus twice another UInt.
 */
 
+// `Even(n)` iff `n` equals `2 * m` for some `m`.
 fun Even(n : UInt) {
   some m:UInt. n = 2 * m
 }
 
+// `Odd(n)` iff `n` equals `1 + 2 * m` for some `m`.
 fun Odd(n : UInt) {
   some m:UInt. n = 1 + (2 * m)
 }
 
+// Any multiple of two is even.
 theorem uint_two_even: all n:UInt. Even(2 * n)
 proof
   arbitrary n:UInt
@@ -27,6 +30,7 @@ proof
   choose n.
 end
 
+// `1 + 2*n` is odd for every `n`.
 theorem uint_one_two_odd: all n:UInt. Odd(1 + 2 * n)
 proof
   arbitrary n:UInt
@@ -34,6 +38,7 @@ proof
   choose n.
 end
 
+// even + even = even
 theorem uint_even_add_even: all x:UInt, y:UInt.
   if Even(x) and Even(y) then Even(x + y)
 proof
@@ -49,6 +54,7 @@ proof
   ... = #2 * (a + b)# by replace uint_dist_mult_add.
 end
 
+// even + odd = odd
 theorem uint_even_add_odd: all x:UInt, y:UInt.
   if Even(x) and Odd(y) then Odd(x + y)
 proof
@@ -67,6 +73,7 @@ proof
   ... = 1 + #2 * (a + b)# by replace uint_dist_mult_add.
 end
 
+// odd + even = odd
 theorem uint_odd_add_even: all x:UInt, y:UInt.
   if Odd(x) and Even(y) then Odd(x + y)
 proof
@@ -79,6 +86,7 @@ proof
   odd_yx
 end
 
+// odd + odd = even
 theorem uint_odd_add_odd: all x:UInt, y:UInt.
   if Odd(x) and Odd(y) then Even(x + y)
 proof
@@ -100,6 +108,7 @@ proof
   ... = #2 * (1 + (a + b))# by replace uint_dist_mult_add.
 end
 
+// A product is even if the left factor is.
 theorem uint_even_mult_left: all x:UInt, y:UInt.
   if Even(x) then Even(x * y)
 proof
@@ -114,6 +123,7 @@ proof
   ... = 2 * (a * y) by .
 end
 
+// A product is even if the right factor is.
 theorem uint_even_mult_right: all x:UInt, y:UInt.
   if Even(y) then Even(x * y)
 proof
@@ -124,6 +134,7 @@ proof
   even_yx
 end
 
+// odd * odd = odd
 theorem uint_odd_mult_odd: all x:UInt, y:UInt.
   if Odd(x) and Odd(y) then Odd(x * y)
 proof
@@ -144,6 +155,7 @@ proof
   ... = 1 + #2 * (b + a * (1 + 2 * b))# by replace uint_dist_mult_add.
 end
 
+// Every UInt is either even or odd.
 theorem uint_Even_or_Odd: all n:UInt. Even(n) or Odd(n)
 proof
   induction UInt
@@ -173,6 +185,7 @@ proof
   }
 end
 
+// Subtracting one from an odd successor leaves an even number.
 theorem uint_odd_one_even: all n:UInt. if Odd(1 + n) then Even(n)
 proof
   arbitrary n:UInt
@@ -184,6 +197,7 @@ proof
   n_eq
 end
 
+// Subtracting one from a positive even number leaves an odd number.
 theorem uint_even_one_odd: all n:UInt. if Even(1 + n) then Odd(n)
 proof
   arbitrary n:UInt
@@ -209,6 +223,7 @@ proof
   }
 end
 
+// Even and not-odd are equivalent.
 theorem uint_Even_not_Odd: all n:UInt. Even(n) ⇔ not Odd(n)
 proof
   arbitrary n:UInt

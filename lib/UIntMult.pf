@@ -15,6 +15,8 @@ import UIntAdd
   rest of the file builds the usual algebraic and order facts.
 */
 
+// Specification: UInt multiplication agrees with Nat multiplication
+// under `toNat`. Most theorems below pivot through this lemma.
 theorem toNat_mult: all x:UInt, y:UInt.
   toNat(x * y) = toNat(x) * toNat(y)
 proof
@@ -83,6 +85,7 @@ proof
   }
 end
 
+// Multiplication is commutative.
 theorem uint_mult_commute: all m:UInt, n:UInt.
   m * n = n * m
 proof
@@ -92,6 +95,7 @@ proof
   mult_commute
 end
 
+// Multiplication is associative.
 theorem uint_mult_assoc: all m:UInt, n:UInt, o:UInt.
   (m * n) * o = m * (n * o)
 proof
@@ -102,6 +106,7 @@ end
 
 associative operator* in UInt
 
+// `fromNat` is a multiplicative homomorphism.
 theorem fromNat_mult: all x:Nat, y:Nat. (fromNat(x * y) = fromNat(x) * fromNat(y))
 proof
   arbitrary x:Nat, y:Nat
@@ -110,6 +115,7 @@ proof
   replace toNat_mult | uint_toNat_fromNat.
 end
   
+// Auto rewrite: combine literal `fromNat` factors before multiplying.
 theorem lit_mult_fromNat: all x:Nat, y:Nat.
   fromNat(lit(x)) * fromNat(lit(y)) = fromNat(lit(x) * lit(y))
 proof
@@ -120,6 +126,7 @@ end
 
 auto lit_mult_fromNat
 
+// Left zero of multiplication.
 theorem uint_zero_mult: all n:UInt. 0 * n = 0
 proof
   arbitrary n:UInt
@@ -128,6 +135,7 @@ end
 
 auto uint_zero_mult
 
+// Right zero of multiplication.
 theorem uint_mult_zero: all n:UInt. n * 0 = 0
 proof
   arbitrary n:UInt
@@ -138,6 +146,7 @@ end
 
 auto uint_mult_zero
 
+// Left identity for multiplication.
 theorem uint_one_mult: all n:UInt.
   1 * n = n
 proof
@@ -149,6 +158,7 @@ end
 
 auto uint_one_mult
 
+// Right identity for multiplication.
 theorem uint_mult_one: all n:UInt.
   n * 1 = n
 proof
@@ -160,6 +170,7 @@ end
 
 auto uint_mult_one
 
+// Left distributivity of `*` over `+`.
 theorem uint_dist_mult_add:
   all a:UInt, x:UInt, y:UInt.
   a * (x + y) = a * x + a * y
@@ -170,6 +181,7 @@ proof
   replace dist_mult_add.
 end
 
+// Right distributivity of `*` over `+`.
 theorem uint_dist_mult_add_right:
   all x:UInt, y:UInt, a:UInt.
   (x + y) * a = x * a + y * a
@@ -181,6 +193,7 @@ proof
   uint_dist_mult_add[a, x, y]
 end
 
+// UInt has no zero divisors: a product is zero only if one factor is.
 theorem uint_mult_to_zero: all n:UInt, m:UInt.
   (if n * m = 0 then n = 0 or m = 0)
 proof
@@ -215,6 +228,7 @@ proof
   }
 end
 
+// Doubling: `2 * n` equals `n + n`.
 theorem uint_two_mult: all n:UInt. 2 * n = n + n
 proof
   arbitrary n:UInt
@@ -225,6 +239,7 @@ proof
   replace toNat_two | lit_two_mult.
 end
 
+// Multiplication is monotone on the right under `≤`.
 theorem uint_mult_mono_le: all n:UInt, x:UInt, y:UInt. (if x ≤ y then n * x ≤ n * y)
 proof
   arbitrary n:UInt, x:UInt, y:UInt
@@ -235,6 +250,7 @@ proof
   apply mult_mono_le[toNat(n)] to nxy
 end
 
+// Multiplication is monotone in both arguments under `≤`.
 theorem uint_mult_mono_le2: all n:UInt, x:UInt, m:UInt, y:UInt.
   (if n ≤ m and x ≤ y then n * x ≤ m * y)
 proof
@@ -247,6 +263,7 @@ proof
   apply mult_mono_le2 to nm, xy
 end
 
+// The binary constructor `inc_dub(n)` equals `1 + 2 * n`.
 lemma inc_dub_add_mult2: all n:UInt. inc_dub(n) = 1 + 2 * n
 proof  
   arbitrary n:UInt
@@ -257,6 +274,7 @@ proof
   replace nat_suc_one_add.
 end
 
+// The binary constructor `dub_inc(n)` equals `2 * (1 + n)`.
 lemma dub_inc_mult2_add: all n:UInt. dub_inc(n) = 2 * (1 + n)
 proof
   arbitrary n:UInt
@@ -266,6 +284,7 @@ proof
   replace uint_toNat_fromNat.
 end
 
+// Multiplying both sides by a positive UInt preserves strict order.
 theorem uint_pos_mult_both_sides_of_less: all n:UInt, x:UInt, y:UInt.
   (if 0 < n and x < y then n * x < n * y)
 proof
@@ -280,6 +299,7 @@ proof
   apply pos_mult_both_sides_of_less to zn, xy
 end
 
+// Left cancellation by a positive factor in an equation.
 theorem uint_pos_mult_left_cancel: all n:UInt, x:UInt, y:UInt.
   (if 0 < n and n * x = n * y then x = y)
 proof
@@ -297,6 +317,7 @@ proof
   apply uint_toNat_injective to xy
 end
 
+// Right cancellation by a positive factor in an equation.
 theorem uint_pos_mult_right_cancel: all n:UInt, x:UInt, y:UInt.
   (if 0 < n and x * n = y * n then x = y)
 proof
@@ -305,6 +326,7 @@ proof
   uint_pos_mult_left_cancel
 end
 
+// Strict-inequality counterpart of `uint_pos_mult_left_cancel`.
 theorem uint_pos_mult_left_cancel_less: all n:UInt, x:UInt, y:UInt.
   (if 0 < n and n * x < n * y then x < y)
 proof
@@ -318,6 +340,7 @@ proof
   apply less_toNat to xy
 end
 
+// Strict-inequality counterpart of `uint_pos_mult_right_cancel`.
 theorem uint_pos_mult_right_cancel_less: all n:UInt, x:UInt, y:UInt.
   (if 0 < n and x * n < y * n then x < y)
 proof
@@ -326,6 +349,7 @@ proof
   uint_pos_mult_left_cancel_less
 end
 
+// Non-strict counterpart of `uint_pos_mult_left_cancel_less`.
 theorem uint_pos_mult_left_cancel_less_equal: all n:UInt, x:UInt, y:UInt.
   (if 0 < n and n * x ≤ n * y then x ≤ y)
 proof
@@ -342,6 +366,7 @@ proof
   apply less_equal_toNat to xy
 end
 
+// Non-strict counterpart of `uint_pos_mult_right_cancel_less`.
 theorem uint_pos_mult_right_cancel_less_equal: all n:UInt, x:UInt, y:UInt.
   (if 0 < n and x * n ≤ y * n then x ≤ y)
 proof

@@ -8,13 +8,19 @@ import UIntLess
 import UIntAdd
 
 /*
- Properties of UInt Summation
- */
+  Finite summation over UInt ranges.
 
+  `uint_summation(k, s, f)` sums `f(s), ..., f(s + k - 1)`. It is
+  defined by transporting through `toNat`/`fromNat`, so the theorems
+  below mirror those of the underlying Nat `summation`.
+*/
+
+// Sum `f(s), f(s+1), ..., f(s+k-1)` over UInt.
 fun uint_summation(k:UInt, begin:UInt, f:fn UInt->UInt) {
   fromNat(summation(toNat(k), toNat(begin), λ i { toNat(f(fromNat(i))) }))
 }
 
+// `fromNat` commutes with adding a Nat onto a UInt.
 lemma fromNat_toNat_add:
   all x:UInt, i:Nat. fromNat(toNat(x) + i) = x + fromNat(i)
 proof
@@ -24,6 +30,7 @@ proof
   replace uint_toNat_fromNat | toNat_add | uint_toNat_fromNat.
 end
 
+// Specification: a UInt summation is the corresponding Nat summation.
 theorem toNat_uint_summation:
   all k:UInt, begin:UInt, f:fn UInt->UInt.
   toNat(uint_summation(k, begin, f))
@@ -34,6 +41,7 @@ proof
   uint_toNat_fromNat
 end
 
+// The empty summation is zero.
 lemma uint_summation_bzero:
   all begin:UInt, f:fn UInt->UInt.
   uint_summation(bzero, begin, f) = bzero
@@ -47,6 +55,8 @@ proof
   evaluate
 end
 
+// UInt analogue of `summation_cong`: pointwise-equal summands over
+// shifted ranges yield equal sums.
 theorem uint_summation_cong:
   all k:UInt. all f:fn UInt->UInt, g:fn UInt->UInt, s:UInt, t:UInt.
   if (all i:Nat. if i < toNat(k) then f(s + fromNat(i)) = g(t + fromNat(i)))
@@ -69,6 +79,7 @@ proof
      replace fg.
 end
 
+// Append a final term: `Σ_{i<n+1} f(s+i) = Σ_{i<n} f(s+i) + f(s+n)`.
 theorem uint_summation_next:
   all n:UInt, s:UInt, f:fn UInt->UInt.
   uint_summation(1 + n, s, f) = uint_summation(n, s, f) + f(s + n)
@@ -84,6 +95,9 @@ proof
   replace fromNat_toNat_add[s, toNat(n)] | uint_fromNat_toNat.
 end
 
+// Split a length `a + b` summation into prefix `g` (length `a`) and
+// suffix `h` (length `b`), each agreeing pointwise with `f` on its
+// segment.
 theorem uint_summation_add:
   all a:UInt. all b:UInt, s:UInt, t:UInt,
       f:fn UInt->UInt, g:fn UInt->UInt, h:fn UInt->UInt.

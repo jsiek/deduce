@@ -17,7 +17,8 @@ import NatLess
  Properties of Summation
  */
 
-theorem summation_cong: all k : Nat. all f : fn Nat->Nat, g : fn Nat->Nat, s : Nat, t : Nat. 
+// Pointwise-equal summands over shifted ranges yield equal sums.
+theorem summation_cong: all k : Nat. all f : fn Nat->Nat, g : fn Nat->Nat, s : Nat, t : Nat.
   if (all i:Nat. if i < k then f(s + i) = g(t + i))
   then summation(k, s, f) = summation(k, t, g)
 proof
@@ -47,7 +48,9 @@ proof
   }
 end
 
-lemma summation_cong4: all k:Nat. all f : fn Nat->Nat, g : fn Nat->Nat, s :Nat. 
+// Like `summation_cong`, but the hypothesis is phrased in terms of
+// the absolute index `i` rather than a shift.
+lemma summation_cong4: all k:Nat. all f : fn Nat->Nat, g : fn Nat->Nat, s :Nat.
   if (all i:Nat. if s ≤ i and i < s + k then f(i) = g(i))
   then summation(k, s, f) = summation(k, s, g)
 proof
@@ -100,8 +103,10 @@ proof
   }
 end
 
+// Re-indexing: summing `f` from `s` equals summing `g(suc(·))` from
+// `suc(s)` when `f(i) = g(suc(i))` pointwise.
 lemma summation_suc:
-  all k:Nat. all f : fn Nat->Nat, g : fn Nat->Nat, s :Nat. 
+  all k:Nat. all f : fn Nat->Nat, g : fn Nat->Nat, s :Nat.
   if (all i:Nat. f(i) = g(suc(i)))
   then summation(k, s, f) = summation(k, suc(s), g)
 proof
@@ -116,7 +121,9 @@ proof
   apply summation_cong[k][f, g, s, suc(s)] to sum_prem
 end
 
-lemma summation_cong3: all k:Nat. all f : fn Nat->Nat, g : fn Nat->Nat, s :Nat, t :Nat. 
+// Variant of `summation_cong` without the `i < k` guard on the
+// hypothesis — useful when the equation holds for all shifts.
+lemma summation_cong3: all k:Nat. all f : fn Nat->Nat, g : fn Nat->Nat, s :Nat, t :Nat.
   if (all i:Nat. f(s + i) = g(t + i))
   then summation(k, s, f) = summation(k, t, g)
 proof
@@ -144,6 +151,9 @@ proof
   }
 end
 
+// Split a summation of length `a + b` into a `g`-prefix of length
+// `a` and an `h`-suffix of length `b`, when each piece agrees
+// pointwise with `f` on its segment.
 theorem summation_add:
   all a:Nat. all b:Nat, s:Nat, t:Nat, f:fn Nat->Nat, g:fn Nat->Nat, h:fn Nat->Nat.
   if (all i:Nat. if i < a then g(s + i) = f(s + i))
@@ -189,6 +199,7 @@ proof
   }
 end
 
+// Append a final term to a summation: `Σ_{i<n+1} f(s+i) = Σ_{i<n} + f(s+n)`.
 lemma summation_suc_add: all n:Nat, s:Nat, f:fn Nat->Nat.
   summation(suc(zero) + n, s, f) = summation(n, s, f) + f(s + n)
 proof
