@@ -156,3 +156,28 @@ opaque fun operator ≤(a : Int, y : Int) {
     }
   }
 }
+
+opaque fun operator <(a : Int, y : Int) {
+  switch a {
+    case pos(x) {
+      switch y {
+        case pos(y') {     x < y' }
+        case negsuc(y') {  false  }
+      }
+    }
+    case negsuc(x) {
+      switch y {
+        case pos(y') {     true   }
+        case negsuc(y') {  y' < x }
+      }
+    }
+  }
+}
+
+fun operator >(x : Int, y : Int) {
+  y < x
+}
+
+fun operator ≥(x : Int, y : Int) {
+  y ≤ x
+}

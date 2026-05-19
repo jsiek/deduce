@@ -15,6 +15,7 @@ import Base
 public import IntDefs
 public import IntAddSub
 public import IntMult
+public import IntLess
 
 // Need the following for integer literals.
 
@@ -22,102 +23,6 @@ export lit
 export zero
 export suc
 export fromNat
-
-// Properties of less-than or equal.
-
-theorem int_less_equal_refl: all n:Int. n ≤ n
-proof
-  arbitrary n:Int
-  switch n {
-    case pos(n') {
-      expand operator≤
-      uint_less_equal_refl
-    }
-    case negsuc(n') {
-      expand operator≤
-      uint_less_equal_refl
-    }
-  }
-end
-
-theorem int_less_equal_trans: all m:Int, n:Int, o:Int.
-  if m ≤ n and n ≤ o then m ≤ o
-proof
-  arbitrary m:Int, n:Int, o:Int
-  switch m {
-    case pos(m') {
-      switch n {
-        case pos(n') {
-          switch o {
-            case pos(o') {
-              expand operator≤
-              uint_less_equal_trans
-            }
-            case negsuc(o') { expand operator≤. }
-          }
-        }
-        case negsuc(n') { expand operator≤. }
-      }
-    }
-    case negsuc(m') {
-      switch n {
-        case pos(n') {
-          switch o {
-            case pos(o') { expand operator≤. }
-            case negsuc(o') { expand operator≤. }
-          }
-        }
-        case negsuc(n') {
-          switch o {
-            case pos(o') { expand operator≤. }
-            case negsuc(o') {
-              expand operator≤
-              //suffices (if (n' ≤ m' and o' ≤ n') then o' ≤ m')
-              //  by expand operator≤.
-              assume nm_n_on
-              apply uint_less_equal_trans[o',n',m'] to nm_n_on
-            }
-          }
-        }
-      }
-    }
-  }
-end
-
-theorem int_less_equal_antisymmetric:
-  all x:Int, y:Int. 
-  if x ≤ y and y ≤ x
-  then x = y
-proof
-  arbitrary x:Int, y:Int
-  assume xy_n_yx
-  switch x {
-    case pos(x') assume x_pos {
-      switch y {
-        case pos(y') assume y_pos {
-          have: x' ≤ y' and y' ≤ x' by expand operator≤ in replace x_pos | y_pos in xy_n_yx
-          have: x' = y' by apply uint_less_equal_antisymmetric to (recall x' ≤ y' and y' ≤ x')
-          conclude pos(x') = pos(y')  by replace (recall x' = y').
-        }
-        case negsuc(y') assume y_neg {
-          conclude false by expand operator≤ in replace x_pos | y_neg in xy_n_yx
-        }
-      }
-    }
-    case negsuc(x') assume x_neg {
-      switch y {
-        case pos(y') assume y_pos {
-          conclude false by expand operator≤ in replace x_neg | y_pos in xy_n_yx
-        }
-        case negsuc(y') assume y_neg {
-          have: x' ≤ y' and y' ≤ x' by expand operator≤ in replace x_neg | y_neg in xy_n_yx
-          have: x' = y' by apply uint_less_equal_antisymmetric to (recall x' ≤ y' and y' ≤ x')
-          conclude negsuc(x') = negsuc(y')  by replace (recall x' = y').
-        }
-      }
-    }
-  }
-end
 
 theorem lit_add_pos_pos: all x:Nat, y:Nat.
   pos(fromNat(lit(x))) + pos(fromNat(lit(y))) = pos(fromNat(lit(x) + lit(y)))

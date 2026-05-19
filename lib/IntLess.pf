@@ -1,0 +1,534 @@
+module Int
+
+import UInt
+import Base
+import IntDefs
+
+/*
+  Theorems about Int order.
+
+  Less-than-or-equal (`≤`) and strict less-than (`<`) on Int are defined
+  in `IntDefs.pf` by structural recursion on the `pos`/`negsuc`
+  representation. This file develops the basic order laws (reflexive,
+  transitive, antisymmetric, irreflexive, trichotomy, dichotomy) and the
+  connections between `<` and `≤`, reducing to the corresponding UInt
+  facts in `UIntLess.pf`.
+*/
+
+// Properties of less-than-or-equal.
+
+theorem int_less_equal_refl: all n:Int. n ≤ n
+proof
+  arbitrary n:Int
+  switch n {
+    case pos(n') {
+      expand operator≤
+      uint_less_equal_refl
+    }
+    case negsuc(n') {
+      expand operator≤
+      uint_less_equal_refl
+    }
+  }
+end
+
+theorem int_less_equal_trans: all m:Int, n:Int, o:Int.
+  if m ≤ n and n ≤ o then m ≤ o
+proof
+  arbitrary m:Int, n:Int, o:Int
+  switch m {
+    case pos(m') {
+      switch n {
+        case pos(n') {
+          switch o {
+            case pos(o') {
+              expand operator≤
+              uint_less_equal_trans
+            }
+            case negsuc(o') { expand operator≤. }
+          }
+        }
+        case negsuc(n') { expand operator≤. }
+      }
+    }
+    case negsuc(m') {
+      switch n {
+        case pos(n') {
+          switch o {
+            case pos(o') { expand operator≤. }
+            case negsuc(o') { expand operator≤. }
+          }
+        }
+        case negsuc(n') {
+          switch o {
+            case pos(o') { expand operator≤. }
+            case negsuc(o') {
+              expand operator≤
+              assume nm_n_on
+              apply uint_less_equal_trans[o',n',m'] to nm_n_on
+            }
+          }
+        }
+      }
+    }
+  }
+end
+
+theorem int_less_equal_antisymmetric:
+  all x:Int, y:Int.
+  if x ≤ y and y ≤ x
+  then x = y
+proof
+  arbitrary x:Int, y:Int
+  assume xy_n_yx
+  switch x {
+    case pos(x') assume x_pos {
+      switch y {
+        case pos(y') assume y_pos {
+          have: x' ≤ y' and y' ≤ x' by expand operator≤ in replace x_pos | y_pos in xy_n_yx
+          have: x' = y' by apply uint_less_equal_antisymmetric to (recall x' ≤ y' and y' ≤ x')
+          conclude pos(x') = pos(y')  by replace (recall x' = y').
+        }
+        case negsuc(y') assume y_neg {
+          conclude false by expand operator≤ in replace x_pos | y_neg in xy_n_yx
+        }
+      }
+    }
+    case negsuc(x') assume x_neg {
+      switch y {
+        case pos(y') assume y_pos {
+          conclude false by expand operator≤ in replace x_neg | y_pos in xy_n_yx
+        }
+        case negsuc(y') assume y_neg {
+          have: x' ≤ y' and y' ≤ x' by expand operator≤ in replace x_neg | y_neg in xy_n_yx
+          have: x' = y' by apply uint_less_equal_antisymmetric to (recall x' ≤ y' and y' ≤ x')
+          conclude negsuc(x') = negsuc(y')  by replace (recall x' = y').
+        }
+      }
+    }
+  }
+end
+
+// Properties of strict less-than.
+
+theorem int_less_irreflexive: all x:Int. not (x < x)
+proof
+  arbitrary x:Int
+  switch x {
+    case pos(n) { expand operator<. }
+    case negsuc(n) { expand operator<. }
+  }
+end
+
+theorem int_less_implies_not_equal: all x:Int, y:Int.
+  if x < y then not (x = y)
+proof
+  arbitrary x:Int, y:Int
+  assume x_y: x < y
+  assume xy_eq: x = y
+  have y_y: y < y by replace xy_eq in x_y
+  apply int_less_irreflexive[y] to y_y
+end
+
+theorem int_less_implies_less_equal: all x:Int, y:Int.
+  if x < y then x ≤ y
+proof
+  arbitrary x:Int, y:Int
+  switch x {
+    case pos(x') {
+      switch y {
+        case pos(y') {
+          expand operator< | operator≤
+          uint_less_implies_less_equal
+        }
+        case negsuc(y') { expand operator<. }
+      }
+    }
+    case negsuc(x') {
+      switch y {
+        case pos(y') { expand operator≤. }
+        case negsuc(y') {
+          expand operator< | operator≤
+          uint_less_implies_less_equal
+        }
+      }
+    }
+  }
+end
+
+theorem int_less_trans: all x:Int, y:Int, z:Int.
+  if x < y and y < z then x < z
+proof
+  arbitrary x:Int, y:Int, z:Int
+  switch x {
+    case pos(x') {
+      switch y {
+        case pos(y') {
+          switch z {
+            case pos(z') {
+              expand operator<
+              assume prem
+              apply uint_less_trans[x', y', z'] to prem
+            }
+            case negsuc(z') { expand operator<. }
+          }
+        }
+        case negsuc(y') { expand operator<. }
+      }
+    }
+    case negsuc(x') {
+      switch y {
+        case pos(y') {
+          switch z {
+            case pos(z') { expand operator<. }
+            case negsuc(z') { expand operator<. }
+          }
+        }
+        case negsuc(y') {
+          switch z {
+            case pos(z') { expand operator<. }
+            case negsuc(z') {
+              expand operator<
+              assume prem
+              apply uint_less_trans[z', y', x'] to prem
+            }
+          }
+        }
+      }
+    }
+  }
+end
+
+theorem int_less_equal_implies_less_or_equal: all x:Int, y:Int.
+  if x ≤ y then x < y or x = y
+proof
+  arbitrary x:Int, y:Int
+  switch x {
+    case pos(x') {
+      switch y {
+        case pos(y') {
+          assume xy
+          have A: x' ≤ y' by expand operator≤ in xy
+          have B: x' < y' or x' = y' by expand operator≤ in A
+          cases B
+          case x_l_y: x' < y' {
+            conclude pos(x') < pos(y') or pos(x') = pos(y') by {
+              have h: pos(x') < pos(y') by expand operator< x_l_y
+              h
+            }
+          }
+          case x_eq_y: x' = y' {
+            conclude pos(x') < pos(y') or pos(x') = pos(y') by {
+              have h: pos(x') = pos(y') by replace x_eq_y.
+              h
+            }
+          }
+        }
+        case negsuc(y') {
+          assume xy
+          conclude false by expand operator≤ in xy
+        }
+      }
+    }
+    case negsuc(x') {
+      switch y {
+        case pos(y') {
+          assume xy
+          conclude negsuc(x') < pos(y') or negsuc(x') = pos(y') by {
+            have h: negsuc(x') < pos(y') by expand operator<.
+            h
+          }
+        }
+        case negsuc(y') {
+          assume xy
+          have A: y' ≤ x' by expand operator≤ in xy
+          have B: y' < x' or y' = x' by expand operator≤ in A
+          cases B
+          case y_l_x: y' < x' {
+            conclude negsuc(x') < negsuc(y') or negsuc(x') = negsuc(y') by {
+              have h: negsuc(x') < negsuc(y') by expand operator< y_l_x
+              h
+            }
+          }
+          case y_eq_x: y' = x' {
+            conclude negsuc(x') < negsuc(y') or negsuc(x') = negsuc(y') by {
+              have h: negsuc(x') = negsuc(y') by replace y_eq_x.
+              h
+            }
+          }
+        }
+      }
+    }
+  }
+end
+
+theorem int_less_or_equal_implies_less_equal: all x:Int, y:Int.
+  if x < y or x = y then x ≤ y
+proof
+  arbitrary x:Int, y:Int
+  assume disj
+  cases disj
+  case x_l_y: x < y {
+    apply int_less_implies_less_equal to x_l_y
+  }
+  case x_eq_y: x = y {
+    replace x_eq_y
+    int_less_equal_refl[y]
+  }
+end
+
+theorem int_less_equal_iff_less_or_equal: all x:Int, y:Int.
+  x ≤ y ⇔ (x < y or x = y)
+proof
+  arbitrary x:Int, y:Int
+  int_less_equal_implies_less_or_equal[x, y],
+  int_less_or_equal_implies_less_equal[x, y]
+end
+
+theorem int_trichotomy: all x:Int, y:Int.
+  x < y or x = y or y < x
+proof
+  arbitrary x:Int, y:Int
+  switch x {
+    case pos(x') {
+      switch y {
+        case pos(y') {
+          have tri: x' < y' or x' = y' or y' < x' by uint_trichotomy[x', y']
+          cases tri
+          case x_l_y: x' < y' {
+            have h: pos(x') < pos(y') by expand operator< x_l_y
+            h
+          }
+          case x_eq_y: x' = y' {
+            have h: pos(x') = pos(y') by replace x_eq_y.
+            h
+          }
+          case y_l_x: y' < x' {
+            have h: pos(y') < pos(x') by expand operator< y_l_x
+            h
+          }
+        }
+        case negsuc(y') {
+          have h: negsuc(y') < pos(x') by expand operator<.
+          h
+        }
+      }
+    }
+    case negsuc(x') {
+      switch y {
+        case pos(y') {
+          have h: negsuc(x') < pos(y') by expand operator<.
+          h
+        }
+        case negsuc(y') {
+          have tri: x' < y' or x' = y' or y' < x' by uint_trichotomy[x', y']
+          cases tri
+          case x_l_y: x' < y' {
+            have h: negsuc(y') < negsuc(x') by expand operator< x_l_y
+            h
+          }
+          case x_eq_y: x' = y' {
+            have h: negsuc(x') = negsuc(y') by replace x_eq_y.
+            h
+          }
+          case y_l_x: y' < x' {
+            have h: negsuc(x') < negsuc(y') by expand operator< y_l_x
+            h
+          }
+        }
+      }
+    }
+  }
+end
+
+theorem int_dichotomy: all x:Int, y:Int. x ≤ y or y < x
+proof
+  arbitrary x:Int, y:Int
+  have tri: x < y or x = y or y < x by int_trichotomy[x, y]
+  cases tri
+  case x_l_y: x < y {
+    have x_le_y: x ≤ y by apply int_less_implies_less_equal to x_l_y
+    x_le_y
+  }
+  case x_eq_y: x = y {
+    have x_le_y: x ≤ y by {
+      replace x_eq_y
+      int_less_equal_refl[y]
+    }
+    x_le_y
+  }
+  case y_l_x: y < x { y_l_x }
+end
+
+theorem int_less_implies_not_greater: all x:Int, y:Int.
+  if x < y then not (y < x)
+proof
+  arbitrary x:Int, y:Int
+  assume x_l_y
+  assume y_l_x
+  have x_l_x: x < x by apply int_less_trans[x, y, x] to x_l_y, y_l_x
+  apply int_less_irreflexive[x] to x_l_x
+end
+
+theorem int_not_less_implies_less_equal: all x:Int, y:Int.
+  if not (x < y) then y ≤ x
+proof
+  arbitrary x:Int, y:Int
+  assume not_x_l_y
+  have tri: x < y or x = y or y < x by int_trichotomy[x, y]
+  cases tri
+  case x_l_y: x < y {
+    conclude false by apply not_x_l_y to x_l_y
+  }
+  case x_eq_y: x = y {
+    replace symmetric x_eq_y
+    int_less_equal_refl[x]
+  }
+  case y_l_x: y < x {
+    apply int_less_implies_less_equal to y_l_x
+  }
+end
+
+theorem int_not_less_equal_iff_greater: all x:Int, y:Int.
+  not (x ≤ y) ⇔ y < x
+proof
+  arbitrary x:Int, y:Int
+  have fwd: if not (x ≤ y) then y < x by {
+    assume not_xy
+    have tri: x < y or x = y or y < x by int_trichotomy[x, y]
+    cases tri
+    case x_l_y: x < y {
+      have x_le_y: x ≤ y by apply int_less_implies_less_equal to x_l_y
+      conclude false by apply not_xy to x_le_y
+    }
+    case x_eq_y: x = y {
+      have x_le_y: x ≤ y by {
+        replace x_eq_y
+        int_less_equal_refl[y]
+      }
+      conclude false by apply not_xy to x_le_y
+    }
+    case y_l_x: y < x { y_l_x }
+  }
+  have bkwd: if y < x then not (x ≤ y) by {
+    assume y_l_x
+    assume x_le_y
+    have x_l_y_or_eq: x < y or x = y
+      by apply int_less_equal_iff_less_or_equal[x, y] to x_le_y
+    cases x_l_y_or_eq
+    case x_l_y: x < y {
+      have x_l_x: x < x by apply int_less_trans[x, y, x] to x_l_y, y_l_x
+      apply int_less_irreflexive[x] to x_l_x
+    }
+    case x_eq_y: x = y {
+      have y_l_y: y < y by replace x_eq_y in y_l_x
+      apply int_less_irreflexive[y] to y_l_y
+    }
+  }
+  fwd, bkwd
+end
+
+theorem int_greater_implies_not_equal: all x:Int, y:Int.
+  if x > y then not (x = y)
+proof
+  arbitrary x:Int, y:Int
+  assume x_g_y: x > y
+  have y_l_x: y < x by expand operator> in x_g_y
+  assume xy_eq: x = y
+  have y_l_y: y < y by replace xy_eq in y_l_x
+  apply int_less_irreflexive[y] to y_l_y
+end
+
+theorem int_less_equal_iff_not_greater: all x:Int, y:Int.
+  x ≤ y ⇔ not (y < x)
+proof
+  arbitrary x:Int, y:Int
+  have fwd: if x ≤ y then not (y < x) by {
+    assume x_le_y
+    assume y_l_x
+    have x_l_y_or_eq: x < y or x = y
+      by apply int_less_equal_iff_less_or_equal[x, y] to x_le_y
+    cases x_l_y_or_eq
+    case x_l_y: x < y {
+      have x_l_x: x < x by apply int_less_trans[x, y, x] to x_l_y, y_l_x
+      apply int_less_irreflexive[x] to x_l_x
+    }
+    case x_eq_y: x = y {
+      have y_l_y: y < y by replace x_eq_y in y_l_x
+      apply int_less_irreflexive[y] to y_l_y
+    }
+  }
+  have bkwd: if not (y < x) then x ≤ y by {
+    assume not_y_l_x
+    have A: y ≤ x or x < y by {
+      have tri: x < y or x = y or y < x by int_trichotomy[x, y]
+      cases tri
+      case x_l_y: x < y { x_l_y }
+      case x_eq_y: x = y {
+        have y_le_x: y ≤ x by {
+          replace symmetric x_eq_y
+          int_less_equal_refl[x]
+        }
+        y_le_x
+      }
+      case y_l_x: y < x {
+        conclude false by apply not_y_l_x to y_l_x
+      }
+    }
+    cases A
+    case y_le_x: y ≤ x {
+      have x_l_y_or_eq: y < x or y = x
+        by apply int_less_equal_iff_less_or_equal[y, x] to y_le_x
+      cases x_l_y_or_eq
+      case y_l_x: y < x {
+        conclude false by apply not_y_l_x to y_l_x
+      }
+      case y_eq_x: y = x {
+        replace y_eq_x
+        int_less_equal_refl[x]
+      }
+    }
+    case x_l_y: x < y {
+      apply int_less_implies_less_equal to x_l_y
+    }
+  }
+  fwd, bkwd
+end
+
+theorem int_less_trans_less_equal_right: all x:Int, y:Int, z:Int.
+  if x < y and y ≤ z then x < z
+proof
+  arbitrary x:Int, y:Int, z:Int
+  assume prem
+  have x_l_y: x < y by prem
+  have y_le_z: y ≤ z by prem
+  have y_l_z_or_eq: y < z or y = z
+    by apply int_less_equal_iff_less_or_equal[y, z] to y_le_z
+  cases y_l_z_or_eq
+  case y_l_z: y < z {
+    apply int_less_trans[x, y, z] to x_l_y, y_l_z
+  }
+  case y_eq_z: y = z {
+    replace symmetric y_eq_z
+    x_l_y
+  }
+end
+
+theorem int_less_trans_less_equal_left: all x:Int, y:Int, z:Int.
+  if x ≤ y and y < z then x < z
+proof
+  arbitrary x:Int, y:Int, z:Int
+  assume prem
+  have x_le_y: x ≤ y by prem
+  have y_l_z: y < z by prem
+  have x_l_y_or_eq: x < y or x = y
+    by apply int_less_equal_iff_less_or_equal[x, y] to x_le_y
+  cases x_l_y_or_eq
+  case x_l_y: x < y {
+    apply int_less_trans[x, y, z] to x_l_y, y_l_z
+  }
+  case x_eq_y: x = y {
+    replace x_eq_y
+    y_l_z
+  }
+end
