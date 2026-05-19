@@ -1,0 +1,129 @@
+// take_while.pf
+//
+// The classic Haskell intro-FP pair of functions:
+//
+//     takeWhile :: (a -> Bool) -> [a] -> [a]
+//     dropWhile :: (a -> Bool) -> [a] -> [a]
+//
+// `take_while(xs, p)` returns the longest prefix of `xs` whose
+// elements all satisfy `p`; `drop_while(xs, p)` returns the rest.
+//
+// We prove three correctness properties:
+//
+//   1. take_while_drop_while:  take_while(xs, p) ++ drop_while(xs, p) = xs
+//   2. length_take_drop_while: length(take_while(xs, p)) + length(drop_while(xs, p))
+//                                 = length(xs)
+//   3. take_while_all:         every element of take_while(xs, p) satisfies p
+
+import List
+
+recursive take_while<T>(List<T>, fn (T)->bool) -> List<T> {
+  take_while(empty, p) = empty
+  take_while(node(x, xs), p) =
+    if p(x) then node(x, take_while(xs, p))
+    else empty
+}
+
+recursive drop_while<T>(List<T>, fn (T)->bool) -> List<T> {
+  drop_while(empty, p) = empty
+  drop_while(node(x, xs), p) =
+    if p(x) then drop_while(xs, p)
+    else node(x, xs)
+}
+
+define is_pos : fn UInt -> bool = λ n { 1 ≤ n }
+assert take_while([3, 1, 4, 0, 5, 9], is_pos) = [3, 1, 4]
+assert drop_while([3, 1, 4, 0, 5, 9], is_pos) = [0, 5, 9]
+assert take_while(@[]<UInt>, is_pos) = []
+assert drop_while(@[]<UInt>, is_pos) = []
+
+// take_while followed by drop_while reconstructs the original list.
+theorem take_while_drop_while: all T:type. all xs:List<T>. all p:fn (T)->bool.
+  take_while(xs, p) ++ drop_while(xs, p) = xs
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary p:fn (T)->bool
+    expand take_while | drop_while | operator++.
+  }
+  case node(x, xs') assume IH: all p:fn (T)->bool.
+      take_while(xs', p) ++ drop_while(xs', p) = xs' {
+    arbitrary p:fn (T)->bool
+    switch p(x) {
+      case true assume px_true {
+        equations
+          take_while(node(x, xs'), p) ++ drop_while(node(x, xs'), p)
+              = node(x, take_while(xs', p)) ++ drop_while(xs', p)
+                  by expand take_while | drop_while
+                     simplify with px_true.
+          ... = node(x, take_while(xs', p) ++ drop_while(xs', p))
+                  by expand operator++.
+          ... = node(x, xs')   by replace IH[p].
+      }
+      case false assume px_false {
+        equations
+          take_while(node(x, xs'), p) ++ drop_while(node(x, xs'), p)
+              = @empty<T> ++ node(x, xs')
+                  by expand take_while | drop_while
+                     simplify with px_false.
+          ... = node(x, xs')   by expand operator++.
+      }
+    }
+  }
+end
+
+// The lengths of the two parts sum to the length of the whole.
+theorem length_take_drop_while: all T:type. all xs:List<T>. all p:fn (T)->bool.
+  length(take_while(xs, p)) + length(drop_while(xs, p)) = length(xs)
+proof
+  arbitrary T:type, xs:List<T>, p:fn (T)->bool
+  have split: take_while(xs, p) ++ drop_while(xs, p) = xs
+    by take_while_drop_while<T>[xs][p]
+  have lenapp: length(take_while(xs, p) ++ drop_while(xs, p))
+             = length(take_while(xs, p)) + length(drop_while(xs, p))
+    by length_append<T>[take_while(xs, p), drop_while(xs, p)]
+  equations
+    length(take_while(xs, p)) + length(drop_while(xs, p))
+        = length(take_while(xs, p) ++ drop_while(xs, p))   by symmetric lenapp
+    ... = length(xs)                                       by replace split.
+end
+
+// Every element of take_while(xs, p) satisfies p.
+theorem take_while_all: all T:type. all xs:List<T>. all p:fn (T)->bool, y:T.
+  if contains(take_while(xs, p), y) then p(y)
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary p:fn (T)->bool, y:T
+    suppose cy: contains(take_while(@empty<T>, p), y)
+    conclude false  by expand take_while | contains in cy
+  }
+  case node(x, xs') assume IH: all p:fn (T)->bool, y:T.
+      if contains(take_while(xs', p), y) then p(y) {
+    arbitrary p:fn (T)->bool, y:T
+    suppose cy: contains(take_while(node(x, xs'), p), y)
+    switch p(x) {
+      case true assume px_true {
+        have cy2: contains(node(x, take_while(xs', p)), y)
+          by simplify with px_true in (expand take_while in cy)
+        have disj: x = y or contains(take_while(xs', p), y)
+          by expand contains in cy2
+        cases disj
+        case xy: x = y {
+          replace symmetric xy
+          conclude p(x)  by px_true
+        }
+        case ct: contains(take_while(xs', p), y) {
+          apply IH[p, y] to ct
+        }
+      }
+      case false assume px_false {
+        have cy2: contains(@empty<T>, y)
+          by simplify with px_false in (expand take_while in cy)
+        conclude false  by expand contains in cy2
+      }
+    }
+  }
+end
