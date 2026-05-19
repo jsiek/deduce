@@ -1,0 +1,23 @@
+import UInt
+import UIntLess
+
+theorem uint_max_zero_auto: all x:UInt.
+  max(x, 0) = x
+proof
+  arbitrary x:UInt
+  .
+end
+
+theorem uint_zero_max_auto: all x:UInt.
+  max(0, x) = x
+proof
+  arbitrary x:UInt
+  .
+end
+
+theorem uint_max_zero_chain: all x:UInt, y:UInt.
+  max(max(x, 0), max(0, y)) = max(x, y)
+proof
+  arbitrary x:UInt, y:UInt
+  .
+end
