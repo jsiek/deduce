@@ -1,0 +1,19 @@
+// Issue #634 regression: when a UInt-typed expression is reduced/expanded,
+// the printed goal must show `UInt` (the public view name), not `Binary`
+// (the private source type). The check below leaves a hole so the goal
+// is printed in the error fixture — a `Binary` substring in the fixture
+// would mean the source-type alias is leaking again.
+import UInt
+import List
+
+recursive maximum(List<UInt>) -> UInt {
+  maximum(empty) = 0
+  maximum(node(x, xs)) = max(x, maximum(xs))
+}
+
+theorem uint_view_no_binary_leak: all x:UInt. maximum([x]) = x
+proof
+  arbitrary x:UInt
+  expand maximum
+  ?
+end

@@ -773,9 +773,18 @@ class ViewDecl(Declaration):
     header = complete_name(self.name) \
       + ('<' + ','.join([name2str(t) for t in self.type_params]) + '>' \
          if len(self.type_params) > 0 else '')
+    # The view's own declaration names its underlying source type
+    # (e.g. `source Binary`); suppress the source→view-name alias so
+    # that line doesn't self-referentially print as `source UInt`.
+    push_suppress_view_alias()
+    try:
+      source_str = str(self.source)
+      target_str = str(self.target)
+    finally:
+      pop_suppress_view_alias()
     ret = 'view ' + header + ' {\n' \
-      + '  source ' + str(self.source) + '\n' \
-      + '  target ' + str(self.target) + '\n' \
+      + '  source ' + source_str + '\n' \
+      + '  target ' + target_str + '\n' \
       + '  into ' + base_name(self.into) + '\n' \
       + '  out ' + base_name(self.out) + '\n' \
       + '  roundtrip ' + base_name(self.roundtrip) + '\n' \

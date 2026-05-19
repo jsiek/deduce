@@ -81,6 +81,13 @@ def type_params_str(type_params: Sequence[str]) -> str:
     return '<' + ','.join(type_params) + '>'
   else:
     return ''
+
+def _view_source_head_name(ty: Type | VarRef) -> Optional[str]:
+  if isinstance(ty, VarRef):
+    return ty.get_name()
+  if isinstance(ty, TypeInst):
+    return _view_source_head_name(ty.typ)
+  return None
   
 @dataclass
 class AssociativeBinding(Binding):
@@ -155,6 +162,10 @@ class Env:
     new_env.dict[view.name] = ViewBinding(loc, view,
                                           module=self.get_current_module(),
                                           visibility=visibility)
+    src_head = _view_source_head_name(view.source)
+    if src_head is not None:
+      from flags import register_view_source_alias
+      register_view_source_alias(src_head, view.name)
     return new_env
   
   def declare_term_var(self, loc: Meta, name: str, typ: Type,
