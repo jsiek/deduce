@@ -1,0 +1,2 @@
+./test/should-error/undefined_pvar_did_you_intend.pf:12.3-12.13: undefined proof variable add_commut
+	did you intend: add_commute

@@ -1,0 +1,13 @@
+import NatDefs
+import NatAdd
+
+// A typo on a theorem name should produce a `did you intend: ...` hint
+// listing close edit-distance matches from the proof environment, the
+// same way `no such rule` / `rule induction: no such predicate` already
+// do for their respective error sites.
+
+theorem T: all x:Nat, y:Nat. x + y = y + x
+proof
+  arbitrary x:Nat, y:Nat
+  add_commut[x, y]
+end
