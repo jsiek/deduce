@@ -637,7 +637,7 @@ def _format_unstructured_exception(
     return f"internal error in Deduce: {msg}"
 
 
-def _format_incomplete_proof_message(formula) -> str:
+def _format_incomplete_proof_message(formula: Any) -> str:
     """Render an ``IncompleteProof`` as a one-line diagnostic.
 
     LSP diagnostic messages land in space-constrained UI: the echo
@@ -749,7 +749,7 @@ def _insert_hole(content: str, pos: Position) -> Optional[tuple[str, Position]]:
 
 
 @contextlib.contextmanager
-def _target_hole(loc):
+def _target_hole(loc: tuple[int, int]) -> Iterator[None]:
     """Tell the proof checker to raise IncompleteProof only at ``loc``.
 
     ``loc`` is a (line, column) tuple matching the hole's lark
@@ -882,7 +882,7 @@ def _goal_from_exception(
     )
 
 
-def _normalize_formula(formula_ast, env, rendered: str) -> Optional[str]:
+def _normalize_formula(formula_ast: Any, env: Any, rendered: str) -> Optional[str]:
     """Render the auto-reduced form of ``formula_ast`` under ``env``.
 
     Returns ``None`` when reduction is unavailable (missing AST or env)
@@ -1420,7 +1420,7 @@ def _collect_completion_names_from_ast(
 # ---------------------------------------------------------------------------
 
 
-def _range_from_meta(meta) -> Range:
+def _range_from_meta(meta: Any) -> Range:
     """Convert a lark ``Meta`` (or compatible duck) to a ``Range``."""
     return Range(
         start=Position(line=meta.line, column=meta.column),
@@ -1428,7 +1428,7 @@ def _range_from_meta(meta) -> Range:
     )
 
 
-def _meta_contains(meta, pos: Position) -> bool:
+def _meta_contains(meta: Any, pos: Position) -> bool:
     """Test whether 1-indexed ``pos`` falls inside the ``meta`` range.
 
     The range is inclusive-start, exclusive-end (matches lark's
@@ -1441,7 +1441,9 @@ def _meta_contains(meta, pos: Position) -> bool:
     return after_start and before_end
 
 
-def _find_reference_at(ast_nodes, pos: Position, path: str) -> Optional[str]:
+def _find_reference_at(
+    ast_nodes: Sequence[Any], pos: Position, path: str
+) -> Optional[str]:
     """Locate the smallest reference node whose range contains ``pos``.
 
     Recognises term references (``Var``, with overload resolution via
@@ -1469,7 +1471,7 @@ def _find_reference_at(ast_nodes, pos: Position, path: str) -> Optional[str]:
     best: list[Optional[str]] = [None]
     best_span: list[Optional[int]] = [None]
 
-    def visit(node):
+    def visit(node: Any) -> None:
         if isinstance(node, VarRef):
             resolved = node.get_name()
         elif isinstance(node, PVar):
@@ -1534,7 +1536,9 @@ def _meta_span(meta: Any) -> int:
     return 10_000 * (end_line - line) + end_column
 
 
-def _find_declaration(ast_nodes, target_name: str, _seen=None):
+def _find_declaration(
+    ast_nodes: Sequence[Any], target_name: str, _seen: Optional[set[str]] = None
+) -> Any:
     """Find a declaration whose uniquified ``name`` field equals
     ``target_name``.  Returns its ``Meta`` location, or ``None``.
 
@@ -1637,7 +1641,7 @@ def _walk_ast(
                     _walk_ast(item, visit, ast_class, seen)
 
 
-def _symbol_info_for(stmt, path: str) -> Optional[SymbolInfo]:
+def _symbol_info_for(stmt: Any, path: str) -> Optional[SymbolInfo]:
     """Build a ``SymbolInfo`` for a top-level statement, or ``None``
     if the node isn't a kind we surface (e.g. ``Auto``)."""
     from abstract_syntax import (
@@ -1865,7 +1869,7 @@ def _offset_to_line_col(content: str, offset: int) -> tuple[int, int]:
     return (line, offset - line_start + 1)
 
 
-def _refine_template(formula, env) -> Optional[str]:
+def _refine_template(formula: Any, env: Any) -> Optional[str]:
     """Select a refinement template based on the goal AST.
 
     Imports the AST node classes lazily so this module's import-time
@@ -1911,7 +1915,7 @@ def _refine_template(formula, env) -> Optional[str]:
     return None
 
 
-def _fresh_assume_label(env) -> str:
+def _fresh_assume_label(env: Any) -> str:
     """Return the lowest ``H<N>`` (N >= 1) not already bound in ``env``.
 
     Successive ``assume H1: ...``, ``assume H2: ...`` invocations
@@ -2106,7 +2110,7 @@ def _splittable_vars(env: Any) -> tuple[str, ...]:
     return tuple(sorted(seen))
 
 
-def _case_split_template(name: str, env) -> Optional[str]:
+def _case_split_template(name: str, env: Any) -> Optional[str]:
     """Render a switch/cases skeleton for the variable named ``name``.
 
     Looks up ``name`` in ``env`` by base name (the dict is keyed by
@@ -2160,7 +2164,7 @@ def _case_split_template(name: str, env) -> Optional[str]:
     return None
 
 
-def _cases_template(var_name: str, formula, env) -> str:
+def _cases_template(var_name: str, formula: Any, env: Any) -> str:
     """Render a ``cases <var> ...`` block for an ``Or`` formula.
 
     Each disjunct gets a fresh per-branch label so successive
@@ -2184,7 +2188,7 @@ def _cases_template(var_name: str, formula, env) -> str:
     return f"cases {var_name}\n" + "\n".join(case_lines)
 
 
-def _switch_template(var_name: str, union_def, env) -> str:
+def _switch_template(var_name: str, union_def: Any, env: Any) -> str:
     """Render a ``switch <var> { ... }`` block for a ``Union`` type.
 
     Each constructor's parameters get fresh names against the
@@ -2197,14 +2201,14 @@ def _switch_template(var_name: str, union_def, env) -> str:
 
     env_used = {base_name(k) for k in env.dict.keys()}
 
-    case_lines = []
+    case_lines: list[str] = []
     for alt in union_def.alternatives:
         cons_name = base_name(alt.name)
         # Reset per-case: each case body opens a new scope, so
         # naming conflicts only matter against the enclosing env
         # plus the other params of *this* case.
         used = set(env_used)
-        params = []
+        params: list[str] = []
         # Use the first letter of each param's type as the name stem,
         # mirroring proof_advice/gen_custom_induction_advice.
         for i, p_ty in enumerate(alt.parameters):
@@ -2225,7 +2229,7 @@ def _switch_template(var_name: str, union_def, env) -> str:
     return f"switch {var_name} {{\n" + "\n".join(case_lines) + "\n}"
 
 
-def _type_first_letter(ty) -> str:
+def _type_first_letter(ty: Any) -> str:
     """First letter of a type's printed form, lowercased.
 
     Mirrors the naming convention in ``proof_advice``: a parameter of
@@ -2308,7 +2312,7 @@ def induction_skeleton_at(
     return WorkspaceEdit(path=path, range=hole_range, new_text=template)
 
 
-def _induction_template(formula, env) -> Optional[str]:
+def _induction_template(formula: Any, env: Any) -> Optional[str]:
     """Render an ``induction T`` skeleton if ``formula`` is
     ``all x:T. P(x)`` with T a multi-alternative union."""
     from abstract_syntax import (
@@ -2340,7 +2344,9 @@ def _induction_template(formula, env) -> Optional[str]:
     return _render_induction(var_x, var_ty, body, union_def, env)
 
 
-def _render_induction(var_x, var_ty, body, union_def, env) -> str:
+def _render_induction(
+    var_x: str, var_ty: Any, body: Any, union_def: Any, env: Any
+) -> str:
     """Build the ``induction T\\n  case ... { ? }\\n  ...`` text."""
     from abstract_syntax import ResolvedVar, base_name
     # `is_recursive' and `update_all_head' live in proof_checker;
@@ -2352,11 +2358,11 @@ def _render_induction(var_x, var_ty, body, union_def, env) -> str:
     union_name = union_def.name  # uniquified, e.g. ``N.0''
     env_used = {base_name(k) for k in env.dict.keys()}
 
-    case_lines = []
+    case_lines: list[str] = []
     for alt in union_def.alternatives:
         cons_name = base_name(alt.name)
         used = set(env_used)
-        params = []  # list of (name, type) pairs for this case
+        params: list[tuple[str, Any]] = []  # (name, type) pairs for this case
         for i, p_ty in enumerate(alt.parameters):
             stem = _type_first_letter(p_ty)
             candidate = f"{stem}{i + 1}"
@@ -2544,7 +2550,7 @@ def _eliminable_vars(env: Any) -> tuple[str, ...]:
     return tuple(sorted(seen))
 
 
-def _eliminate_template(label: str, env) -> Optional[str]:
+def _eliminate_template(label: str, env: Any) -> Optional[str]:
     """Look up ``label'' in ``env'' and dispatch to the appropriate
     template.
 
@@ -2565,7 +2571,7 @@ def _eliminate_template(label: str, env) -> Optional[str]:
 
 
 def _eliminate_template_for_formula(
-    formula, binding_name: str, env, dry_run: bool
+    formula: Any, binding_name: str, env: Any, dry_run: bool
 ) -> Optional[str]:
     """Pick a template for ``formula''.
 
@@ -2627,7 +2633,7 @@ def _fresh_h_labels(env: Any, count: int) -> list[str]:
     """Generate ``count`` fresh ``H<N>``-style labels not in env."""
     from abstract_syntax import base_name
     used = {base_name(k) for k in env.dict.keys()}
-    out = []
+    out: list[str] = []
     n = 1
     for _ in range(count):
         while f"H{n}" in used:
@@ -2638,7 +2644,7 @@ def _fresh_h_labels(env: Any, count: int) -> list[str]:
     return out
 
 
-def _eliminate_and(label: str, formula, env) -> str:
+def _eliminate_and(label: str, formula: Any, env: Any) -> str:
     """``have h1: P by conjunct 1 of H\\nhave h2: Q by conjunct 2
     of H\\n?''"""
     labels = _fresh_h_labels(env, len(formula.args))
@@ -2650,7 +2656,7 @@ def _eliminate_and(label: str, formula, env) -> str:
     return "\n".join(lines)
 
 
-def _eliminate_or(label: str, formula, env) -> str:
+def _eliminate_or(label: str, formula: Any, env: Any) -> str:
     """``cases H\\n  case h1: P { ? }\\n  case h2: Q { ? } ...''"""
     from abstract_syntax import base_name
 
@@ -2669,13 +2675,13 @@ def _eliminate_or(label: str, formula, env) -> str:
     return f"cases {label}\n" + "\n".join(case_lines)
 
 
-def _eliminate_ifthen(label: str, formula, env) -> str:
+def _eliminate_ifthen(label: str, formula: Any, env: Any) -> str:
     """``have h: Q by apply H to ?\\n?''"""
     h = _fresh_h_labels(env, 1)[0]
     return f"have {h}: {formula.conclusion} by apply {label} to ?\n?"
 
 
-def _eliminate_all(label: str, formula, env) -> str:
+def _eliminate_all(label: str, formula: Any, env: Any) -> str:
     """``H[?, ?, ...]'' (term args) or ``H<?, ?, ...>'' (type args).
 
     Handles a single all-block: ``all x:T1, y:T2. P'' yields
@@ -2684,7 +2690,7 @@ def _eliminate_all(label: str, formula, env) -> str:
     """
     from abstract_syntax import All, TypeType
 
-    vars_in_block = []
+    vars_in_block: list[tuple[str, Any]] = []
     cur = formula
     while isinstance(cur, All):
         x, ty = cur.var
@@ -2705,13 +2711,13 @@ def _eliminate_all(label: str, formula, env) -> str:
     return f"{label}{open_b}{placeholders}{close_b}"
 
 
-def _eliminate_some(label: str, formula, env) -> str:
+def _eliminate_some(label: str, formula: Any, env: Any) -> str:
     """``obtain x1, ... where h: <body[subst]> from H\\n?''"""
     from abstract_syntax import ResolvedVar, base_name
 
     used = {base_name(k) for k in env.dict.keys()}
-    fresh_witnesses = []
-    sub = {}
+    fresh_witnesses: list[str] = []
+    sub: dict[str, Any] = {}
     for (x, ty) in formula.vars:
         stem = _type_first_letter(ty)
         n = 1
@@ -2849,7 +2855,7 @@ def matching_givens_at(
     return _matching_given_names(goal, env)
 
 
-def _implies(frm1, frm2) -> bool:
+def _implies(frm1: Any, frm2: Any) -> bool:
     """Side-effect-free wrapper around ``proof_checker.check_implies``.
 
     ``check_implies`` raises ``UserError`` (or ``MatchFailed``) on failure
@@ -2901,7 +2907,7 @@ def _matching_given_names(goal: Any, env: Any) -> tuple[str, ...]:
     return tuple(sorted(exact)) + tuple(sorted(implies))
 
 
-def _fill_from_given_template(label: str, goal, env) -> Optional[str]:
+def _fill_from_given_template(label: str, goal: Any, env: Any) -> Optional[str]:
     """Return a proof of ``goal`` using ``label`` when ``label`` names
     a local proof binding in ``env`` whose formula equals or implies
     ``goal``.
@@ -3513,7 +3519,7 @@ def _collect_lemmas_in_scope(
     return tuple(out)
 
 
-def _lemma_info_for(stmt, public_only: bool = False) -> Optional[LemmaInfo]:
+def _lemma_info_for(stmt: Any, public_only: bool = False) -> Optional[LemmaInfo]:
     """Build a :class:`LemmaInfo` from a top-level statement, or
     ``None`` if the node isn't surfaced (``Import``, etc.).
 
@@ -3701,7 +3707,7 @@ def _collect_lemma_candidates(
     seen_modules: set[str] = set()
 
     def _collect_from_module(
-        module_ast, module_name: str, importer
+        module_ast: Optional[Sequence[Any]], module_name: str, importer: Any
     ) -> None:
         if module_ast is None:
             return
@@ -3910,7 +3916,7 @@ def _goal_tokens(text: Optional[str]) -> frozenset[str]:
     return frozenset(tokens)
 
 
-def _formula_head_symbol(formula) -> Optional[str]:
+def _formula_head_symbol(formula: Any) -> Optional[str]:
     """Head operator of a lemma's formula (peeling outer ``All`` and
     ``IfThen``).  Returns the rator's base name for a ``Call``, or a
     string token for non-Call shapes (``and``/``or``/``not``/etc.).
@@ -3958,9 +3964,9 @@ def _formula_symbols(formula: Any) -> frozenset[str]:
         AST, And, Bool, Call, IfThen, Or, TermInst, VarRef, base_name,
     )
 
-    out = set()
+    out: set[str] = set()
 
-    def visit(node):
+    def visit(node: Any) -> None:
         if isinstance(node, Call):
             rator = node.rator
             if isinstance(rator, TermInst):
@@ -4291,9 +4297,9 @@ def _preview_replace(
     name: str,
     is_symmetric: bool,
     original_input: str,
-    formula,
-    env,
-    loc,
+    formula: Any,
+    env: Any,
+    loc: Any,
 ) -> RewritePreview:
     """Look up ``name`` and apply the rewrite (or report a structured
     failure). ``loc`` is the hole's source location, used for the
@@ -4563,7 +4569,7 @@ def auto_rules_at(
     return tuple(rules)
 
 
-def _meta_at_or_before(meta, pos: Position) -> bool:
+def _meta_at_or_before(meta: Any, pos: Position) -> bool:
     """True iff ``meta`` starts at or before 1-indexed ``pos``.
 
     Empty/missing meta counts as "before" so we don't drop a rule
@@ -4578,7 +4584,9 @@ def _meta_at_or_before(meta, pos: Position) -> bool:
     return False
 
 
-def _auto_rule_from_stmt(stmt, module_name: str, formula_by_name) -> "AutoRule":
+def _auto_rule_from_stmt(
+    stmt: Any, module_name: str, formula_by_name: dict[str, Any]
+) -> "AutoRule":
     """Render an ``Auto`` AST node into an :class:`AutoRule`.
 
     ``Auto.name`` is a ``PVar`` (or compatible proof reference) whose

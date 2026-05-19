@@ -155,6 +155,7 @@ module = [
     "lsp.debugger",
     "lsp.dap_server",
     "lsp.library",
+    "lsp.query",
     "claude_fill_hole.__main__",
     "claude_fill_hole.agent",
     "claude_fill_hole.anthropic_backend",
@@ -218,16 +219,6 @@ implicit_reexport = true
 # and disallow_untyped_defs once their larger error sets are fixed.
 [[tool.mypy.overrides]]
 module = ["parser"]
-disallow_any_generics = true
-disallow_untyped_calls = true
-warn_return_any = true
-
-# lsp/query.py is being ratcheted in slices for #506. The return,
-# untyped-call, checked-body, and generic checks are clean; a later pass
-# should add the untyped-def flags once their larger error sets are fixed.
-[[tool.mypy.overrides]]
-module = ["lsp.query"]
-check_untyped_defs = true
 disallow_any_generics = true
 disallow_untyped_calls = true
 warn_return_any = true
