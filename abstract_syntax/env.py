@@ -27,7 +27,7 @@ from .proofs import *
 from .declarations import *
 
 if TYPE_CHECKING:
-    from .literals import split_equation
+    from .literals import AutoRewriteRule, split_auto_rule
     from .rewrite import call_head_name
 
 @dataclass(kw_only=True)
@@ -61,12 +61,12 @@ class ProofBinding(Binding):
 
 @dataclass
 class AutoEquationBinding(Binding):
-  equations : dict[str, list[Formula]]
-  fallback_equations : list[Formula] = field(default_factory=list)
+  equations : dict[str, list[AutoRewriteRule]]
+  fallback_equations : list[AutoRewriteRule] = field(default_factory=list)
   
   def __str__(self) -> str:
     head_equations = [e for equations in self.equations.values() for e in equations]
-    return ', '.join([str(e) for e in head_equations + self.fallback_equations])
+    return ', '.join([str(e.equation) for e in head_equations + self.fallback_equations])
 
 @dataclass
 class ViewBinding(Binding):
@@ -181,10 +181,13 @@ class Env:
     return new_env
 
   def declare_auto_rewrite(self, loc: Meta, equation: Formula) -> Env:
+    from .literals import split_auto_rule
+    from .rewrite import call_head_name
+
     new_env = Env(self.dict)
     full_name = '__auto__'
-    (lhs,rhs) = split_equation(loc, equation, new_env)
-    head_lhs = call_head_name(lhs)
+    rule = split_auto_rule(loc, equation, new_env)
+    head_lhs = call_head_name(rule.lhs)
     #print('declare auto: ' + head_lhs + '\n\t' + str(equation))
     if full_name in self.dict:
         old = cast(AutoEquationBinding, self.dict[full_name])
@@ -195,15 +198,15 @@ class Env:
         new_equations = {}
         new_fallback_equations = []
     if head_lhs is None:
-        new_fallback_equations.append(equation)
+        new_fallback_equations.append(rule)
     else:
-        new_equations.setdefault(head_lhs, []).append(equation)
+        new_equations.setdefault(head_lhs, []).append(rule)
     new_env.dict[full_name] = AutoEquationBinding(loc, new_equations,
                                                   new_fallback_equations,
                                                   module=self.get_current_module())
     return new_env
 
-  def get_auto_rewrites(self, head: str | None) -> list[Formula]:
+  def get_auto_rewrites(self, head: str | None) -> list[AutoRewriteRule]:
     full_name = '__auto__'
     if full_name in self.dict.keys():
         binding = cast(AutoEquationBinding, self.dict[full_name])

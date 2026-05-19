@@ -1,0 +1,13 @@
+import Nat
+
+union Token {
+  tok(Nat)
+}
+
+postulate tok_when_false: if false then tok(zero) = tok(suc(zero))
+auto tok_when_false
+
+theorem conditional_auto_does_not_fire: tok(zero) = tok(suc(zero))
+proof
+  .
+end

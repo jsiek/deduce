@@ -449,6 +449,17 @@ auto uint_zero_mult
 From here on, anytime Deduce sees a term containing a `0` multiplied by
 something, Deduce replaces it with `0`.
 
+An `auto` theorem may also have premises:
+
+```
+theorem reduce_when_small: all x:Nat. if x < 5 then f(x) = 0
+```
+
+Deduce uses such a conditional equation only when each premise, after
+substituting the matched terms, reduces to `true` using the unconditional
+`auto` rules already in scope. Conditional `auto` rules are not used
+while checking those premises.
+
 Some care is needed when selecting equations for use with `auto`.  For
 example, we do **not** register the `uint_mult_commute` theorem with
 `auto` because that would cause Deduce to go into an infinite loop.

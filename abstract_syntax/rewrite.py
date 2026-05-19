@@ -281,19 +281,25 @@ def get_num_rewrites() -> int:
     global num_rewrites
     return num_rewrites
 
+def _rule_lhs(equation: Formula | AutoRewriteRule, env: Env) -> Term:
+  if isinstance(equation, AutoRewriteRule):
+    return equation.lhs
+  lhs, _ = split_equation(equation.location, equation, env)
+  return lhs
+
 @overload
-def rewrite_aux(loc: Meta, formula: Formula, equation: Formula, env: Env,
+def rewrite_aux(loc: Meta, formula: Formula, equation: Formula | AutoRewriteRule, env: Env,
                 depth: int = -1) -> Formula: ...
 
 @overload
-def rewrite_aux(loc: Meta, formula: Term, equation: Formula, env: Env,
+def rewrite_aux(loc: Meta, formula: Term, equation: Formula | AutoRewriteRule, env: Env,
                 depth: int = -1) -> Term: ...
 
 @overload
-def rewrite_aux(loc: Meta, formula: SwitchCase, equation: Formula, env: Env,
+def rewrite_aux(loc: Meta, formula: SwitchCase, equation: Formula | AutoRewriteRule, env: Env,
                 depth: int = -1) -> SwitchCase: ...
 
-def rewrite_aux(loc: Meta, formula: Term | SwitchCase, equation: Formula,
+def rewrite_aux(loc: Meta, formula: Term | SwitchCase, equation: Formula | AutoRewriteRule,
                 env: Env, depth: int = -1) -> Term | SwitchCase:
   if depth == 0:
       return formula
@@ -338,7 +344,7 @@ def rewrite_aux(loc: Meta, formula: Term | SwitchCase, equation: Formula,
       if rewrite_debug and get_verbose():
           print('while trying to rewrite ' + str(formula) + '\n\twith equation ' + str(equation))
           print('new_args: ' + ', '.join([str(arg) for arg in new_args]))
-      (lhs,rhs) = split_equation(loc2, equation, env)
+      lhs = _rule_lhs(equation, env)
       arity = call_arity(lhs)
       if get_verbose():
           print('lhs = ' + str(lhs) + '\n\tarity: ' + str(arity)) 
@@ -430,21 +436,48 @@ def rewrite_aux(loc: Meta, formula: Term | SwitchCase, equation: Formula,
 def try_rewrite(
     loc: Meta,
     formula: Term | SwitchCase,
-    equation: Formula,
+    equation: Formula | AutoRewriteRule,
     env: Env,
 ) -> Term:
-  (lhs, rhs) = split_equation(loc, equation, env)
+  if isinstance(equation, AutoRewriteRule):
+    rule = equation
+  else:
+    lhs, rhs = split_equation(loc, equation, env)
+    rule = AutoRewriteRule(equation, equation_vars(equation), [], lhs, rhs)
   if rewrite_debug and get_verbose():
-      print('try rewrite? ' + str(formula) + '\n\twith equation ' + str(equation))
+      print('try rewrite? ' + str(formula) + '\n\twith equation ' + str(rule.equation))
   matching: dict[str, Term] = {}
-  eq_vars = equation_vars(equation)
-  formula_match(loc, eq_vars, lhs, formula, matching, Env())
+  formula_match(loc, rule.variables, rule.lhs, formula, matching, Env())
+  for premise in rule.premises:
+      instantiated = premise.substitute(matching)
+      if not premise_holds(cast(Formula, instantiated), env):
+          if rewrite_debug and get_verbose():
+              print('\tpremise did not normalize to true: ' + str(instantiated))
+          match_failed(
+            loc,
+            'conditional rewrite premise did not normalize to true: ' + str(instantiated),
+          )
+      if rewrite_debug and get_verbose():
+          print('\tpremise normalized to true: ' + str(instantiated))
   # print('rewriting using: ' + str(equation) + '\n' \
   #       + '\t' + str(formula) \
   #       + '\t==> ' + str(rhs.substitute(matching)) + '\n')
   if rewrite_debug and get_verbose():
-      print('\tmatched LHS, rewriting to the RHS: ' + str(rhs.substitute(matching)))
-  return cast(Term, rhs.substitute(matching).reduce(env))
+      print('\tmatched LHS, rewriting to the RHS: ' + str(rule.rhs.substitute(matching)))
+  return cast(Term, rule.rhs.substitute(matching).reduce(env))
+
+def premise_holds(premise: Formula, env: Env) -> bool:
+    old_reduce_all = get_reduce_all()
+    old_eval_all = get_eval_all()
+    try:
+      set_reduce_all(True)
+      set_eval_all(True)
+      normalized = premise.reduce(env)
+    finally:
+      set_eval_all(old_eval_all)
+      set_reduce_all(old_reduce_all)
+    rewritten = auto_rewrites(normalized, env, include_conditionals=False)
+    return is_true(cast(Formula, rewritten))
 
 def formula_match(
     loc: Meta,
@@ -572,7 +605,7 @@ def call_head_name(term: Term) -> str | None:
       case _:
           return None
     
-def auto_rewrites(term: Term, env: Env) -> Term:
+def auto_rewrites(term: Term, env: Env, include_conditionals: bool = True) -> Term:
     # Iterate until we can't rewrite anymore (to a fixed point)
     while True:
         current = get_num_rewrites()
@@ -580,6 +613,8 @@ def auto_rewrites(term: Term, env: Env) -> Term:
         equations = env.get_auto_rewrites(call_head_name(term))
         # Rewrite using the first equation that matches 
         for eq in equations:
+            if eq.premises and not include_conditionals:
+                continue
             current_eq = get_num_rewrites()
             term = rewrite_aux(term.location, term, eq, env, 1)
             if current_eq < get_num_rewrites():

@@ -1,0 +1,5 @@
+./test/should-error/nat_div_false_postulate_counterexample.pf:5.3-5.4: 
+You provided a proof of:
+	true
+but that is different from what you need to prove:
+	ℕ2 = ℕ0
