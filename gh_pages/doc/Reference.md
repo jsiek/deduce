@@ -1083,8 +1083,8 @@ To add type parameters to a function (to make it generic), see
 
 ## Function (Statement)
 
-```
-statement ::= visibility "fun" identifier type_params_opt "(" variable_list ")" "{" term "}"
+```deduce-grammar
+function ::= visibility "fun" identifier type_params_opt "(" variable_list ")" "{" term "}"
 ```
 
 The `fun` statement is for defining a function (non-recursive).
@@ -1347,10 +1347,11 @@ end
 
 ## Import (Statement)
 
-```
-statement ::= "import" identifier
-            | "import" identifier "using"  identifier ("|" identifier)*
-            | "import" identifier "hiding" identifier ("|" identifier)*
+```deduce-grammar
+import ::= visibility "import" IDENT
+import ::= visibility "import" IDENT "using" import_filter_list
+import ::= visibility "import" IDENT "hiding" import_filter_list
+import_filter_list ::= identifier ("|" identifier)*
 ```
 
 Import all of the definitions and theorems from the specified file
@@ -1437,8 +1438,8 @@ For induction over an inductively-defined predicate (rather than a
 union type), see [`rule induction`](#rule-induction-proof).
 
 ## Inductive (Statement)
-```
-inductive_decl: "inductive" type "by" proof
+```deduce-grammar
+inductive_decl ::= "inductive" type "by" proof_hi
 ```
 
 The `inductive` statement allows you to declare custom inductive structure
@@ -1913,8 +1914,8 @@ that finishes with a [conclusion](#conclusion-proof).
 
 ## Proof List
 
-```
-proof_list :: proof 
+```deduce-grammar
+proof_list ::= proof
 proof_list ::= proof "|" proof_list
 ```
 
@@ -1943,9 +1944,11 @@ with a [Conclusion](#conclusion-proof) (not a proof statement).
 
 ## Predicate (Statement)
 
-```
-statement ::= visibility "predicate" identifier type_params_opt ":" type "{" rule* "}"
-rule ::= identifier ":" formula
+```deduce-grammar
+predicate_declaration ::= visibility "predicate" identifier type_params_opt ":" type "{" predicate_rule_list "}"
+predicate_rule ::= IDENT ":" term
+predicate_rule_list ::= ε
+predicate_rule_list ::= predicate_rule predicate_rule_list
 ```
 
 The `predicate` statement defines an inductively-defined set: the
@@ -2048,9 +2051,9 @@ well as some advice about how to prove it.
 
 ## Reason
 
-```
+```deduce-grammar
 reason ::= "by" proof
-reason ::= "begin" proof "end"
+reason ::= "proof" proof "end"
 ```
 
 ## Recall (Proof)
@@ -2115,8 +2118,8 @@ can use a `switch` statement.
 
 ## Relation (Statement)
 
-```
-statement ::= visibility "relation" identifier type_params_opt ":" type "{" rule* "}"
+```deduce-grammar
+relation_declaration ::= visibility "relation" identifier type_params_opt ":" type "{" predicate_rule_list "}"
 ```
 
 `relation` is an exact synonym for [`predicate`](#predicate-statement).
@@ -2855,17 +2858,8 @@ optionally be annotated with its type.
 
 ## View (Statement)
 
-```
-statement ::= visibility "view" identifier type_params_opt "{"
-                "source" type
-                "target" type
-                "into" identifier
-                "out" identifier
-                "roundtrip" identifier
-              "}"
-
-statement ::= visibility "recursive" identifier type_params_opt "(" type_list ")"
-                "->" type "{" fun_case+ "}"
+```deduce-grammar
+view_declaration ::= visibility "view" IDENT type_params_opt "{" "source" type "target" type "into" identifier "out" identifier "roundtrip" identifier "}"
 ```
 
 A `view` declaration describes how to pattern match on a value through
