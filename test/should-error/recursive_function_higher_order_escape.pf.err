@@ -1,0 +1,1 @@
+./test/should-error/recursive_function_higher_order_escape.pf:14.54-14.62: the name 'is_valid' of a recursive function may only appear as the operator of a function call within its own body
