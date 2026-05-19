@@ -108,7 +108,7 @@ Use these when `apply lemma to p` doesn't typecheck because `p` is a wider conju
 
 8. **Views need their law before use.** A `view` declaration checks the supplied `roundtrip` theorem exactly. For a target type `T`, prove `all v:T. into(out(v)) = v` before the `view` declaration; for generic views, quantify type parameters first.
 
-9. **`switch P` on a boolean introduces asymmetric assumptions.** `case true assume h { ... }` makes `h : P` available — an equation usable in `replace`. `case false assume h { ... }` makes `h : not P` available — a *negation*, not an equation — so `replace h` fails with "expected an equation". Use `simplify with h` in the false branch (it substitutes `P` with `false` and reduces). Also: the introduced formula is `P` (resp. `not P`), not `P = true` (resp. `P = false`) — annotating `assume h: P = true` will fail to match the expected assumption.
+9. **`switch P` on a boolean introduces asymmetric assumptions.** `case true assume h { ... }` makes `h : P` available; `case false assume h { ... }` makes `h : not P` available. `simplify with h` works in both branches (it substitutes `P` with `true` or `false` and reduces). If `P` is itself an equation `a = b`, you may also use `replace h` in the `case true` branch; for any other boolean (a predicate call, `≤`, etc.), `replace h` fails with "expected an equation" and you should use `simplify with h`. Also: the introduced formula is `P` (resp. `not P`), not `P = true` (resp. `P = false`) — annotating `assume h: P = true` will fail to match the expected assumption.
 
 ## Working tips
 
