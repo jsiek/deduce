@@ -385,7 +385,7 @@ def parse_tree_to_ast(e: Any, parent: Any) -> Any:
     elif e.data == 'push_proof':
         proof_stmt = parse_tree_to_ast(e.children[0], e)
         if len(e.children) == 1:
-            meta: Any = Meta()  # type: ignore[no-untyped-call]
+            meta: Any = Meta()  # type: ignore[no-untyped-call,unused-ignore]
             meta.empty = False
             meta.filename = e.meta.filename
             meta.line = e.meta.end_line+1
