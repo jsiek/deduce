@@ -82,6 +82,15 @@ def _instantiate_view_type(loc: Any, typ: Any, env: Any) -> Any:
   import checker_pipeline
   return checker_pipeline._instantiate_view_type(loc, typ, env)
 
+def _is_generic_unknown_argument(arg: Any, env: Env) -> bool:
+  match arg:
+    case Mark(_, _, subject):
+      return _is_generic_unknown_argument(subject, env)
+    case OverloadedVar(_, _, _) | ResolvedVar(_, _, _):
+      return isinstance(env.get_type_of_term_var(arg), GenericUnknownInst)
+    case _:
+      return False
+
 def type_check_call_funty(loc: Meta, new_rator: Any, args: list[Any], env: Env, recfun: Any, subterms: Any, ret_ty: Any,
                           call: Any, typarams: list[Any], param_types: list[Any], return_type: Any) -> Any:
   assoc_name = callable_name(new_rator)
@@ -128,8 +137,9 @@ def type_check_call_funty(loc: Meta, new_rator: Any, args: list[Any], env: Env, 
     # then we can check the term. Otherwise, we synthesize the term's type
     # and match it against the parameter type.
     try:
-      new_args = []
-      for (arg, param_ty) in zip(args, param_types):
+      checked_args: list[Any] = [None] * len(args)
+      delayed_args = []
+      for index, (arg, param_ty) in enumerate(zip(args, param_types)):
           param_type = param_ty.substitute(matching)
           fvs = param_type.free_vars()\
                           .intersection(set([ty.name for ty in type_params]))
@@ -139,10 +149,24 @@ def type_check_call_funty(loc: Meta, new_rator: Any, args: list[Any], env: Env, 
             print('fvs = ' + ', '.join([base_name(x) for x in fvs]) + '\n')
           if len(fvs) == 0:
             new_arg = type_check_term(arg, param_type, env, recfun, subterms)
+          elif _is_generic_unknown_argument(arg, env):
+            delayed_args.append((index, arg, param_ty))
+            continue
           else:
             new_arg = type_synth_term(arg, env, recfun, subterms)
             type_match(loc, type_params, param_type, new_arg.typeof, matching)
-          new_args.append(new_arg)
+          checked_args[index] = new_arg
+
+      for (index, arg, param_ty) in delayed_args:
+          param_type = param_ty.substitute(matching)
+          fvs = param_type.free_vars()\
+                          .intersection(set([ty.name for ty in type_params]))
+          if len(fvs) == 0:
+            new_arg = type_check_term(arg, param_type, env, recfun, subterms)
+          else:
+            new_arg = type_synth_term(arg, env, recfun, subterms)
+            type_match(loc, type_params, param_type, new_arg.typeof, matching)
+          checked_args[index] = new_arg
     except (UserError, MatchFailed) as e:
         context = '\n\n\t' + 'in context of call ' + str(call) + '\n' \
             + '\tfunction type: ' + str(FunctionType(loc, typarams, param_types,
@@ -164,7 +188,7 @@ def type_check_call_funty(loc: Meta, new_rator: Any, args: list[Any], env: Env, 
     inst_return_type = return_type.substitute(matching)
     inst_funty = FunctionType(loc, [], inst_params, inst_return_type)
     inst_rator = TermInst(loc, inst_funty, new_rator, type_args, True)
-    ret = Call(loc, inst_return_type, inst_rator, new_args)
+    ret = Call(loc, inst_return_type, inst_rator, checked_args)
     # print('{{{ type deduction for call: ' + str(ret))
     # print('arg_types: ' + ', '.join([str(arg.typeof) for arg in new_args]))
     # print(', '.join([x + ' = ' + str(t) for (x,t) in matching.items()]))

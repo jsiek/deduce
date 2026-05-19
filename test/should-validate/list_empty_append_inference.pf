@@ -1,0 +1,9 @@
+import List
+
+theorem t: all T:type. all x:T, xs:List<T>.
+  empty ++ node(x, xs) = node(x, xs)
+proof
+  arbitrary T:type
+  arbitrary x:T, xs:List<T>
+  expand operator++.
+end
