@@ -125,6 +125,7 @@ proof
              ... = ℕ1                 by .
              ... = #toNat(1)#         by { replace uint_toNat_fromNat. }
 end
+auto uint_one_expt
 
 theorem uint_pow_add_r : all m:UInt, n:UInt, o:UInt.
   m^(n + o) = m^n * m^o
@@ -173,6 +174,156 @@ proof
   symmetric uint_pow_mul_r[fromNat(lit(m)), fromNat(lit(n)), o]
 end
 auto lit_pow_mul_r
+
+theorem uint_pow_pos: all a:UInt, b:UInt. if 0 < a then 0 < a^b
+proof
+  arbitrary a:UInt, b:UInt
+  assume a_pos
+  have zero_nat: toNat((0:UInt)) = zero by evaluate
+  have a_pos_nat: zero < toNat(a) by {
+    have h: toNat((0:UInt)) < toNat(a) by apply toNat_less to a_pos
+    replace zero_nat in h
+  }
+  apply less_toNat[0, a^b] to {
+    replace zero_nat | toNat_expt
+    apply pow_pos_nonneg[toNat(b), toNat(a)] to a_pos_nat
+  }
+end
+
+theorem uint_zero_pow: all a:UInt. if 0 < a then (0:UInt)^a = 0
+proof
+  arbitrary a:UInt
+  assume a_pos
+  have zero_nat: toNat((0:UInt)) = zero by evaluate
+  have a_pos_nat: zero < toNat(a) by {
+    have h: toNat((0:UInt)) < toNat(a) by apply toNat_less to a_pos
+    replace zero_nat in h
+  }
+  suffices toNat((0:UInt)^a) = toNat((0:UInt)) by uint_toNat_injective
+  replace toNat_expt | zero_nat
+  apply pow_zero_l to a_pos_nat
+end
+
+theorem uint_pow_eq_zero: all m:UInt, n:UInt. if m^n = 0 then m = 0
+proof
+  arbitrary m:UInt, n:UInt
+  assume eq
+  have zero_nat: toNat((0:UInt)) = zero by evaluate
+  have h: toNat(m)^toNat(n) = zero by {
+    have h0: toNat(m^n) = toNat((0:UInt)) by replace eq.
+    replace toNat_expt | zero_nat in h0
+  }
+  have m_zero_nat: toNat(m) = zero by apply pow_eq_zero[toNat(n), toNat(m)] to h
+  suffices toNat(m) = toNat((0:UInt)) by uint_toNat_injective
+  replace zero_nat m_zero_nat
+end
+
+theorem uint_pow_eq_one: all m:UInt, n:UInt. if m^n = 1 then n = 0 or m = 1
+proof
+  arbitrary m:UInt, n:UInt
+  assume eq
+  have zero_nat: toNat((0:UInt)) = zero by evaluate
+  have one_nat: toNat((1:UInt)) = suc(zero) by evaluate
+  have h: toNat(m)^toNat(n) = suc(zero) by {
+    have h0: toNat(m^n) = toNat((1:UInt)) by replace eq.
+    replace toNat_expt | one_nat in h0
+  }
+  have disj: toNat(n) = zero or toNat(m) = suc(zero)
+    by apply exp_one_implies_zero_or_one[toNat(m), toNat(n)] to h
+  cases disj
+  case nz: toNat(n) = zero {
+    have n_z: n = 0 by {
+      suffices toNat(n) = toNat((0:UInt)) by uint_toNat_injective
+      replace zero_nat nz
+    }
+    n_z
+  }
+  case mo: toNat(m) = suc(zero) {
+    have m_o: m = 1 by {
+      suffices toNat(m) = toNat((1:UInt)) by uint_toNat_injective
+      replace one_nat mo
+    }
+    m_o
+  }
+end
+
+theorem uint_pow_lt_mono_l: all c:UInt, a:UInt, b:UInt.
+  if 0 < c then if a < b then a^c < b^c
+proof
+  arbitrary c:UInt, a:UInt, b:UInt
+  assume c_pos
+  assume a_lt_b
+  have zero_nat: toNat((0:UInt)) = zero by evaluate
+  have c_pos_nat: zero < toNat(c) by {
+    have h: toNat((0:UInt)) < toNat(c) by apply toNat_less to c_pos
+    replace zero_nat in h
+  }
+  have a_lt_b_nat: toNat(a) < toNat(b) by apply toNat_less to a_lt_b
+  apply less_toNat[a^c, b^c] to {
+    replace toNat_expt
+    apply (apply pow_lt_mono_l[toNat(c), toNat(a), toNat(b)] to c_pos_nat) to a_lt_b_nat
+  }
+end
+
+theorem uint_pow_le_mono_l: all c:UInt, a:UInt, b:UInt.
+  if a ≤ b then a^c ≤ b^c
+proof
+  arbitrary c:UInt, a:UInt, b:UInt
+  assume a_le_b
+  have a_le_b_nat: toNat(a) ≤ toNat(b) by apply toNat_less_equal to a_le_b
+  apply less_equal_toNat[a^c, b^c] to {
+    replace toNat_expt
+    apply pow_le_mono_l[toNat(c), toNat(a), toNat(b)] to a_le_b_nat
+  }
+end
+
+theorem uint_pow_lt_mono_r: all c:UInt, a:UInt, b:UInt.
+  if 1 < a then if b < c then a^b < a^c
+proof
+  arbitrary c:UInt, a:UInt, b:UInt
+  assume one_lt_a
+  assume b_lt_c
+  have one_nat: toNat((1:UInt)) = suc(zero) by evaluate
+  have one_lt_a_nat: suc(zero) < toNat(a) by {
+    have h: toNat((1:UInt)) < toNat(a) by apply toNat_less to one_lt_a
+    replace one_nat in h
+  }
+  have b_lt_c_nat: toNat(b) < toNat(c) by apply toNat_less to b_lt_c
+  apply less_toNat[a^b, a^c] to {
+    replace toNat_expt
+    apply (apply pow_lt_mono_r[toNat(c), toNat(a), toNat(b)] to one_lt_a_nat) to b_lt_c_nat
+  }
+end
+
+theorem uint_pow_le_mono_r: all c:UInt, a:UInt, b:UInt.
+  if 1 ≤ a then if b ≤ c then a^b ≤ a^c
+proof
+  arbitrary c:UInt, a:UInt, b:UInt
+  assume one_le_a
+  assume b_le_c
+  have tri: b < c or b = c by expand operator≤ in b_le_c
+  cases tri
+  case b_lt_c: b < c {
+    have one_or: 1 < a or 1 = a by expand operator≤ in one_le_a
+    cases one_or
+    case one_lt_a: 1 < a {
+      have lt: a^b < a^c by apply (apply uint_pow_lt_mono_r[c, a, b] to one_lt_a) to b_lt_c
+      apply uint_less_implies_less_equal to lt
+    }
+    case one_eq_a: 1 = a {
+      have a_pow: all k:UInt. a^k = 1 by {
+        arbitrary k:UInt
+        replace symmetric one_eq_a
+        uint_one_expt
+      }
+      replace a_pow[b] | a_pow[c]
+      uint_less_equal_refl
+    }
+  }
+  case b_eq_c: b = c {
+    conclude a^b ≤ a^c by replace b_eq_c uint_less_equal_refl
+  }
+end
 
 lemma pow_cnt_dubs_le_inc: all n:UInt. 2 ^ cnt_dubs(n) ≤ inc(n)
 proof
@@ -284,7 +435,24 @@ proof
   }
   expand P in apply uint_induction[P] to base, step
 end
-  
+
+theorem uint_log_zero: log((0:UInt)) = 0
+proof
+  evaluate
+end
+auto uint_log_zero
+
+theorem uint_log_one: log((1:UInt)) = 0
+proof
+  evaluate
+end
+auto uint_log_one
+
+theorem uint_log_two: log((2:UInt)) = 1
+proof
+  evaluate
+end
+
 theorem uint_expt_log_less_equal: all n:UInt. if 0 < n then 2^log(n) ≤ n
 proof
   arbitrary n:UInt
@@ -640,16 +808,12 @@ proof
   cases uint_zero_or_positive[m]
   case m_zero: m = 0 {
     replace m_zero
-    have logz: log((0:UInt)) = 0 by evaluate
-    replace logz
     uint_zero_le[1 + log(n)]
   }
   case m_pos: 0 < m {
     cases uint_zero_or_positive[n]
     case n_zero: n = 0 {
       replace n_zero
-      have logz: log((0:UInt)) = 0 by evaluate
-      replace logz
       uint_zero_le[1 + log(m) + 0]
     }
     case n_pos: 0 < n {
