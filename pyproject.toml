@@ -215,10 +215,12 @@ module = ["abstract_syntax.*"]
 implicit_reexport = true
 
 # parser.py is also being ratcheted in small strictness slices for #506.
-# These cheap flags are clean; later passes should add check_untyped_defs
-# and disallow_untyped_defs once their larger error sets are fixed.
+# These flags are clean; the remaining strict bit is check_untyped_defs,
+# which currently reports ~255 errors and needs a wider pass.
 [[tool.mypy.overrides]]
 module = ["parser"]
 disallow_any_generics = true
 disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
 warn_return_any = true
