@@ -653,7 +653,9 @@ proof
     replace (apply uint_less_equal_zero to x_le_0).
   }
 end
-  
+
+auto uint_zero_max
+
 theorem uint_max_symmetric: all x:UInt, y:UInt. max(x,y) = max(y,x)
 proof
   arbitrary x:UInt, y:UInt
@@ -679,6 +681,8 @@ proof
   replace uint_max_symmetric[x]
   uint_zero_max
 end
+
+auto uint_max_zero
 
 theorem uint_max_assoc: all x:UInt, y:UInt,z:UInt. max(max(x, y), z) = max(x, max(y, z))
 proof
