@@ -366,8 +366,8 @@ end
 
 ## Assert (Statement)
 
-```
-statement ::= "assert" term
+```deduce-grammar
+assert ::= "assert" term
 ```
 
 The `assert` statement evaluates a term and reports an error if the
@@ -428,8 +428,8 @@ See the entry for [Instantiation](#instantiation-term).
 
 ## Auto `auto` (Automatic Reduction)
 
-```
-statement ::= "auto" identifier
+```deduce-grammar
+auto_declaration ::= "auto" proof_hi
 ```
 
 To tell Deduce to automatically apply an equation, left to right, use
@@ -756,9 +756,9 @@ end
 
 ## Define (Statement)
 
-```
-statement ::= visibility "define" identifier ":" type "=" term
-            | visibility "define" identifier "=" term
+```deduce-grammar
+definition ::= visibility "define" identifier "=" term
+definition ::= visibility "define" identifier ":" type "=" term
 ```
 
 The `define` feature of Deduce associates a name with a value.  For
@@ -2024,8 +2024,8 @@ suggesting `relation`; the reverse hint fires for an arity-1
 
 ## Print (Statement)
 
-```
-statement ::= "print" term
+```deduce-grammar
+print ::= "print" term
 ```
 
 You can ask Deduce to print a value to standard output using the
@@ -2652,9 +2652,10 @@ for any terms `a` and `b`.
 
 ## Theorem (Statement)
 
-```
-statement ::= "theorem" IDENT ":" formula reason
-statement ::= "lemma" IDENT ":" formula reason
+```deduce-grammar
+theorem ::= visibility "theorem" IDENT ":" term reason
+theorem ::= visibility "lemma" IDENT ":" term reason
+theorem ::= visibility "postulate" IDENT ":" term
 ```
 
 A theorem (or lemma) proves that a formula is true. The theorem's name
@@ -2688,8 +2689,9 @@ term_list ::= term "," term_list
 ```
 
 ## Trace (Statement)
-```
-statement ::= "trace" term
+
+```deduce-grammar
+trace ::= "trace" identifier
 ```
 
 You can ask Deduce to print the stack trace of functions as they get called or return a value using the `trace` statement. 
