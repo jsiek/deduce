@@ -1,0 +1,6 @@
+import Nat
+
+theorem nat_div_counterexample_blocked: ℕ5 / ℕ2 = ℕ0
+proof
+  .
+end

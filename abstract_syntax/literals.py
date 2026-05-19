@@ -42,6 +42,14 @@ if TYPE_CHECKING:
 
 # ---------------------
 # Auxiliary Functions
+
+@dataclass(frozen=True)
+class AutoRewriteRule:
+  equation: Formula
+  variables: list[Term]
+  premises: list[Formula]
+  lhs: Term
+  rhs: Term
   
 def mkEqual(loc: Meta, arg1: Term, arg2: Term) -> Formula:
   ret = Call(loc, None, ResolvedVar(loc, None, '='), [arg1, arg2])
@@ -58,6 +66,33 @@ def split_equation(loc: Meta, equation: Term, env: Env) -> tuple[Term, Term]:
       return split_equation(loc, body, env)
     case _:
       internal_error(loc, 'expected an equality, not ' + str(equation))
+
+def split_auto_rule(loc: Meta, equation: Formula, env: Env) -> AutoRewriteRule:
+  variables: list[Term] = []
+  premises: list[Formula] = []
+  body = equation
+  if isinstance(body, TLet):
+    body = cast(Formula, body.reduceLets(env))
+
+  while isinstance(body, All):
+    x, typ = body.var
+    v = ResolvedVar(body.location, typ, x)
+    variables.append(v)
+    body = body.body
+
+  if isinstance(body, IfThen):
+    premises.extend(list_of_and(body.premise))
+    body = body.conclusion
+
+  match body:
+    case Call(_, _, rator, [L, R]) if isinstance(rator, VarRef) and rator.get_name() == '=':
+      return AutoRewriteRule(equation, variables, premises, L, R)
+    case _:
+      internal_error(
+        loc,
+        'an auto rule must be `lhs = rhs` or `if P then lhs = rhs`, '
+        + 'optionally under `all` quantifiers; got: ' + str(equation),
+      )
 
 def equation_vars(formula: Formula) -> list[Term]:
   match formula:

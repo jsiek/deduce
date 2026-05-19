@@ -1,0 +1,22 @@
+import Nat
+
+union Token {
+  tok(Nat)
+}
+
+define my_true = true
+
+theorem my_true_is_true: my_true = true
+proof
+  expand my_true.
+end
+
+auto my_true_is_true
+
+postulate tok_when_true: if my_true then tok(zero) = tok(suc(zero))
+auto tok_when_true
+
+theorem conditional_auto_fires: tok(zero) = tok(suc(zero))
+proof
+  .
+end

@@ -508,6 +508,7 @@ class AutoRule:
     name: str
     equation: str
     module: str
+    premise: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -4522,17 +4523,17 @@ def auto_rules_at(
     # know about, then the user file's own AST (which overrides any
     # cached entry that happens to share a unique name -- shouldn't
     # happen in practice, but the cache could be slightly stale).
-    formula_by_name: dict[str, str] = {}
+    formula_by_name: dict[str, Any] = {}
     for module_name, module_ast in cached_modules.items():
         if module_name == user_module:
             continue
         for stmt in module_ast:
             if isinstance(stmt, (Theorem, Postulate)):
-                formula_by_name[stmt.name] = str(stmt.what)
+                formula_by_name[stmt.name] = stmt.what
     if result.ast is not None:
         for stmt in result.ast:
             if isinstance(stmt, (Theorem, Postulate)):
-                formula_by_name[stmt.name] = str(stmt.what)
+                formula_by_name[stmt.name] = stmt.what
 
     rules: list[AutoRule] = []
 
@@ -4576,7 +4577,7 @@ def _auto_rule_from_stmt(stmt, module_name: str, formula_by_name) -> "AutoRule":
     the user wrote.  ``formula_by_name`` is the lookup built in
     :func:`auto_rules_at`.
     """
-    from abstract_syntax import base_name
+    from abstract_syntax import Env, base_name, split_auto_rule
 
     unique = getattr(stmt.name, "name", None)
     if unique is None:
@@ -4585,8 +4586,14 @@ def _auto_rule_from_stmt(stmt, module_name: str, formula_by_name) -> "AutoRule":
         return AutoRule(
             name=str(stmt.name), equation="", module=module_name
         )
+    formula = formula_by_name.get(unique)
+    if formula is None:
+        return AutoRule(name=base_name(unique), equation="", module=module_name)
+    rule = split_auto_rule(stmt.location, formula, Env())
+    premise = " and ".join(str(prem) for prem in rule.premises) or None
     return AutoRule(
         name=base_name(unique),
-        equation=formula_by_name.get(unique, ""),
+        equation=str(formula),
         module=module_name,
+        premise=premise,
     )

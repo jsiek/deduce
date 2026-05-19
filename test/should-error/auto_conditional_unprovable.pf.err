@@ -1,0 +1,5 @@
+./test/should-error/auto_conditional_unprovable.pf:12.3-12.4: 
+You provided a proof of:
+	true
+but that is different from what you need to prove:
+	false
