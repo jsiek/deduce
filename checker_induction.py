@@ -11,8 +11,6 @@ File charter:
   ``checker_proofs.py`` or ``checker_logic.py`` instead.
 """
 
-from typing import Any
-
 from lark.tree import Meta
 
 from abstract_syntax import (
@@ -21,16 +19,22 @@ from abstract_syntax import (
     And,
     BoolType,
     Call,
+    Env,
     Formula,
     FunctionType,
+    GenRecFun,
     IfThen,
     ImpIntro,
+    IndCase,
+    InductiveInfo,
     OverloadedVar,
     PatternBool,
     PatternCons,
     PatternTerm,
     Proof,
+    RecFun,
     ResolvedVar,
+    Term,
     Type,
     TypeInst,
     TypeType,
@@ -47,7 +51,7 @@ from error import UserError, internal_error, user_error
 from flags import get_verbose
 
 
-def gen_conjunct_advice(conjunct: Any, arbs: list[str], ihs: list[str]) -> str:
+def gen_conjunct_advice(conjunct: Formula, arbs: list[str], ihs: list[str]) -> str:
   match conjunct:
     case All(_, _, (n, _), _, b):
       return gen_conjunct_advice(b, arbs + [base_name(n)], ihs)
@@ -63,23 +67,21 @@ def gen_conjunct_advice(conjunct: Any, arbs: list[str], ihs: list[str]) -> str:
       return f"\t\tcase {withs}{arg} {assumes} {'{'}\n\t\t\t?\n{'\t\t}'}"
   raise AssertionError(f"unsupported conjunct shape: {conjunct!r}")
 
-def gen_custom_induction_advice(conjuncts: list[Any]) -> str:
+def gen_custom_induction_advice(conjuncts: list[Formula]) -> str:
   return "\n".join([gen_conjunct_advice(c, [], []) for c in conjuncts])
 
-def _custom_induction_expected_cases(conjuncts: list[Any]) -> str:
+def _custom_induction_expected_cases(conjuncts: list[Formula]) -> str:
   return gen_custom_induction_advice(conjuncts).replace('\t\t', '\t')
 
-def _custom_induction_case_hint(conjunct: Any) -> str:
+def _custom_induction_case_hint(conjunct: Formula) -> str:
   return gen_conjunct_advice(conjunct, [], []).replace('\t\t', '\t')
 
-def validate_conjunct(loc: Meta, conj: Any, fun: str) -> Any:
+def validate_conjunct(loc: Meta, conj: Formula, fun: str) -> Formula:
   match conj:
     case All(loc1, _, (_, ty), _, body):
-      # Make sure that  body is valid
-      # Am I checking that all parameters are used? No.
-      if validate_conjunct(loc, body, fun):
-        return conj
-      pass
+      # Make sure that body is valid.  Am I checking that all parameters are used? No.
+      validate_conjunct(loc, body, fun)
+      return conj
     case Call(loc1, _, rator, args):
       # Make sure rator is correct
       if rator.name != fun:
@@ -93,7 +95,7 @@ def validate_conjunct(loc: Meta, conj: Any, fun: str) -> Any:
     case _:
       user_error(loc, "invalid conjunct form")
 
-def extract_conjuncts(prem: Any, fun: str) -> list[Any]:
+def extract_conjuncts(prem: Formula, fun: str) -> list[Formula]:
   match prem:
     case And(loc, _, args):
       return [validate_conjunct(loc, c, fun) for c in args]
@@ -102,11 +104,11 @@ def extract_conjuncts(prem: Any, fun: str) -> list[Any]:
 
 def generate_conjunct_body(
     loc: Meta,
-    conjunct: Any,
-    case: Any,
-    fun_var: Any,
-    subst: dict[str, Any],
-    env: Any,
+    conjunct: Formula,
+    case: IndCase,
+    fun_var: Term,
+    subst: dict[str, Term | Type | RecFun | GenRecFun],
+    env: Env,
     param_i: int = 0,
     case_hint: str | None = None,
 ) -> Proof:
@@ -187,7 +189,7 @@ def generate_conjunct_body(
     case _:
       return case.body
 
-def match_induction_generics(frm: Any) -> tuple[Any, list[str]]:
+def match_induction_generics(frm: Formula) -> tuple[Formula, list[str]]:
   match frm:
     case All(_, _, (name, ty), _, body) if isinstance(ty, TypeType):
       new_frm, tys = match_induction_generics(body)
@@ -195,7 +197,7 @@ def match_induction_generics(frm: Any) -> tuple[Any, list[str]]:
     case _:
       return frm, []
 
-def match_induction_fun(frm: Any, ty_tys: list[str], ind_ty: Type) -> tuple[Any, Any, Any]:
+def match_induction_fun(frm: Formula, ty_tys: list[str], ind_ty: Type) -> tuple[Formula, str, Type]:
   match frm:
     case All(loc, _, (_, FunctionType(_, _, [param_ty], BoolType())), _, body):
       type_mismatch = False
@@ -221,7 +223,7 @@ def match_induction_fun(frm: Any, ty_tys: list[str], ind_ty: Type) -> tuple[Any,
     case _:
       user_error(frm.location, "Expected to see a function from the inductive type to bool")
 
-def match_induction_conjuncts(frm: Any, fun: Any, fun_ty: Any, ind_ty: Type) -> list[Any]:
+def match_induction_conjuncts(frm: Formula, fun: str, fun_ty: Type, ind_ty: Type) -> list[Formula]:
   match frm:
     case IfThen(loc, _, prem, conc):
       conjuncts = extract_conjuncts(prem, fun)
@@ -242,7 +244,7 @@ def match_induction_conjuncts(frm: Any, fun: Any, fun_ty: Any, ind_ty: Type) -> 
             Inductive theorems should be of the form: \n\t \
             all P : fn T -> bool. if prem then all x : T. P(x)")
 
-def match_induction(frm: Any, ind_ty: Type) -> dict[str, Any]:
+def match_induction(frm: Formula, ind_ty: Type) -> InductiveInfo:
   new_frm, ty_tys = match_induction_generics(frm)
   new_frm, fun, fun_ty = match_induction_fun(new_frm, ty_tys, ind_ty)
   conjuncts = match_induction_conjuncts(new_frm, fun, fun_ty, ind_ty)
