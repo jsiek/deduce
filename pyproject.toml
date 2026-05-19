@@ -222,10 +222,11 @@ disallow_any_generics = true
 disallow_untyped_calls = true
 warn_return_any = true
 
-# lsp/query.py is being ratcheted in slices for #506. The return and
-# untyped-call checks are clean; later passes should add the generic and
-# untyped-def flags once their larger error sets are fixed.
+# lsp/query.py is being ratcheted in slices for #506. The return,
+# untyped-call, and checked-body checks are clean; later passes should add
+# the generic and untyped-def flags once their larger error sets are fixed.
 [[tool.mypy.overrides]]
 module = ["lsp.query"]
+check_untyped_defs = true
 disallow_untyped_calls = true
 warn_return_any = true
