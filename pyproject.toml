@@ -100,29 +100,9 @@ exclude = [
 # regression is caught in CI. Add a module here once `mypy --strict
 # <module> --follow-imports=silent` is clean.
 #
-# The order of expected wins from the remaining error counts (mypy
-# 2.1.0, --python-version 3.12, against this config — measured
-# 2026-05-13):
-#
-#   lsp/benchmark.py                            (4 errors; transitive
-#                                                untyped calls into
-#                                                flags.py / lsp.library
-#                                                — touching those
-#                                                ripples wider)
-#   compiler/lower.py                           (8; missing annotations
-#                                                on helpers and lower_*
-#                                                methods)
-#   tools/claude_fill_hole/__main__.py          (13)
-#   tools/claude_fill_hole/anthropic_backend.py (13)
-#   tools/claude_fill_hole/openai_backend.py    (30)
-#   lsp/mcp_server.py                           (30)
-#   style.py                                    (31)
-#   error.py                                    (65)
-#   lsp/query.py                                (132)
-#   parser.py                                   (310)
-#   abstract_syntax/                            (1192 before package split)
-#   proof_checker.py                            (1337)
-#   rec_desc_parser.py                          (1348)
+# rec_desc_parser.py is the last large module that still fails strict
+# (see #681); once it lands, `strict = true` can move into the global
+# `[tool.mypy]` block and this override list can be deleted.
 #
 # NOTE: mypy does not honor `strict = true` inside per-module overrides
 # (the meta-flag is global-only). The bits it would turn on are set
@@ -132,6 +112,8 @@ exclude = [
 module = [
     "deduce",
     "error",
+    "parser",
+    "abstract_syntax",
     "checker_cache",
     "checker_common",
     "checker_induction",
@@ -173,38 +155,10 @@ disallow_incomplete_defs = true
 check_untyped_defs = true
 warn_return_any = true
 
-# abstract_syntax/ is too big for a one-shot --strict adoption
-# (~1192 errors against full --strict — see #506). Ratchet the
-# heavyweight bits on one flag at a time, cheapest first; once they
-# are all on, move the module into the unified strict block above.
-# Order so far (per the table in #506):
-#   warn_return_any        (4 errors, fixed here)
-#   disallow_any_generics  (6 errors, fixed here)
-#   disallow_untyped_calls (16 errors, fixed here)
-#   disallow_incomplete_defs (18 errors, fixed here)
-#   disallow_untyped_defs  (493 errors, fixed here)
-#   check_untyped_defs     (77 errors, fixed here)
-[[tool.mypy.overrides]]
-module = ["abstract_syntax"]
-disallow_any_generics = true
-disallow_untyped_calls = true
-disallow_untyped_decorators = true
-disallow_incomplete_defs = true
-disallow_untyped_defs = true
-check_untyped_defs = true
-warn_return_any = true
-
+# Submodules of abstract_syntax re-export sibling names through the
+# compatibility facade in abstract_syntax/__init__.py, which conflicts
+# with the global `no_implicit_reexport = true`. Allow implicit
+# re-export for the submodules only.
 [[tool.mypy.overrides]]
 module = ["abstract_syntax.*"]
 implicit_reexport = true
-
-# parser.py is also being ratcheted in small strictness slices for #506.
-# These flags are clean; the remaining strict bit is check_untyped_defs,
-# which currently reports ~255 errors and needs a wider pass.
-[[tool.mypy.overrides]]
-module = ["parser"]
-disallow_any_generics = true
-disallow_untyped_calls = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-warn_return_any = true
