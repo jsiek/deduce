@@ -940,8 +940,11 @@ Deduce.)
 
 ```
 conclusion ::= "equations" equation equation_list
-equation ::= term "=" term reason
-half_equation ::= "..." "=" term reason
+```
+
+```deduce-grammar
+equation ::= term_compare "=" term_add reason
+half_equation ::= "..." "=" term_add reason
 equation_list ::= half_equation
 equation_list ::= half_equation equation_list
 equation_list ::= "$" equation equation_list
@@ -1905,9 +1908,9 @@ See [Visibility](#visibility).
 
 ## Proof
 
-```
-proof ::= proof_stmt proof
+```deduce-grammar
 proof ::= conclusion
+proof ::= proof_stmt proof?
 ```
 
 A proof is a sequence of zero or more [proof statements](#proof-statement)
@@ -2319,9 +2322,9 @@ analogous case body assumes `even(k) and even(k)`.
 
 ## Simplify (Proof)
 
-```
-proof_stmt :: "simplify"
-proof_stmt :: "simplify" "with" identifier_list_bar
+```deduce-grammar
+optional_proof_list ::= ε
+optional_proof_list ::= "with" proof_list
 ```
 
 Simplify the current goal formula using all of the built-in automatic
