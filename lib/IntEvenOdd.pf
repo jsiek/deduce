@@ -458,3 +458,24 @@ proof
   }
   fwd, bkwd
 end
+
+// Odd × Odd is odd.
+theorem int_odd_mult_odd: all x:Int, y:Int.
+  if Odd(x) and Odd(y) then Odd(x * y)
+proof
+  arbitrary x:Int, y:Int
+  assume prem: Odd(x) and Odd(y)
+  obtain a where x_1_2a: x = +1 + +2 * a from expand Odd in (conjunct 0 of prem)
+  obtain b where y_1_2b: y = +1 + +2 * b from expand Odd in (conjunct 1 of prem)
+  expand Odd
+  choose b + a * (+1 + +2 * b)
+  equations
+      x * y
+    = (+1 + +2 * a) * y                                  by replace x_1_2a.
+... = +1 * y + (+2 * a) * y                              by int_dist_mult_add_right[y, +1, +2 * a]
+... = y + (+2 * a) * y                                   by .
+... = (+1 + +2 * b) + (+2 * a) * (+1 + +2 * b)           by replace y_1_2b.
+... = +1 + (+2 * b + (+2 * a) * (+1 + +2 * b))           by .
+... = +1 + (+2 * b + +2 * (a * (+1 + +2 * b)))           by .
+... = +1 + #+2 * (b + a * (+1 + +2 * b))#                by replace int_dist_mult_add[+2, b, a * (+1 + +2 * b)].
+end

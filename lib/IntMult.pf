@@ -392,3 +392,132 @@ proof
 end
 
 associative operator* in Int
+
+// Helper: pos(a) distributes over the signed-difference operator ⊝.
+lemma mult_pos_monuso: all a:UInt, m:UInt, n:UInt.
+  pos(a) * (m ⊝ n) = (a * m) ⊝ (a * n)
+proof
+  arbitrary a:UInt, m:UInt, n:UInt
+  cases uint_zero_or_positive[a]
+  case a_zero: a = 0 {
+    replace a_zero | int_monuso_cancel
+    int_zero_mult[m ⊝ n]
+  }
+  case a_pos: 0 < a {
+    switch m < n for operator⊝ {
+      case true assume m_lt_n {
+        have am_lt_an: a * m < a * n
+          by apply uint_pos_mult_both_sides_of_less[a, m, n] to a_pos, m_lt_n
+        simplify with am_lt_an
+        replace neg_uint
+        replace symmetric uint_dist_mult_monus[a, n, m]
+        equations
+              pos(a) * -pos(n ∸ m)
+            = -pos(n ∸ m) * pos(a)         by int_mult_commute[pos(a), -pos(n ∸ m)]
+        ... = -(pos(n ∸ m) * pos(a))       by symmetric dist_neg_mult[pos(n ∸ m), pos(a)]
+        ... = -(pos(a) * pos(n ∸ m))       by replace int_mult_commute[pos(n ∸ m), pos(a)].
+        ... = -pos(a * (n ∸ m))            by replace mult_pos_pos.
+      }
+      case false assume not_m_lt_n {
+        have n_le_m: n ≤ m by apply uint_not_less_implies_less_equal[m, n] to not_m_lt_n
+        have an_le_am: a * n ≤ a * m by apply uint_mult_mono_le[a, n, m] to n_le_m
+        have not_am_lt_an: not (a * m < a * n) by {
+          assume am_lt_an
+          have alt: a * n < a * m or a * n = a * m  by expand operator≤ in an_le_am
+          cases alt
+          case an_lt_am {
+            have an_lt_an: a * n < a * n
+              by apply uint_less_trans[a*n, a*m, a*n] to an_lt_am, am_lt_an
+            apply uint_less_irreflexive[a*n] to an_lt_an
+          }
+          case an_eq_am {
+            have an_lt_an: a * n < a * n by replace an_eq_am in am_lt_an
+            apply uint_less_irreflexive[a*n] to an_lt_an
+          }
+        }
+        simplify with not_am_lt_an
+        replace mult_pos_pos | uint_dist_mult_monus.
+      }
+    }
+  }
+end
+
+// Helper: distributivity when the multiplicand is `pos(a)`.
+lemma mult_pos_dist_add: all a:UInt. all x:Int, y:Int.
+  pos(a) * (x + y) = pos(a) * x + pos(a) * y
+proof
+  arbitrary a:UInt, x:Int, y:Int
+  switch x {
+    case pos(x') {
+      switch y {
+        case pos(y') {
+          replace add_pos_pos
+          replace mult_pos_pos
+          replace add_pos_pos
+          replace uint_dist_mult_add.
+        }
+        case negsuc(y') {
+          replace add_pos_negsuc | mult_pos_pos | mult_pos_negsuc
+          replace mult_pos_monuso[a, x', 1 + y']
+          replace uint_dist_mult_add[a, 1, y']
+          replace subo_monus
+          expand 2*operator-.
+        }
+      }
+    }
+    case negsuc(x') {
+      switch y {
+        case pos(y') {
+          replace add_negsuc_pos | mult_pos_negsuc | mult_pos_pos
+          replace mult_pos_monuso[a, y', 1 + x']
+          replace uint_dist_mult_add[a, 1, x']
+          replace subo_monus
+          expand 2*operator-
+          int_add_commute
+        }
+        case negsuc(y') {
+          replace add_negsuc_negsuc | mult_pos_negsuc
+          replace symmetric neg_distr_add[pos(a + a * x'), pos(a + a * y')]
+          replace add_pos_pos
+          replace uint_dist_mult_add[a, 1 + x', y']
+            | uint_dist_mult_add[a, 1, x']
+            | uint_add_commute[a * x', a].
+        }
+      }
+    }
+  }
+end
+
+// Left distributivity of `*` over `+` on `Int`.
+theorem int_dist_mult_add: all a:Int, x:Int, y:Int.
+  a * (x + y) = a * x + a * y
+proof
+  arbitrary a:Int, x:Int, y:Int
+  switch a {
+    case pos(a') {
+      mult_pos_dist_add[a', x, y]
+    }
+    case negsuc(a') {
+      have ng_a: negsuc(a') = -pos(1 + a') by symmetric neg_pos[a']
+      replace ng_a
+      equations
+            -pos(1 + a') * (x + y)
+          = -(pos(1 + a') * (x + y))                    by symmetric dist_neg_mult[pos(1 + a'), x + y]
+      ... = -(pos(1 + a') * x + pos(1 + a') * y)        by replace mult_pos_dist_add[1 + a', x, y].
+      ... = -(pos(1 + a') * x) + -(pos(1 + a') * y)     by neg_distr_add[pos(1 + a') * x, pos(1 + a') * y]
+      ... = -pos(1 + a') * x + -(pos(1 + a') * y)       by replace dist_neg_mult[pos(1 + a'), x].
+      ... = -pos(1 + a') * x + -pos(1 + a') * y         by replace dist_neg_mult[pos(1 + a'), y].
+    }
+  }
+end
+
+// Right distributivity of `*` over `+` on `Int`.
+theorem int_dist_mult_add_right: all a:Int, x:Int, y:Int.
+  (x + y) * a = x * a + y * a
+proof
+  arbitrary a:Int, x:Int, y:Int
+  replace int_mult_commute[x + y, a]
+        | int_mult_commute[x, a]
+        | int_mult_commute[y, a]
+  int_dist_mult_add[a, x, y]
+end
