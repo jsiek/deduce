@@ -1,0 +1,106 @@
+module Int
+
+import UInt
+import Base
+import IntDefs
+import IntAddSub
+import IntMult
+
+/*
+  Theorems about Int absolute value.
+
+  Lifts the structural identities `abs(pos(n)) = n` and
+  `abs(negsuc(n)) = 1 + n` to public theorems, gives the
+  `abs(x) = 0 ⇔ x = +0` characterization, and shows that absolute value
+  distributes over multiplication.
+*/
+
+theorem int_abs_pos: all n:UInt. abs(pos(n)) = n
+proof
+  arbitrary n:UInt
+  expand abs.
+end
+
+auto int_abs_pos
+
+theorem int_abs_negsuc: all n:UInt. abs(negsuc(n)) = 1 + n
+proof
+  arbitrary n:UInt
+  expand abs.
+end
+
+auto int_abs_negsuc
+
+theorem int_abs_zero: abs(+0) = 0
+proof
+  evaluate
+end
+
+auto int_abs_zero
+
+theorem int_abs_eq_zero_implies_zero: all x:Int.
+  if abs(x) = 0 then x = +0
+proof
+  arbitrary x:Int
+  switch x {
+    case pos(n) {
+      assume n_eq_0
+      replace n_eq_0
+      evaluate
+    }
+    case negsuc(n) {
+      .
+    }
+  }
+end
+
+theorem int_zero_implies_abs_eq_zero: all x:Int.
+  if x = +0 then abs(x) = 0
+proof
+  arbitrary x:Int
+  assume prem
+  replace prem
+  int_abs_zero
+end
+
+theorem int_abs_eq_zero_iff_zero: all x:Int.
+  abs(x) = 0 ⇔ x = +0
+proof
+  arbitrary x:Int
+  int_abs_eq_zero_implies_zero[x], int_zero_implies_abs_eq_zero[x]
+end
+
+theorem int_abs_mult: all x:Int, y:Int.
+  abs(x * y) = abs(x) * abs(y)
+proof
+  arbitrary x:Int, y:Int
+  switch x {
+    case pos(x') {
+      switch y {
+        case pos(y') {
+          replace mult_pos_pos.
+        }
+        case negsuc(y') {
+          replace mult_pos_negsuc
+          replace abs_neg
+          replace uint_dist_mult_add.
+        }
+      }
+    }
+    case negsuc(x') {
+      switch y {
+        case pos(y') {
+          replace int_mult_commute[negsuc(x'), pos(y')]
+          replace mult_pos_negsuc
+          replace abs_neg
+          replace uint_dist_mult_add_right
+          replace uint_mult_commute[y', x'].
+        }
+        case negsuc(y') {
+          expand operator*
+          replace sign_negsuc | mult_neg_neg | mult_pos_uint.
+        }
+      }
+    }
+  }
+end

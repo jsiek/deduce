@@ -17,6 +17,7 @@ public import IntAddSub
 public import IntMult
 public import IntLess
 public import IntEvenOdd
+public import IntAbs
 
 // Need the following for integer literals.
 

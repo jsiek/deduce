@@ -6,3 +6,22 @@ assert -1 ≤ -1
 assert -2 ≤ -1
 assert +0 ≤ +1
 assert -1 ≤ +0
+
+// abs spec smoke checks
+assert abs(+0) = 0
+assert abs(+5) = 5
+assert abs(-5) = 5
+assert abs(pos(7)) = 7
+assert abs(negsuc(6)) = 7
+
+theorem abs_distributes_over_mult_sample:
+  abs(-3 * +4) = abs(-3) * abs(+4)
+proof
+  int_abs_mult[-3, +4]
+end
+
+theorem abs_zero_iff_int_zero_sample: all x:Int.
+  abs(x) = 0 ⇔ x = +0
+proof
+  int_abs_eq_zero_iff_zero
+end
