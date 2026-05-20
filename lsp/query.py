@@ -381,6 +381,24 @@ class LemmaMatch:
 
     ``kind`` is restricted to ``THEOREM``, ``LEMMA``, or ``POSTULATE``;
     other declaration kinds aren't returned.
+
+    ``unify_tier`` classifies how the lemma's conclusion relates to
+    the goal AST at the hole (issue #690):
+
+    - ``"full"`` -- conclusion unifies with the goal and every premise
+      is discharged by a local given;
+    - ``"premises_remain"`` -- conclusion unifies but some premises
+      become fresh subgoals;
+    - ``"rewrite_subterm"`` -- the conclusion is an equation whose
+      LHS (or RHS) unifies with a subterm of the goal -- a candidate
+      for ``replace``;
+    - ``None`` -- no unification path was found, or the structured
+      goal/env wasn't available (e.g. browse mode, parse error).
+
+    ``discharged_premises`` lists ``(premise_text, given_label)`` pairs
+    for the ``"full"`` tier: the editor uses these to splice the right
+    ``conclude ... by name(...)`` argument list. Empty for other
+    tiers.
     """
 
     name: str
@@ -388,6 +406,8 @@ class LemmaMatch:
     signature: str
     module: Optional[str]
     relevance: float
+    unify_tier: Optional[str] = None
+    discharged_premises: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -3640,6 +3660,8 @@ def available_lemmas_at(
 
     hole_range = _find_hole_at(content, pos)
     goal_text: Optional[str] = None
+    goal_ast: Any = None
+    env: Any = None
     if hole_range is not None:
         target = (hole_range.start.line, hole_range.start.column)
         with _target_hole(target):
@@ -3648,6 +3670,9 @@ def available_lemmas_at(
             goal = _goal_from_exception(result.exception, hole_range)
             if goal is not None:
                 goal_text = goal.formula
+            exc = result.exception
+            goal_ast = getattr(exc, "formula", None)
+            env = getattr(exc, "env", None)
         ast_nodes = result.ast
     else:
         result = check_file(path, content=content, prelude=prelude)
@@ -3657,7 +3682,16 @@ def available_lemmas_at(
     if not candidates:
         return ()
 
-    ranked = _rank_lemmas(candidates, goal_text, query, _module_for_path(path))
+    given_pairs = _collect_local_givens(env)
+    ranked = _rank_lemmas(
+        candidates,
+        goal_text,
+        query,
+        _module_for_path(path),
+        goal_ast=goal_ast,
+        env=env,
+        given_pairs=given_pairs,
+    )
     if not ranked:
         return ()
 
@@ -4018,11 +4052,247 @@ def _query_pattern(query: Optional[str]) -> Optional[re.Pattern[str]]:
         return None
 
 
+# Score per unify tier (issue #690). Tier names match what's emitted
+# on ``LemmaMatch.unify_tier`` and what the LSP ``deduce/insertLemma``
+# request branches on when choosing a tactic shape.
+_UNIFY_TIER_SCORE: dict[str, float] = {
+    "full": 1.0,
+    "premises_remain": 0.7,
+    "rewrite_subterm": 0.4,
+}
+
+
+def _collect_local_givens(env: Any) -> tuple[tuple[str, Any], ...]:
+    """``(label, formula_ast)`` for local proof bindings in ``env``.
+
+    Mirrors how :func:`_matching_given_names` walks ``env.dict``, but
+    returns the formula AST too so the unify scorer can match a
+    lemma's substituted premise against each given. ``label`` is the
+    user-visible base name; duplicates collapse to the first hit so
+    later phases can look up by label as a dict.
+    """
+    if env is None:
+        return ()
+    from abstract_syntax import ProofBinding, base_name
+
+    seen: set[str] = set()
+    out: list[tuple[str, Any]] = []
+    try:
+        items = env.dict.items()
+    except AttributeError:
+        return ()
+    for unique, binding in items:
+        if not isinstance(binding, ProofBinding):
+            continue
+        if not binding.local:
+            continue
+        name = base_name(unique)
+        if name in seen:
+            continue
+        seen.add(name)
+        out.append((name, binding.formula))
+    return tuple(out)
+
+
+def _peel_quantified_implication(
+    formula: Any,
+) -> Optional[tuple[list[Any], list[Any], Any]]:
+    """Peel outer ``All`` and ``IfThen`` to ``(vars, premises, conc)``.
+
+    Returns the list of all-bound variables (as :class:`VarRef`), the
+    list of premise formulas (flattening top-level ``And``), and the
+    final conclusion. ``None`` when the formula's shape is one the
+    unifier can't handle (the matcher itself is recursive over the
+    conclusion -- we only need the *outer* structure here).
+    """
+    from abstract_syntax import All, And, IfThen, ResolvedVar
+
+    f = formula
+    if f is None:
+        return None
+
+    vars: list[Any] = []
+    while isinstance(f, All):
+        name, ty = f.var
+        vars.append(ResolvedVar(f.location, ty, name))
+        f = f.body
+
+    premises: list[Any] = []
+    while isinstance(f, IfThen):
+        prem = f.premise
+        if isinstance(prem, And):
+            premises.extend(prem.args)
+        else:
+            premises.append(prem)
+        f = f.conclusion
+
+    return vars, premises, f
+
+
+def _formulas_match_modulo_env(frm1: Any, frm2: Any, env: Any) -> bool:
+    """Best-effort equality of two formulas under ``env`` reduction.
+
+    Used to ask "does this substituted premise match a given?".
+    Wraps a comparison that first tries identity, then auto-reduces
+    both sides; on any internal exception falls back to identity so
+    a ranker bug never crashes ``available_lemmas_at``.
+    """
+    if frm1 is frm2:
+        return True
+    try:
+        if frm1 == frm2:
+            return True
+    except Exception:
+        pass
+    if env is None:
+        return False
+    try:
+        return frm1.reduce(env) == frm2.reduce(env)
+    except Exception:
+        return False
+
+
+def _iter_subterms(node: Any) -> Any:
+    """Yield ``node`` and every AST descendant (depth-first).
+
+    Used by the ``rewrite_subterm`` tier: walk the goal's subterms
+    looking for one that the equation's LHS (or RHS) can match.
+    Shared-subtree guard via :func:`_walk_ast` keeps this O(n).
+    """
+    from abstract_syntax import AST
+
+    out: list[Any] = []
+    _walk_ast(node, out.append, ast_class=AST)
+    return out
+
+
+def _unify_score(
+    formula: Any,
+    goal_ast: Any,
+    env: Any,
+    given_pairs: tuple[tuple[str, Any], ...],
+) -> tuple[float, Optional[str], tuple[tuple[str, str], ...]]:
+    """Score how well ``formula``'s conclusion unifies with ``goal_ast``.
+
+    Three-tier classifier (see :class:`LemmaMatch` for the meaning of
+    each tier):
+
+    - ``"full"`` -- conclusion unifies, every premise discharged by a
+      given. Score ``1.0``.
+    - ``"premises_remain"`` -- conclusion unifies, some premises stay
+      open. Score ``0.7``.
+    - ``"rewrite_subterm"`` -- conclusion is an equation whose LHS
+      (or RHS) unifies with a subterm of the goal. Score ``0.4``.
+    - falls back to ``(0.0, None, ())`` on no match, missing AST/env,
+      or any internal exception in the unifier.
+
+    Returns ``(score, tier, discharged_premises)`` where
+    ``discharged_premises`` is a tuple of ``(premise_text, given_label)``
+    pairs filled in for the ``"full"`` tier (empty otherwise).
+
+    The implementation reuses :func:`formula_match` from
+    ``abstract_syntax.rewrite`` -- the same first-order matcher
+    ``apply_at`` uses to deduce all-bound instantiations against a
+    goal. Wrapped in a broad ``except`` because this is a ranking
+    heuristic: a failed unification must never crash the caller.
+    """
+    if goal_ast is None or env is None or formula is None:
+        return (0.0, None, ())
+
+    from abstract_syntax import Call, VarRef, formula_match
+    from error import MatchFailed
+
+    peeled = _peel_quantified_implication(formula)
+    if peeled is None:
+        return (0.0, None, ())
+    vars, premises, conc = peeled
+
+    location = getattr(formula, "location", None)
+
+    # Tier 1/2: try to unify the conclusion against the goal.
+    matching: dict[str, Any] = {}
+    conc_matched = False
+    try:
+        formula_match(location, vars, conc, goal_ast, matching, env)
+        unmatched = [v for v in vars if v.name not in matching]
+        if not unmatched:
+            conc_matched = True
+    except MatchFailed:
+        pass
+    except Exception:
+        pass
+
+    if conc_matched:
+        if not premises:
+            return (_UNIFY_TIER_SCORE["full"], "full", ())
+
+        discharged: list[tuple[str, str]] = []
+        all_discharged = True
+        for prem in premises:
+            try:
+                instantiated = prem.substitute(matching)
+            except Exception:
+                all_discharged = False
+                break
+            label = None
+            for given_label, given_frm in given_pairs:
+                if _formulas_match_modulo_env(instantiated, given_frm, env):
+                    label = given_label
+                    break
+            if label is None:
+                all_discharged = False
+                break
+            discharged.append((str(instantiated), label))
+
+        if all_discharged:
+            return (
+                _UNIFY_TIER_SCORE["full"],
+                "full",
+                tuple(discharged),
+            )
+        return (_UNIFY_TIER_SCORE["premises_remain"], "premises_remain", ())
+
+    # Tier 3: equation conclusion -> try LHS/RHS against goal subterms.
+    if isinstance(conc, Call) and isinstance(conc.rator, VarRef):
+        try:
+            if conc.rator.get_name() == "=" and len(conc.rands) == 2:
+                lhs, rhs = conc.rands
+                subterms = _iter_subterms(goal_ast)
+                for side in (lhs, rhs):
+                    for sub in subterms:
+                        sub_matching: dict[str, Any] = {}
+                        try:
+                            formula_match(
+                                location, vars, side, sub, sub_matching, env
+                            )
+                        except MatchFailed:
+                            continue
+                        except Exception:
+                            continue
+                        unmatched = [
+                            v for v in vars if v.name not in sub_matching
+                        ]
+                        if unmatched:
+                            continue
+                        return (
+                            _UNIFY_TIER_SCORE["rewrite_subterm"],
+                            "rewrite_subterm",
+                            (),
+                        )
+        except Exception:
+            pass
+
+    return (0.0, None, ())
+
+
 def _rank_lemmas(
     candidates: tuple[tuple[LemmaInfo, Any, str], ...],
     goal_text: Optional[str],
     query: Optional[str],
     user_module: str,
+    goal_ast: Any = None,
+    env: Any = None,
+    given_pairs: tuple[tuple[str, Any], ...] = (),
 ) -> list[LemmaMatch]:
     """Score and sort candidate lemmas.
 
@@ -4031,16 +4301,24 @@ def _rank_lemmas(
     in ``[0.0, 1.0]``; only candidates with a strictly positive raw
     score are included.
 
-    The four signals from issue #403:
+    Six signals contribute to the score:
 
-    1. Exact head-symbol match between conclusion and goal.
-    2. Goal symbols appearing in the lemma's full formula symbols.
-    3. Module proximity to the file under cursor.
-    4. Fuzzy substring of the query against the lemma name as
-       tiebreaker.
-
-    Plus one extra: a goal-shape pattern (a ``query`` containing ``_``
-    placeholders) matched against the rendered signature.
+    1. ``8.0 * unify_score`` -- first-order match of the conclusion
+       against the goal AST, with credit for premises discharged by
+       a local given (issue #690). Dominates the textual signals so
+       that a lemma whose conclusion actually unifies outranks one
+       that only shares a head symbol.
+    2. ``4.0 * head_score`` -- rendered head-operator match (the
+       string-level signal from issue #403; used as a fallback when
+       the goal AST isn't available).
+    3. ``2.0 * overlap`` -- fraction of goal tokens that appear in
+       the lemma's formula symbols.
+    4. ``1.0 * proximity`` -- ``1`` if the lemma comes from the
+       user's own file, ``0`` otherwise.
+    5. ``2.0 * substring_score`` -- query substring against name (1)
+       or signature (0.5).
+    6. ``3.0 * pattern_score`` -- query goal-shape pattern (``_``
+       placeholders) against the rendered signature.
 
     When neither a goal nor a query is given, runs in *browse mode*:
     every candidate is surfaced, ranked only by module proximity
@@ -4054,8 +4332,11 @@ def _rank_lemmas(
     query_substr = (query or "").strip().lower()
     has_substring_query = bool(query_substr) and pattern is None
     browse_mode = goal_text is None and not query
+    has_unify_signal = goal_ast is not None and env is not None
 
-    raw_scores: list[tuple[float, LemmaInfo, str]] = []
+    raw_scores: list[
+        tuple[float, LemmaInfo, str, Optional[str], tuple[tuple[str, str], ...]]
+    ] = []
     for info, formula, module in candidates:
         proximity = 1.0 if module == user_module else 0.0
 
@@ -4086,8 +4367,15 @@ def _rank_lemmas(
             # Surface every candidate; ranking is proximity then name.
             # Use a fixed baseline so out-of-module candidates aren't
             # dropped by the ``raw <= 0`` filter below.
-            raw_scores.append((1.0 + proximity, info, module))
+            raw_scores.append((1.0 + proximity, info, module, None, ()))
             continue
+
+        if has_unify_signal:
+            unify_score, unify_tier, discharged = _unify_score(
+                formula, goal_ast, env, given_pairs
+            )
+        else:
+            unify_score, unify_tier, discharged = 0.0, None, ()
 
         if goal_head is not None:
             head = _formula_head_symbol(formula)
@@ -4102,7 +4390,8 @@ def _rank_lemmas(
             overlap = 0.0
 
         raw = (
-            4.0 * head_score
+            8.0 * unify_score
+            + 4.0 * head_score
             + 2.0 * overlap
             + 1.0 * proximity
             + 2.0 * substring_score
@@ -4114,19 +4403,19 @@ def _rank_lemmas(
         if raw <= 0.0:
             continue
 
-        raw_scores.append((raw, info, module))
+        raw_scores.append((raw, info, module, unify_tier, discharged))
 
     if not raw_scores:
         return []
 
-    max_raw = max(r for r, _, _ in raw_scores)
+    max_raw = max(r for r, _, _, _, _ in raw_scores)
     if max_raw <= 0.0:
         return []
 
     raw_scores.sort(key=lambda t: (-t[0], t[1].name))
     matches = []
     seen_names: set[str] = set()
-    for raw, info, module in raw_scores:
+    for raw, info, module, unify_tier, discharged in raw_scores:
         if info.name in seen_names:
             continue
         seen_names.add(info.name)
@@ -4137,6 +4426,8 @@ def _rank_lemmas(
                 signature=info.signature,
                 module=module,
                 relevance=raw / max_raw,
+                unify_tier=unify_tier,
+                discharged_premises=discharged,
             )
         )
     return matches
