@@ -675,6 +675,63 @@ proof
   simplify with int_less_irreflexive[x].
 end
 
+theorem int_max_assoc: all x:Int, y:Int, z:Int.
+  max(max(x, y), z) = max(x, max(y, z))
+proof
+  arbitrary x:Int, y:Int, z:Int
+  have xy: x < y or not (x < y) by ex_mid[x < y]
+  have yz: y < z or not (y < z) by ex_mid[y < z]
+  cases xy
+  case x_l_y: x < y {
+    cases yz
+    case y_l_z: y < z {
+      have x_l_z: x < z by apply int_less_trans to x_l_y, y_l_z
+      expand max
+      simplify with x_l_y
+      simplify with y_l_z
+      simplify with x_l_z.
+    }
+    case not_y_l_z: not (y < z) {
+      expand max
+      simplify with x_l_y
+      simplify with not_y_l_z
+      simplify with x_l_y.
+    }
+  }
+  case not_x_l_y: not (x < y) {
+    cases yz
+    case y_l_z: y < z {
+      expand max
+      simplify with not_x_l_y
+      simplify with y_l_z.
+    }
+    case not_y_l_z: not (y < z) {
+      have y_le_x: y ≤ x by apply int_not_less_implies_less_equal to not_x_l_y
+      have z_le_y: z ≤ y by apply int_not_less_implies_less_equal to not_y_l_z
+      have z_le_x: z ≤ x by apply int_less_equal_trans to z_le_y, y_le_x
+      have not_x_l_z: not (x < z) by {
+        assume x_l_z
+        have z_l_x_or_eq: z < x or z = x
+          by apply int_less_equal_iff_less_or_equal[z, x] to z_le_x
+        cases z_l_x_or_eq
+        case z_l_x: z < x {
+          have x_l_x: x < x by apply int_less_trans to x_l_z, z_l_x
+          apply int_less_irreflexive to x_l_x
+        }
+        case z_eq_x: z = x {
+          have x_l_x: x < x by replace z_eq_x in x_l_z
+          apply int_less_irreflexive to x_l_x
+        }
+      }
+      expand max
+      simplify with not_x_l_y
+      simplify with not_y_l_z
+      simplify with not_x_l_z
+      simplify with not_x_l_y.
+    }
+  }
+end
+
 theorem int_min_less_equal_left: all x:Int, y:Int.
   min(x, y) ≤ x
 proof
@@ -775,6 +832,63 @@ proof
   arbitrary x:Int
   expand min
   simplify with int_less_irreflexive[x].
+end
+
+theorem int_min_assoc: all x:Int, y:Int, z:Int.
+  min(min(x, y), z) = min(x, min(y, z))
+proof
+  arbitrary x:Int, y:Int, z:Int
+  have xy: x < y or not (x < y) by ex_mid[x < y]
+  have yz: y < z or not (y < z) by ex_mid[y < z]
+  cases xy
+  case x_l_y: x < y {
+    cases yz
+    case y_l_z: y < z {
+      have x_l_z: x < z by apply int_less_trans to x_l_y, y_l_z
+      expand min
+      simplify with x_l_y
+      simplify with y_l_z
+      simplify with x_l_z
+      simplify with x_l_y.
+    }
+    case not_y_l_z: not (y < z) {
+      expand min
+      simplify with x_l_y
+      simplify with not_y_l_z.
+    }
+  }
+  case not_x_l_y: not (x < y) {
+    cases yz
+    case y_l_z: y < z {
+      expand min
+      simplify with not_x_l_y
+      simplify with y_l_z
+      simplify with not_x_l_y.
+    }
+    case not_y_l_z: not (y < z) {
+      have y_le_x: y ≤ x by apply int_not_less_implies_less_equal to not_x_l_y
+      have z_le_y: z ≤ y by apply int_not_less_implies_less_equal to not_y_l_z
+      have z_le_x: z ≤ x by apply int_less_equal_trans to z_le_y, y_le_x
+      have not_x_l_z: not (x < z) by {
+        assume x_l_z
+        have z_l_x_or_eq: z < x or z = x
+          by apply int_less_equal_iff_less_or_equal[z, x] to z_le_x
+        cases z_l_x_or_eq
+        case z_l_x: z < x {
+          have x_l_x: x < x by apply int_less_trans to x_l_z, z_l_x
+          apply int_less_irreflexive to x_l_x
+        }
+        case z_eq_x: z = x {
+          have x_l_x: x < x by replace z_eq_x in x_l_z
+          apply int_less_irreflexive to x_l_x
+        }
+      }
+      expand min
+      simplify with not_x_l_y
+      simplify with not_y_l_z
+      simplify with not_x_l_z.
+    }
+  }
 end
 
 theorem int_min_symmetric: all x:Int, y:Int.
