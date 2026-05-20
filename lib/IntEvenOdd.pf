@@ -1,0 +1,307 @@
+module Int
+
+import UInt
+import Base
+
+import IntDefs
+import IntAddSub
+import IntMult
+
+/*
+  Int parity predicates.
+
+  `Even(n)` means `n` is twice another Int, and `Odd(n)` means `n` is
+  one plus twice another Int. These overload the corresponding UInt
+  predicates from `UIntEvenOdd.pf`; type-directed dispatch picks the
+  right one for each call.
+*/
+
+fun Even(n : Int) {
+  some m:Int. n = +2 * m
+}
+
+fun Odd(n : Int) {
+  some m:Int. n = +1 + (+2 * m)
+}
+
+// Helper: every integer doubled equals itself added to itself.
+// Lets the closure proofs avoid the missing Int distributivity laws.
+lemma int_two_mult_unfold: all x:Int. +2 * x = x + x
+proof
+  arbitrary x:Int
+  switch x {
+    case pos(x') {
+      have lhs: +2 * pos(x') = pos(2 * x') by mult_pos_pos[2, x']
+      have mid: pos(2 * x') = pos(x' + x') by replace uint_two_mult.
+      have rhs: pos(x' + x') = pos(x') + pos(x') by symmetric add_pos_pos[x', x']
+      transitive lhs (transitive mid rhs)
+    }
+    case negsuc(x') {
+      have lhs: +2 * negsuc(x') = - pos(2 + 2 * x') by mult_pos_negsuc[2, x']
+      have m1: - pos(2 + 2 * x') = negsuc(1 + 2 * x') by neg_pos[1 + 2 * x']
+      have m2: negsuc(1 + 2 * x') = negsuc(1 + x' + x') by replace uint_two_mult.
+      have rhs: negsuc(1 + x' + x') = negsuc(x') + negsuc(x') by symmetric add_negsuc_negsuc[x', x']
+      transitive lhs (transitive m1 (transitive m2 rhs))
+    }
+  }
+end
+
+// Twice any integer is even.
+theorem int_two_even: all n:Int. Even(+2 * n)
+proof
+  arbitrary n:Int
+  expand Even
+  choose n.
+end
+
+// One plus twice any integer is odd.
+theorem int_one_two_odd: all n:Int. Odd(+1 + +2 * n)
+proof
+  arbitrary n:Int
+  expand Odd
+  choose n.
+end
+
+// The sum of two even integers is even.
+theorem int_even_add_even: all x:Int, y:Int.
+  if Even(x) and Even(y) then Even(x + y)
+proof
+  arbitrary x:Int, y:Int
+  assume prem: Even(x) and Even(y)
+  obtain a where x_2a: x = +2 * a from expand Even in (conjunct 0 of prem)
+  obtain b where y_2b: y = +2 * b from expand Even in (conjunct 1 of prem)
+  expand Even
+  choose a + b
+  // Goal: x + y = +2 * (a + b)
+  // Strategy: rewrite x, y; then +2 * z = z + z; rearrange via commute/assoc.
+  have rhs: +2 * (a + b) = (a + b) + (a + b) by int_two_mult_unfold[a + b]
+  have lhs: x + y = (a + a) + (b + b) by {
+    replace x_2a | y_2b
+    replace int_two_mult_unfold.
+  }
+  // (a + a) + (b + b) = (a + b) + (a + b) by commute/assoc.
+  have rearrange: (a + a) + (b + b) = (a + b) + (a + b) by {
+    equations
+        (a + a) + (b + b)
+      = a + (a + (b + b))       by .
+    ... = a + ((a + b) + b)     by .
+    ... = a + (b + (a + b))     by replace int_add_commute[a + b, b].
+    ... = (a + b) + (a + b)     by .
+  }
+  transitive lhs (transitive rearrange symmetric rhs)
+end
+
+// Even + Odd is odd.
+theorem int_even_add_odd: all x:Int, y:Int.
+  if Even(x) and Odd(y) then Odd(x + y)
+proof
+  arbitrary x:Int, y:Int
+  assume prem: Even(x) and Odd(y)
+  obtain a where x_2a: x = +2 * a from expand Even in (conjunct 0 of prem)
+  obtain b where y_1_2b: y = +1 + +2 * b from expand Odd in (conjunct 1 of prem)
+  expand Odd
+  choose a + b
+  // Goal: x + y = +1 + +2 * (a + b)
+  have rhs: +1 + +2 * (a + b) = +1 + ((a + b) + (a + b))
+    by replace int_two_mult_unfold.
+  have lhs: x + y = (a + a) + (+1 + (b + b)) by {
+    replace x_2a | y_1_2b
+    replace int_two_mult_unfold.
+  }
+  have rearrange: (a + a) + (+1 + (b + b)) = +1 + ((a + b) + (a + b)) by {
+    equations
+        (a + a) + (+1 + (b + b))
+      = a + (a + (+1 + (b + b)))     by .
+    ... = a + ((a + +1) + (b + b))   by .
+    ... = a + ((+1 + a) + (b + b))   by replace int_add_commute[a, +1].
+    ... = a + (+1 + (a + (b + b)))   by .
+    ... = (a + +1) + (a + (b + b))   by .
+    ... = (+1 + a) + (a + (b + b))   by replace int_add_commute[a, +1].
+    ... = +1 + (a + (a + (b + b)))   by .
+    ... = +1 + ((a + a) + (b + b))   by .
+    ... = +1 + (a + (a + (b + b)))   by .
+    ... = +1 + (a + ((a + b) + b))   by .
+    ... = +1 + (a + (b + (a + b)))   by replace int_add_commute[a + b, b].
+    ... = +1 + ((a + b) + (a + b))   by .
+  }
+  transitive lhs (transitive rearrange symmetric rhs)
+end
+
+// Odd + Even is odd, by commuting.
+theorem int_odd_add_even: all x:Int, y:Int.
+  if Odd(x) and Even(y) then Odd(x + y)
+proof
+  arbitrary x:Int, y:Int
+  assume prem: Odd(x) and Even(y)
+  have odd_yx: Odd(y + x) by {
+    apply int_even_add_odd[y, x] to (conjunct 1 of prem), (conjunct 0 of prem)
+  }
+  replace int_add_commute[x, y]
+  odd_yx
+end
+
+// Odd + Odd is even.
+theorem int_odd_add_odd: all x:Int, y:Int.
+  if Odd(x) and Odd(y) then Even(x + y)
+proof
+  arbitrary x:Int, y:Int
+  assume prem: Odd(x) and Odd(y)
+  obtain a where x_1_2a: x = +1 + +2 * a from expand Odd in (conjunct 0 of prem)
+  obtain b where y_1_2b: y = +1 + +2 * b from expand Odd in (conjunct 1 of prem)
+  expand Even
+  choose +1 + (a + b)
+  // Goal: x + y = +2 * (+1 + (a + b))
+  have rhs: +2 * (+1 + (a + b)) = (+1 + (a + b)) + (+1 + (a + b))
+    by int_two_mult_unfold[+1 + (a + b)]
+  have lhs: x + y = (+1 + (a + a)) + (+1 + (b + b)) by {
+    replace x_1_2a | y_1_2b
+    replace int_two_mult_unfold.
+  }
+  have rearrange: (+1 + (a + a)) + (+1 + (b + b))
+                = (+1 + (a + b)) + (+1 + (a + b)) by {
+    equations
+        (+1 + (a + a)) + (+1 + (b + b))
+      = +1 + ((a + a) + (+1 + (b + b)))   by .
+    ... = +1 + (a + (a + (+1 + (b + b)))) by .
+    ... = +1 + (a + ((a + +1) + (b + b))) by .
+    ... = +1 + (a + ((+1 + a) + (b + b))) by replace int_add_commute[a, +1].
+    ... = +1 + (a + (+1 + (a + (b + b)))) by .
+    ... = +1 + ((a + +1) + (a + (b + b))) by .
+    ... = +1 + ((+1 + a) + (a + (b + b))) by replace int_add_commute[a, +1].
+    ... = +1 + (+1 + (a + (a + (b + b)))) by .
+    ... = (+1 + +1) + (a + (a + (b + b))) by .
+    ... = (+1 + +1) + (a + ((a + b) + b)) by .
+    ... = (+1 + +1) + (a + (b + (a + b))) by replace int_add_commute[a + b, b].
+    ... = (+1 + +1) + ((a + b) + (a + b)) by .
+    ... = +1 + (+1 + ((a + b) + (a + b))) by .
+    ... = (+1 + (+1 + (a + b))) + (a + b) by .
+    ... = ((+1 + (a + b)) + +1) + (a + b) by replace int_add_commute[+1, +1 + (a + b)].
+    ... = (+1 + (a + b)) + (+1 + (a + b)) by .
+  }
+  transitive lhs (transitive rearrange symmetric rhs)
+end
+
+// If x is even then x * y is even.
+theorem int_even_mult_left: all x:Int, y:Int.
+  if Even(x) then Even(x * y)
+proof
+  arbitrary x:Int, y:Int
+  assume prem: Even(x)
+  obtain a where x_2a: x = +2 * a from expand Even in prem
+  expand Even
+  choose a * y
+  // Goal: x * y = +2 * (a * y)
+  equations
+      x * y
+    = (+2 * a) * y    by replace x_2a.
+  ... = +2 * (a * y)  by int_mult_assoc[+2, a, y]
+end
+
+// If y is even then x * y is even, by commuting.
+theorem int_even_mult_right: all x:Int, y:Int.
+  if Even(y) then Even(x * y)
+proof
+  arbitrary x:Int, y:Int
+  assume prem: Even(y)
+  have even_yx: Even(y * x) by apply int_even_mult_left[y, x] to prem
+  replace int_mult_commute[x, y]
+  even_yx
+end
+
+// Helper: negation maps Even to Even.
+lemma int_even_neg_fwd: all x:Int. if Even(x) then Even(- x)
+proof
+  arbitrary x:Int
+  assume prem
+  obtain a where x_2a: x = +2 * a from expand Even in prem
+  expand Even
+  choose - a
+  // Goal: - x = +2 * (- a)
+  equations
+      - x
+    = - (+2 * a)     by replace x_2a.
+  ... = - (a * +2)   by replace int_mult_commute[+2, a].
+  ... = (- a) * +2   by dist_neg_mult[a, +2]
+  ... = +2 * (- a)   by int_mult_commute[- a, +2]
+end
+
+// Negation preserves Even parity.
+theorem int_even_neg: all x:Int. Even(x) ⇔ Even(- x)
+proof
+  arbitrary x:Int
+  have fwd: if Even(x) then Even(- x) by int_even_neg_fwd[x]
+  have bkwd: if Even(- x) then Even(x) by {
+    assume prem
+    have e: Even(-(- x)) by apply int_even_neg_fwd[- x] to prem
+    have eq: -(- x) = x by neg_involutive[x]
+    replace eq in e
+  }
+  fwd, bkwd
+end
+
+// Helper: negation maps Odd to Odd.
+lemma int_odd_neg_fwd: all x:Int. if Odd(x) then Odd(- x)
+proof
+  arbitrary x:Int
+  assume prem
+  obtain a where x_1_2a: x = +1 + +2 * a from expand Odd in prem
+  expand Odd
+  choose -+1 + (- a)
+  // Goal: -x = +1 + +2 * (-+1 + (-a))
+  // Compute LHS: -x = -(+1 + +2*a) = -+1 + -(+2*a) = -+1 + +2*(-a)
+  have neg_x: - x = -+1 + +2 * (- a) by {
+    equations
+        - x
+      = - (+1 + +2 * a)              by replace x_1_2a.
+    ... = (- +1) + - (+2 * a)        by neg_distr_add[+1, +2 * a]
+    ... = -+1 + - (a * +2)           by replace int_mult_commute[+2, a].
+    ... = -+1 + (- a) * +2           by replace dist_neg_mult[a, +2].
+    ... = -+1 + +2 * (- a)           by replace int_mult_commute[- a, +2].
+  }
+  // Compute RHS via int_two_mult_unfold:
+  //   +1 + +2 * (-+1 + (-a)) = +1 + ((-+1 + (-a)) + (-+1 + (-a)))
+  have rhs: +1 + +2 * (-+1 + (- a))
+          = +1 + ((-+1 + (- a)) + (-+1 + (- a)))
+    by replace int_two_mult_unfold.
+  // Rearrange the doubled inner sum back to -+1 + +2*(-a):
+  //   +1 + ((-+1 + -a) + (-+1 + -a))
+  //   = +1 + (-+1 + (-a + (-+1 + -a)))     assoc
+  //   = +1 + (-+1 + ((-a + -+1) + -a))     assoc
+  //   = +1 + (-+1 + ((-+1 + -a) + -a))     commute -a, -+1
+  //   = +1 + (-+1 + (-+1 + (-a + -a)))     assoc
+  //   = +1 + ((-+1 + -+1) + (-a + -a))     assoc
+  //   = (+1 + (-+1 + -+1)) + (-a + -a)     assoc
+  //   = ((+1 + -+1) + -+1) + (-a + -a)     assoc
+  //   = (+0 + -+1) + (-a + -a)             int_add_inverse
+  //   = -+1 + (-a + -a)                    +0 + n = n
+  //   = -+1 + +2 * (-a)                    int_two_mult_unfold
+  have rearrange: +1 + ((-+1 + (- a)) + (-+1 + (- a))) = -+1 + +2 * (- a) by {
+    have d: (- a) + (- a) = +2 * (- a) by symmetric int_two_mult_unfold[- a]
+    equations
+        +1 + ((-+1 + (- a)) + (-+1 + (- a)))
+      = +1 + (-+1 + ((- a) + (-+1 + (- a))))   by .
+    ... = +1 + (-+1 + (((- a) + -+1) + (- a))) by .
+    ... = +1 + (-+1 + ((-+1 + (- a)) + (- a))) by replace int_add_commute[- a, -+1].
+    ... = +1 + (-+1 + (-+1 + ((- a) + (- a)))) by .
+    ... = +1 + ((-+1 + -+1) + ((- a) + (- a))) by .
+    ... = (+1 + (-+1 + -+1)) + ((- a) + (- a)) by .
+    ... = ((+1 + -+1) + -+1) + ((- a) + (- a)) by .
+    ... = (+0 + -+1) + ((- a) + (- a))         by replace int_add_inverse[+1].
+    ... = -+1 + ((- a) + (- a))                by .
+    ... = -+1 + +2 * (- a)                     by replace d.
+  }
+  transitive (transitive neg_x (symmetric rearrange)) (symmetric rhs)
+end
+
+theorem int_odd_neg: all x:Int. Odd(x) ⇔ Odd(- x)
+proof
+  arbitrary x:Int
+  have fwd: if Odd(x) then Odd(- x) by int_odd_neg_fwd[x]
+  have bkwd: if Odd(- x) then Odd(x) by {
+    assume prem
+    have o: Odd(-(- x)) by apply int_odd_neg_fwd[- x] to prem
+    have eq: -(- x) = x by neg_involutive[x]
+    replace eq in o
+  }
+  fwd, bkwd
+end
