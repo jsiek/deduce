@@ -305,7 +305,7 @@ assert [1,2] ++ [3,4] = [1,2,3,4]
 
 ## Apply-To Proof (Modus Ponens)
 
-```
+```deduce-grammar
 conclusion ::= "apply" proof "to" proof
 ```
 
@@ -578,7 +578,7 @@ end
 
 ## Comma (Logical And Introduction)
 
-```
+```deduce-grammar
 conclusion ::= proof "," proof
 ```
 
@@ -935,7 +935,7 @@ Deduce.)
 
 ## Equations
 
-```
+```deduce-grammar
 conclusion ::= "equations" equation equation_list
 ```
 
@@ -991,7 +991,7 @@ end
 
 ## Evaluate (Proof)
 
-```
+```deduce-grammar
 conclusion ::= "evaluate"
 ```
 
@@ -1001,7 +1001,7 @@ simplified to `true`.
 
 ## Evaluate-In (Proof)
 
-```
+```deduce-grammar
 conclusion ::= "evaluate" "in" proof
 ```
 
@@ -1011,7 +1011,7 @@ a proof of the simplified formula.
 
 ## Extensionality
 
-```
+```deduce-grammar
 proof_stmt ::= "extensionality"
 ```
 
@@ -1388,11 +1388,8 @@ assert 1 ∈ S and 2 ∈ S and 3 ∈ S and not (4 ∈ S)
 
 ## Induction
 
-```
-conclusion ::= "induction" type induction_case_list
-```
-
 ```deduce-grammar
+conclusion ::= "induction" type induction_case_list
 induction_case_list ::= induction_case
 induction_case_list ::= induction_case induction_case_list
 induction_case ::= "case" pattern "{" proof "}"
@@ -1790,7 +1787,7 @@ end
 
 ## Opaque (Visibility)
 
-```
+```deduce-grammar
 visibility ::= "opaque"
 ```
 
@@ -1887,7 +1884,7 @@ A period is a proof of the formula `true` in Deduce.
 
 ## Private (Visibility)
 
-```
+```deduce-grammar
 visibility ::= "private"
 ```
 
@@ -1896,7 +1893,7 @@ See [Visibility](#visibility).
 
 ## Public (Visibility)
 
-```
+```deduce-grammar
 visibility ::= "public"
 ```
 
@@ -2209,11 +2206,8 @@ end
 
 ## Rule Induction (Proof)
 
-```
-conclusion ::= "rule" "induction" identifier rule_induction_case_list
-```
-
 ```deduce-grammar
+conclusion ::= "rule" "induction" identifier rule_induction_case_list
 rule_induction_case ::= "case" identifier "{" proof "}"
 rule_induction_case_list ::= rule_induction_case
 rule_induction_case_list ::= rule_induction_case rule_induction_case_list
@@ -2288,7 +2282,7 @@ induction hypothesis.
 
 ## Rule Inversion (Proof)
 
-```
+```deduce-grammar
 conclusion ::= "rule" "inversion" identifier rule_induction_case_list
 ```
 

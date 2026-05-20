@@ -32,7 +32,7 @@ TOKEN_ALIASES = {
     "unsigned_integer": "INT",
 }
 PASSTHROUGH_RULES = {"type_hi"}
-SUBSET_RULES = {"statement", "proof_stmt", "conclusion"}
+SUBSET_RULES = {"statement", "proof_stmt", "conclusion", "visibility"}
 
 
 @dataclass(frozen=True)
