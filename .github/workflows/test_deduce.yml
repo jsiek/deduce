@@ -22,6 +22,7 @@ jobs:
           cache: pip
           cache-dependency-path: |
             requirements.txt
+            requirements-lsp.txt
             gh_pages/requirements.txt
 
       - name: Install dependencies
@@ -29,6 +30,7 @@ jobs:
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           if [ -f ./gh_pages/requirements.txt ]; then pip install -r ./gh_pages/requirements.txt; fi
+          if [ -f requirements-lsp.txt ]; then pip install -r requirements-lsp.txt; fi
           pip install ruff mypy
 
       - name: Lint with ruff
