@@ -6,6 +6,7 @@ import Base
 import IntDefs
 import IntAddSub
 import IntMult
+import IntAbs
 
 /*
   Int parity predicates.
@@ -302,6 +303,158 @@ proof
     have o: Odd(-(- x)) by apply int_odd_neg_fwd[- x] to prem
     have eq: -(- x) = x by neg_involutive[x]
     replace eq in o
+  }
+  fwd, bkwd
+end
+
+// Bridges: UInt parity lifts to Int parity through `pos`.
+lemma int_even_pos: all u:UInt. if Even(u) then Even(pos(u))
+proof
+  arbitrary u:UInt
+  assume prem
+  obtain a where ua: u = 2 * a from expand Even in prem
+  expand Even
+  choose pos(a)
+  // Goal: pos(u) = +2 * pos(a)
+  equations
+      pos(u)
+    = pos(2 * a)        by replace ua.
+  ... = +2 * pos(a)     by symmetric mult_pos_pos[2, a]
+end
+
+lemma int_odd_pos: all u:UInt. if Odd(u) then Odd(pos(u))
+proof
+  arbitrary u:UInt
+  assume prem
+  obtain a where ua: u = 1 + 2 * a from expand Odd in prem
+  expand Odd
+  choose pos(a)
+  // Goal: pos(u) = +1 + +2 * pos(a)
+  equations
+      pos(u)
+    = pos(1 + 2 * a)            by replace ua.
+  ... = pos(1) + pos(2 * a)     by symmetric add_pos_pos[1, 2 * a]
+  ... = +1 + +2 * pos(a)        by replace symmetric mult_pos_pos[2, a].
+end
+
+// Every integer is even or odd.
+theorem int_Even_or_Odd: all n:Int. Even(n) or Odd(n)
+proof
+  arbitrary n:Int
+  switch n {
+    case pos(u) {
+      cases uint_Even_or_Odd[u]
+      case e {
+        have ev: Even(pos(u)) by apply int_even_pos[u] to e
+        ev
+      }
+      case o {
+        have od: Odd(pos(u)) by apply int_odd_pos[u] to o
+        od
+      }
+    }
+    case negsuc(u) {
+      have eq: - pos(1 + u) = negsuc(u) by neg_pos[u]
+      cases uint_Even_or_Odd[1 + u]
+      case e {
+        have ev_pos: Even(pos(1 + u)) by apply int_even_pos[1 + u] to e
+        have ev_neg: Even(- pos(1 + u))
+          by apply int_even_neg_fwd[pos(1 + u)] to ev_pos
+        have ev_ns: Even(negsuc(u)) by replace eq in ev_neg
+        ev_ns
+      }
+      case o {
+        have od_pos: Odd(pos(1 + u)) by apply int_odd_pos[1 + u] to o
+        have od_neg: Odd(- pos(1 + u))
+          by apply int_odd_neg_fwd[pos(1 + u)] to od_pos
+        have od_ns: Odd(negsuc(u)) by replace eq in od_neg
+        od_ns
+      }
+    }
+  }
+end
+
+// Helper: +2 * (- y) = - (+2 * y).
+lemma int_two_mult_neg: all y:Int. +2 * (- y) = - (+2 * y)
+proof
+  arbitrary y:Int
+  equations
+      +2 * (- y)
+    = (- y) * +2     by int_mult_commute[+2, - y]
+  ... = - (y * +2)   by symmetric dist_neg_mult[y, +2]
+  ... = - (+2 * y)   by replace int_mult_commute[y, +2].
+end
+
+// Helper: doubling distributes over Int addition.
+lemma int_two_mult_add: all x:Int, y:Int. +2 * x + +2 * y = +2 * (x + y)
+proof
+  arbitrary x:Int, y:Int
+  have rearrange: (x + x) + (y + y) = (x + y) + (x + y) by {
+    equations
+        (x + x) + (y + y)
+      = x + (x + (y + y))     by .
+    ... = x + ((x + y) + y)   by .
+    ... = x + (y + (x + y))   by replace int_add_commute[x + y, y].
+    ... = (x + y) + (x + y)   by .
+  }
+  equations
+      +2 * x + +2 * y
+    = (x + x) + (y + y)       by replace int_two_mult_unfold.
+  ... = (x + y) + (x + y)     by rearrange
+  ... = +2 * (x + y)          by symmetric int_two_mult_unfold[x + y]
+end
+
+// Even and not-odd are equivalent for Int.
+theorem int_Even_not_Odd: all n:Int. Even(n) ⇔ not Odd(n)
+proof
+  arbitrary n:Int
+  have not_both: not (Even(n) and Odd(n)) by {
+    assume both: Even(n) and Odd(n)
+    obtain a where na: n = +2 * a from expand Even in (conjunct 0 of both)
+    obtain b where nb: n = +1 + +2 * b from expand Odd in (conjunct 1 of both)
+    have eq: +2 * a = +1 + +2 * b by transitive (symmetric na) nb
+    // From +2 * a = +1 + +2 * b, derive +2 * (a + -b) = +1.
+    have rearr: +2 * (a + (- b)) = +1 by {
+      equations
+          +2 * (a + (- b))
+        = +2 * a + +2 * (- b)              by symmetric int_two_mult_add[a, - b]
+      ... = +2 * a + (- (+2 * b))          by replace int_two_mult_neg[b].
+      ... = (+1 + +2 * b) + (- (+2 * b))   by replace eq.
+      ... = +1 + (+2 * b + (- (+2 * b)))   by int_add_assoc[+1, +2 * b, - (+2 * b)]
+      ... = +1 + +0                        by replace int_add_inverse[+2 * b].
+      ... = +1                             by .
+    }
+    // Taking abs of both sides yields 1 = 2 * abs(a + -b), so 1 is UInt-Even.
+    have one_eq_two_abs: 1 = 2 * abs(a + (- b)) by {
+      have h: abs(+2 * (a + (- b))) = 2 * abs(a + (- b))
+        by int_abs_mult[+2, a + (- b)]
+      replace rearr in h
+    }
+    have one_even: Even(1) by {
+      expand Even
+      choose abs(a + (- b))
+      one_eq_two_abs
+    }
+    have one_odd: Odd(1) by {
+      expand Odd
+      choose 0
+      .
+    }
+    have not_odd: not Odd(1)
+      by apply (conjunct 0 of uint_Even_not_Odd[1]) to one_even
+    apply not_odd to one_odd
+  }
+  have fwd: if Even(n) then not Odd(n) by {
+    assume e
+    assume o
+    have both: Even(n) and Odd(n) by e, o
+    apply not_both to both
+  }
+  have bkwd: if not Odd(n) then Even(n) by {
+    assume not_o
+    cases int_Even_or_Odd[n]
+    case e { e }
+    case o { conclude false by apply not_o to o }
   }
   fwd, bkwd
 end
