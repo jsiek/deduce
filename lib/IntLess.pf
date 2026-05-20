@@ -1289,3 +1289,79 @@ proof
   have step2: a + d < c + d by apply int_add_less_mono_right[d, a, c] to ac
   apply int_less_trans[a + b, a + d, c + d] to step1, step2
 end
+
+theorem int_neg_le_mono: all x:Int, y:Int.
+  if x ≤ y then -y ≤ -x
+proof
+  arbitrary x:Int, y:Int
+  assume xy
+  have step: x + ((-x) + (-y)) ≤ y + ((-x) + (-y))
+    by apply int_add_le_right_mono[(-x) + (-y), x, y] to xy
+  have lhs_eq: x + ((-x) + (-y)) = -y by {
+    equations
+          x + ((-x) + (-y))
+        = (x + (-x)) + (-y)   by symmetric int_add_assoc[x, -x, -y]
+    ... = +0 + (-y)           by replace int_add_inverse[x].
+    ... = -y                  by int_zero_add[-y]
+  }
+  have rhs_eq: y + ((-x) + (-y)) = -x by {
+    equations
+          y + ((-x) + (-y))
+        = y + ((-y) + (-x))   by replace int_add_commute[-x, -y].
+    ... = (y + (-y)) + (-x)   by symmetric int_add_assoc[y, -y, -x]
+    ... = +0 + (-x)           by replace int_add_inverse[y].
+    ... = -x                  by int_zero_add[-x]
+  }
+  replace lhs_eq | rhs_eq in step
+end
+
+theorem int_neg_le_iff: all x:Int, y:Int.
+  x ≤ y ⇔ -y ≤ -x
+proof
+  arbitrary x:Int, y:Int
+  have fwd: if x ≤ y then -y ≤ -x by int_neg_le_mono[x, y]
+  have bkwd: if -y ≤ -x then x ≤ y by {
+    assume neg_le
+    have step: -(-x) ≤ -(-y) by apply int_neg_le_mono[-y, -x] to neg_le
+    replace neg_involutive[x] | neg_involutive[y] in step
+  }
+  fwd, bkwd
+end
+
+theorem int_neg_less_mono: all x:Int, y:Int.
+  if x < y then -y < -x
+proof
+  arbitrary x:Int, y:Int
+  assume xy
+  have step: x + ((-x) + (-y)) < y + ((-x) + (-y))
+    by apply int_add_less_mono_right[(-x) + (-y), x, y] to xy
+  have lhs_eq: x + ((-x) + (-y)) = -y by {
+    equations
+          x + ((-x) + (-y))
+        = (x + (-x)) + (-y)   by symmetric int_add_assoc[x, -x, -y]
+    ... = +0 + (-y)           by replace int_add_inverse[x].
+    ... = -y                  by int_zero_add[-y]
+  }
+  have rhs_eq: y + ((-x) + (-y)) = -x by {
+    equations
+          y + ((-x) + (-y))
+        = y + ((-y) + (-x))   by replace int_add_commute[-x, -y].
+    ... = (y + (-y)) + (-x)   by symmetric int_add_assoc[y, -y, -x]
+    ... = +0 + (-x)           by replace int_add_inverse[y].
+    ... = -x                  by int_zero_add[-x]
+  }
+  replace lhs_eq | rhs_eq in step
+end
+
+theorem int_neg_less_iff: all x:Int, y:Int.
+  x < y ⇔ -y < -x
+proof
+  arbitrary x:Int, y:Int
+  have fwd: if x < y then -y < -x by int_neg_less_mono[x, y]
+  have bkwd: if -y < -x then x < y by {
+    assume neg_less
+    have step: -(-x) < -(-y) by apply int_neg_less_mono[-y, -x] to neg_less
+    replace neg_involutive[x] | neg_involutive[y] in step
+  }
+  fwd, bkwd
+end
