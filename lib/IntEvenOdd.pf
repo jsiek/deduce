@@ -479,3 +479,78 @@ proof
 ... = +1 + (+2 * b + +2 * (a * (+1 + +2 * b)))           by .
 ... = +1 + #+2 * (b + a * (+1 + +2 * b))#                by replace int_dist_mult_add[+2, b, a * (+1 + +2 * b)].
 end
+
+// Parity via `abs`: an Int is Even iff its absolute value is UInt-Even.
+// Forward uses the multiplicative form of abs on `x = +2 * m`; backward
+// splits on `x`, reusing `int_even_pos` for the `pos` case and combining
+// it with `int_even_neg_fwd` and `neg_pos` for the `negsuc` case.
+theorem int_Even_iff_abs_Even: all x:Int. Even(x) ⇔ Even(abs(x))
+proof
+  arbitrary x:Int
+  have fwd: if Even(x) then Even(abs(x)) by {
+    assume prem
+    obtain m where eq: x = +2 * m from expand Even in prem
+    expand Even
+    choose abs(m)
+    equations
+        abs(x)
+      = abs(+2 * m)         by replace eq.
+    ... = abs(+2) * abs(m)  by int_abs_mult[+2, m]
+    ... = 2 * abs(m)        by .
+  }
+  have bkwd: if Even(abs(x)) then Even(x) by {
+    switch x {
+      case pos(u) {
+        assume prem
+        apply int_even_pos[u] to prem
+      }
+      case negsuc(u) {
+        assume prem
+        have ev_pos: Even(pos(1 + u))
+          by apply int_even_pos[1 + u] to prem
+        have ev_neg: Even(- pos(1 + u))
+          by apply int_even_neg_fwd[pos(1 + u)] to ev_pos
+        have eq: - pos(1 + u) = negsuc(u) by neg_pos[u]
+        replace eq in ev_neg
+      }
+    }
+  }
+  fwd, bkwd
+end
+
+// Parity via `abs`: an Int is Odd iff its absolute value is UInt-Odd.
+// `abs` doesn't distribute over addition, so we route through the
+// Even-not-Odd equivalences (`int_Even_not_Odd` and `uint_Even_not_Odd`)
+// and the Even/abs bridge established above.
+theorem int_Odd_iff_abs_Odd: all x:Int. Odd(x) ⇔ Odd(abs(x))
+proof
+  arbitrary x:Int
+  have iEi: Even(x) ⇔ not Odd(x) by int_Even_not_Odd[x]
+  have uEi: Even(abs(x)) ⇔ not Odd(abs(x)) by uint_Even_not_Odd[abs(x)]
+  have abs_iff: Even(x) ⇔ Even(abs(x)) by int_Even_iff_abs_Even[x]
+  have fwd: if Odd(x) then Odd(abs(x)) by {
+    assume o_x
+    cases uint_Even_or_Odd[abs(x)]
+    case e_abs {
+      have e_x: Even(x) by apply (conjunct 1 of abs_iff) to e_abs
+      have not_o: not Odd(x) by apply (conjunct 0 of iEi) to e_x
+      conclude false by apply not_o to o_x
+    }
+    case o_abs {
+      o_abs
+    }
+  }
+  have bkwd: if Odd(abs(x)) then Odd(x) by {
+    assume o_abs
+    cases int_Even_or_Odd[x]
+    case e_x {
+      have e_abs: Even(abs(x)) by apply (conjunct 0 of abs_iff) to e_x
+      have not_o: not Odd(abs(x)) by apply (conjunct 0 of uEi) to e_abs
+      conclude false by apply not_o to o_abs
+    }
+    case o_x {
+      o_x
+    }
+  }
+  fwd, bkwd
+end
