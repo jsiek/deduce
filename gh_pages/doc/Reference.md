@@ -368,7 +368,7 @@ end
 ## Assert (Statement)
 
 ```deduce-grammar
-assert ::= "assert" term
+statement ::= "assert" term
 ```
 
 The `assert` statement evaluates a term and reports an error if the
@@ -430,7 +430,7 @@ See the entry for [Instantiation](#instantiation-term).
 ## Auto `auto` (Automatic Reduction)
 
 ```deduce-grammar
-auto_declaration ::= "auto" proof_hi
+statement ::= "auto" proof_hi
 ```
 
 To tell Deduce to automatically apply an equation, left to right, use
@@ -1088,7 +1088,7 @@ To add type parameters to a function (to make it generic), see
 ## Function (Statement)
 
 ```deduce-grammar
-function ::= visibility "fun" identifier type_params_opt "(" variable_list ")" "{" term "}"
+statement ::= visibility "fun" identifier type_params_opt "(" variable_list ")" "{" term "}"
 ```
 
 The `fun` statement is for defining a function (non-recursive).
@@ -1443,7 +1443,7 @@ union type), see [`rule induction`](#rule-induction-proof).
 
 ## Inductive (Statement)
 ```deduce-grammar
-inductive_decl ::= "inductive" type "by" proof_hi
+statement ::= "inductive" type "by" proof_hi
 ```
 
 The `inductive` statement allows you to declare custom inductive structure
@@ -1949,7 +1949,7 @@ with a [Conclusion](#conclusion-proof) (not a proof statement).
 ## Predicate (Statement)
 
 ```deduce-grammar
-predicate_declaration ::= visibility "predicate" identifier type_params_opt ":" type "{" predicate_rule_list "}"
+statement ::= visibility "predicate" identifier type_params_opt ":" type "{" predicate_rule_list "}"
 predicate_rule ::= IDENT ":" term
 predicate_rule_list ::= ε
 predicate_rule_list ::= predicate_rule predicate_rule_list
@@ -2029,7 +2029,7 @@ suggesting `relation`; the reverse hint fires for an arity-1
 ## Print (Statement)
 
 ```deduce-grammar
-print ::= "print" term
+statement ::= "print" term
 ```
 
 You can ask Deduce to print a value to standard output using the
@@ -2078,7 +2078,7 @@ is a proof of the formula `P1 and ... and Pn`. The formulas
 ## Recursive Function (Statement)
 
 ```deduce-grammar
-recursive_function ::= visibility "recursive" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}"
+statement ::= visibility "recursive" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}"
 fun_case ::= identifier "(" pattern_list ")" "=" term
 fun_case_list ::= fun_case
 fun_case_list ::= fun_case fun_case_list
@@ -2125,7 +2125,7 @@ can use a `switch` statement.
 ## Relation (Statement)
 
 ```deduce-grammar
-relation_declaration ::= visibility "relation" identifier type_params_opt ":" type "{" predicate_rule_list "}"
+statement ::= visibility "relation" identifier type_params_opt ":" type "{" predicate_rule_list "}"
 ```
 
 `relation` is an exact synonym for [`predicate`](#predicate-statement).
@@ -2704,7 +2704,7 @@ term_list ::= term "," term_list
 ## Trace (Statement)
 
 ```deduce-grammar
-trace ::= "trace" identifier
+statement ::= "trace" identifier
 ```
 
 You can ask Deduce to print the stack trace of functions as they get called or return a value using the `trace` statement. 
@@ -2773,7 +2773,7 @@ type ::= "(" type ")"
 ## Type Alias (Statement)
 
 ```deduce-grammar
-type_alias ::= visibility "type" IDENT type_params_opt "=" type
+statement ::= visibility "type" IDENT type_params_opt "=" type
 ```
 
 The `type` statement defines a type alias. A type alias may be
@@ -2819,7 +2819,7 @@ function.
 ## Union (Statement)
 
 ```deduce-grammar
-union ::= visibility "union" IDENT type_params_opt "{" constructor_list "}"
+statement ::= visibility "union" IDENT type_params_opt "{" constructor_list "}"
 constructor_list ::= constructor
 constructor_list ::= constructor constructor_list
 constructor ::= IDENT
@@ -2899,7 +2899,7 @@ optionally be annotated with its type.
 ## View (Statement)
 
 ```deduce-grammar
-view_declaration ::= visibility "view" IDENT type_params_opt "{" "source" type "target" type "into" identifier "out" identifier "roundtrip" identifier "}"
+statement ::= visibility "view" IDENT type_params_opt "{" "source" type "target" type "into" identifier "out" identifier "roundtrip" identifier "}"
 ```
 
 A `view` declaration describes how to pattern match on a value through
