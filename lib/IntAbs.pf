@@ -12,7 +12,9 @@ import IntMult
   Lifts the structural identities `abs(pos(n)) = n` and
   `abs(negsuc(n)) = 1 + n` to public theorems, gives the
   `abs(x) = 0 ⇔ x = +0` characterization, and shows that absolute value
-  distributes over multiplication.
+  distributes over multiplication. The closing trio (no zero divisors,
+  left/right cancellation by a nonzero factor) lives here because the
+  proofs route through `int_abs_mult` and `int_abs_eq_zero_implies_zero`.
 */
 
 theorem int_abs_pos: all n:UInt. abs(pos(n)) = n
@@ -103,4 +105,83 @@ proof
       }
     }
   }
+end
+
+// Int has no zero divisors: a product is zero only if a factor is.
+theorem int_mult_to_zero: all x:Int, y:Int.
+  if x * y = +0 then x = +0 or y = +0
+proof
+  arbitrary x:Int, y:Int
+  assume prem
+  have abs_prod_zero: abs(x) * abs(y) = 0 by {
+    equations
+          abs(x) * abs(y)
+        = abs(x * y)             by symmetric int_abs_mult[x, y]
+    ... = abs(+0)                by replace prem.
+    ... = 0                      by int_abs_zero
+  }
+  cases apply uint_mult_to_zero[abs(x), abs(y)] to abs_prod_zero
+  case ax_zero {
+    conclude x = +0 or y = +0
+      by apply int_abs_eq_zero_implies_zero[x] to ax_zero
+  }
+  case ay_zero {
+    conclude x = +0 or y = +0
+      by apply int_abs_eq_zero_implies_zero[y] to ay_zero
+  }
+end
+
+// Left cancellation by a nonzero factor in an Int equation.
+theorem int_mult_left_cancel: all n:Int, x:Int, y:Int.
+  if not (n = +0) and n * x = n * y then x = y
+proof
+  arbitrary n:Int, x:Int, y:Int
+  assume prem
+  have nnz: not (n = +0) by conjunct 0 of prem
+  have nxy: n * x = n * y by conjunct 1 of prem
+  // From n * x = n * y, derive n * (y - x) = +0.
+  have prod_zero: n * (y - x) = +0 by {
+    equations
+          n * (y - x)
+        = n * (y + -x)            by expand operator-.
+    ... = n * y + n * (-x)        by int_dist_mult_add[n, y, -x]
+    ... = n * y + -(n * x)        by {
+            have neg_mult: n * (-x) = -(n * x) by {
+              equations
+                    n * (-x)
+                  = (-x) * n          by int_mult_commute[n, -x]
+              ... = -(x * n)          by symmetric dist_neg_mult[x, n]
+              ... = -(n * x)          by replace int_mult_commute[x, n].
+            }
+            replace neg_mult.
+          }
+    ... = n * y + -(n * y)        by replace nxy.
+    ... = +0                      by int_add_inverse[n * y]
+  }
+  cases apply int_mult_to_zero[n, y - x] to prod_zero
+  case n_zero {
+    conclude false by apply nnz to n_zero
+  }
+  case yx_zero {
+    // y - x = +0 implies x = y.
+    have y_neg_x: y + -x = +0 by expand operator- in yx_zero
+    have x_neg_x: x + -x = +0 by int_add_inverse[x]
+    have step: y + -x = x + -x by transitive y_neg_x (symmetric x_neg_x)
+    symmetric apply int_add_both_sides_of_equal_right[-x, y, x] to step
+  }
+end
+
+// Right cancellation by a nonzero factor in an Int equation.
+theorem int_mult_right_cancel: all n:Int, x:Int, y:Int.
+  if not (n = +0) and x * n = y * n then x = y
+proof
+  arbitrary n:Int, x:Int, y:Int
+  assume prem
+  have nnz: not (n = +0) by conjunct 0 of prem
+  have xn_yn: x * n = y * n by conjunct 1 of prem
+  have nxy: n * x = n * y by {
+    replace int_mult_commute[n, x] | int_mult_commute[n, y]
+    xn_yn
+  }
+  apply int_mult_left_cancel[n, x, y] to nnz, nxy
 end
