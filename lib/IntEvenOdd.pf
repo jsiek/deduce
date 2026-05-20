@@ -459,6 +459,46 @@ proof
   fwd, bkwd
 end
 
+// Subtracting one from an odd successor leaves an even number.
+theorem int_odd_one_even: all n:Int. if Odd(+1 + n) then Even(n)
+proof
+  arbitrary n:Int
+  assume prem: Odd(+1 + n)
+  cases int_Even_or_Odd[n]
+  case e_n { e_n }
+  case o_n {
+    have odd_one: Odd(+1) by {
+      expand Odd
+      choose +0
+      .
+    }
+    have ev_1n: Even(+1 + n) by apply int_odd_add_odd[+1, n] to odd_one, o_n
+    have not_odd: not Odd(+1 + n)
+      by apply (conjunct 0 of int_Even_not_Odd[+1 + n]) to ev_1n
+    conclude false by apply not_odd to prem
+  }
+end
+
+// Subtracting one from an even successor leaves an odd number.
+theorem int_even_one_odd: all n:Int. if Even(+1 + n) then Odd(n)
+proof
+  arbitrary n:Int
+  assume prem: Even(+1 + n)
+  cases int_Even_or_Odd[n]
+  case e_n {
+    have odd_one: Odd(+1) by {
+      expand Odd
+      choose +0
+      .
+    }
+    have odd_1n: Odd(+1 + n) by apply int_odd_add_even[+1, n] to odd_one, e_n
+    have not_odd: not Odd(+1 + n)
+      by apply (conjunct 0 of int_Even_not_Odd[+1 + n]) to prem
+    conclude false by apply not_odd to odd_1n
+  }
+  case o_n { o_n }
+end
+
 // Odd × Odd is odd.
 theorem int_odd_mult_odd: all x:Int, y:Int.
   if Odd(x) and Odd(y) then Odd(x * y)
