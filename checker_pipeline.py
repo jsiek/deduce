@@ -26,7 +26,7 @@ from abstract_syntax import (
     Or, OverloadType, OverloadedVar, PSorry, PVar, PatternBool, PatternCons,
     Postulate, Predicate, Print, RecFun, ResolvedVar, Rule, Some,
     Statement, Switch, SwitchCase, TAnnote, TLet, Term, TermInst, Theorem,
-    Trace, Type, TypeInst, TypeType, Union, Var, VarRef, VerboseLevel,
+    Trace, Type, TypeAlias, TypeInst, TypeType, Union, Var, VarRef, VerboseLevel,
     ViewDecl, ViewRecFun, alpha_equiv, base_name, callable_name,
     check_post_typecheck_invariants, find_file, mkEqual, print_theorems,
     set_eval_all, set_reduce_all, type_match, type_names,
@@ -214,6 +214,14 @@ def process_declaration_visibility(decl: Declaration, env: Env,
                                              [checked_target], checked_source),
                                 env, "out")
       return checked_decl, env.declare_view(loc, checked_decl,
+                                            decl.visibility)
+
+    case TypeAlias(loc, name, typarams, body):
+      body_env = env.declare_type_vars(loc, typarams)
+      checked_body = check_type(body, body_env)
+      checked_alias = TypeAlias(loc, name, typarams, checked_body,
+                                visibility=decl.visibility)
+      return checked_alias, env.define_type(loc, name, checked_alias,
                                             decl.visibility)
   
     case Union(loc, name, typarams, alts):
@@ -836,6 +844,9 @@ def type_check_stmt(stmt: Statement, env: Env,
   
     case Union(loc, name, typarams, _):
       return stmt
+
+    case TypeAlias():
+      return stmt
   
     case Export(loc, name):
         return stmt
@@ -912,6 +923,9 @@ def collect_env(stmt: Statement, env: Env) -> Env:
       return env.declare_view(loc, stmt, stmt.visibility)
       
     case Union(loc, name, typarams, _):
+      return env
+
+    case TypeAlias():
       return env
           
     case Theorem(loc, name, frm, _, _):
@@ -1181,6 +1195,9 @@ def check_proofs(stmt: Statement, env: Env) -> None:
       _try_check_proof_of(terminates, formula, body_env)
   
     case Union(loc, name, typarams, _):
+      pass
+
+    case TypeAlias():
       pass
 
     case ViewDecl():

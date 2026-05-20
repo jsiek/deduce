@@ -3,7 +3,7 @@
 Scope: every dataclass node that can appear at the top level of a ``.pf``
 file, together with the bookkeeping that supports them across imports.
 This covers the ``Declaration`` family (``Theorem``, ``Postulate``,
-``Predicate``, ``Union``, ``RecFun``, ``GenRecFun``, ``ViewRecFun``,
+``Predicate``, ``Union``, ``TypeAlias``, ``RecFun``, ``GenRecFun``, ``ViewRecFun``,
 ``ViewDecl``, ``Define``, ``Import``) and the non-``Declaration``
 statements (``Auto``, ``Inductive``, ``Module``, ``Export``,
 ``Associative``, ``Trace``, ``Assert``, ``Print``). Their AST helpers
@@ -383,6 +383,57 @@ class Union(Declaration):
         + ' '.join([str(c) for c in self.alternatives]) + '}'
     else:
       return base_name(self.name)
+
+
+@dataclass
+class TypeAlias(Declaration):
+  type_params: List[str]
+  body: Type
+
+  def reduce(self, env: object) -> Self:
+    return self
+
+  def uniquify(self, env: object, ctx: object) -> TypeAlias:
+    env_map = cast(dict[str, Any], env)
+    uniq_ctx = cast(UniquifyContext, ctx)
+    if self.name in env_map.keys():
+      user_error(self.location, "type names may not be overloaded")
+    new_name = generate_name(self.name, uniq_ctx)
+    env_map[self.name] = [new_name]
+    env_map['no overload'][self.name] = 'type alias'
+
+    body_env = copy_dict(env_map)
+    new_type_params = [generate_name(t, uniq_ctx) for t in self.type_params]
+    for old, new in zip(self.type_params, new_type_params):
+      extend(body_env, old, new, self.location)
+
+    return TypeAlias(self.location, new_name, new_type_params,
+                     self.body.uniquify(body_env, uniq_ctx),
+                     visibility=self.visibility)
+
+  def collect_exports(
+      self,
+      export_env: dict[str, Any],
+      importing_module: str,
+  ) -> None:
+    if self.visibility == 'private' and importing_module != get_current_module():
+      return
+    export_env[base_name(self.name)] = [self.name]
+
+  def substitute(self, sub: object) -> Self:
+    return self
+
+  def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
+    header = 'type ' + base_name(self.name) \
+        + ('<' + ','.join([base_name(t) for t in self.type_params]) + '>' if self.type_params else '')
+    return indent*' ' + header + ' = ' + str(self.body) + '\n'
+
+  def __str__(self) -> str:
+    if get_verbose():
+      shown_name = self.name
+      params = '<' + ','.join(self.type_params) + '>' if self.type_params else ''
+      return 'type ' + shown_name + params + ' = ' + str(self.body)
+    return base_name(self.name)
   
   
 @dataclass

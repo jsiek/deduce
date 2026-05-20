@@ -57,6 +57,7 @@ from abstract_syntax import (
     Term,
     TermInst,
     Type,
+    TypeAlias,
     TypeInst,
     TypeType,
     Union,
@@ -435,6 +436,27 @@ def _check_union_arity(head: Any, given: int, env: Env) -> None:
           f"Expected union type '{head}' to have "
           f"{len(type_def.type_params)} type arguments, not {given}")
 
+def _lookup_type_alias(loc: Meta, typ: Any, env: Env) -> TypeAlias | None:
+  match typ:
+    case OverloadedVar(_, _, resolved_names):
+      if not env.type_var_is_defined(typ):
+        user_error(loc, 'undefined type variable ' + str(typ))
+      if len(resolved_names) > 1:
+        user_error(loc, 'type names may not be overloaded ' + str(typ))
+      defn = env.get_def_of_type_var(typ)
+    case ResolvedVar():
+      if not env.type_var_is_defined(typ):
+        user_error(loc, 'undefined type variable ' + str(typ))
+      defn = env.get_def_of_type_var(typ)
+    case _:
+      return None
+  return defn if isinstance(defn, TypeAlias) else None
+
+def _type_alias_arity_error(loc: Meta, name: str, expected: int, got: int) -> None:
+  user_error(loc,
+        f"Expected type alias '{base_name(name)}' to have "
+        f"{expected} type arguments, not {got}")
+
 # Validate that ``typ`` is well-formed in ``env`` and return the type
 # with every single-candidate ``OverloadedVar`` narrowed to
 # ``ResolvedVar``. The returned type may share structure with ``typ``
@@ -458,6 +480,13 @@ def check_type(typ: Any, env: Env, arity_required: bool = True) -> Any:
       if view_info is not None:
         _, source_ty, _ = view_info
         return source_ty
+      alias = _lookup_type_alias(loc, typ, env)
+      if alias is not None:
+        if len(alias.type_params) != 0:
+          if arity_required:
+            _type_alias_arity_error(loc, alias.name, len(alias.type_params), 0)
+          return ResolvedVar(loc, tyof, rs[0])
+        return alias.body
       if arity_required:
         _check_union_arity(typ, 0, env)
       # len(rs) == 1: this is a non-overloaded type reference. Promote.
@@ -469,6 +498,13 @@ def check_type(typ: Any, env: Env, arity_required: bool = True) -> Any:
       if view_info is not None:
         _, source_ty, _ = view_info
         return source_ty
+      alias = _lookup_type_alias(loc, typ, env)
+      if alias is not None:
+        if len(alias.type_params) != 0:
+          if arity_required:
+            _type_alias_arity_error(loc, alias.name, len(alias.type_params), 0)
+          return typ
+        return alias.body
       if arity_required:
         _check_union_arity(typ, 0, env)
       return typ
@@ -484,6 +520,15 @@ def check_type(typ: Any, env: Env, arity_required: bool = True) -> Any:
       if view_info is not None:
         _, source_ty, _ = view_info
         return source_ty
+      alias = _lookup_type_alias(loc, inner_typ, env)
+      if alias is not None:
+        new_args = [check_type(ty, env) for ty in arg_types]
+        if len(alias.type_params) != len(new_args):
+          _type_alias_arity_error(loc, alias.name,
+                                  len(alias.type_params), len(new_args))
+        subst = dict(zip(alias.type_params, new_args))
+        expanded = alias.body.substitute(subst)
+        return check_type(expanded, env)
       # The head is a generic-union reference applied to ``arg_types``;
       # suppress the bare-head arity check and validate against the
       # actual arg count instead.

@@ -1,0 +1,21 @@
+type Truth = bool
+
+define id_truth : fn Truth -> Truth = fun x { x }
+
+assert id_truth(true) = true
+
+union Box<T> {
+  box(T)
+}
+
+type Id<T> = T
+type BoxOf<T> = Box<Id<T>>
+type TruthBox = BoxOf<Truth>
+
+define boxed_true : TruthBox = box(true)
+
+type BoolEndo = fn Truth -> Truth
+
+define apply_endo : fn BoolEndo, Truth -> Truth = fun f, x { f(x) }
+
+assert apply_endo(id_truth, true) = true
