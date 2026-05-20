@@ -13,7 +13,7 @@ from abstract_syntax import (
     Rule, RuleInduction, RuleInductionCase, RuleInversion, SimplifyFact,
     SimplifyGoal, Some, SomeElim, SomeIntro, Statement, Suffices, Switch,
     SwitchCase, SwitchProof, SwitchProofCase, TAnnote, TLet, TermInst,
-    Theorem, Trace, TypeInst, TypeType, Union, Var,
+    Theorem, Trace, TypeAlias, TypeInst, TypeType, Union, Var,
     ViewDecl, count_marks, extract_and, extract_or, extract_tuple,
     get_default_mark_LHS, intToNat, listToNodeList, mkEqual, mkIntLit,
     mkUIntLit, remove_mark,
@@ -661,6 +661,14 @@ def parse_tree_to_ast(e, parent):
         statement = Union(e.meta, str(e.children[1].value),
                           parse_tree_to_list(e.children[2], e),
                           parse_tree_to_list(e.children[3], e))
+        set_visibility(statement, visibility)
+        return statement
+
+    elif e.data == 'type_alias':
+        visibility = parse_tree_to_ast(e.children[0], e)
+        statement = TypeAlias(e.meta, str(e.children[1].value),
+                              parse_tree_to_list(e.children[2], e),
+                              parse_tree_to_ast(e.children[3], e))
         set_visibility(statement, visibility)
         return statement
 

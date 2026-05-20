@@ -137,6 +137,7 @@ presentation while they are migrated to the strict check.
 - [Transitive (Proof)](#transitive-proof)
 - [True (Formula)](#true-formula)
 - [Type](#type)
+- [Type Alias (Statement)](#type-alias-statement)
 - [Type List](#type-list)
 - [Type Parameters](#type-parameters)
 - [Union (Statement)](#union-statement)
@@ -2748,11 +2749,35 @@ end
 ```deduce-grammar
 type ::= "bool"                                        // type of a Boolean
 type ::= "type"                                        // the universe of types
-type ::= identifier                                    // type of a union
-type ::= identifier "<" type_list ">"                  // type of a generic union
+type ::= identifier                                    // type of a union or type alias
+type ::= identifier "<" type_list ">"                  // type of a generic union or type alias
 type ::= "[" type "]"                                  // type of an array
 type ::= "fn" type_params_opt type_list "->" type      // type of a function 
 type ::= "(" type ")"
+```
+
+## Type Alias (Statement)
+
+```deduce-grammar
+type_alias ::= visibility "type" IDENT type_params_opt "=" type
+```
+
+The `type` statement defines a type alias. A type alias may be
+parameterized, so aliases can also be used as type operators.
+
+```{.deduce^#type_alias_example}
+type Truth = bool
+
+define id_truth : fn Truth -> Truth = fun x { x }
+
+union Box<T> {
+  box(T)
+}
+
+type Id<T> = T
+type BoxOf<T> = Box<Id<T>>
+
+define boxed_true : BoxOf<Truth> = box(true)
 ```
 
 ## Type List
@@ -2773,7 +2798,8 @@ type_params_opt ::= ε
 type_params_opt ::= "<" identifier_list ">"
 ```
 
-Specifies the type parameters of a generic union or generic function.
+Specifies the type parameters of a generic union, type alias, or generic
+function.
 
 
 ## Union (Statement)

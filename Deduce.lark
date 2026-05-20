@@ -285,6 +285,8 @@ identifier: IDENT              -> identifier
 
 ?union: visibility "union" IDENT type_params_opt "{" constructor_list "}" -> union
 
+?type_alias: visibility "type" IDENT type_params_opt "=" type -> type_alias
+
 ?predicate_rule: IDENT ":" term                                 -> predicate_rule
 
 ?predicate_rule_list:                                           -> empty
@@ -342,6 +344,7 @@ identifier: IDENT              -> identifier
 ?inductive_decl: "inductive" type "by" proof_hi
 
 ?statement: union
+ | type_alias
  | predicate_declaration
  | relation_declaration
  | recursive_function

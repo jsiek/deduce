@@ -18,7 +18,7 @@ from abstract_syntax import (
     RuleInduction, RuleInductionCase, RuleInversion, SimplifyFact,
     SimplifyGoal, Some, SomeElim, SomeIntro, Statement, Suffices, Switch,
     SwitchCase, SwitchProof, SwitchProofCase, TAnnote, TLet, TermInst,
-    Theorem, Trace, TypeInst, TypeType, Union, Var, ViewDecl,
+    Theorem, Trace, TypeAlias, TypeInst, TypeType, Union, Var, ViewDecl,
     count_marks, extract_and, extract_or, extract_tuple, get_default_mark_LHS,
     intToNat, listToNodeList, mkEqual, mkIntLit, mkUIntLit, remove_mark,
 )
@@ -1398,6 +1398,24 @@ def parse_union(visibility):
     raise ParseError(meta_from_tokens(start_token, previous_token()), "Unexpected error while parsing:\n\t" \
       + str(e))
 
+def parse_type_alias(visibility):
+  while_parsing = 'while parsing\n' \
+      + '\tstatement ::= "type" identifier type_params_opt "=" type\n'
+  try:
+    start_token = current_token()
+    advance()
+    name = parse_identifier()
+    type_params = parse_type_parameters()
+    consume_token('EQUAL', '"="', context='after type alias name')
+    body = parse_type()
+    return TypeAlias(meta_from_tokens(start_token, previous_token()),
+                     name, type_params, body, visibility=visibility)
+  except ParseError as e:
+    raise e.extend(meta_from_tokens(start_token, previous_token()), while_parsing)
+  except Exception as e:
+    raise ParseError(meta_from_tokens(start_token, previous_token()), "Unexpected error while parsing:\n\t" \
+      + str(e))
+
 def parse_predicate(visibility, keyword):
   # Parses both `predicate` and `relation`. They produce the same AST;
   # `keyword` ('predicate' | 'relation') is preserved on the AST node so
@@ -1607,7 +1625,7 @@ def parse_define(visibility):
 
 statement_keywords = {'assert', 'define', 'import', 'inductive', 'print',
                       'theorem', 'lemma', 'postulate', 'predicate', 'recursive',
-                      'relation', 'fun', 'trace', 'union', 'view' }
+                      'relation', 'fun', 'trace', 'type', 'union', 'view' }
 
 def parse_statement():
   if end_of_file():
@@ -1634,6 +1652,9 @@ def parse_statement():
 
   elif token.type == 'UNION':
     return parse_union(visibility)
+
+  elif token.type == 'TYPE':
+    return parse_type_alias(visibility)
 
   elif token.type == 'PREDICATE':
     return parse_predicate(visibility, 'predicate')
