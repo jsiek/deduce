@@ -514,11 +514,8 @@ assert length(list_example) = 3
 
 ## Cases (Disjunction Elimination)
 
-```
-conclusion ::= "cases" proof case_list
-```
-
 ```deduce-grammar
+conclusion ::= "cases" proof case_list
 case_list ::= case
 case_list ::= case case_list
 case ::= "case" identifier "{" proof "}"
@@ -555,7 +552,7 @@ case y_l_x: y < x {
 
 ## Choose (Proof)
 
-```
+```deduce-grammar
 proof_stmt ::= "choose" term_list
 ```
 
@@ -663,8 +660,8 @@ must be one of the following:
 
 ## Conjunct
 
-```
-conclusion ::= "conjunct" number "of" proof 
+```deduce-grammar
+conclusion ::= "conjunct" number "of" proof
 ```
 
 A proof of the form
@@ -853,7 +850,7 @@ assert gcd(17, 13) = 1
 
 ## Expand (Proof)
 
-```
+```deduce-grammar
 proof_stmt ::= "expand" identifier_list_bar
 ```
 
@@ -876,7 +873,7 @@ end
 
 ## Expand-In (Proof)
 
-```
+```deduce-grammar
 conclusion ::= "expand" identifier_list_bar "in" proof
 ```
 
@@ -1229,9 +1226,9 @@ assert not (0 ≥ 1)
 
 ## Have (Proof Statement)
 
-```
-proof_stmt ::= "have" identifier ":" term reason 
-proof_stmt ::= "have" ":" term reason 
+```deduce-grammar
+proof_stmt ::= "have" identifier ":" term reason
+proof_stmt ::= "have" ":" term reason
 ```
 
 Use `have` to prove a formula that may help you later to prove the
@@ -1253,7 +1250,7 @@ used inside the proof `Y`.
 
 ## Help (Proof)
 
-```
+```deduce-grammar
 conclusion ::= "help" proof
 ```
 
@@ -2062,7 +2059,7 @@ reason ::= "proof" proof "end"
 
 ## Recall (Proof)
 
-```
+```deduce-grammar
 conclusion ::= "recall" term_list
 ```
 
@@ -2159,7 +2156,7 @@ The proof `reflexive` proves that `a = a` for any term `a`.
 
 ## Replace (Proof)
 
-```
+```deduce-grammar
 proof_stmt ::= "replace" proof_list
 ```
 
@@ -2188,7 +2185,7 @@ end
 
 ## Replace-In (Proof)
 
-```
+```deduce-grammar
 conclusion ::= "replace" proof_list "in" proof
 ```
 
@@ -2655,7 +2652,7 @@ For case analysis on a member of an inductively-defined predicate
 
 ## Symmetric (Proof)
 
-```
+```deduce-grammar
 conclusion ::= "symmetric" proof
 ```
 
@@ -2734,7 +2731,7 @@ Where `bzero`, `3`, `5`, and `6` are the return values of `sum`.
 
 ## Transitive (Proof)
 
-```
+```deduce-grammar
 conclusion ::= "transitive" proof proof
 ```
 
