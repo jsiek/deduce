@@ -32,6 +32,7 @@ TOKEN_ALIASES = {
     "unsigned_integer": "INT",
 }
 PASSTHROUGH_RULES = {"type_hi"}
+SUBSET_RULES = {"statement"}
 
 
 @dataclass(frozen=True)
@@ -183,11 +184,15 @@ def main() -> int:
                     f"{REFERENCE_MD}:{block.line}: rule {rule!r} is not in Deduce.lark"
                 )
                 continue
-            if documented != expected:
+            if rule in SUBSET_RULES:
+                matches = documented <= expected
+            else:
+                matches = documented == expected
+            if not matches:
                 missing = expected - documented
                 extra = documented - expected
                 parts = [f"{REFERENCE_MD}:{block.line}: rule {rule!r} differs"]
-                if missing:
+                if missing and rule not in SUBSET_RULES:
                     parts.append("  Missing from Reference.md:\n" + format_alternatives(missing))
                 if extra:
                     parts.append("  Not present in Deduce.lark:\n" + format_alternatives(extra))

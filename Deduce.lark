@@ -283,17 +283,10 @@ identifier: IDENT              -> identifier
     | "private"         -> private
     | "opaque"          -> opaque
 
-?union: visibility "union" IDENT type_params_opt "{" constructor_list "}" -> union
-
-?type_alias: visibility "type" IDENT type_params_opt "=" type -> type_alias
-
 ?predicate_rule: IDENT ":" term                                 -> predicate_rule
 
 ?predicate_rule_list:                                           -> empty
     | predicate_rule predicate_rule_list                             -> push
-
-?predicate_declaration: visibility "predicate" identifier type_params_opt ":" type "{" predicate_rule_list "}" -> predicate_declaration
-?relation_declaration:  visibility "relation"  identifier type_params_opt ":" type "{" predicate_rule_list "}" -> relation_declaration
 
 ?pattern: identifier                                  -> pattern_id
     | "0"                                        -> pattern_zero
@@ -312,14 +305,6 @@ identifier: IDENT              -> identifier
 ?fun_case_list: fun_case                               -> single
     | fun_case fun_case_list                           -> push
 
-?recursive_function: visibility "recursive" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> recursive_function
-
-?function: visibility "fun" identifier type_params_opt "(" variable_list ")" "{" term "}" -> fun
-
-?general_recursive_function: visibility "recfun" identifier type_params_opt "(" variable_list ")" "->" type "measure" term "of" type "{" term "}" "terminates" proof -> general_recursive_function
-
-?view_declaration: visibility "view" IDENT type_params_opt "{" "source" type "target" type "into" identifier "out" identifier "roundtrip" identifier "}" -> view_declaration
-
 ?definition: visibility "define" identifier "=" term        -> define
  | visibility "define" identifier ":" type "=" term         -> define_annot
 
@@ -327,41 +312,26 @@ identifier: IDENT              -> identifier
        | visibility "import" IDENT "using" import_filter_list  -> import_using
        | visibility "import" IDENT "hiding" import_filter_list -> import_hiding
 ?import_filter_list: identifier ("|" identifier)*            -> import_filter_list
-?export: "export" IDENT                            -> export
 
-?assert: "assert" term                             -> assert
-
-?print: "print" term                               -> print
-
-?associative_declaration: "associative" identifier type_params_opt "in" type -> associative_declaration
-
-?auto_declaration: "auto" proof_hi -> auto_declaration
-
-?module_declaration: "module" identifier  -> module_declaration
-
-?trace: "trace" identifier -> trace
-
-?inductive_decl: "inductive" type "by" proof_hi
-
-?statement: union
- | type_alias
- | predicate_declaration
- | relation_declaration
- | recursive_function
- | function
- | general_recursive_function
- | view_declaration
+?statement: visibility "union" IDENT type_params_opt "{" constructor_list "}" -> union
+ | visibility "type" IDENT type_params_opt "=" type -> type_alias
+ | visibility "predicate" identifier type_params_opt ":" type "{" predicate_rule_list "}" -> predicate_declaration
+ | visibility "relation"  identifier type_params_opt ":" type "{" predicate_rule_list "}" -> relation_declaration
+ | visibility "recursive" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> recursive_function
+ | visibility "fun" identifier type_params_opt "(" variable_list ")" "{" term "}" -> fun
+ | visibility "recfun" identifier type_params_opt "(" variable_list ")" "->" type "measure" term "of" type "{" term "}" "terminates" proof -> general_recursive_function
+ | visibility "view" IDENT type_params_opt "{" "source" type "target" type "into" identifier "out" identifier "roundtrip" identifier "}" -> view_declaration
  | definition
- | associative_declaration
- | auto_declaration
+ | "associative" identifier type_params_opt "in" type -> associative_declaration
+ | "auto" proof_hi -> auto_declaration
  | import
- | export
- | assert
- | print
+ | "export" IDENT -> export
+ | "assert" term -> assert
+ | "print" term -> print
  | theorem
- | module_declaration
- | trace
- | inductive_decl
+ | "module" identifier -> module_declaration
+ | "trace" identifier -> trace
+ | "inductive" type "by" proof_hi -> inductive_decl
 
 ?statement_list: statement                               -> single
     | statement statement_list                           -> push
