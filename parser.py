@@ -62,7 +62,7 @@ def init_parser() -> None:
 # Parsing Concrete to Abstract Syntax
 ##################################################
 
-def parse_tree_to_str_list(e):
+def parse_tree_to_str_list(e: Any) -> list[str]:
     if e.data == 'empty':
         return []
     elif e.data == 'single':
@@ -73,7 +73,7 @@ def parse_tree_to_str_list(e):
     else:
         raise Exception('parse_tree_to_str_list, unexpected ' + str(e))
 
-def parse_tree_to_list(e, parent):
+def parse_tree_to_list(e: Any, parent: Any) -> list[Any]:
     # Returns a list to match the recursive-descent parser's convention.
     # The inner 2-tuples like (identifier, typ) are paired data, not collections,
     # and stay as tuples.
@@ -118,12 +118,12 @@ def parse_tree_to_list(e, parent):
     else:
         raise Exception('parse_tree_to_str_list, unexpected ' + str(e))
 
-def parse_tree_to_case(e):
+def parse_tree_to_case(e: Any) -> tuple[str, Any]:
     tag = str(e.children[0].value)
     body = parse_tree_to_ast(e.children[1], e)
     return (tag, body)
 
-def parse_tree_to_case_list(e):
+def parse_tree_to_case_list(e: Any) -> list[tuple[str, Any]]:
     if e.data == 'single':
         return [parse_tree_to_case(e.children[0])]
     elif e.data == 'push':
@@ -156,13 +156,13 @@ operator_symbol = {'add': '+', 'sub': '-', 'mul': '*', 'div': '/', 'circ': '∘'
                    'membership': '∈', 'multiset_sum': '⨄', 'append': '++'}
 
 impl_num = 0
-def next_impl_num():
+def next_impl_num() -> int:
     global impl_num
     ret = impl_num
     impl_num += 1
     return ret
 
-def set_visibility(statement, visibility):
+def set_visibility(statement: Any, visibility: str) -> None:
     if visibility == 'private':
         statement.visibility = 'private'
     elif visibility == 'opaque':
@@ -173,7 +173,7 @@ def set_visibility(statement, visibility):
     else:
         statement.visibility = 'public'
         
-def build_equations_proof(loc, eqs):
+def build_equations_proof(loc: Meta, eqs: list[Any]) -> Any:
     result = None
     for (lhs, rhs, reason) in reversed(eqs):
         num_marks = count_marks(lhs) + count_marks(rhs)
@@ -189,7 +189,7 @@ def build_equations_proof(loc, eqs):
             result = PTransitive(loc, eq_proof, result)
     return result
         
-def parse_tree_to_ast(e, parent):
+def parse_tree_to_ast(e: Any, parent: Any) -> Any:
     if isinstance(e, Token):
         return e
     
@@ -247,7 +247,7 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'bool_type':
       return BoolType(e.meta)
     elif e.data == 'array_type':
-      elt_type = parse_tree_to_ast(e.children[0])
+      elt_type = parse_tree_to_ast(e.children[0], e)
       return ArrayType(e.meta, elt_type)
     elif e.data == 'type_type':
       return TypeType(e.meta)
@@ -385,7 +385,7 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'push_proof':
         proof_stmt = parse_tree_to_ast(e.children[0], e)
         if len(e.children) == 1:
-            meta = Meta() # Put the location of the 'Hole' at the start of the next line
+            meta: Any = Meta()  # type: ignore[no-untyped-call,unused-ignore]
             meta.empty = False
             meta.filename = e.meta.filename
             meta.line = e.meta.end_line+1
@@ -886,7 +886,7 @@ def token_str(token: Token, program_text: str) -> str:
     return program_text[token.start_pos:token.end_pos]
 
 def parse_program_tree(parse_tree: Any) -> list[Statement]:
-    return cast(list[Statement], parse_tree_to_ast(parse_tree, None))  # type: ignore[no-untyped-call]
+    return cast(list[Statement], parse_tree_to_ast(parse_tree, None))
 
 def parse(program_text: str,
           trace: "bool | VerboseLevel" = False,
