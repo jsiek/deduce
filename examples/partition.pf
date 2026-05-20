@@ -1,0 +1,160 @@
+// partition.pf
+//
+// The classic Haskell intro-FP function:
+//
+//     partition :: (a -> Bool) -> [a] -> ([a], [a])
+//     partition p xs = (filter p xs, filter (not . p) xs)
+//
+// Below we define partition directly by structural recursion and prove
+// three correctness properties:
+//
+//   1. length_partition:          the two output lists exactly account
+//      for the input by length, i.e.
+//        length(first(partition(xs, p))) + length(second(partition(xs, p)))
+//          = length(xs)
+//   2. partition_filter_first:    the first output equals filter,
+//        first(partition(xs, p)) = filter(xs, p)
+//   3. partition_filter_second:   the second output equals filter
+//      with the negated predicate,
+//        second(partition(xs, p)) = filter(xs, fun y { not p(y) })
+
+import List
+
+recursive partition<T>(List<T>, fn (T)->bool) -> Pair< List<T>, List<T> > {
+  partition(empty, p) = pair(@empty<T>, @empty<T>)
+  partition(node(x, xs), p) =
+    define rest = partition(xs, p);
+    if p(x) then pair(node(x, first(rest)), second(rest))
+    else         pair(first(rest), node(x, second(rest)))
+}
+
+define L = [1, 2, 3, 4, 5]
+define is_even : fn UInt -> bool = fun n { n % 2 = 0 }
+assert partition(L, is_even) = pair([2, 4], [1, 3, 5])
+assert partition(@[]<UInt>, is_even) = pair([], [])
+
+// Property 1: the two output lists exactly partition the input by length:
+//   length(first(partition(xs, p))) + length(second(partition(xs, p))) = length(xs)
+theorem length_partition: all T:type. all xs:List<T>. all p:fn(T)->bool.
+  length(first(partition(xs, p))) + length(second(partition(xs, p))) = length(xs)
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary p:fn(T)->bool
+    expand partition | first | second | length.
+  }
+  case node(x, xs') assume IH: all p:fn(T)->bool.
+      length(first(partition(xs', p))) + length(second(partition(xs', p))) = length(xs') {
+    arbitrary p:fn(T)->bool
+    switch p(x) {
+      case true assume px_true {
+        equations
+          length(first(partition(node(x, xs'), p))) + length(second(partition(node(x, xs'), p)))
+              = length(node(x, first(partition(xs', p)))) + length(second(partition(xs', p)))
+                                                                  by expand partition
+                                                                       simplify with px_true
+                                                                       expand first | second.
+          ... = (1 + length(first(partition(xs', p)))) + length(second(partition(xs', p)))
+                                                                  by expand length.
+          ... = 1 + (length(first(partition(xs', p))) + length(second(partition(xs', p))))
+                                                                  by .
+          ... = 1 + length(xs')                                    by replace IH[p].
+          ... = #length(node(x, xs'))#                             by expand length.
+      }
+      case false assume px_false {
+        equations
+          length(first(partition(node(x, xs'), p))) + length(second(partition(node(x, xs'), p)))
+              = length(first(partition(xs', p))) + length(node(x, second(partition(xs', p))))
+                                                                  by expand partition
+                                                                       simplify with px_false
+                                                                       expand first | second.
+          ... = length(first(partition(xs', p))) + (1 + length(second(partition(xs', p))))
+                                                                  by expand length.
+          ... = (length(first(partition(xs', p))) + 1) + length(second(partition(xs', p)))
+                                                                  by .
+          ... = (1 + length(first(partition(xs', p)))) + length(second(partition(xs', p)))
+                                                                  by replace uint_add_commute[length(first(partition(xs', p))), 1].
+          ... = 1 + (length(first(partition(xs', p))) + length(second(partition(xs', p))))
+                                                                  by .
+          ... = 1 + length(xs')                                    by replace IH[p].
+          ... = #length(node(x, xs'))#                             by expand length.
+      }
+    }
+  }
+end
+
+// Property 2: the first component of partition equals filter:
+//   first(partition(xs, p)) = filter(xs, p)
+theorem partition_filter_first: all T:type. all xs:List<T>. all p:fn(T)->bool.
+  first(partition(xs, p)) = filter(xs, p)
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary p:fn(T)->bool
+    expand partition | filter | first.
+  }
+  case node(x, xs') assume IH: all p:fn(T)->bool.
+      first(partition(xs', p)) = filter(xs', p) {
+    arbitrary p:fn(T)->bool
+    switch p(x) {
+      case true assume px_true {
+        equations
+          first(partition(node(x, xs'), p))
+              = node(x, first(partition(xs', p)))
+                  by expand partition simplify with px_true expand first.
+          ... = node(x, filter(xs', p))   by replace IH[p].
+          ... = #filter(node(x, xs'), p)#
+                  by expand filter simplify with px_true.
+      }
+      case false assume px_false {
+        equations
+          first(partition(node(x, xs'), p))
+              = first(partition(xs', p))
+                  by expand partition simplify with px_false expand first.
+          ... = filter(xs', p)            by IH[p]
+          ... = #filter(node(x, xs'), p)#
+                  by expand filter simplify with px_false.
+      }
+    }
+  }
+end
+
+// Property 3: the second component of partition equals filter with the
+// negated predicate:
+//   second(partition(xs, p)) = filter(xs, fun y { not p(y) })
+theorem partition_filter_second: all T:type. all xs:List<T>. all p:fn(T)->bool.
+  second(partition(xs, p)) = filter(xs, fun y:T { not p(y) })
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary p:fn(T)->bool
+    expand partition | filter | second.
+  }
+  case node(x, xs') assume IH: all p:fn(T)->bool.
+      second(partition(xs', p)) = filter(xs', fun y:T { not p(y) }) {
+    arbitrary p:fn(T)->bool
+    switch p(x) {
+      case true assume px_true {
+        equations
+          second(partition(node(x, xs'), p))
+              = second(partition(xs', p))
+                  by expand partition simplify with px_true expand second.
+          ... = filter(xs', fun y:T { not p(y) })   by IH[p]
+          ... = #filter(node(x, xs'), fun y:T { not p(y) })#
+                  by expand filter simplify with px_true.
+      }
+      case false assume px_false {
+        equations
+          second(partition(node(x, xs'), p))
+              = node(x, second(partition(xs', p)))
+                  by expand partition simplify with px_false expand second.
+          ... = node(x, filter(xs', fun y:T { not p(y) }))   by replace IH[p].
+          ... = #filter(node(x, xs'), fun y:T { not p(y) })#
+                  by expand filter simplify with px_false.
+      }
+    }
+  }
+end
