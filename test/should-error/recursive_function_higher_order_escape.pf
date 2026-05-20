@@ -1,0 +1,15 @@
+import Nat
+import List
+
+recursive all_elements<T>(List<T>, fn T->bool) -> bool {
+  all_elements(empty, P) = true
+  all_elements(node(x, xs), P) = P(x) and all_elements(xs, P)
+}
+
+union BinTree {
+  tr_node(Nat, Nat, List<BinTree>)
+}
+
+recursive is_valid(BinTree) -> bool {
+  is_valid(tr_node(n, h, kids)) = all_elements(kids, is_valid)
+}

@@ -1,0 +1,6 @@
+./test/should-error/nested_child_recursive_call.pf:15.36-15.47: ill-formed recursive call
+expected first argument to be n or h or kids, not x
+
+	in context of call all_elements(kids, fun x:BinTree { is_valid(x) })
+	function type: (fn <T> List<T>, (fn T -> bool) -> bool)
+	inferred type arguments: T := BinTree
