@@ -12,16 +12,19 @@ import UIntDefs
   by most UInt arithmetic proofs.
 */
 
+// Zero in Nat embeds as zero in UInt.
 lemma from_zero: fromNat(ℕ0) = 0
 proof
   evaluate
 end
 
+// One in Nat embeds as one in UInt.
 lemma from_one: fromNat(ℕ1) = 1
 proof
   evaluate
 end
 
+// Doubling a UInt doubles its Nat interpretation.
 lemma toNat_dub : all x:UInt. toNat(dub(x)) = ℕ2 * toNat(x)
 proof
   induction UInt
@@ -37,6 +40,7 @@ proof
   }
 end
 
+// Incrementing a UInt increments its Nat interpretation.
 lemma toNat_inc: all x:UInt. toNat(inc(x)) = suc(toNat(x))
 proof
   induction UInt
@@ -53,6 +57,7 @@ proof
   }
 end
 
+// Predecessor on UInt corresponds to predecessor on Nat.
 lemma toNat_pred: all x:UInt. toNat(pred(x)) = pred(toNat(x))
 proof
   induction UInt
@@ -69,6 +74,7 @@ proof
   }
 end
 
+// Converting Nat to UInt and back preserves the original Nat.
 theorem uint_toNat_fromNat: all x:Nat. toNat(fromNat(x)) = x
 proof
   induction Nat
@@ -81,6 +87,7 @@ proof
   }
 end
 
+// UInt values are equal when their Nat interpretations are equal.
 theorem uint_toNat_injective: all x:UInt, y:UInt.
   if toNat(x) = toNat(y) then x = y
 proof
@@ -169,6 +176,7 @@ proof
   }
 end
 
+// Converting UInt to Nat and back preserves the original UInt.
 theorem uint_fromNat_toNat: all b:UInt. fromNat(toNat(b)) = b
 proof
   induction UInt
@@ -196,6 +204,7 @@ proof
   }
 end
 
+// `fromNat` is injective because `toNat` is its left inverse.
 theorem fromNat_injective: all x:Nat, y:Nat.
   if fromNat(x) = fromNat(y) then x = y
 proof
@@ -205,6 +214,7 @@ proof
   conclude x = y by replace uint_toNat_fromNat in eq1
 end
 
+// Literal UInt equality reduces to Nat equality.
 theorem uint_equal: all x:Nat, y:Nat.
   (fromNat(lit(x)) = fromNat(lit(y))) = (x = y)
 proof

@@ -17,6 +17,7 @@ import UIntMult
   bounds, inverse facts, and divisibility lemmas.
 */
 
+// Quotient by repeated subtraction, returning zero for division by zero.
 recfun operator /(n : UInt, m : UInt) -> UInt
   measure n of UInt
 {
@@ -40,10 +41,12 @@ terminates {
   }
 }
 
+// Remainder after removing the quotient times the divisor.
 fun operator % (n:UInt, m:UInt) {
   n ∸ (n / m) * m
 }
 
+// Dividing zero by a positive UInt yields zero.
 theorem uint_zero_div: all x:UInt. if 0 < x then 0 / x = 0
 proof
   arbitrary x:UInt
@@ -52,10 +55,12 @@ proof
   replace (apply eq_true to zx).
 end
 
+// Induction predicate used to prove quotient/remainder existence.
 private fun UIntDivPred(n:UInt) {
   all m:UInt. if 0 < m then some r:UInt. (n / m) * m + r = n and r < m
 }
 
+// Every positive divisor has a quotient/remainder decomposition.
 lemma uint_division: all n:UInt, m:UInt.
   if 0 < m
   then some r:UInt. (n/m)*m + r = n and r < m
@@ -111,6 +116,7 @@ proof
   expand UIntDivPred in R
 end
 
+// The quotient and remainder reconstruct the dividend.
 theorem uint_div_mod: all n:UInt, m:UInt.
   if 0 < m
   then (n / m) * m + (n % m) = n
@@ -133,6 +139,7 @@ proof
   id
 end
 
+// The remainder is always smaller than a positive divisor.
 theorem uint_mod_less_divisor: all n:UInt, m:UInt. if 0 < m then n % m < m
 proof
   arbitrary n:UInt, m:UInt
@@ -149,6 +156,7 @@ proof
   conjunct 1 of R
 end
 
+// If the dividend is smaller than the divisor, the remainder is the dividend.
 theorem uint_mod_small: all n:UInt, m:UInt. if n < m then n % m = n
 proof
   arbitrary n:UInt, m:UInt
@@ -158,10 +166,12 @@ proof
   uint_monus_zero[n]
 end
 
+// Divisibility: `a` divides `b` when `b` is a multiple of `a`.
 fun divides(a : UInt, b : UInt) {
   some k:UInt. a * k = b
 }
 
+// Divisibility is reflexive.
 theorem uint_divides_refl: all n:UInt. divides(n, n)
 proof
   arbitrary n:UInt
@@ -170,6 +180,7 @@ proof
   uint_mult_one[n]
 end
 
+// Every UInt divides zero.
 theorem uint_divides_zero: all n:UInt. divides(n, 0)
 proof
   arbitrary n:UInt
@@ -178,6 +189,7 @@ proof
   uint_mult_zero[n]
 end
 
+// Divisibility is transitive.
 theorem uint_divides_trans: all a:UInt, b:UInt, c:UInt.
   if divides(a, b) and divides(b, c) then divides(a, c)
 proof
@@ -191,6 +203,7 @@ proof
   eq1
 end
 
+// Divisibility is closed under addition.
 theorem uint_divides_add: all d:UInt, m:UInt, n:UInt.
   if divides(d, m) and divides(d, n) then divides(d, m + n)
 proof
@@ -204,6 +217,7 @@ proof
   replace dk_m | dl_n.
 end
 
+// Divisibility is closed under multiplying the divided value on the right.
 theorem uint_divides_mult_right: all d:UInt, n:UInt, m:UInt.
   if divides(d, n) then divides(d, n * m)
 proof
@@ -215,6 +229,7 @@ proof
   replace dk_n.
 end
 
+// Divisibility is closed under multiplying the divided value on the left.
 theorem uint_divides_mult_left: all d:UInt, n:UInt, m:UInt.
   if divides(d, n) then divides(d, m * n)
 proof
@@ -224,6 +239,7 @@ proof
   apply uint_divides_mult_right[d, n, m] to dn
 end
 
+// A common divisor of two values also divides their truncated difference.
 theorem uint_divides_monus: all d:UInt, m:UInt, n:UInt.
   if divides(d, m) and divides(d, n) then divides(d, m ∸ n)
 proof
@@ -237,6 +253,7 @@ proof
   replace dk_m | dl_n.
 end
 
+// If a divisor divides both `m` and `n`, it divides `m % n`.
 theorem uint_divides_mod_of_divides: all d:UInt, m:UInt, n:UInt.
   if divides(d, m) and divides(d, n) then divides(d, m % n)
 proof
@@ -251,6 +268,7 @@ proof
   apply uint_divides_monus[d, m, (m / n) * n] to both
 end
 
+// Euclidean algorithm for the greatest common divisor.
 recfun gcd(a : UInt, b : UInt) -> UInt
   measure b of UInt
 {
