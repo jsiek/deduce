@@ -2077,9 +2077,11 @@ is a proof of the formula `P1 and ... and Pn`. The formulas
 
 ## Recursive Function (Statement)
 
-```
-statement ::= visibility "recursive" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case* "}"
+```deduce-grammar
+recursive_function ::= visibility "recursive" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}"
 fun_case ::= identifier "(" pattern_list ")" "=" term
+fun_case_list ::= fun_case
+fun_case_list ::= fun_case fun_case_list
 ```
 
 The `recursive` statement is for defining recursive functions that
@@ -2211,8 +2213,13 @@ end
 ## Rule Induction (Proof)
 
 ```
-conclusion ::= "rule" "induction" identifier rule_induction_case+
+conclusion ::= "rule" "induction" identifier rule_induction_case_list
+```
+
+```deduce-grammar
 rule_induction_case ::= "case" identifier "{" proof "}"
+rule_induction_case_list ::= rule_induction_case
+rule_induction_case_list ::= rule_induction_case rule_induction_case_list
 ```
 
 A proof of the form
@@ -2285,9 +2292,11 @@ induction hypothesis.
 ## Rule Inversion (Proof)
 
 ```
-conclusion ::= "rule" "inversion" identifier rule_induction_case+
-rule_induction_case ::= "case" identifier "{" proof "}"
+conclusion ::= "rule" "inversion" identifier rule_induction_case_list
 ```
+
+See [Rule Induction (Proof)](#rule-induction-proof) for the syntax of
+`rule_induction_case` and `rule_induction_case_list`.
 
 The structurally-identical companion to
 [`rule induction`](#rule-induction-proof). It desugars to applying
