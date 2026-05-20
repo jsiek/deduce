@@ -13,6 +13,7 @@ Deduce supports the following language features:
 * [Recursive Functions](#recursive-functions)
 * [Views](#views)
 * [Generic Functions](#generic-functions)
+* [Inline Functions (Lambdas)](#inline-functions-lambdas)
 * [Higher-order Functions](#higher-order-functions)
 * [Pairs](#pairs)
 
@@ -407,6 +408,42 @@ assert length(@[]<UInt>) = 0
 ```
 
 
+## Inline Functions (Lambdas)
+
+The `fun` keyword you saw in [Function (Statement)](#function-statement)
+also has an *inline* form that is just an expression, useful wherever a
+function value is needed (e.g. on the right-hand side of a `define` or
+as an argument to a higher-order function). The inline form starts with
+`fun`, followed by the parameter list, then the body in braces.
+
+```{.deduce^#double_lambda}
+define double = fun n:UInt { 2 * n }
+assert double(3) = 6
+```
+
+The inline form differs from the `fun` statement form in a few ways:
+
+* There is **no function name**, and the parameter list is **not enclosed
+  in parentheses**. Multiple parameters are separated by commas:
+  `fun h:UInt, w:UInt { h * w }`.
+* A type annotation on each parameter is required when Deduce cannot
+  otherwise infer the parameter types. So the standalone form
+  `define is_even = fun n { n % 2 = 0 }` is rejected, while either of the
+  following works because the function's type is already known from context:
+
+```{.deduce^#is_even_lambda}
+define is_even : fn UInt -> bool = fun n { n % 2 = 0 }
+assert is_even(4)
+assert not is_even(5)
+```
+
+* The Greek letter `λ` may be used in place of `fun`.
+
+Inline functions are most often used as arguments to
+[higher-order functions](#higher-order-functions); the
+[`remove_if` exercise](#remove-elements-from-a-list) below is an example.
+
+
 ## Higher-order Functions
 
 Functions may be passed as parameters to a function and they may be
@@ -507,6 +544,8 @@ The division operator `/`  is defined in `UInt.pf`.
 <<apply_length>>
 <<apply_length_empty>>
 <<head>>
+<<double_lambda>>
+<<is_even_lambda>>
 <<all_elements>>
 <<Pair>>
 ```
