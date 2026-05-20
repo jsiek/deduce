@@ -73,15 +73,13 @@ warn_unreachable = true
 no_implicit_optional = true
 strict_equality = true
 disallow_subclassing_any = true
-# disallow_untyped_decorators is intentionally NOT enabled globally:
-# lsp/lsp_server.py and lsp/mcp_server.py use `@server.feature(...)`
-# / `@mcp.tool(...)` from `pygls` and `mcp`, neither of which is
-# installed in CI (they're optional and only needed when running the
-# LSP/MCP servers). Under `ignore_missing_imports = true` those
-# packages resolve to Any, which makes every decorator from them
-# "untyped" and trips the flag. The flag is set per-module in the
-# strict overrides below so the protection still applies to modules
-# whose decorators are real.
+# disallow_untyped_decorators is enabled globally now that the CI
+# workflow installs requirements-lsp.txt (`pygls` and `mcp`). Both
+# ship inline type annotations, so the LSP/MCP decorators no longer
+# resolve to Any in CI. Developers who skip the LSP install will see
+# this flag fire on `lsp/lsp_server.py` / `lsp/mcp_server.py`; install
+# `requirements-lsp.txt` to develop on those modules.
+disallow_untyped_decorators = true
 no_implicit_reexport = true
 exclude = [
     '^test/',
@@ -155,6 +153,8 @@ module = [
     "lsp.debugger",
     "lsp.dap_server",
     "lsp.library",
+    "lsp.lsp_server",
+    "lsp.mcp_server",
     "lsp.query",
     "claude_fill_hole.__main__",
     "claude_fill_hole.agent",
@@ -169,22 +169,6 @@ disallow_any_generics = true
 disallow_untyped_calls = true
 disallow_untyped_defs = true
 disallow_untyped_decorators = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-warn_return_any = true
-
-# lsp/mcp_server.py and lsp/lsp_server.py use decorators from optional
-# dev-only deps (`mcp` and `pygls`) that the CI workflow does not
-# install. Under `ignore_missing_imports = true`, those decorators
-# resolve to `Any` on CI and trip disallow_untyped_decorators. They
-# live in this strict override without the decorator check, since mypy
-# refuses to merge two overrides setting conflicting values for the
-# same key.
-[[tool.mypy.overrides]]
-module = ["lsp.mcp_server", "lsp.lsp_server"]
-disallow_any_generics = true
-disallow_untyped_calls = true
-disallow_untyped_defs = true
 disallow_incomplete_defs = true
 check_untyped_defs = true
 warn_return_any = true
