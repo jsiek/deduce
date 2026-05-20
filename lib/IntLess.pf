@@ -3,6 +3,7 @@ module Int
 import UInt
 import Base
 import IntDefs
+import IntAddSub
 
 /*
   Theorems about Int order.
@@ -10,9 +11,10 @@ import IntDefs
   Less-than-or-equal (`≤`) and strict less-than (`<`) on Int are defined
   in `IntDefs.pf` by structural recursion on the `pos`/`negsuc`
   representation. This file develops the basic order laws (reflexive,
-  transitive, antisymmetric, irreflexive, trichotomy, dichotomy) and the
-  connections between `<` and `≤`, reducing to the corresponding UInt
-  facts in `UIntLess.pf`.
+  transitive, antisymmetric, irreflexive, trichotomy, dichotomy), the
+  connections between `<` and `≤` (reducing to the corresponding UInt
+  facts in `UIntLess.pf`), min/max algebraic laws, and the addition
+  monotonicity / cancellation theorems that mix `+` with `≤` and `<`.
 */
 
 // Properties of less-than-or-equal.
@@ -959,4 +961,331 @@ proof
   arbitrary x:Int, y:Int
   replace int_max_symmetric[min(x, y), x]
   int_max_min_absorb_left[x, y]
+end
+
+// Addition monotonicity and cancellation for ≤ and <.
+//
+// The strategy is to characterize `a ≤ b` as `+0 ≤ b - a` (via `a ⊝ b`
+// being non-negative iff `b ≤ a`), prove the algebraic identity
+// `(x + z) - (x + y) = z - y`, and then read off both directions of
+// `x + y ≤ x + z ⇔ y ≤ z`.
+
+lemma int_le_pos_pos: all au:UInt, bu:UInt.
+  pos(au) ≤ pos(bu) ⇔ au ≤ bu
+proof
+  arbitrary au:UInt, bu:UInt
+  have f: if pos(au) ≤ pos(bu) then au ≤ bu by {
+    assume h
+    expand operator≤ in h
+  }
+  have b: if au ≤ bu then pos(au) ≤ pos(bu) by {
+    assume h
+    expand operator≤
+    h
+  }
+  f, b
+end
+
+lemma int_le_negsuc_negsuc: all au:UInt, bu:UInt.
+  negsuc(au) ≤ negsuc(bu) ⇔ bu ≤ au
+proof
+  arbitrary au:UInt, bu:UInt
+  have f: if negsuc(au) ≤ negsuc(bu) then bu ≤ au by {
+    assume h
+    expand operator≤ in h
+  }
+  have b: if bu ≤ au then negsuc(au) ≤ negsuc(bu) by {
+    assume h
+    expand operator≤
+    h
+  }
+  f, b
+end
+
+lemma pos_zero_le_monuso: all a:UInt, b:UInt.
+  +0 ≤ (a ⊝ b) ⇔ b ≤ a
+proof
+  arbitrary a:UInt, b:UInt
+  have fwd: if +0 ≤ (a ⊝ b) then b ≤ a by {
+    assume prem
+    cases ex_mid[b ≤ a]
+    case bla: b ≤ a { bla }
+    case not_bla: not (b ≤ a) {
+      have alb: a < b
+        by apply (conjunct 0 of uint_not_less_equal_iff_greater[b, a]) to not_bla
+      have pos_ba: 0 < b ∸ a by {
+        have ba_nz: not (b ∸ a = 0) by {
+          assume ba_z
+          have bla_again: b ≤ a
+            by apply (conjunct 1 of uint_monus_zero_iff_less_eq[b, a]) to ba_z
+          apply not_bla to bla_again
+        }
+        apply uint_not_zero_pos to ba_nz
+      }
+      obtain w where w_eq: b ∸ a = 1 + w
+        from apply uint_positive_add_one to pos_ba
+      have lhs_neg: (a ⊝ b) = negsuc(w) by {
+        expand operator⊝
+        simplify with alb
+        replace w_eq
+        neg_suc[w]
+      }
+      have absurd: +0 ≤ negsuc(w) by replace lhs_neg in prem
+      conclude false by expand operator≤ in absurd
+    }
+  }
+  have bkwd: if b ≤ a then +0 ≤ (a ⊝ b) by {
+    assume bla
+    have not_alb: not (a < b) by {
+      assume alb
+      have not_bla: not (b ≤ a)
+        by apply (conjunct 1 of uint_not_less_equal_iff_greater[b, a]) to alb
+      apply not_bla to bla
+    }
+    have form: (a ⊝ b) = pos(a ∸ b) by {
+      expand operator⊝
+      simplify with not_alb.
+    }
+    replace form
+    suffices 0 ≤ a ∸ b by expand operator≤.
+    uint_zero_le[a ∸ b]
+  }
+  fwd, bkwd
+end
+
+lemma neg_pos_eq_zero_monuso: all au:UInt. -pos(au) = (0 ⊝ au)
+proof
+  arbitrary au:UInt
+  cases uint_zero_or_positive[au]
+  case auz: au = 0 {
+    replace auz
+    expand operator-
+    expand operator⊝.
+  }
+  case au_pos: 0 < au {
+    obtain au' where au_s: au = 1 + au'
+      from apply uint_positive_add_one to au_pos
+    replace au_s
+    have form: -pos(1 + au') = negsuc(au') by neg_pos[au']
+    have rhs: (0 ⊝ (1 + au')) = negsuc(au') by zero_monuso_neg[au']
+    equations
+          -pos(1 + au')
+        = negsuc(au')       by form
+    ... = (0 ⊝ (1 + au'))   by symmetric rhs
+  }
+end
+
+theorem int_le_iff_diff_nonneg: all a:Int, b:Int.
+  a ≤ b ⇔ +0 ≤ b - a
+proof
+  arbitrary a:Int, b:Int
+  switch a {
+    case pos(au) {
+      switch b {
+        case pos(bu) {
+          have diff: pos(bu) - pos(au) = (bu ⊝ au) by symmetric subo_monus[bu, au]
+          replace diff
+          apply iff_trans[pos(au) ≤ pos(bu), au ≤ bu, +0 ≤ (bu ⊝ au)]
+            to int_le_pos_pos[au, bu],
+               apply iff_symm to pos_zero_le_monuso[bu, au]
+        }
+        case negsuc(bu) {
+          have a_le_b_false: (pos(au) ≤ negsuc(bu)) = false by expand operator≤.
+          have diff_form: (negsuc(bu) - pos(au)) = (0 ⊝ (1 + bu + au)) by {
+            equations
+                  negsuc(bu) - pos(au)
+                = negsuc(bu) + (-pos(au))      by expand operator-.
+            ... = negsuc(bu) + (0 ⊝ au)        by replace neg_pos_eq_zero_monuso.
+            ... = (0 ⊝ (1 + bu + au))          by distrib_right_monus_add_neg[bu, 0, au]
+          }
+          replace diff_form
+          have rhs_iff: +0 ≤ (0 ⊝ (1 + bu + au)) ⇔ (1 + bu + au) ≤ 0
+            by pos_zero_le_monuso[0, 1 + bu + au]
+          have rhs_false: ((1 + bu + au) ≤ 0) = false by {
+            apply eq_false to {
+              assume bad: (1 + bu + au) ≤ 0
+              apply uint_less_equal_zero to bad
+            }
+          }
+          replace a_le_b_false
+          replace apply iff_equal to rhs_iff
+          replace rhs_false.
+        }
+      }
+    }
+    case negsuc(au) {
+      switch b {
+        case pos(bu) {
+          have a_le_b_true: (negsuc(au) ≤ pos(bu)) = true by expand operator≤.
+          have diff_form: (pos(bu) - negsuc(au)) = pos(bu + 1 + au) by {
+            equations
+                  pos(bu) - negsuc(au)
+                = pos(bu) + (-negsuc(au))     by expand operator-.
+            ... = pos(bu) + pos(1 + au)       by expand operator-.
+            ... = pos(bu + 1 + au)            by add_pos_pos
+          }
+          replace diff_form
+          have rhs_pos: +0 ≤ pos(bu + 1 + au) by {
+            expand operator≤
+            uint_zero_le[bu + 1 + au]
+          }
+          have rhs_true: (+0 ≤ pos(bu + 1 + au)) = true by apply eq_true to rhs_pos
+          replace a_le_b_true | rhs_true.
+        }
+        case negsuc(bu) {
+          have diff_form: (negsuc(bu) - negsuc(au)) = (au ⊝ bu) by {
+            equations
+                  negsuc(bu) - negsuc(au)
+                = negsuc(bu) + (-negsuc(au))   by expand operator-.
+            ... = negsuc(bu) + pos(1 + au)     by expand operator-.
+            ... = (1 + au) ⊝ (1 + bu)          by add_negsuc_pos[bu, 1 + au]
+            ... = au ⊝ bu                       by suc_uint_monuso[au, bu]
+          }
+          replace diff_form
+          apply iff_trans[negsuc(au) ≤ negsuc(bu), bu ≤ au, +0 ≤ (au ⊝ bu)]
+            to int_le_negsuc_negsuc[au, bu],
+               apply iff_symm to pos_zero_le_monuso[au, bu]
+        }
+      }
+    }
+  }
+end
+
+// Cancelling a common left summand under subtraction.
+lemma int_add_sub_cancel_left: all x:Int, y:Int, z:Int.
+  (x + z) - (x + y) = z - y
+proof
+  arbitrary x:Int, y:Int, z:Int
+  expand operator-
+  show (x + z) + (-(x + y)) = z + (-y)
+  equations
+        (x + z) + (-(x + y))
+      = (x + z) + ((-x) + (-y))  by replace neg_distr_add[x, y].
+  ... = z + x + (-x) + (-y)      by replace int_add_commute[x, z].
+  ... = z + (-y)                 by replace int_add_inverse[x].
+end
+
+theorem int_add_both_sides_of_less_equal: all x:Int, y:Int, z:Int.
+  x + y ≤ x + z ⇔ y ≤ z
+proof
+  arbitrary x:Int, y:Int, z:Int
+  have lhs_iff: x + y ≤ x + z ⇔ +0 ≤ (x + z) - (x + y)
+    by int_le_iff_diff_nonneg[x + y, x + z]
+  have cancel_eq: +0 ≤ (x + z) - (x + y) ⇔ +0 ≤ z - y by {
+    have eq: (x + z) - (x + y) = z - y by int_add_sub_cancel_left[x, y, z]
+    replace eq.
+  }
+  have rhs_iff: +0 ≤ z - y ⇔ y ≤ z
+    by apply iff_symm to int_le_iff_diff_nonneg[y, z]
+  apply iff_trans[x + y ≤ x + z, +0 ≤ (x + z) - (x + y), y ≤ z]
+    to lhs_iff,
+       apply iff_trans[+0 ≤ (x + z) - (x + y), +0 ≤ z - y, y ≤ z]
+         to cancel_eq, rhs_iff
+end
+
+theorem int_add_le_left_mono: all x:Int, y:Int, z:Int.
+  if y ≤ z then x + y ≤ x + z
+proof
+  arbitrary x:Int, y:Int, z:Int
+  conjunct 1 of int_add_both_sides_of_less_equal[x, y, z]
+end
+
+theorem int_add_le_right_mono: all x:Int, y:Int, z:Int.
+  if y ≤ z then y + x ≤ z + x
+proof
+  arbitrary x:Int, y:Int, z:Int
+  assume yz
+  have step: x + y ≤ x + z by apply int_add_le_left_mono[x, y, z] to yz
+  replace int_add_commute[x, y] | int_add_commute[x, z] in step
+end
+
+theorem int_add_both_sides_of_less_equal_right: all x:Int, y:Int, z:Int.
+  y + x ≤ z + x ⇔ y ≤ z
+proof
+  arbitrary x:Int, y:Int, z:Int
+  have eq1: y + x = x + y by int_add_commute[y, x]
+  have eq2: z + x = x + z by int_add_commute[z, x]
+  replace eq1 | eq2
+  int_add_both_sides_of_less_equal[x, y, z]
+end
+
+theorem int_add_mono_less_equal: all a:Int, b:Int, c:Int, d:Int.
+  if a ≤ c and b ≤ d then a + b ≤ c + d
+proof
+  arbitrary a:Int, b:Int, c:Int, d:Int
+  assume prem
+  have ac: a ≤ c by prem
+  have bd: b ≤ d by prem
+  have step1: a + b ≤ a + d by apply int_add_le_left_mono[a, b, d] to bd
+  have step2: a + d ≤ c + d by apply int_add_le_right_mono[d, a, c] to ac
+  apply int_less_equal_trans[a + b, a + d, c + d] to step1, step2
+end
+
+theorem int_add_both_sides_of_less: all x:Int, y:Int, z:Int.
+  x + y < x + z ⇔ y < z
+proof
+  arbitrary x:Int, y:Int, z:Int
+  have fwd: if x + y < x + z then y < z by {
+    assume prem
+    have nle: not (x + z ≤ x + y)
+      by apply (conjunct 1 of int_not_less_equal_iff_greater[x + z, x + y]) to prem
+    have iff_yz: x + z ≤ x + y ⇔ z ≤ y
+      by int_add_both_sides_of_less_equal[x, z, y]
+    have not_zy: not (z ≤ y) by {
+      assume zy
+      have zy_le: x + z ≤ x + y by apply (conjunct 1 of iff_yz) to zy
+      apply nle to zy_le
+    }
+    apply (conjunct 0 of int_not_less_equal_iff_greater[z, y]) to not_zy
+  }
+  have bkwd: if y < z then x + y < x + z by {
+    assume prem
+    have nle: not (z ≤ y)
+      by apply (conjunct 1 of int_not_less_equal_iff_greater[z, y]) to prem
+    have iff_yz: x + z ≤ x + y ⇔ z ≤ y
+      by int_add_both_sides_of_less_equal[x, z, y]
+    have not_xzxy: not (x + z ≤ x + y) by {
+      assume xzxy
+      have zy_le: z ≤ y by apply (conjunct 0 of iff_yz) to xzxy
+      apply nle to zy_le
+    }
+    apply (conjunct 0 of int_not_less_equal_iff_greater[x + z, x + y]) to not_xzxy
+  }
+  fwd, bkwd
+end
+
+theorem int_add_both_sides_of_less_right: all x:Int, y:Int, z:Int.
+  y + x < z + x ⇔ y < z
+proof
+  arbitrary x:Int, y:Int, z:Int
+  have eq1: y + x = x + y by int_add_commute[y, x]
+  have eq2: z + x = x + z by int_add_commute[z, x]
+  replace eq1 | eq2
+  int_add_both_sides_of_less[x, y, z]
+end
+
+theorem int_add_less_mono_left: all x:Int, y:Int, z:Int.
+  if y < z then x + y < x + z
+proof
+  arbitrary x:Int, y:Int, z:Int
+  conjunct 1 of int_add_both_sides_of_less[x, y, z]
+end
+
+theorem int_add_less_mono_right: all x:Int, y:Int, z:Int.
+  if y < z then y + x < z + x
+proof
+  arbitrary x:Int, y:Int, z:Int
+  conjunct 1 of int_add_both_sides_of_less_right[x, y, z]
+end
+
+theorem int_add_mono_less: all a:Int, b:Int, c:Int, d:Int.
+  if a < c and b < d then a + b < c + d
+proof
+  arbitrary a:Int, b:Int, c:Int, d:Int
+  assume prem
+  have ac: a < c by prem
+  have bd: b < d by prem
+  have step1: a + b < a + d by apply int_add_less_mono_left[a, b, d] to bd
+  have step2: a + d < c + d by apply int_add_less_mono_right[d, a, c] to ac
+  apply int_less_trans[a + b, a + d, c + d] to step1, step2
 end
