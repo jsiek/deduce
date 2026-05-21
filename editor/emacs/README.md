@@ -388,6 +388,7 @@ RET deduce RET` (root group), or any of the per-layer groups:
 | `deduce-lsp-python-program`    | `"python3"` | Python interpreter used to launch the language server                  |
 | `deduce-lsp-deduce-root`       | `nil`       | Path to a Deduce checkout; sets `PYTHONPATH` for the spawned server    |
 | `deduce-lsp-prelude-disabled`  | `nil`       | If non-nil, sets `DEDUCE_NO_STDLIB=1` so the server skips the prelude  |
+| `deduce-lsp-search-lemma-timeout` | `60`     | Per-request timeout (seconds) for the `C-c C-l` round trip. Bumps past the 10s jsonrpc default because ranking the stdlib's ~200 lemmas exceeds it on a cold-prelude first call. Set to nil to fall back to the default. |
 
 For full control over the launch command, `defun deduce-lsp-server-command`
 in your `init.el` returning whatever list eglot should spawn.

@@ -472,7 +472,7 @@ doesn't try to flush against a non-existent server."
               ((symbol-function 'eglot--signal-textDocument/didChange)
                (lambda () nil))
               ((symbol-function 'jsonrpc-request)
-               (lambda (_server method params)
+               (lambda (_server method params &rest _kwargs)
                  (push (cons method params) calls)
                  (cdr (assq method responses-by-method)))))
       (funcall thunk))
@@ -1402,7 +1402,7 @@ then the insertion request with the picked lemma name."
                       ((symbol-function 'eglot--signal-textDocument/didChange)
                        (lambda () nil))
                       ((symbol-function 'jsonrpc-request)
-                       (lambda (_server method params)
+                       (lambda (_server method params &rest _kwargs)
                          (push (cons method params) calls)
                          (cond
                           ((eq method :deduce/availableLemmasAt)
@@ -1443,7 +1443,7 @@ then the insertion request with the picked lemma name."
                     ((symbol-function 'eglot--signal-textDocument/didChange)
                      (lambda () nil))
                     ((symbol-function 'jsonrpc-request)
-                     (lambda (_server method params)
+                     (lambda (_server method params &rest _kwargs)
                        (when (eq method :deduce/availableLemmasAt)
                          (setq captured-params params))
                        nil)))
@@ -1467,7 +1467,7 @@ candidate set."
                     ((symbol-function 'eglot--signal-textDocument/didChange)
                      (lambda () nil))
                     ((symbol-function 'jsonrpc-request)
-                     (lambda (_server _method _params) [])))
+                     (lambda (_server _method _params &rest _kwargs) [])))
             (should-error (deduce-lsp-search-lemma) :type 'user-error)))
       (delete-file tmp))))
 
@@ -1486,7 +1486,7 @@ the command user-errors rather than silently doing nothing."
                     ((symbol-function 'eglot--signal-textDocument/didChange)
                      (lambda () nil))
                     ((symbol-function 'jsonrpc-request)
-                     (lambda (_server method _params)
+                     (lambda (_server method _params &rest _kwargs)
                        (cond
                         ((eq method :deduce/availableLemmasAt)
                          (vector '(:name "eq_refl" :kind "theorem"
@@ -1525,7 +1525,7 @@ buffer at the picker's chosen lemma."
                       ((symbol-function 'eglot--signal-textDocument/didChange)
                        (lambda () nil))
                       ((symbol-function 'jsonrpc-request)
-                       (lambda (_server method _params)
+                       (lambda (_server method _params &rest _kwargs)
                          (cond
                           ((eq method :deduce/availableLemmasAt)
                            (vector '(:name "eq_refl" :kind "theorem"
@@ -1542,6 +1542,51 @@ buffer at the picker's chosen lemma."
           (let ((text (buffer-substring-no-properties (point-min) (point-max))))
             (should (string-match-p "conclude P = P by eq_refl" text))))
       (delete-file tmp))))
+
+
+(ert-deftest deduce-lsp/search-lemma-passes-custom-timeout-to-jsonrpc ()
+  "Both `availableLemmasAt' and `insertLemma' round trips use
+`deduce-lsp-search-lemma-timeout' instead of the 10s default --
+ranking the stdlib's ~200 lemmas exceeds it on a cold prelude."
+  (let ((tmp (make-temp-file "deduce-lsp-lemma" nil ".pf"))
+        timeouts)
+    (unwind-protect
+        (with-temp-buffer
+          (insert "x")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          (let ((deduce-lsp-search-lemma-timeout 60))
+            (cl-letf (((symbol-function 'eglot-current-server)
+                       (lambda () 'mock-server))
+                      ((symbol-function 'eglot--signal-textDocument/didChange)
+                       (lambda () nil))
+                      ;; Intercept `jsonrpc-request' directly so we
+                      ;; can read the `:timeout' keyword arg.
+                      ((symbol-function 'jsonrpc-request)
+                       (lambda (_server method _params &rest kwargs)
+                         (push (cons method (plist-get kwargs :timeout))
+                               timeouts)
+                         (cond
+                          ((eq method :deduce/availableLemmasAt)
+                           (vector '(:name "eq_refl" :kind "theorem"
+                                     :signature "" :module "Base"
+                                     :relevance 1.0
+                                     :unify_tier nil
+                                     :discharged_premises [])))
+                          ((eq method :deduce/insertLemma)
+                           '(:changes nil)))))
+                      ((symbol-function 'completing-read)
+                       (lambda (&rest _args) "eq_refl"))
+                      ;; The mock insertLemma response above has no
+                      ;; edits; ignore the resulting user-error so we
+                      ;; can still inspect captured timeouts.
+                      )
+              (ignore-errors (deduce-lsp-search-lemma)))))
+      (delete-file tmp))
+    (let ((avail (cdr (assq :deduce/availableLemmasAt timeouts)))
+          (insert (cdr (assq :deduce/insertLemma timeouts))))
+      (should (equal avail 60))
+      (should (equal insert 60)))))
 
 
 (ert-deftest deduce-lsp/search-lemma-without-server-errors ()

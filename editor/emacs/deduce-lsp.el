@@ -224,7 +224,7 @@ LSP positions are 0-indexed (line and character)."
         :character (current-column)))
 
 
-(defun deduce-lsp--request (server method params)
+(defun deduce-lsp--request (server method params &optional timeout)
   "Issue an LSP request to SERVER, flushing pending buffer changes first.
 
 `jsonrpc-request' on its own races with eglot's didChange
@@ -241,6 +241,14 @@ This helper sends pending changes synchronously, then issues
 the JSON-RPC request.  Mirrors the pattern eglot's internal
 `eglot--request' uses by default.
 
+When TIMEOUT (seconds) is non-nil, it overrides
+`jsonrpc-default-request-timeout' (10s) for this single call.
+Use this for requests that are structurally more expensive than
+goal-shape lookups: e.g. `deduce/availableLemmasAt' has to unify
+every in-scope lemma's conclusion against the goal AST, which
+on first call (cold prelude) exceeds the default budget on the
+stdlib's ~200 candidates.
+
 Note on private API: `eglot--signal-textDocument/didChange' has
 the `--' private-symbol convention, but the function name and
 behaviour have been stable across recent eglot releases and it's
@@ -248,7 +256,9 @@ the explicit primitive eglot itself uses for this purpose.  If a
 future eglot release renames it, this function is the single
 point of update."
   (eglot--signal-textDocument/didChange)
-  (jsonrpc-request server method params))
+  (if timeout
+      (jsonrpc-request server method params :timeout timeout)
+    (jsonrpc-request server method params)))
 
 
 (defun deduce-lsp--render-goal (response)
@@ -767,6 +777,21 @@ RET-on-empty-input.  Errors out when LEMMAS is empty."
     (cdr (assoc chosen alist))))
 
 
+(defcustom deduce-lsp-search-lemma-timeout 60
+  "Per-request timeout (seconds) for the lemma-search round trip.
+
+The `deduce/availableLemmasAt' request unifies every in-scope
+lemma's conclusion against the goal AST -- on a cold-prelude
+first call against the stdlib's ~200 lemmas this can exceed the
+10s default `jsonrpc-default-request-timeout' on slower machines.
+60s is a generous budget that still surfaces a genuine hang.
+
+Set to nil to fall back to the jsonrpc default (10s)."
+  :type '(choice (const :tag "jsonrpc default (10s)" nil)
+                 (number :tag "seconds"))
+  :group 'deduce-lsp)
+
+
 (defun deduce-lsp-search-lemma (&optional query)
   "Pick an in-scope lemma and splice a reference to it at point.
 
@@ -788,7 +813,12 @@ depends on the server-computed tier at the time of insertion (see
 `lsp/query.py:insert_lemma_at'): `conclude ... by apply <name> to
 ...' for a full match with discharged premises, `apply <name> to
 ?' when premises remain, `replace <name>' for an equation match
-against a goal subterm, or just the bare `<name>' otherwise."
+against a goal subterm, or just the bare `<name>' otherwise.
+
+Both round trips use `deduce-lsp-search-lemma-timeout' instead of
+the 10s jsonrpc default -- the ranking pass is structurally more
+expensive than goal-shape lookups, and the first call after
+server start additionally pays the prelude-bootstrap cost."
   (interactive
    (list (when current-prefix-arg
            (read-string "Lemma search (substring or `_'-pattern): "))))
@@ -802,7 +832,8 @@ against a goal subterm, or just the bare `<name>' otherwise."
                      base-params))
            (response (deduce-lsp--request server
                                           :deduce/availableLemmasAt
-                                          params))
+                                          params
+                                          deduce-lsp-search-lemma-timeout))
            (lemmas (if (vectorp response) response (or response []))))
       (when (or (null lemmas) (zerop (length lemmas)))
         (user-error "No lemma candidates at point"))
@@ -811,7 +842,8 @@ against a goal subterm, or just the bare `<name>' otherwise."
              (insert-params (append base-params (list :name name)))
              (edit (deduce-lsp--request server
                                         :deduce/insertLemma
-                                        insert-params)))
+                                        insert-params
+                                        deduce-lsp-search-lemma-timeout)))
         (unless edit
           (user-error
            "Server returned no edit for lemma `%s'" name))
