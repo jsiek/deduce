@@ -963,44 +963,92 @@ proof
   int_max_min_absorb_left[x, y]
 end
 
+// Structural spec theorems for `≤` and `<` on Int.
+//
+// Each constructor-pair case reduces to the corresponding UInt comparison
+// (or to a constant `true`/`false` for the cross-sign cases). These are
+// the Int-side analogue of `uint_lit_less_equal` / `uint_lit_less` and
+// the `≤`/`<` part of the conversion-and-specification story described
+// in the `lib/UIntToFrom.pf` source comment.
+
+theorem int_pos_le_pos: all au:UInt, bu:UInt.
+  (pos(au) ≤ pos(bu)) = (au ≤ bu)
+proof
+  arbitrary au:UInt, bu:UInt
+  expand operator≤ | operator≤.
+end
+
+auto int_pos_le_pos
+
+theorem int_pos_le_negsuc: all au:UInt, bu:UInt.
+  (pos(au) ≤ negsuc(bu)) = false
+proof
+  arbitrary au:UInt, bu:UInt
+  expand operator≤.
+end
+
+auto int_pos_le_negsuc
+
+theorem int_negsuc_le_pos: all au:UInt, bu:UInt.
+  (negsuc(au) ≤ pos(bu)) = true
+proof
+  arbitrary au:UInt, bu:UInt
+  expand operator≤.
+end
+
+auto int_negsuc_le_pos
+
+theorem int_negsuc_le_negsuc: all au:UInt, bu:UInt.
+  (negsuc(au) ≤ negsuc(bu)) = (bu ≤ au)
+proof
+  arbitrary au:UInt, bu:UInt
+  expand operator≤ | operator≤.
+end
+
+auto int_negsuc_le_negsuc
+
+theorem int_pos_less_pos: all au:UInt, bu:UInt.
+  (pos(au) < pos(bu)) = (au < bu)
+proof
+  arbitrary au:UInt, bu:UInt
+  expand operator<.
+end
+
+auto int_pos_less_pos
+
+theorem int_pos_less_negsuc: all au:UInt, bu:UInt.
+  (pos(au) < negsuc(bu)) = false
+proof
+  arbitrary au:UInt, bu:UInt
+  expand operator<.
+end
+
+auto int_pos_less_negsuc
+
+theorem int_negsuc_less_pos: all au:UInt, bu:UInt.
+  (negsuc(au) < pos(bu)) = true
+proof
+  arbitrary au:UInt, bu:UInt
+  expand operator<.
+end
+
+auto int_negsuc_less_pos
+
+theorem int_negsuc_less_negsuc: all au:UInt, bu:UInt.
+  (negsuc(au) < negsuc(bu)) = (bu < au)
+proof
+  arbitrary au:UInt, bu:UInt
+  expand operator<.
+end
+
+auto int_negsuc_less_negsuc
+
 // Addition monotonicity and cancellation for ≤ and <.
 //
 // The strategy is to characterize `a ≤ b` as `+0 ≤ b - a` (via `a ⊝ b`
 // being non-negative iff `b ≤ a`), prove the algebraic identity
 // `(x + z) - (x + y) = z - y`, and then read off both directions of
 // `x + y ≤ x + z ⇔ y ≤ z`.
-
-lemma int_le_pos_pos: all au:UInt, bu:UInt.
-  pos(au) ≤ pos(bu) ⇔ au ≤ bu
-proof
-  arbitrary au:UInt, bu:UInt
-  have f: if pos(au) ≤ pos(bu) then au ≤ bu by {
-    assume h
-    expand operator≤ in h
-  }
-  have b: if au ≤ bu then pos(au) ≤ pos(bu) by {
-    assume h
-    expand operator≤
-    h
-  }
-  f, b
-end
-
-lemma int_le_negsuc_negsuc: all au:UInt, bu:UInt.
-  negsuc(au) ≤ negsuc(bu) ⇔ bu ≤ au
-proof
-  arbitrary au:UInt, bu:UInt
-  have f: if negsuc(au) ≤ negsuc(bu) then bu ≤ au by {
-    assume h
-    expand operator≤ in h
-  }
-  have b: if bu ≤ au then negsuc(au) ≤ negsuc(bu) by {
-    assume h
-    expand operator≤
-    h
-  }
-  f, b
-end
 
 lemma pos_zero_le_monuso: all a:UInt, b:UInt.
   +0 ≤ (a ⊝ b) ⇔ b ≤ a
@@ -1031,7 +1079,7 @@ proof
         neg_suc[w]
       }
       have absurd: +0 ≤ negsuc(w) by replace lhs_neg in prem
-      conclude false by expand operator≤ in absurd
+      absurd
     }
   }
   have bkwd: if b ≤ a then +0 ≤ (a ⊝ b) by {
@@ -1047,7 +1095,7 @@ proof
       simplify with not_alb.
     }
     replace form
-    suffices 0 ≤ a ∸ b by expand operator≤.
+    suffices 0 ≤ a ∸ b by .
     uint_zero_le[a ∸ b]
   }
   fwd, bkwd
@@ -1085,12 +1133,9 @@ proof
         case pos(bu) {
           have diff: pos(bu) - pos(au) = (bu ⊝ au) by symmetric subo_monus[bu, au]
           replace diff
-          apply iff_trans[pos(au) ≤ pos(bu), au ≤ bu, +0 ≤ (bu ⊝ au)]
-            to int_le_pos_pos[au, bu],
-               apply iff_symm to pos_zero_le_monuso[bu, au]
+          apply iff_symm to pos_zero_le_monuso[bu, au]
         }
         case negsuc(bu) {
-          have a_le_b_false: (pos(au) ≤ negsuc(bu)) = false by expand operator≤.
           have diff_form: (negsuc(bu) - pos(au)) = (0 ⊝ (1 + bu + au)) by {
             equations
                   negsuc(bu) - pos(au)
@@ -1107,7 +1152,6 @@ proof
               apply uint_less_equal_zero to bad
             }
           }
-          replace a_le_b_false
           replace apply iff_equal to rhs_iff
           replace rhs_false.
         }
@@ -1116,7 +1160,6 @@ proof
     case negsuc(au) {
       switch b {
         case pos(bu) {
-          have a_le_b_true: (negsuc(au) ≤ pos(bu)) = true by expand operator≤.
           have diff_form: (pos(bu) - negsuc(au)) = pos(bu + 1 + au) by {
             equations
                   pos(bu) - negsuc(au)
@@ -1124,13 +1167,7 @@ proof
             ... = pos(bu) + pos(1 + au)       by expand operator-.
             ... = pos(bu + 1 + au)            by add_pos_pos
           }
-          replace diff_form
-          have rhs_pos: +0 ≤ pos(bu + 1 + au) by {
-            expand operator≤
-            uint_zero_le[bu + 1 + au]
-          }
-          have rhs_true: (+0 ≤ pos(bu + 1 + au)) = true by apply eq_true to rhs_pos
-          replace a_le_b_true | rhs_true.
+          replace diff_form.
         }
         case negsuc(bu) {
           have diff_form: (negsuc(bu) - negsuc(au)) = (au ⊝ bu) by {
@@ -1142,9 +1179,7 @@ proof
             ... = au ⊝ bu                       by suc_uint_monuso[au, bu]
           }
           replace diff_form
-          apply iff_trans[negsuc(au) ≤ negsuc(bu), bu ≤ au, +0 ≤ (au ⊝ bu)]
-            to int_le_negsuc_negsuc[au, bu],
-               apply iff_symm to pos_zero_le_monuso[au, bu]
+          apply iff_symm to pos_zero_le_monuso[au, bu]
         }
       }
     }

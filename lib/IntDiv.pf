@@ -1,0 +1,91 @@
+module Int
+
+import UInt
+import Base
+import IntDefs
+import IntAddSub
+import IntMult
+
+/*
+  Structural spec theorems for Int division.
+
+  Int division is defined in `IntDefs.pf` by combining the sign of the
+  dividend/divisor with the unsigned quotient `abs(n) / abs(m)`. These
+  theorems peel off the four `pos`/`negsuc` cases of `Int / Int` and the
+  two cases of `Int / UInt`, reducing each to the corresponding UInt
+  quotient. They mirror `mult_pos_pos` / `mult_pos_negsuc` in
+  `IntMult.pf` and the `Nat`/`UInt` division spec lemmas in
+  `lib/UIntDiv.pf`.
+*/
+
+// Both operands nonnegative: divide as UInts.
+theorem div_pos_pos: all au:UInt, bu:UInt.
+  pos(au) / pos(bu) = pos(au / bu)
+proof
+  arbitrary au:UInt, bu:UInt
+  show #pos(au) / pos(bu)# = pos(au / bu)
+  expand operator/
+  replace sign_pos | abs_pos | mult_pos_any | mult_pos_uint.
+end
+
+auto div_pos_pos
+
+// Nonnegative dividend, negative divisor: negate the unsigned quotient.
+theorem div_pos_negsuc: all au:UInt, bu:UInt.
+  pos(au) / negsuc(bu) = - pos(au / (1 + bu))
+proof
+  arbitrary au:UInt, bu:UInt
+  show #pos(au) / negsuc(bu)# = - pos(au / (1 + bu))
+  expand operator/
+  replace sign_pos | sign_negsuc | abs_pos | abs_negsuc | mult_pos_neg | mult_neg_uint.
+end
+
+auto div_pos_negsuc
+
+// Negative dividend, nonnegative divisor: negate the unsigned quotient.
+theorem div_negsuc_pos: all au:UInt, bu:UInt.
+  negsuc(au) / pos(bu) = - pos((1 + au) / bu)
+proof
+  arbitrary au:UInt, bu:UInt
+  show #negsuc(au) / pos(bu)# = - pos((1 + au) / bu)
+  expand operator/
+  replace sign_negsuc | sign_pos | abs_negsuc | abs_pos | mult_neg_pos | mult_neg_uint.
+end
+
+auto div_negsuc_pos
+
+// Both operands negative: signs cancel, quotient is nonnegative.
+theorem div_negsuc_negsuc: all au:UInt, bu:UInt.
+  negsuc(au) / negsuc(bu) = pos((1 + au) / (1 + bu))
+proof
+  arbitrary au:UInt, bu:UInt
+  show #negsuc(au) / negsuc(bu)# = pos((1 + au) / (1 + bu))
+  expand operator/
+  replace sign_negsuc | abs_negsuc | mult_neg_neg | mult_pos_uint.
+end
+
+auto div_negsuc_negsuc
+
+// `Int / UInt`: nonnegative dividend.
+theorem div_pos_uint: all au:UInt, bu:UInt.
+  pos(au) / bu = pos(au / bu)
+proof
+  arbitrary au:UInt, bu:UInt
+  show #pos(au) / bu# = pos(au / bu)
+  expand operator/
+  replace sign_pos | abs_pos | mult_pos_uint.
+end
+
+auto div_pos_uint
+
+// `Int / UInt`: negative dividend.
+theorem div_negsuc_uint: all au:UInt, bu:UInt.
+  negsuc(au) / bu = - pos((1 + au) / bu)
+proof
+  arbitrary au:UInt, bu:UInt
+  show #negsuc(au) / bu# = - pos((1 + au) / bu)
+  expand operator/
+  replace sign_negsuc | abs_negsuc | mult_neg_uint.
+end
+
+auto div_negsuc_uint
