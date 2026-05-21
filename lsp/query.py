@@ -3679,11 +3679,24 @@ def available_lemmas_at(
         result = check_file(path, content=content, prelude=prelude)
         ast_nodes = result.ast
 
-    candidates = _collect_lemma_candidates(path, ast_nodes, prelude)
+    # A proof can't cite the theorem it's proving -- circularity --
+    # so drop the enclosing theorem from candidates before ranking.
+    # Only applies when the cursor is at a hole inside a proof body;
+    # browse mode (cursor anywhere else) keeps every declaration
+    # visible, including the theorem that happens to start at pos.
+    exclude = (
+        _enclosing_theorem_name(ast_nodes, pos)
+        if hole_range is not None
+        else None
+    )
+    candidates = _collect_lemma_candidates(
+        path, ast_nodes, prelude, exclude_name=exclude
+    )
     if not candidates:
         return ()
 
     given_pairs = _collect_local_givens(env)
+    typed_by_name = _typed_formula_index(env)
     ranked = _rank_lemmas(
         candidates,
         goal_text,
@@ -3692,6 +3705,7 @@ def available_lemmas_at(
         goal_ast=goal_ast,
         env=env,
         given_pairs=given_pairs,
+        typed_formula_by_name=typed_by_name,
     )
     if not ranked:
         return ()
@@ -3826,8 +3840,45 @@ def _module_for_path(path: str) -> str:
     return Path(path).stem
 
 
+def _enclosing_theorem_name(ast_nodes: Any, pos: Position) -> Optional[str]:
+    """Return the base name of the user-file ``Theorem`` whose body
+    encloses ``pos``, or ``None`` when ``pos`` isn't inside one.
+
+    Theorems don't nest at the top level, so the enclosing one is the
+    last ``Theorem`` whose start ``location`` is at or before ``pos``
+    and which has no later top-level statement starting at or before
+    ``pos``. The intent is to skip the theorem currently being proved
+    when surfacing lemmas at one of its holes -- the proof can't
+    refer to itself.
+    """
+    if ast_nodes is None:
+        return None
+    from abstract_syntax import Theorem, base_name
+
+    enclosing: Optional[str] = None
+    for stmt in ast_nodes:
+        loc = getattr(stmt, "location", None)
+        if loc is None or getattr(loc, "empty", True):
+            continue
+        if not _meta_at_or_before(loc, pos):
+            # ``ast_nodes`` is in source order; no later sibling can be
+            # at-or-before ``pos`` either.
+            break
+        if isinstance(stmt, Theorem):
+            enclosing = base_name(stmt.name)
+        else:
+            # A non-Theorem starts at-or-before pos, which means any
+            # earlier Theorem ended before this stmt -- pos is outside
+            # it. Reset.
+            enclosing = None
+    return enclosing
+
+
 def _collect_lemma_candidates(
-    path: str, ast_nodes: Any, prelude: Sequence[str]
+    path: str,
+    ast_nodes: Any,
+    prelude: Sequence[str],
+    exclude_name: Optional[str] = None,
 ) -> tuple[tuple[LemmaInfo, Any, str], ...]:
     """Build the ranking input: theorems/lemmas/postulates with their
     formula AST and module of origin.
@@ -3845,6 +3896,11 @@ def _collect_lemma_candidates(
       ``using``/``hiding`` clause.
     - Each module named in ``prelude`` (public theorems/postulates
       only, matching ``print_theorems``' visibility filter).
+
+    When ``exclude_name`` is set, any theorem/postulate with that
+    base name is dropped from the user-file slice -- used to keep
+    the theorem currently being proved out of the picker at one of
+    its own holes.
     """
     from abstract_syntax import (
         Import as _ImportNode,
@@ -3897,6 +3953,8 @@ def _collect_lemma_candidates(
             if info is None:
                 continue
             if info.name in seen_names:
+                continue
+            if exclude_name is not None and info.name == exclude_name:
                 continue
             seen_names.add(info.name)
             out.append((info, stmt.what, user_module))
@@ -4285,6 +4343,53 @@ def _iter_subterms(node: Any) -> Any:
     return out
 
 
+def _typed_formula_index(env: Any) -> dict[str, Any]:
+    """Build a one-shot ``base_name -> typed_formula`` index over the
+    proof bindings in ``env``.
+
+    The formula stored on :class:`abstract_syntax.declarations.Theorem`
+    and :class:`Postulate` is the parsed, pre-typecheck AST -- bound
+    variables and operators are still :class:`OverloadedVar` carrying
+    a list of candidate resolved names. The matcher's
+    ``get_name()`` returns only the first candidate, which produces
+    both false positives (an unrelated lemma whose first overload
+    happens to alias the goal's resolved operator -- e.g.
+    ``add_commute_uint_int : all x:UInt, y:Int. x + y = y + x``
+    against a ``UInt + UInt`` goal) and false negatives (a
+    right-type lemma whose first overload doesn't alias the goal --
+    e.g. ``uint_add_commute`` when its first candidate is the
+    inherited Nat ``+``).
+
+    The proof environment, by contrast, stores the post-typecheck
+    formula -- overloads have been resolved to single names and
+    variable types pinned to a single overload candidate during the
+    prelude's check pass. Using that formula for unification (issue
+    #690) fixes both classes of bug at once.
+
+    Theorem names are forbidden from being overloaded (see
+    :meth:`Postulate.uniquify`), so a base-name lookup uniquely
+    identifies the binding.
+
+    Building this index once per request -- instead of scanning
+    ``env.dict`` per lemma in the ranker -- saves a quadratic walk
+    over an env that holds ~2000 entries when the full stdlib is in
+    scope.
+    """
+    if env is None or not hasattr(env, "dict"):
+        return {}
+    from abstract_syntax import ProofBinding, base_name
+
+    out: dict[str, Any] = {}
+    for key, binding in env.dict.items():
+        if not isinstance(binding, ProofBinding):
+            continue
+        # First entry wins -- the env may have shadowed re-bindings,
+        # but theorem names can't be overloaded so this is at most
+        # one real entry per base name anyway.
+        out.setdefault(base_name(key), binding.formula)
+    return out
+
+
 def _unify_score(
     formula: Any,
     goal_ast: Any,
@@ -4412,6 +4517,7 @@ def _rank_lemmas(
     goal_ast: Any = None,
     env: Any = None,
     given_pairs: tuple[tuple[str, Any], ...] = (),
+    typed_formula_by_name: Optional[dict[str, Any]] = None,
 ) -> list[LemmaMatch]:
     """Score and sort candidate lemmas.
 
@@ -4456,6 +4562,20 @@ def _rank_lemmas(
     raw_scores: list[
         tuple[float, LemmaInfo, str, Optional[str], tuple[tuple[str, str], ...]]
     ] = []
+
+    # First pass: compute every cheap signal (proximity, head, overlap,
+    # substring, pattern) for each candidate.  ``_unify_score`` is the
+    # only expensive scorer -- it walks the lemma's conclusion against
+    # the goal AST, applying ``auto_rewrites`` at every subterm, and
+    # costs ~10ms per lemma on the typical stdlib (Bug 1 of #690: with
+    # ~600 lemmas in scope this added up to ~6s before the picker
+    # appeared).  Deferring the unifier to a top-K subset of cheap-
+    # ranked candidates trims that to ~1s while keeping the lemmas
+    # that actually unify (which always share head/operator tokens
+    # with the goal) in the considered set.
+    prelim: list[
+        tuple[float, LemmaInfo, Any, str, float]
+    ] = []  # (cheap_raw, info, formula, module, proximity-marker)
     for info, formula, module in candidates:
         proximity = 1.0 if module == user_module else 0.0
 
@@ -4489,13 +4609,6 @@ def _rank_lemmas(
             raw_scores.append((1.0 + proximity, info, module, None, ()))
             continue
 
-        if has_unify_signal:
-            unify_score, unify_tier, discharged = _unify_score(
-                formula, goal_ast, env, given_pairs
-            )
-        else:
-            unify_score, unify_tier, discharged = 0.0, None, ()
-
         if goal_head is not None:
             head = _formula_head_symbol(formula)
             head_score = 1.0 if head == goal_head else 0.0
@@ -4504,24 +4617,73 @@ def _rank_lemmas(
 
         if goal_syms:
             symbols = _formula_symbols(formula)
-            overlap = len(goal_syms & symbols) / len(goal_syms)
+            shared = goal_syms & symbols
+            overlap = len(shared) / len(goal_syms)
+            # Jaccard breaks ties between lemmas with the same overlap
+            # by preferring those whose formula has no symbols outside
+            # the goal -- ``uint_add_commute`` ({+, =}) outranks
+            # ``uint_minus_add`` ({+, -, =}) on a ``+ = +`` goal because
+            # the latter is "noisier". Important once UNIFY_TOP_K cuts
+            # off the tail: without this, dozens of equation lemmas
+            # tied at overlap=1.0 elbowed the real match out of the
+            # window (issue #690 Bug 1).
+            denom = len(goal_syms | symbols)
+            specificity = len(shared) / denom if denom else 0.0
         else:
             overlap = 0.0
+            specificity = 0.0
 
-        raw = (
-            8.0 * unify_score
-            + 4.0 * head_score
+        cheap_raw = (
+            4.0 * head_score
             + 2.0 * overlap
+            + 1.5 * specificity
             + 1.0 * proximity
             + 2.0 * substring_score
             + 3.0 * pattern_score
         )
 
-        # No goal AND no query that this lemma matched -> nothing to
-        # score on.  Skip.
-        if raw <= 0.0:
+        # Skip candidates with no positive cheap signal: a lemma whose
+        # conclusion head differs from the goal, shares no operator
+        # tokens with it, lives in another module, and matches no
+        # query has zero chance of being relevant.  Running the
+        # unifier on it would be pure waste.
+        if cheap_raw <= 0.0:
             continue
 
+        prelim.append((cheap_raw, info, formula, module, proximity))
+
+    # Second pass: run the unifier only on the K cheapest-ranked
+    # survivors.  K is intentionally a few multiples of the LSP
+    # default ``limit`` (50) -- a lemma that would unify but ranks
+    # outside the top 150 by textual signals is exotic, and the
+    # latency win (≈6s -> ≈1s on stdlib-sized preludes) outweighs
+    # the rare miss.  When a future request needs a bigger window,
+    # widen this constant rather than the per-candidate cost.
+    prelim.sort(key=lambda t: (-t[0], t[1].name))
+    UNIFY_TOP_K = 50
+    for idx, (cheap_raw, info, formula, module, _proximity) in enumerate(
+        prelim
+    ):
+        if has_unify_signal and idx < UNIFY_TOP_K:
+            # Prefer the env-resolved typed formula over the parsed
+            # one when available: the latter still has OverloadedVar
+            # candidate lists for both operators and variable types,
+            # and the matcher's first-candidate-only comparison
+            # produces both false-positive and false-negative full
+            # tiers depending on lexical order (issue #690 Bug 2/3).
+            typed_formula = (
+                typed_formula_by_name.get(info.name)
+                if typed_formula_by_name is not None
+                else None
+            )
+            unify_input = typed_formula if typed_formula is not None else formula
+            unify_score, unify_tier, discharged = _unify_score(
+                unify_input, goal_ast, env, given_pairs
+            )
+        else:
+            unify_score, unify_tier, discharged = 0.0, None, ()
+
+        raw = 8.0 * unify_score + cheap_raw
         raw_scores.append((raw, info, module, unify_tier, discharged))
 
     if not raw_scores:

@@ -221,6 +221,23 @@ auto-start hook:
   use. A narrower sibling of `C-c C-e`: eliminate picks by
   hypothesis shape; fill-from-given picks by formula equality with
   the goal.
+- `C-c C-l` — **lemma search at point.** Cursor on a `?`. Emacs
+  fetches the ranked list of in-scope theorems, lemmas, and
+  postulates from the server and prompts (TAB completion) for one
+  via `completing-read`. Each row is annotated with the *unify
+  tier* — `applies (by H, G)` when the lemma's conclusion matches
+  the goal and every premise is discharged by a local given,
+  `premises remain` when the conclusion matches but some premises
+  stay open, `rewrite subterm` for an equation lemma whose LHS
+  matches a goal subterm — plus the module of origin. The top
+  candidate is the default; press RET on an empty filter to pick
+  it. The `?` is then replaced with a tier-aware tactic skeleton:
+  `conclude <goal> by apply <name> to <labels>` for the full tier,
+  `apply <name> to ?` when premises remain, `replace <name>` for a
+  rewrite, or the bare name otherwise. With a prefix arg
+  (`C-u C-c C-l`), Emacs prompts for a query string — substring
+  match against names/signatures or a goal-shape pattern with `_`
+  placeholders — and forwards it to the server.
 - `C-c C-x` — **show the full diagnostic at point** in a `*Deduce
   Diagnostic*` popup buffer. Deduce error messages are multi-line
   (headline + location + grammar / proof context); the echo area
@@ -325,6 +342,7 @@ OpenAI, or IU REALLMs depending on backend choice):
 | `C-c C-i` | Replace `?` with `induction T` skeleton at a forall goal           | `deduce-lsp-induction`           | `deduce-lsp`   |
 | `C-c C-e` | Prompt for hypothesis, replace `?` with use-fact tactic            | `deduce-lsp-eliminate`           | `deduce-lsp`   |
 | `C-c C-f` | Replace `?` with `conclude ... by H` for a given matching the goal | `deduce-lsp-fill-from-given`     | `deduce-lsp`   |
+| `C-c C-l` | Pick an in-scope lemma; splice a tier-aware reference at the hole  | `deduce-lsp-search-lemma`        | `deduce-lsp`   |
 | `C-c C-x` | Show the full diagnostic at point in a popup buffer                | `deduce-show-diagnostic-at-point`| `deduce-lsp`   |
 | `C-c C-a` | Ask an LLM to fill the `?` at point. Async, non-blocking.          | `deduce-fill-hole`               | `deduce-fill-hole` |
 | `C-c C-d` | Launch a debug session on the current `.pf` file                   | `deduce-dap-debug-current-buffer`| `deduce-dap`   |
@@ -370,6 +388,7 @@ RET deduce RET` (root group), or any of the per-layer groups:
 | `deduce-lsp-python-program`    | `"python3"` | Python interpreter used to launch the language server                  |
 | `deduce-lsp-deduce-root`       | `nil`       | Path to a Deduce checkout; sets `PYTHONPATH` for the spawned server    |
 | `deduce-lsp-prelude-disabled`  | `nil`       | If non-nil, sets `DEDUCE_NO_STDLIB=1` so the server skips the prelude  |
+| `deduce-lsp-search-lemma-timeout` | `60`     | Per-request timeout (seconds) for the `C-c C-l` round trip. Bumps past the 10s jsonrpc default because ranking the stdlib's ~200 lemmas exceeds it on a cold-prelude first call. Set to nil to fall back to the default. |
 
 For full control over the launch command, `defun deduce-lsp-server-command`
 in your `init.el` returning whatever list eglot should spawn.
@@ -681,11 +700,31 @@ Then verify the LSP integration:
     two matching givens in scope (e.g. `assume H1: P` and `assume
     H2: P`), Emacs prompts `Fill from:` with TAB completion against
     the matching labels.
+13. In a scratch `.pf` buffer with a non-trivial arithmetic goal:
+
+    ```
+    import UInt
+
+    theorem t: all a:UInt, b:UInt. a + b = b + a
+    proof
+      arbitrary a:UInt, b:UInt
+      ?
+    end
+    ```
+
+    Place point on the `?` and press `C-c C-l`. Emacs prompts
+    `Lemma:` with TAB completion against the ranked in-scope
+    candidates; each row shows the lemma's signature, the unify
+    tier (e.g. `applies`, `rewrite subterm`), and the module. The
+    top candidate (`uint_add_commute` for this fixture) is the
+    default — press `RET` on the empty filter to pick it. The `?`
+    is replaced with a tier-aware skeleton (here:
+    `conclude a + b = b + a by uint_add_commute`).
 
 If you have `deduce-fill-hole` loaded and an API key exported, also
 verify the LLM path:
 
-13. In a scratch `.pf` buffer with a `theorem t: all P:bool. P = P`
+14. In a scratch `.pf` buffer with a `theorem t: all P:bool. P = P`
     (or similar simple) shape, place point on the `?` and press
     `C-c C-a` ("ask AI"). Emacs reports `deduce-fill-hole: asking
     <model>...` (e.g. `asking claude-opus-4-7...`). Within a few
@@ -699,7 +738,7 @@ If you have `deduce-dap` loaded and `dap-mode` installed
 (`M-x package-install RET dap-mode RET` or via MELPA in your config),
 also verify the debugger integration:
 
-14. Open a `.pf` file that has at least one `print` statement —
+15. Open a `.pf` file that has at least one `print` statement —
     e.g. `tmp/debugger_smoke.pf` if you've worked through the
     Debugger.md walkthrough, or any prelude module like
     `lib/UInt.pf` that contains a top-level `print`. Press
@@ -710,11 +749,11 @@ also verify the debugger integration:
     a line at the first user-level statement (matching where
     `python deduce.py --debug` would initially trap).
 
-15. The Locals tree starts collapsed — `RET` (or click the
+16. The Locals tree starts collapsed — `RET` (or click the
     triangle next to `Locals`) to expand.  Inside a function
     call, the pattern-bound names appear there.
 
-16. Set a breakpoint at a line of interest: `C-c d b` with
+17. Set a breakpoint at a line of interest: `C-c d b` with
     cursor on the target line (or `M-x dap-breakpoint-toggle`).
     Resume with `F5` / `C-c d c`; step over with `F10` /
     `C-c d n`; step into with `F11` / `C-c d s`.  Or open
@@ -722,16 +761,16 @@ also verify the debugger integration:
     (See the keybinding caveats above if F-keys don't work on
     your OS.)
 
-17. While paused inside a function, the locals panel should show
+18. While paused inside a function, the locals panel should show
     the pattern-bound names (e.g. `n' = suc(zero)` inside
     `count_down`'s `suc` case). The call-stack panel shows one
     entry per frame, gdb-style with the innermost at the top.
 
-18. In the `*dap-ui-repl*` window (or via `dap-eval-region`), type
+19. In the `*dap-ui-repl*` window (or via `dap-eval-region`), type
     an expression like `suc(zero)` to invoke the DAP `evaluate`
     request — the same reducer the CLI's `print` command uses.
 
-19. Press `C-c d q` (or `M-x dap-disconnect`) to end the run.
+20. Press `C-c d q` (or `M-x dap-disconnect`) to end the run.
     The DAP adapter exits cleanly when stdin is closed.
 
 If `dap-mode` isn't installed, `C-c C-d` reports an error pointing

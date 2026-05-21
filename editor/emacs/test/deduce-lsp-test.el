@@ -472,7 +472,7 @@ doesn't try to flush against a non-existent server."
               ((symbol-function 'eglot--signal-textDocument/didChange)
                (lambda () nil))
               ((symbol-function 'jsonrpc-request)
-               (lambda (_server method params)
+               (lambda (_server method params &rest _kwargs)
                  (push (cons method params) calls)
                  (cdr (assq method responses-by-method)))))
       (funcall thunk))
@@ -1264,6 +1264,373 @@ own [severity] header so the user can tell them apart."
             (should (string-match-p "second warning" rendered))))
       (when (get-buffer deduce-lsp-diagnostic-buffer-name)
         (kill-buffer deduce-lsp-diagnostic-buffer-name))
+      (delete-file tmp))))
+
+
+;; ---------------------------------------------------------------------
+;; deduce-lsp-search-lemma (issue #690, Part 3, fronted by `C-c C-l')
+;; ---------------------------------------------------------------------
+;;
+;; Cursor on `?', the interactive form fetches ranked lemmas via
+;; `deduce/availableLemmasAt' and presents them through
+;; `completing-read'.  The chosen lemma drives a `deduce/insertLemma'
+;; request whose WorkspaceEdit is applied directly.  The picker
+;; annotates each candidate with the unify tier and module.
+
+(ert-deftest deduce-lsp/search-lemma-bound-to-c-c-c-l ()
+  "`C-c C-l' in deduce-mode-map runs `deduce-lsp-search-lemma'."
+  (should (eq (lookup-key deduce-mode-map (kbd "C-c C-l"))
+              #'deduce-lsp-search-lemma)))
+
+
+(ert-deftest deduce-lsp/search-lemma-tier-tag-full-no-discharged ()
+  "Tier `full' with no discharged premises renders as `applies'."
+  (let ((lemma '(:unify_tier "full" :discharged_premises [])))
+    (should (equal (deduce-lsp--lemma-tier-tag lemma) "applies"))))
+
+
+(ert-deftest deduce-lsp/search-lemma-tier-tag-full-with-discharged ()
+  "Tier `full' with discharged premises lists the given labels."
+  (let ((lemma '(:unify_tier "full"
+                 :discharged_premises [["a <= b" "h"]
+                                       ["b <= c" "g"]])))
+    (should (equal (deduce-lsp--lemma-tier-tag lemma)
+                   "applies (by h, g)"))))
+
+
+(ert-deftest deduce-lsp/search-lemma-tier-tag-premises-remain ()
+  "Tier `premises_remain' renders as `premises remain'."
+  (let ((lemma '(:unify_tier "premises_remain"
+                 :discharged_premises [])))
+    (should (equal (deduce-lsp--lemma-tier-tag lemma)
+                   "premises remain"))))
+
+
+(ert-deftest deduce-lsp/search-lemma-tier-tag-rewrite-subterm ()
+  "Tier `rewrite_subterm' renders as `rewrite subterm'."
+  (let ((lemma '(:unify_tier "rewrite_subterm"
+                 :discharged_premises [])))
+    (should (equal (deduce-lsp--lemma-tier-tag lemma)
+                   "rewrite subterm"))))
+
+
+(ert-deftest deduce-lsp/search-lemma-tier-tag-no-tier ()
+  "Nil `unify_tier' returns nil -- the annotation column collapses."
+  (let ((lemma '(:unify_tier nil :discharged_premises [])))
+    (should (null (deduce-lsp--lemma-tier-tag lemma)))))
+
+
+(ert-deftest deduce-lsp/search-lemma-display-string-uses-signature-verbatim ()
+  "Picker rows show the server's `:signature' verbatim.
+
+The server already renders the declaration in `.thm' style --
+`NAME: formula' for theorems/postulates -- so prepending the
+name again would produce the `t : t: (...)' duplication the
+user reported."
+  (let ((lemma '(:name "uint_add_commute"
+                 :signature "uint_add_commute: all x:UInt, y:UInt. x + y = y + x")))
+    (should (equal (deduce-lsp--lemma-display-string lemma)
+                   "uint_add_commute: all x:UInt, y:UInt. x + y = y + x"))))
+
+
+(ert-deftest deduce-lsp/search-lemma-display-string-no-signature ()
+  "When the signature is missing or empty, fall back to just the name."
+  (let ((lemma '(:name "lemma_x" :signature "")))
+    (should (equal (deduce-lsp--lemma-display-string lemma)
+                   "lemma_x"))))
+
+
+(ert-deftest deduce-lsp/search-lemma-build-alist-disambiguates-duplicates ()
+  "Two lemmas with the same display string get unique alist keys --
+otherwise `completing-read' can't tell them apart."
+  (let* ((lemmas (list '(:name "foo" :signature "foo: Sig" :module "A")
+                       '(:name "foo" :signature "foo: Sig" :module "B")))
+         (alist (deduce-lsp--build-lemma-alist lemmas))
+         (keys (mapcar #'car alist)))
+    (should (= (length keys) 2))
+    (should (equal (length (delete-dups (copy-sequence keys))) 2))
+    ;; The second occurrence is suffixed; the first keeps the plain
+    ;; form so the common case has no visual noise.
+    (should (equal (car keys) "foo: Sig"))
+    (should (equal (cadr keys) "foo: Sig (2)"))))
+
+
+(ert-deftest deduce-lsp/search-lemma-annotation-fn-renders-tier-and-module ()
+  "The annotation function appends `-- <tier-tag> [<module>]' to each
+picker row so the user sees how each candidate applies."
+  (let* ((lemma '(:name "uint_add_commute"
+                  :signature "all a,b:UInt. a + b = b + a"
+                  :module "UInt"
+                  :unify_tier "rewrite_subterm"
+                  :discharged_premises []))
+         (alist `(("uint_add_commute : sig" . ,lemma)))
+         (anno (deduce-lsp--lemma-annotation-fn alist))
+         (result (funcall anno "uint_add_commute : sig")))
+    (should (string-match-p "rewrite subterm" result))
+    (should (string-match-p "\\[UInt\\]" result))))
+
+
+(ert-deftest deduce-lsp/search-lemma-annotation-fn-handles-null-module ()
+  "JSON `null' for module (`:null' or `:json-null') is treated as no
+module -- the bracket is omitted rather than printed as `[:null]'."
+  (let* ((lemma '(:name "x" :signature "" :module :null
+                  :unify_tier nil :discharged_premises []))
+         (alist `(("x" . ,lemma)))
+         (anno (deduce-lsp--lemma-annotation-fn alist)))
+    (should (equal (funcall anno "x") ""))))
+
+
+(ert-deftest deduce-lsp/search-lemma-issues-availableLemmasAt-and-insertLemma ()
+  "Calling `deduce-lsp-search-lemma' issues the picker request first,
+then the insertion request with the picked lemma name."
+  (let ((tmp (make-temp-file "deduce-lsp-lemma" nil ".pf"))
+        calls)
+    (unwind-protect
+        (with-temp-buffer
+          (insert "theorem t: all P:bool. P = P\nproof\n  arbitrary P:bool\n  ?\nend\n")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          ;; `?` at line 4 col 3 -> LSP line 3, char 2.
+          (goto-char (point-min))
+          (forward-line 3)
+          (forward-char 2)
+          (let ((lemma `(:name "eq_refl"
+                         :kind "theorem"
+                         :signature "eq_refl: all x:bool. x = x"
+                         :module "Base"
+                         :relevance 1.0
+                         :unify_tier "full"
+                         :discharged_premises [])))
+            (cl-letf (((symbol-function 'eglot-current-server)
+                       (lambda () 'mock-server))
+                      ((symbol-function 'eglot--signal-textDocument/didChange)
+                       (lambda () nil))
+                      ((symbol-function 'jsonrpc-request)
+                       (lambda (_server method params &rest _kwargs)
+                         (push (cons method params) calls)
+                         (cond
+                          ((eq method :deduce/availableLemmasAt)
+                           (vector lemma))
+                          ((eq method :deduce/insertLemma) nil))))
+                      ((symbol-function 'completing-read)
+                       (lambda (&rest _args)
+                         "eq_refl: all x:bool. x = x")))
+              (ignore-errors (deduce-lsp-search-lemma))))
+          (let* ((calls (reverse calls))
+                 (call1 (assq :deduce/availableLemmasAt calls))
+                 (call2 (assq :deduce/insertLemma calls))
+                 (p1 (cdr call1))
+                 (p2 (cdr call2)))
+            (should call1)
+            (should call2)
+            (should (string-prefix-p "file://"
+                                      (plist-get
+                                       (plist-get p1 :textDocument) :uri)))
+            (should (= (plist-get (plist-get p1 :position) :line) 3))
+            (should (= (plist-get (plist-get p1 :position) :character) 2))
+            (should (equal (plist-get p2 :name) "eq_refl"))))
+      (delete-file tmp))))
+
+
+(ert-deftest deduce-lsp/search-lemma-passes-query-with-prefix-arg ()
+  "With a non-nil QUERY argument, `deduce/availableLemmasAt' carries a
+`:query' field so the server can filter the candidate list."
+  (let ((tmp (make-temp-file "deduce-lsp-lemma" nil ".pf"))
+        captured-params)
+    (unwind-protect
+        (with-temp-buffer
+          (insert "x")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          (cl-letf (((symbol-function 'eglot-current-server)
+                     (lambda () 'mock-server))
+                    ((symbol-function 'eglot--signal-textDocument/didChange)
+                     (lambda () nil))
+                    ((symbol-function 'jsonrpc-request)
+                     (lambda (_server method params &rest _kwargs)
+                       (when (eq method :deduce/availableLemmasAt)
+                         (setq captured-params params))
+                       nil)))
+            (ignore-errors (deduce-lsp-search-lemma "commute"))))
+      (delete-file tmp))
+    (should (equal (plist-get captured-params :query) "commute"))))
+
+
+(ert-deftest deduce-lsp/search-lemma-empty-candidates-errors ()
+  "When the server returns an empty candidate list, the command
+user-errors rather than calling `completing-read' with an empty
+candidate set."
+  (let ((tmp (make-temp-file "deduce-lsp-lemma" nil ".pf")))
+    (unwind-protect
+        (with-temp-buffer
+          (insert "x")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          (cl-letf (((symbol-function 'eglot-current-server)
+                     (lambda () 'mock-server))
+                    ((symbol-function 'eglot--signal-textDocument/didChange)
+                     (lambda () nil))
+                    ((symbol-function 'jsonrpc-request)
+                     (lambda (_server _method _params &rest _kwargs) [])))
+            (should-error (deduce-lsp-search-lemma) :type 'user-error)))
+      (delete-file tmp))))
+
+
+(ert-deftest deduce-lsp/search-lemma-null-insert-response-errors ()
+  "If the server returns null for `insertLemma' (lemma not in scope),
+the command user-errors rather than silently doing nothing."
+  (let ((tmp (make-temp-file "deduce-lsp-lemma" nil ".pf")))
+    (unwind-protect
+        (with-temp-buffer
+          (insert "x")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          (cl-letf (((symbol-function 'eglot-current-server)
+                     (lambda () 'mock-server))
+                    ((symbol-function 'eglot--signal-textDocument/didChange)
+                     (lambda () nil))
+                    ((symbol-function 'jsonrpc-request)
+                     (lambda (_server method _params &rest _kwargs)
+                       (cond
+                        ((eq method :deduce/availableLemmasAt)
+                         (vector '(:name "eq_refl" :kind "theorem"
+                                   :signature "" :module "Base"
+                                   :relevance 1.0
+                                   :unify_tier nil
+                                   :discharged_premises [])))
+                        ((eq method :deduce/insertLemma) nil))))
+                    ((symbol-function 'completing-read)
+                     (lambda (&rest _args) "eq_refl")))
+            (should-error (deduce-lsp-search-lemma) :type 'user-error)))
+      (delete-file tmp))))
+
+
+(ert-deftest deduce-lsp/search-lemma-applies-workspace-edit ()
+  "A successful `insertLemma' response splices its newText into the
+buffer at the picker's chosen lemma."
+  (let ((tmp (make-temp-file "deduce-lsp-lemma" nil ".pf")))
+    (unwind-protect
+        (with-temp-buffer
+          (insert "theorem t: all P:bool. P = P\nproof\n  arbitrary P:bool\n  ?\nend\n")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          (goto-char (point-min))
+          (forward-line 3)
+          (forward-char 2)
+          (let* ((uri (deduce-lsp--current-uri))
+                 (skeleton "conclude P = P by eq_refl")
+                 (edit `(:changes
+                         (,(intern (concat ":" uri))
+                          [(:range (:start (:line 3 :character 2)
+                                    :end (:line 3 :character 3))
+                                   :newText ,skeleton)]))))
+            (cl-letf (((symbol-function 'eglot-current-server)
+                       (lambda () 'mock-server))
+                      ((symbol-function 'eglot--signal-textDocument/didChange)
+                       (lambda () nil))
+                      ((symbol-function 'jsonrpc-request)
+                       (lambda (_server method _params &rest _kwargs)
+                         (cond
+                          ((eq method :deduce/availableLemmasAt)
+                           (vector '(:name "eq_refl" :kind "theorem"
+                                     :signature "all x:bool. x = x"
+                                     :module "Base"
+                                     :relevance 1.0
+                                     :unify_tier "full"
+                                     :discharged_premises [])))
+                          ((eq method :deduce/insertLemma) edit))))
+                      ((symbol-function 'completing-read)
+                       (lambda (&rest _args)
+                         "eq_refl : all x:bool. x = x")))
+              (deduce-lsp-search-lemma)))
+          (let ((text (buffer-substring-no-properties (point-min) (point-max))))
+            (should (string-match-p "conclude P = P by eq_refl" text))))
+      (delete-file tmp))))
+
+
+(ert-deftest deduce-lsp/search-lemma-completion-table-disables-sort ()
+  "The completion table the picker hands to `completing-read' must
+declare `display-sort-function' and `cycle-sort-function' as
+`identity', so vertico / ivy / the standard `*Completions*'
+buffer all leave the server's best-first ranking alone instead
+of re-sorting alphabetically (which would bury the right match
+under unrelated lemmas whose names happen to come first in the
+alphabet)."
+  (let* ((table (deduce-lsp--ranked-completion-table
+                 '("c_first" "a_second" "b_third")))
+         (meta (funcall table "" nil 'metadata))
+         (cat (alist-get 'category (cdr meta)))
+         (display-sort (alist-get 'display-sort-function (cdr meta)))
+         (cycle-sort (alist-get 'cycle-sort-function (cdr meta))))
+    (should (eq (car meta) 'metadata))
+    (should (eq cat 'deduce-lemma))
+    (should (eq display-sort 'identity))
+    (should (eq cycle-sort 'identity))
+    ;; The table still answers completion queries against the
+    ;; underlying candidate list -- metadata isn't a replacement,
+    ;; it's an annotation on top of `complete-with-action'.
+    (should (member "c_first"
+                    (all-completions "" table)))
+    (should (member "a_second"
+                    (all-completions "" table)))))
+
+
+(ert-deftest deduce-lsp/search-lemma-passes-custom-timeout-to-jsonrpc ()
+  "Both `availableLemmasAt' and `insertLemma' round trips use
+`deduce-lsp-search-lemma-timeout' instead of the 10s default --
+ranking the stdlib's ~200 lemmas exceeds it on a cold prelude."
+  (let ((tmp (make-temp-file "deduce-lsp-lemma" nil ".pf"))
+        timeouts)
+    (unwind-protect
+        (with-temp-buffer
+          (insert "x")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          (let ((deduce-lsp-search-lemma-timeout 60))
+            (cl-letf (((symbol-function 'eglot-current-server)
+                       (lambda () 'mock-server))
+                      ((symbol-function 'eglot--signal-textDocument/didChange)
+                       (lambda () nil))
+                      ;; Intercept `jsonrpc-request' directly so we
+                      ;; can read the `:timeout' keyword arg.
+                      ((symbol-function 'jsonrpc-request)
+                       (lambda (_server method _params &rest kwargs)
+                         (push (cons method (plist-get kwargs :timeout))
+                               timeouts)
+                         (cond
+                          ((eq method :deduce/availableLemmasAt)
+                           (vector '(:name "eq_refl" :kind "theorem"
+                                     :signature "" :module "Base"
+                                     :relevance 1.0
+                                     :unify_tier nil
+                                     :discharged_premises [])))
+                          ((eq method :deduce/insertLemma)
+                           '(:changes nil)))))
+                      ((symbol-function 'completing-read)
+                       (lambda (&rest _args) "eq_refl"))
+                      ;; The mock insertLemma response above has no
+                      ;; edits; ignore the resulting user-error so we
+                      ;; can still inspect captured timeouts.
+                      )
+              (ignore-errors (deduce-lsp-search-lemma)))))
+      (delete-file tmp))
+    (let ((avail (cdr (assq :deduce/availableLemmasAt timeouts)))
+          (insert (cdr (assq :deduce/insertLemma timeouts))))
+      (should (equal avail 60))
+      (should (equal insert 60)))))
+
+
+(ert-deftest deduce-lsp/search-lemma-without-server-errors ()
+  "Without an active eglot server, the command signals a user error."
+  (let ((tmp (make-temp-file "deduce-lsp-lemma" nil ".pf")))
+    (unwind-protect
+        (with-temp-buffer
+          (insert "x")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          (cl-letf (((symbol-function 'eglot-current-server)
+                     (lambda () nil)))
+            (should-error (deduce-lsp-search-lemma) :type 'user-error)))
       (delete-file tmp))))
 
 

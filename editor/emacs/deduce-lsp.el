@@ -224,7 +224,7 @@ LSP positions are 0-indexed (line and character)."
         :character (current-column)))
 
 
-(defun deduce-lsp--request (server method params)
+(defun deduce-lsp--request (server method params &optional timeout)
   "Issue an LSP request to SERVER, flushing pending buffer changes first.
 
 `jsonrpc-request' on its own races with eglot's didChange
@@ -241,6 +241,14 @@ This helper sends pending changes synchronously, then issues
 the JSON-RPC request.  Mirrors the pattern eglot's internal
 `eglot--request' uses by default.
 
+When TIMEOUT (seconds) is non-nil, it overrides
+`jsonrpc-default-request-timeout' (10s) for this single call.
+Use this for requests that are structurally more expensive than
+goal-shape lookups: e.g. `deduce/availableLemmasAt' has to unify
+every in-scope lemma's conclusion against the goal AST, which
+on first call (cold prelude) exceeds the default budget on the
+stdlib's ~200 candidates.
+
 Note on private API: `eglot--signal-textDocument/didChange' has
 the `--' private-symbol convention, but the function name and
 behaviour have been stable across recent eglot releases and it's
@@ -248,7 +256,9 @@ the explicit primitive eglot itself uses for this purpose.  If a
 future eglot release renames it, this function is the single
 point of update."
   (eglot--signal-textDocument/didChange)
-  (jsonrpc-request server method params))
+  (if timeout
+      (jsonrpc-request server method params :timeout timeout)
+    (jsonrpc-request server method params)))
 
 
 (defun deduce-lsp--render-goal (response)
@@ -654,15 +664,232 @@ out without applying when the server returns null."
       (deduce-lsp--apply-workspace-edit edit))))
 
 
+;; ---------------------------------------------------------------------
+;; Lemma search at a hole (issue #690, Part 3)
+;; ---------------------------------------------------------------------
+;;
+;; Cursor on a `?', the interactive form fetches ranked lemma candidates
+;; via `deduce/availableLemmasAt' and presents them through
+;; `completing-read', with an annotation column showing the unify tier
+;; (e.g. "applies (by H, G)", "premises remain", "rewrite subterm") and
+;; the module of origin.  The selected name drives a
+;; `deduce/insertLemma' request whose tier-aware WorkspaceEdit is
+;; applied directly (see `lsp/query.py:insert_lemma_at' for the four
+;; template shapes).
+;;
+;; With a prefix arg (or off-hole), the user is prompted for a query
+;; string -- substring or goal-shape pattern with `_' placeholders --
+;; which the server uses to filter candidates.
+;;
+;; This is the human-facing surface of the lemma-search work: agents
+;; can already reach `available_lemmas_at' via MCP, but a student
+;; stuck on a `?' had no path to it before this binding (see issue
+;; #690 for the full rationale).
+
+(defun deduce-lsp--lemma-tier-tag (lemma)
+  "Return a short annotation string describing LEMMA's unify tier.
+LEMMA is a plist with `:unify_tier' and `:discharged_premises'
+fields, as returned by `deduce/availableLemmasAt'.  Returns nil
+when no tier matched (browse mode or no goal AST available)."
+  (let ((tier (plist-get lemma :unify_tier))
+        (discharged (plist-get lemma :discharged_premises)))
+    (cond
+     ((equal tier "full")
+      (if (and discharged (> (length discharged) 0))
+          (format "applies (by %s)"
+                  (mapconcat
+                   (lambda (pair)
+                     ;; `pair' is `[premise label]' (a JSON array
+                     ;; decodes to a vector by default).
+                     (format "%s" (elt pair 1)))
+                   discharged
+                   ", "))
+        "applies"))
+     ((equal tier "premises_remain") "premises remain")
+     ((equal tier "rewrite_subterm") "rewrite subterm"))))
+
+
+(defun deduce-lsp--lemma-annotation-fn (lemma-by-name)
+  "Build an `:annotation-function' for the lemma-search picker.
+LEMMA-BY-NAME is an alist mapping a unique display string to the
+lemma plist; the returned function looks the display string up
+and returns the tier + module annotation."
+  (lambda (display)
+    (let* ((lemma (cdr (assoc display lemma-by-name)))
+           (tier-tag (and lemma (deduce-lsp--lemma-tier-tag lemma)))
+           (module (and lemma (plist-get lemma :module)))
+           (parts nil))
+      (when tier-tag (push (concat "  -- " tier-tag) parts))
+      (when (and module (not (equal module ""))
+                 (not (eq module :null))
+                 (not (eq module :json-null)))
+        (push (format "  [%s]" module) parts))
+      (apply #'concat (nreverse parts)))))
+
+
+(defun deduce-lsp--lemma-display-string (lemma)
+  "Return the picker-row display string for LEMMA.
+
+The server's `:signature' field is the `.thm'-style rendering of
+the declaration -- already prefixed with `NAME: ' for theorems
+and postulates, or starting with the keyword (`recursive', `auto',
+etc.) for other declaration kinds.  Showing it verbatim keeps a
+student's eyes on formula shape, not just on the bare name, and
+avoids the `t : t: (...)' duplication that prefixing a redundant
+NAME would produce.
+
+Falls back to just the name when the signature is missing or
+empty (defensive -- the server always sets one in practice)."
+  (let ((name (plist-get lemma :name))
+        (signature (plist-get lemma :signature)))
+    (if (and signature (not (equal signature "")))
+        signature
+      name)))
+
+
+(defun deduce-lsp--build-lemma-alist (lemmas)
+  "Build an alist of (display . lemma) entries from LEMMAS.
+LEMMAS is the vector or list returned by
+`deduce/availableLemmasAt'.  Duplicate display strings are
+disambiguated by appending ` (2)', ` (3)', ... -- this keeps each
+key unique so `completing-read' can look the candidate up by
+identity."
+  (let ((counts (make-hash-table :test 'equal))
+        (result nil))
+    (seq-doseq (lemma lemmas)
+      (let* ((display (deduce-lsp--lemma-display-string lemma))
+             (n (gethash display counts 0))
+             (key (if (zerop n) display (format "%s (%d)" display (1+ n)))))
+        (puthash display (1+ n) counts)
+        (push (cons key lemma) result)))
+    (nreverse result)))
+
+
+(defun deduce-lsp--ranked-completion-table (candidates)
+  "Build a completion table over CANDIDATES that preserves order.
+
+`completing-read' sorts candidates alphabetically by default,
+which throws away the server's best-first relevance ranking --
+the whole point of the unify-tier ranker is to surface the right
+match first.  Setting `display-sort-function' and
+`cycle-sort-function' to `identity' via the table's `metadata'
+tells the completion machinery (including `vertico', `ivy', the
+standard `*Completions*' buffer, and `M-n'/`M-p' cycling) to leave
+the order alone."
+  (lambda (string pred action)
+    (cond
+     ((eq action 'metadata)
+      '(metadata
+        (category . deduce-lemma)
+        (display-sort-function . identity)
+        (cycle-sort-function . identity)))
+     (t
+      (complete-with-action action candidates string pred)))))
+
+
+(defun deduce-lsp--read-lemma (lemmas)
+  "Prompt the user to pick one of LEMMAS via `completing-read'.
+Returns the chosen lemma plist.  Preserves the server's ordering
+(best-first) so the top candidate is the natural default for
+RET-on-empty-input.  Errors out when LEMMAS is empty."
+  (when (or (null lemmas) (zerop (length lemmas)))
+    (user-error "No lemma candidates at point"))
+  (let* ((alist (deduce-lsp--build-lemma-alist lemmas))
+         (candidates (mapcar #'car alist))
+         (completion-extra-properties
+          (list :annotation-function
+                (deduce-lsp--lemma-annotation-fn alist)))
+         (chosen (completing-read
+                  "Lemma: "
+                  (deduce-lsp--ranked-completion-table candidates)
+                  nil t nil nil
+                  (car candidates))))
+    (cdr (assoc chosen alist))))
+
+
+(defcustom deduce-lsp-search-lemma-timeout 60
+  "Per-request timeout (seconds) for the lemma-search round trip.
+
+The `deduce/availableLemmasAt' request unifies every in-scope
+lemma's conclusion against the goal AST -- on a cold-prelude
+first call against the stdlib's ~200 lemmas this can exceed the
+10s default `jsonrpc-default-request-timeout' on slower machines.
+60s is a generous budget that still surfaces a genuine hang.
+
+Set to nil to fall back to the jsonrpc default (10s)."
+  :type '(choice (const :tag "jsonrpc default (10s)" nil)
+                 (number :tag "seconds"))
+  :group 'deduce-lsp)
+
+
+(defun deduce-lsp-search-lemma (&optional query)
+  "Pick an in-scope lemma and splice a reference to it at point.
+
+Cursor on a `?': issues `deduce/availableLemmasAt' with no query,
+presents the ranked candidates via `completing-read' with
+annotations showing the unify tier (e.g. \"applies (by H, G)\",
+\"premises remain\", \"rewrite subterm\") and the module of
+origin.  The top entry is the natural default -- RET on an empty
+filter picks it.
+
+With a prefix arg (`C-u'), or when called non-interactively with
+a non-nil QUERY argument, prompts for a query string -- substring
+match against names + signatures, or a goal-shape pattern with
+`_' placeholders.  The query is forwarded to the server.
+
+The selected name then drives a `deduce/insertLemma' request; the
+returned WorkspaceEdit is applied directly.  Template shape
+depends on the server-computed tier at the time of insertion (see
+`lsp/query.py:insert_lemma_at'): `conclude ... by apply <name> to
+...' for a full match with discharged premises, `apply <name> to
+?' when premises remain, `replace <name>' for an equation match
+against a goal subterm, or just the bare `<name>' otherwise.
+
+Both round trips use `deduce-lsp-search-lemma-timeout' instead of
+the 10s jsonrpc default -- the ranking pass is structurally more
+expensive than goal-shape lookups, and the first call after
+server start additionally pays the prelude-bootstrap cost."
+  (interactive
+   (list (when current-prefix-arg
+           (read-string "Lemma search (substring or `_'-pattern): "))))
+  (let ((server (eglot-current-server)))
+    (unless server
+      (user-error
+       "No eglot server active in this buffer; M-x eglot first"))
+    (let* ((base-params (deduce-lsp--text-document-position))
+           (params (if (and query (not (equal query "")))
+                       (append base-params (list :query query))
+                     base-params))
+           (response (deduce-lsp--request server
+                                          :deduce/availableLemmasAt
+                                          params
+                                          deduce-lsp-search-lemma-timeout))
+           (lemmas (if (vectorp response) response (or response []))))
+      (when (or (null lemmas) (zerop (length lemmas)))
+        (user-error "No lemma candidates at point"))
+      (let* ((chosen (deduce-lsp--read-lemma lemmas))
+             (name (plist-get chosen :name))
+             (insert-params (append base-params (list :name name)))
+             (edit (deduce-lsp--request server
+                                        :deduce/insertLemma
+                                        insert-params
+                                        deduce-lsp-search-lemma-timeout)))
+        (unless edit
+          (user-error
+           "Server returned no edit for lemma `%s'" name))
+        (deduce-lsp--apply-workspace-edit edit)))))
+
+
 ;; Bind `C-c C-r' (refine), `C-c C-c' (case split), `C-c C-i'
-;; (induction), `C-c C-e' (eliminate), and `C-c C-f' (fill from
-;; given) in `deduce-mode-map'.  Same rationale as `C-c C-g': only
-;; meaningful when LSP is loaded.
+;; (induction), `C-c C-e' (eliminate), `C-c C-f' (fill from
+;; given), and `C-c C-l' (lemma search) in `deduce-mode-map'.
+;; Same rationale as `C-c C-g': only meaningful when LSP is loaded.
 (define-key deduce-mode-map (kbd "C-c C-r") #'deduce-lsp-refine-hole)
 (define-key deduce-mode-map (kbd "C-c C-c") #'deduce-lsp-case-split)
 (define-key deduce-mode-map (kbd "C-c C-i") #'deduce-lsp-induction)
 (define-key deduce-mode-map (kbd "C-c C-e") #'deduce-lsp-eliminate)
 (define-key deduce-mode-map (kbd "C-c C-f") #'deduce-lsp-fill-from-given)
+(define-key deduce-mode-map (kbd "C-c C-l") #'deduce-lsp-search-lemma)
 
 
 ;; ---------------------------------------------------------------------

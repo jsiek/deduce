@@ -596,6 +596,178 @@ def test_unify_rewrite_subterm_tier_fires_for_equation_lemma() -> None:
     assert by_name["not_not"].unify_tier == "rewrite_subterm"
 
 
+def test_unify_uses_typed_lemma_overload_for_right_type_match() -> None:
+    """A right-type lemma whose first lexically-resolved overload
+    candidate does NOT alias the goal's resolved operator must still
+    match as ``full``.
+
+    Reproduces Bug 3 from issue #690: ``stmt.what`` (the parsed,
+    pre-typecheck lemma AST) keeps :class:`OverloadedVar` with a
+    candidate list whose first entry is just whatever uniquify saw
+    first.  The matcher's name-equality check compares only that
+    first candidate, so a lemma about ``A * A`` whose first ``*``
+    overload happens to be the ``B * B`` one gets rejected even
+    though it's the right answer.
+
+    The fix is to look the lemma up in the proof environment (where
+    overloads have been resolved during the prelude's type check)
+    before unifying."""
+    source = (
+        "import OverloadShared\n"
+        "\n"
+        "theorem t: all a:A, c:A. a * c = c * a\n"
+        "proof\n"
+        "  arbitrary a:A, c:A\n"
+        "  ?\n"
+        "end\n"
+    )
+    matches = available_lemmas_at(
+        "user.pf", source, Position(line=6, column=3),
+        prelude=("OverloadShared",),
+    )
+    by_name = {m.name: m for m in matches}
+    assert "aa_star_commute" in by_name, (
+        "the right-type lemma should appear in the candidate list"
+    )
+    assert by_name["aa_star_commute"].unify_tier == "full", (
+        "aa_star_commute applies to an A * A goal -- it should be "
+        "the full-tier top match, not buried at None"
+    )
+
+
+def test_unify_rejects_wrong_type_overload_as_full_tier() -> None:
+    """A wrong-type lemma whose first lexically-resolved overload
+    candidate ALIASES the goal's resolved operator must not match as
+    ``full``.
+
+    Reproduces Bug 2 from issue #690: ``bb_star_commute`` and
+    ``ab_star_refl`` both reference ``*`` with an :class:`OverloadedVar`
+    candidate list that includes the A*A overload (because all three
+    overloads are in scope where they were declared).  The matcher's
+    first-candidate-only name-equality test mis-accepts the wrong-type
+    lemma whenever that lexical first candidate happens to be the A*A
+    one.
+
+    The fix (looking up the typed formula in the proof environment)
+    sees the resolved single overload and rejects the mismatch."""
+    source = (
+        "import OverloadShared\n"
+        "\n"
+        "theorem t: all a:A, c:A. a * c = c * a\n"
+        "proof\n"
+        "  arbitrary a:A, c:A\n"
+        "  ?\n"
+        "end\n"
+    )
+    matches = available_lemmas_at(
+        "user.pf", source, Position(line=6, column=3),
+        prelude=("OverloadShared",),
+    )
+    by_name = {m.name: m for m in matches}
+    if "bb_star_commute" in by_name:
+        assert by_name["bb_star_commute"].unify_tier != "full", (
+            "bb_star_commute is about B * B; an A * A goal must not "
+            "full-match it just because the first overload of `*` in "
+            "the lemma's candidate list happens to be the A*A one"
+        )
+    if "ab_star_refl" in by_name:
+        assert by_name["ab_star_refl"].unify_tier != "full", (
+            "ab_star_refl is about A * B; an A * A goal must not "
+            "full-match it"
+        )
+
+
+def test_specificity_pushes_clean_match_above_noisy_ties() -> None:
+    """When many lemmas tie on head match + overlap, the Jaccard-like
+    specificity signal must keep the lemma whose formula contains no
+    extra operators above the noisy ones.
+
+    Issue #690 Bug 1 (latency): ``_rank_lemmas`` only runs the
+    expensive unifier on the top ``UNIFY_TOP_K`` cheap-ranked
+    candidates.  Without specificity as a secondary signal, dozens of
+    equation lemmas would tie on a ``a + b = b + a`` goal and the
+    real ``uint_add_commute`` could be elbowed past the cutoff -- the
+    user would never see the unify signal that earns it the top
+    slot.
+
+    Drives the ranker directly with synthetic ``LemmaInfo`` rows so
+    the assertion lands on the cheap-signal path without needing a
+    real stdlib import.
+    """
+    from lsp.query import _rank_lemmas
+
+    # Two synthetic lemmas tying on head=``=`` and 100% overlap with
+    # the goal tokens; ``noisy`` adds an unrelated ``-``.  Distinct
+    # sentinel strings stand in for the formula AST so the patched
+    # ``_formula_symbols`` can tell them apart.
+    candidates = (
+        (
+            LemmaInfo(name="add_pure", kind=SymbolKind.THEOREM,
+                      signature="add_pure: all a, b. a + b = b + a"),
+            "FORMULA_PURE",
+            "user",
+        ),
+        (
+            LemmaInfo(name="add_noisy", kind=SymbolKind.THEOREM,
+                      signature="add_noisy: all a, b, c. (a + b) - c = (b + a) - c"),
+            "FORMULA_NOISY",
+            "user",
+        ),
+    )
+    # Patch ``_formula_symbols`` for this call -- the real one walks
+    # an AST; we want to control symbol sets directly.
+    import lsp.query as Q
+    real = Q._formula_symbols
+    Q._formula_symbols = lambda f: (
+        frozenset({"+", "="}) if f == "FORMULA_PURE" else frozenset({"+", "-", "="})
+    )
+    try:
+        ranked = _rank_lemmas(
+            candidates,
+            goal_text="all x, y. x + y = y + x",
+            query=None,
+            user_module="user",
+        )
+    finally:
+        Q._formula_symbols = real
+
+    by_name = {m.name: m for m in ranked}
+    assert "add_pure" in by_name and "add_noisy" in by_name
+    assert by_name["add_pure"].relevance > by_name["add_noisy"].relevance, (
+        "Lemma with no extra operators must outrank one carrying "
+        "irrelevant `-` on a `+=+` goal"
+    )
+
+
+def test_current_theorem_excluded_from_lemma_list() -> None:
+    """The theorem currently being proved must not appear in the
+    candidate list -- a proof can't cite itself (issue #690 Bug 5).
+
+    User report: with cursor on the ``?`` inside ``theorem t``,
+    `C-c C-l` listed ``t`` as one of the applicable lemmas.
+    """
+    source = (
+        "theorem helper: true\nproof\n  .\nend\n"
+        "\n"
+        "theorem t: all a:UInt, b:UInt. a + b = b + a\n"
+        "proof\n"
+        "  arbitrary a:UInt, b:UInt\n"
+        "  ?\n"
+        "end\n"
+    )
+    # Hole sits on line 9 inside ``theorem t``.
+    matches = available_lemmas_at(
+        "user.pf", source, Position(line=9, column=3),
+    )
+    names = {m.name for m in matches}
+    assert "t" not in names, (
+        "The current theorem must not be offered as a lemma -- "
+        "citing it from its own proof is circular"
+    )
+    # Sibling theorems remain visible.
+    assert "helper" in names
+
+
 def test_browse_mode_leaves_unify_tier_unset() -> None:
     """Browse mode (no goal, no query) doesn't run the unifier, so
     ``unify_tier`` stays ``None`` on every result."""

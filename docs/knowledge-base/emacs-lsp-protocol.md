@@ -46,6 +46,7 @@ proper.
 | `C-c C-c` (case split) | `deduce/splittableVarsAt`, `deduce/caseSplitAt` | Two-step: enumerate splittable vars, then split on chosen one |
 | `C-c C-e` (eliminate)  | `deduce/eliminableVarsAt`, `deduce/eliminateAt` | Two-step: enumerate eliminable hypotheses, then apply chosen one |
 | `C-c C-f` (fill-from-given) | `deduce/matchingGivensAt`, `deduce/fillFromGivenAt` | Two-step: enumerate givens whose formula matches the goal, then splice the chosen one |
+| `C-c C-l` (search-lemma) | `deduce/availableLemmasAt`, `deduce/insertLemma` | Two-step: enumerate ranked in-scope lemmas with unify tier + module, then splice the chosen one with a tier-aware template |
 | `C-c C-a` (LLM fill)   | `deduce/holeContextAt`                         | Captures goal, givens, lemmas in scope, and a stable fingerprint for the `tools/claude_fill_hole` sidecar |
 
 The two-step pattern (`*VarsAt` + `*At`) exists so that Emacs can
@@ -58,7 +59,7 @@ which hole the user meant.
 
 The cursor position pinpoints the `?` to be replaced. All hole-filling
 commands (refine, case-split, induction, eliminate, fill-from-given,
-LLM fill) use this convention. Tests that pin the request shape live
+search-lemma, LLM fill) use this convention. Tests that pin the request shape live
 in `editor/emacs/test/deduce-lsp-test.el`.
 
 ## LLM hole-fill sidecar
