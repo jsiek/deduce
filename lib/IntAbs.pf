@@ -5,6 +5,7 @@ import Base
 import IntDefs
 import IntAddSub
 import IntMult
+import IntLess
 
 /*
   Theorems about Int absolute value.
@@ -184,4 +185,100 @@ proof
     xn_yn
   }
   apply int_mult_left_cancel[n, x, y] to nnz, nxy
+end
+
+// Every integer is bounded above by the positive embedding of its
+// absolute value: `x ≤ pos(abs(x))`. Together with `int_neg_abs_le`,
+// this is the standard `-|x| ≤ x ≤ |x|` sandwich.
+theorem int_le_abs: all x:Int. x ≤ pos(abs(x))
+proof
+  arbitrary x:Int
+  switch x {
+    case pos(n) {
+      int_less_equal_refl[pos(n)]
+    }
+    case negsuc(n) {
+      expand operator≤.
+    }
+  }
+end
+
+// The negation of the positive embedding of `abs(x)` is bounded above
+// by `x`: `-pos(abs(x)) ≤ x`.
+theorem int_neg_abs_le: all x:Int. -pos(abs(x)) ≤ x
+proof
+  arbitrary x:Int
+  have h1: -x ≤ pos(abs(-x)) by int_le_abs[-x]
+  have h2: -x ≤ pos(abs(x)) by replace abs_neg[x] in h1
+  have h3: -pos(abs(x)) ≤ -(-x)
+    by apply (conjunct 0 of int_neg_le_iff[-x, pos(abs(x))]) to h2
+  replace neg_involutive[x] in h3
+end
+
+// Characterize `abs(x) ≤ y` (as UInt-to-UInt comparison) as a sandwich
+// `-pos(y) ≤ x ≤ pos(y)` lifted into Int comparisons.
+theorem int_abs_le_iff: all x:Int, y:UInt.
+  abs(x) ≤ y ⇔ -pos(y) ≤ x and x ≤ pos(y)
+proof
+  arbitrary x:Int, y:UInt
+  have fwd: if abs(x) ≤ y then -pos(y) ≤ x and x ≤ pos(y) by {
+    assume prem
+    have ax_le_y: pos(abs(x)) ≤ pos(y) by expand operator≤ prem
+    have x_le_ax: x ≤ pos(abs(x)) by int_le_abs[x]
+    have x_le_y: x ≤ pos(y)
+      by apply int_less_equal_trans[x, pos(abs(x)), pos(y)] to x_le_ax, ax_le_y
+    have neg_ax_le_x: -pos(abs(x)) ≤ x by int_neg_abs_le[x]
+    have neg_y_le_neg_ax: -pos(y) ≤ -pos(abs(x))
+      by apply int_neg_le_mono[pos(abs(x)), pos(y)] to ax_le_y
+    have neg_y_le_x: -pos(y) ≤ x
+      by apply int_less_equal_trans[-pos(y), -pos(abs(x)), x] to neg_y_le_neg_ax, neg_ax_le_x
+    neg_y_le_x, x_le_y
+  }
+  have bkwd: if -pos(y) ≤ x and x ≤ pos(y) then abs(x) ≤ y by {
+    assume prem
+    have lb: -pos(y) ≤ x by conjunct 0 of prem
+    have ub: x ≤ pos(y) by conjunct 1 of prem
+    have neg_x_le: -x ≤ pos(y) by {
+      have temp: -pos(y) ≤ -(-x) by replace symmetric neg_involutive[x] in lb
+      apply (conjunct 1 of int_neg_le_iff[-x, pos(y)]) to temp
+    }
+    switch x {
+      case pos(n) assume xp {
+        have ubn: pos(n) ≤ pos(y) by replace xp in ub
+        expand operator≤ in ubn
+      }
+      case negsuc(n) assume xn {
+        have neg_x_eq: -x = pos(1 + n) by replace xn expand operator-.
+        have h: pos(1 + n) ≤ pos(y) by replace neg_x_eq in neg_x_le
+        expand operator≤ in h
+      }
+    }
+  }
+  fwd, bkwd
+end
+
+// Triangle inequality: `abs(x + y) ≤ abs(x) + abs(y)`. Routes through
+// `int_abs_le_iff` to reduce the goal to the `-(abs(x)+abs(y)) ≤ x+y ≤
+// abs(x)+abs(y)` sandwich, then adds `int_le_abs` and `int_neg_abs_le`
+// componentwise.
+theorem int_abs_add: all x:Int, y:Int. abs(x + y) ≤ abs(x) + abs(y)
+proof
+  arbitrary x:Int, y:Int
+  have x_le: x ≤ pos(abs(x)) by int_le_abs[x]
+  have y_le: y ≤ pos(abs(y)) by int_le_abs[y]
+  have ub1: x + y ≤ pos(abs(x)) + pos(abs(y))
+    by apply int_add_mono_less_equal[x, y, pos(abs(x)), pos(abs(y))] to x_le, y_le
+  have ub: x + y ≤ pos(abs(x) + abs(y))
+    by replace add_pos_pos[abs(x), abs(y)] in ub1
+  have neg_x_le: -pos(abs(x)) ≤ x by int_neg_abs_le[x]
+  have neg_y_le: -pos(abs(y)) ≤ y by int_neg_abs_le[y]
+  have lb1: -pos(abs(x)) + -pos(abs(y)) ≤ x + y
+    by apply int_add_mono_less_equal[-pos(abs(x)), -pos(abs(y)), x, y]
+       to neg_x_le, neg_y_le
+  have neg_eq: -pos(abs(x) + abs(y)) = -pos(abs(x)) + -pos(abs(y)) by {
+    replace symmetric add_pos_pos[abs(x), abs(y)]
+    neg_distr_add[pos(abs(x)), pos(abs(y))]
+  }
+  have lb: -pos(abs(x) + abs(y)) ≤ x + y by replace neg_eq lb1
+  apply (conjunct 1 of int_abs_le_iff[x + y, abs(x) + abs(y)]) to lb, ub
 end
