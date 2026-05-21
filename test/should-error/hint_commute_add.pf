@@ -1,0 +1,8 @@
+import UInt
+
+theorem repro: all a:UInt, b:UInt.
+  a + (1 + b) = 1 + (a + b)
+proof
+  arbitrary a:UInt, b:UInt
+  .
+end

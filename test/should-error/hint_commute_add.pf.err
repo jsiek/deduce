@@ -1,0 +1,6 @@
+./test/should-error/hint_commute_add.pf:7.3-7.4: 
+You provided a proof of:
+	true
+but that is different from what you need to prove:
+	a + 1 + b = 1 + a + b
+hint: the two sides differ only by reordering arguments of `+`. `+` is registered associative but not commutative, so commute steps must be applied explicitly. Try a `replace` step with the relevant commute lemma — e.g. `replace uint_add_commute[x, y]` for `+` on UInt (or `int_add_commute` / `add_commute` for Int / Nat; `uint_mult_commute` / `int_mult_commute` / `mult_commute` for `*`). See CheatSheet.md "Equations involving `+` that look trivial".

@@ -58,6 +58,56 @@ from checker_types import check_formula
 from error import MatchFailed, UserError, internal_error, user_error, wrap_user_error
 from flags import get_verbose, print_verbose
 
+def commute_diff_hint(frm: Formula) -> str:
+  """If ``frm`` is an equation ``s = t`` whose two sides are calls of
+  the same operator applied to argument lists that differ only by
+  reordering, return a hint suggesting an explicit commute step.
+  Otherwise return ``''``.
+
+  This catches the beginner trap where ``+`` (or ``*``) is registered
+  associative but not commutative: the goal flattens by associativity
+  to a form that looks trivially equal, but the closing tactic still
+  fails because a commute step has not been applied.
+  """
+  if not isinstance(frm, Call):
+    return ''
+  if not (isinstance(frm.rator, VarRef) and frm.rator.get_name() == '='):
+    return ''
+  if len(frm.args) != 2:
+    return ''
+  L, R = frm.args
+  if not (isinstance(L, Call) and isinstance(R, Call)):
+    return ''
+  if not (isinstance(L.rator, VarRef) and isinstance(R.rator, VarRef)):
+    return ''
+  if L.rator.get_name() != R.rator.get_name():
+    return ''
+  if len(L.args) != len(R.args) or len(L.args) < 2:
+    return ''
+  if L.args == R.args:
+    return ''
+  # Multiset equality on argument lists (Term.__eq__ is structural).
+  remaining = list(R.args)
+  for a in L.args:
+    for i, b in enumerate(remaining):
+      if a == b:
+        del remaining[i]
+        break
+    else:
+      return ''
+  if remaining:
+    return ''
+  op = str(base_name(L.rator.get_name()))
+  return ('\nhint: the two sides differ only by reordering arguments of `'
+          + op + '`. `' + op + '` is registered associative but not '
+          + 'commutative, so commute steps must be applied explicitly. '
+          + 'Try a `replace` step with the relevant commute lemma — e.g. '
+          + '`replace uint_add_commute[x, y]` for `+` on UInt '
+          + '(or `int_add_commute` / `add_commute` for Int / Nat; '
+          + '`uint_mult_commute` / `int_mult_commute` / `mult_commute` for `*`). '
+          + 'See CheatSheet.md "Equations involving `+` that look trivial".')
+
+
 def check_implies(loc: Meta, frm1: Formula, frm2: Formula) -> None:
   if get_verbose():
     print('check_implies? ' + str(frm1) + ' => ' + str(frm2))
@@ -169,16 +219,18 @@ def check_implies(loc: Meta, frm1: Formula, frm2: Formula) -> None:
         diff = isolate_difference(frm1, frm2)
         if diff:
           (small_frm1, small_frm2) = diff
+          hint = commute_diff_hint(frm2)
           if small_frm1 != frm1:
               msg = 'error, the proved formula:\n' \
                   + '\t' + str(frm1) + '\n' \
               + 'does not match the goal:\n' \
               + '\t' + str(frm2) + '\n' \
               + 'because\n\t' + str(small_frm1) + '\n\t≠ ' + str(small_frm2) + '\n' 
-              user_error(loc, msg)
+              user_error(loc, msg + hint)
           else:
               user_error(loc, '\nYou provided a proof of:\n\t' + str(frm1) \
-                    + '\nbut that is different from what you need to prove:\n\t' + str(frm2))
+                    + '\nbut that is different from what you need to prove:\n\t' + str(frm2) \
+                    + hint)
         else:
             internal_error(loc, 'internal error, could not isolate difference for\n\t' \
                            + str(frm1) + '\nand\n\t' + str(frm2))
