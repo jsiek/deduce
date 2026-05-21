@@ -5,6 +5,7 @@ import Base
 
 import IntDefs
 import IntAddSub
+import IntLess
 
 /*
   Theorems about Int multiplication.
@@ -520,4 +521,199 @@ proof
         | int_mult_commute[x, a]
         | int_mult_commute[y, a]
   int_dist_mult_add[a, x, y]
+end
+
+// Nonneg × nonneg is nonneg.
+lemma int_nonneg_mult_nonneg: all a:Int, b:Int.
+  if +0 ≤ a and +0 ≤ b
+  then +0 ≤ a * b
+proof
+  arbitrary a:Int, b:Int
+  switch a {
+    case pos(au) {
+      switch b {
+        case pos(bu) {
+          assume _prem
+          replace mult_pos_pos
+          show +0 ≤ pos(au * bu)
+          expand operator≤
+          uint_zero_le[au * bu]
+        }
+        case negsuc(bu) {
+          assume prem
+          have bad: +0 ≤ negsuc(bu) by conjunct 1 of prem
+          conclude false by expand operator≤ in bad
+        }
+      }
+    }
+    case negsuc(au) {
+      assume prem
+      have bad: +0 ≤ negsuc(au) by conjunct 0 of prem
+      conclude false by expand operator≤ in bad
+    }
+  }
+end
+
+// Pos × pos is positive.
+lemma int_pos_mult_pos: all a:Int, b:Int.
+  if +0 < a and +0 < b
+  then +0 < a * b
+proof
+  arbitrary a:Int, b:Int
+  switch a {
+    case pos(au) {
+      switch b {
+        case pos(bu) {
+          assume prem
+          have zlt_au: 0 < au by expand operator< in (conjunct 0 of prem)
+          have zlt_bu: 0 < bu by expand operator< in (conjunct 1 of prem)
+          replace mult_pos_pos
+          show +0 < pos(au * bu)
+          expand operator<
+          have step: 0 < au * bu
+            by apply uint_pos_mult_both_sides_of_less[au, 0, bu] to zlt_au, zlt_bu
+          step
+        }
+        case negsuc(bu) {
+          assume prem
+          have bad: +0 < negsuc(bu) by conjunct 1 of prem
+          conclude false by expand operator< in bad
+        }
+      }
+    }
+    case negsuc(au) {
+      assume prem
+      have bad: +0 < negsuc(au) by conjunct 0 of prem
+      conclude false by expand operator< in bad
+    }
+  }
+end
+
+// Left distributivity of `*` over `-` on `Int`.
+theorem int_dist_mult_sub: all a:Int, x:Int, y:Int.
+  a * (x - y) = a * x - a * y
+proof
+  arbitrary a:Int, x:Int, y:Int
+  have neg_mult_swap: a * (-y) = -(a * y) by {
+    equations
+          a * (-y)
+        = (-y) * a          by int_mult_commute[a, -y]
+    ... = -(y * a)          by symmetric dist_neg_mult[y, a]
+    ... = -(a * y)          by replace int_mult_commute[y, a].
+  }
+  expand operator-
+  show a * (x + -y) = a * x + -(a * y)
+  replace int_dist_mult_add[a, x, -y]
+  replace neg_mult_swap.
+end
+
+// Strict-inequality counterpart of `int_le_iff_diff_nonneg`:
+// `x < y` is equivalent to the difference `y - x` being positive.
+theorem int_less_iff_diff_pos: all a:Int, b:Int.
+  a < b ⇔ +0 < b - a
+proof
+  arbitrary a:Int, b:Int
+  have fwd: if a < b then +0 < b - a by {
+    assume alb
+    have a_le_b: a ≤ b by apply int_less_implies_less_equal[a, b] to alb
+    have a_ne_b: not (a = b) by apply int_less_implies_not_equal[a, b] to alb
+    have z_le_diff: +0 ≤ b - a
+      by apply (conjunct 0 of int_le_iff_diff_nonneg[a, b]) to a_le_b
+    have z_ne_diff: not (+0 = b - a) by {
+      assume z_eq_diff
+      have diff_z: b - a = +0 by symmetric z_eq_diff
+      have b_eq_a: b = a by {
+        have h1: b + -a = +0 by expand operator- in diff_z
+        have h2: a + -a = +0 by int_add_inverse[a]
+        have h3: b + -a = a + -a by transitive h1 (symmetric h2)
+        apply int_add_both_sides_of_equal_right[-a, b, a] to h3
+      }
+      apply a_ne_b to symmetric b_eq_a
+    }
+    have le_or_eq: +0 < b - a or +0 = b - a
+      by apply int_less_equal_implies_less_or_equal[+0, b - a] to z_le_diff
+    cases le_or_eq
+    case lt { lt }
+    case eq { conclude false by apply z_ne_diff to eq }
+  }
+  have bkwd: if +0 < b - a then a < b by {
+    assume zlt_diff
+    have zle_diff: +0 ≤ b - a
+      by apply int_less_implies_less_equal[+0, b - a] to zlt_diff
+    have a_le_b: a ≤ b
+      by apply (conjunct 1 of int_le_iff_diff_nonneg[a, b]) to zle_diff
+    have a_ne_b: not (a = b) by {
+      assume a_eq_b
+      have diff_z: b - a = +0 by {
+        replace a_eq_b
+        int_sub_cancel[b]
+      }
+      have bad: +0 < +0 by replace diff_z in zlt_diff
+      apply int_less_irreflexive[+0] to bad
+    }
+    have le_or_eq: a < b or a = b
+      by apply int_less_equal_implies_less_or_equal[a, b] to a_le_b
+    cases le_or_eq
+    case lt { lt }
+    case eq { conclude false by apply a_ne_b to eq }
+  }
+  fwd, bkwd
+end
+
+// Multiplication on the left by a nonneg Int preserves `≤`.
+theorem int_nonneg_mult_mono_le_left: all n:Int, x:Int, y:Int.
+  if +0 ≤ n and x ≤ y
+  then n * x ≤ n * y
+proof
+  arbitrary n:Int, x:Int, y:Int
+  assume prem
+  have nn: +0 ≤ n by conjunct 0 of prem
+  have xy: x ≤ y by conjunct 1 of prem
+  have diff_nn: +0 ≤ y - x
+    by apply (conjunct 0 of int_le_iff_diff_nonneg[x, y]) to xy
+  have prod_nn: +0 ≤ n * (y - x)
+    by apply int_nonneg_mult_nonneg[n, y - x] to nn, diff_nn
+  have dist_sub: n * (y - x) = n * y - n * x by int_dist_mult_sub[n, y, x]
+  have prod_nn2: +0 ≤ n * y - n * x by replace dist_sub in prod_nn
+  apply (conjunct 1 of int_le_iff_diff_nonneg[n * x, n * y]) to prod_nn2
+end
+
+// Multiplication on the right by a nonneg Int preserves `≤`.
+theorem int_nonneg_mult_mono_le_right: all n:Int, x:Int, y:Int.
+  if +0 ≤ n and x ≤ y
+  then x * n ≤ y * n
+proof
+  arbitrary n:Int, x:Int, y:Int
+  assume prem
+  have step: n * x ≤ n * y by apply int_nonneg_mult_mono_le_left[n, x, y] to prem
+  replace int_mult_commute[n, x] | int_mult_commute[n, y] in step
+end
+
+// Multiplication on the left by a positive Int preserves `<`.
+theorem int_pos_mult_mono_less_left: all n:Int, x:Int, y:Int.
+  if +0 < n and x < y
+  then n * x < n * y
+proof
+  arbitrary n:Int, x:Int, y:Int
+  assume prem
+  have zn: +0 < n by conjunct 0 of prem
+  have xy: x < y by conjunct 1 of prem
+  have diff_pos: +0 < y - x
+    by apply (conjunct 0 of int_less_iff_diff_pos[x, y]) to xy
+  have prod_pos: +0 < n * (y - x)
+    by apply int_pos_mult_pos[n, y - x] to zn, diff_pos
+  have dist_sub: n * (y - x) = n * y - n * x by int_dist_mult_sub[n, y, x]
+  have prod_pos2: +0 < n * y - n * x by replace dist_sub in prod_pos
+  apply (conjunct 1 of int_less_iff_diff_pos[n * x, n * y]) to prod_pos2
+end
+
+// Multiplication on the right by a positive Int preserves `<`.
+theorem int_pos_mult_mono_less_right: all n:Int, x:Int, y:Int.
+  if +0 < n and x < y
+  then x * n < y * n
+proof
+  arbitrary n:Int, x:Int, y:Int
+  assume prem
+  have step: n * x < n * y by apply int_pos_mult_mono_less_left[n, x, y] to prem
+  replace int_mult_commute[n, x] | int_mult_commute[n, y] in step
 end
