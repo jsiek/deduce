@@ -193,6 +193,224 @@ proof
     by replace uint_mult_commute[g1(n),c2] in f12_c1g1_c2g2
 end
 
+// Pointwise ordering of cost functions implies asymptotic ordering.
+theorem bigo_pointwise_le: all f:fn UInt->UInt, g:fn UInt->UInt.
+  if (all n:UInt. f(n) ≤ g(n)) then f ≲ g
+proof
+  arbitrary f:fn UInt->UInt, g:fn UInt->UInt
+  assume H
+  expand operator≲
+  choose 0, 1
+  arbitrary n:UInt
+  assume _
+  show f(n) ≤ 1 * g(n)
+  H
+end
+
+// Each summand is bounded above by the sum.
+theorem bigo_self_le_add: all f:fn UInt->UInt, g:fn UInt->UInt. f ≲ f + g
+proof
+  arbitrary f:fn UInt->UInt, g:fn UInt->UInt
+  expand operator≲ | operator+
+  choose 0, 1
+  arbitrary n:UInt
+  assume _
+  show f(n) ≤ 1 * (f(n) + g(n))
+  uint_less_equal_add
+end
+
+theorem bigo_le_add_self: all f:fn UInt->UInt, g:fn UInt->UInt. g ≲ f + g
+proof
+  arbitrary f:fn UInt->UInt, g:fn UInt->UInt
+  expand operator≲ | operator+
+  choose 0, 1
+  arbitrary n:UInt
+  assume _
+  show g(n) ≤ 1 * (f(n) + g(n))
+  uint_less_equal_add_left
+end
+
+// Asymptotic equivalence is reflexive, symmetric, and transitive.
+theorem bigo_equiv_refl: all f:fn UInt->UInt. f ≈ f
+proof
+  arbitrary f:fn UInt->UInt
+  expand operator≈
+  have rf: f ≲ f by bigo_refl
+  rf, rf
+end
+
+theorem bigo_equiv_sym: all f:fn UInt->UInt, g:fn UInt->UInt.
+  if f ≈ g then g ≈ f
+proof
+  arbitrary f:fn UInt->UInt, g:fn UInt->UInt
+  assume H
+  have fg: f ≲ g by expand operator≈ in H
+  have gf: g ≲ f by expand operator≈ in H
+  expand operator≈
+  gf, fg
+end
+
+theorem bigo_equiv_trans:
+  all f:fn UInt->UInt, g:fn UInt->UInt, h:fn UInt->UInt.
+  if f ≈ g and g ≈ h then f ≈ h
+proof
+  arbitrary f:fn UInt->UInt, g:fn UInt->UInt, h:fn UInt->UInt
+  assume prem
+  have fg: f ≈ g by prem
+  have gh: g ≈ h by prem
+  have f_g: f ≲ g by expand operator≈ in fg
+  have g_f: g ≲ f by expand operator≈ in fg
+  have g_h: g ≲ h by expand operator≈ in gh
+  have h_g: h ≲ g by expand operator≈ in gh
+  have fh: f ≲ h by apply bigo_trans to f_g, g_h
+  have hf: h ≲ f by apply bigo_trans to h_g, g_f
+  expand operator≈
+  fh, hf
+end
+
+// Additivity of ≲: pointwise sum is monotone in both arguments.
+theorem bigo_add_mono:
+  all f1:fn UInt->UInt, f2:fn UInt->UInt, g1:fn UInt->UInt, g2:fn UInt->UInt.
+  if f1 ≲ g1 and f2 ≲ g2 then f1 + f2 ≲ g1 + g2
+proof
+  arbitrary f1:fn UInt->UInt, f2:fn UInt->UInt, g1:fn UInt->UInt, g2:fn UInt->UInt
+  assume prem
+  have f1g1: f1 ≲ g1 by prem
+  obtain n1, c1 where f1_g1_all: all n:UInt. if n1 ≤ n then f1(n) ≤ c1 * g1(n)
+    from expand operator≲ in f1g1
+  have f2g2: f2 ≲ g2 by prem
+  obtain n2, c2 where f2_g2_all: all n:UInt. if n2 ≤ n then f2(n) ≤ c2 * g2(n)
+    from expand operator≲ in f2g2
+  expand operator≲ | operator+
+  choose n1 + n2, c1 + c2
+  arbitrary n:UInt
+  assume n12_n: n1 + n2 ≤ n
+  show f1(n) + f2(n) ≤ (c1 + c2) * (g1(n) + g2(n))
+
+  have n1_n12: n1 ≤ n1 + n2 by uint_less_equal_add
+  have n1_n: n1 ≤ n by apply uint_less_equal_trans to n1_n12, n12_n
+  have n2_n12: n2 ≤ n1 + n2 by uint_less_equal_add_left
+  have n2_n: n2 ≤ n by apply uint_less_equal_trans to n2_n12, n12_n
+
+  have f1_le: f1(n) ≤ c1 * g1(n) by apply f1_g1_all to n1_n
+  have f2_le: f2(n) ≤ c2 * g2(n) by apply f2_g2_all to n2_n
+
+  have c1_le: c1 ≤ c1 + c2 by uint_less_equal_add
+  have c2_le: c2 ≤ c1 + c2 by uint_less_equal_add_left
+  have g1_le: g1(n) ≤ g1(n) by .
+  have g2_le: g2(n) ≤ g2(n) by .
+
+  have step_c1: c1 * g1(n) ≤ (c1 + c2) * g1(n)
+    by apply uint_mult_mono_le2 to c1_le, g1_le
+  have step_c2: c2 * g2(n) ≤ (c1 + c2) * g2(n)
+    by apply uint_mult_mono_le2 to c2_le, g2_le
+
+  have f1_bigger: f1(n) ≤ (c1 + c2) * g1(n)
+    by apply uint_less_equal_trans to f1_le, step_c1
+  have f2_bigger: f2(n) ≤ (c1 + c2) * g2(n)
+    by apply uint_less_equal_trans to f2_le, step_c2
+
+  have step_add: f1(n) + f2(n) ≤ (c1 + c2) * g1(n) + (c1 + c2) * g2(n)
+    by apply uint_add_mono_less_equal to f1_bigger, f2_bigger
+
+  conclude f1(n) + f2(n) ≤ (c1 + c2) * (g1(n) + g2(n))
+    by replace uint_dist_mult_add
+       step_add
+end
+
+// Pointwise addition is commutative up to ≈.
+theorem bigo_add_commute: all f:fn UInt->UInt, g:fn UInt->UInt.
+  f + g ≈ g + f
+proof
+  arbitrary f:fn UInt->UInt, g:fn UInt->UInt
+  expand operator≈
+  have A: f + g ≲ g + f by {
+    expand operator≲ | operator+
+    choose 0, 1
+    arbitrary n:UInt
+    assume _
+    show f(n) + g(n) ≤ 1 * (g(n) + f(n))
+    replace uint_add_commute[g(n), f(n)].
+  }
+  have B: g + f ≲ f + g by {
+    expand operator≲ | operator+
+    choose 0, 1
+    arbitrary n:UInt
+    assume _
+    show g(n) + f(n) ≤ 1 * (f(n) + g(n))
+    replace uint_add_commute[f(n), g(n)].
+  }
+  A, B
+end
+
+// Pointwise multiplication is commutative up to ≈.
+theorem bigo_mult_commute: all f:fn UInt->UInt, g:fn UInt->UInt.
+  f * g ≈ g * f
+proof
+  arbitrary f:fn UInt->UInt, g:fn UInt->UInt
+  expand operator≈
+  have A: f * g ≲ g * f by {
+    expand operator≲ | operator*
+    choose 0, 1
+    arbitrary n:UInt
+    assume _
+    show f(n) * g(n) ≤ 1 * (g(n) * f(n))
+    replace uint_mult_commute[g(n), f(n)].
+  }
+  have B: g * f ≲ f * g by {
+    expand operator≲ | operator*
+    choose 0, 1
+    arbitrary n:UInt
+    assume _
+    show g(n) * f(n) ≤ 1 * (f(n) * g(n))
+    replace uint_mult_commute[f(n), g(n)].
+  }
+  A, B
+end
+
+// Sum absorption: a dominated summand can be dropped.
+theorem bigo_add_absorb: all f:fn UInt->UInt, g:fn UInt->UInt.
+  if g ≲ f then f + g ≲ f
+proof
+  arbitrary f:fn UInt->UInt, g:fn UInt->UInt
+  assume g_f: g ≲ f
+  have f_f: f ≲ f by bigo_refl
+  have step: f + g ≲ f + f
+    by apply bigo_add_mono to f_f, g_f
+  have ff: f + f ≲ f by bigo_add
+  apply bigo_trans to step, ff
+end
+
+// Multiplying by a constant k ≥ 1 only increases asymptotic cost.
+theorem bigo_le_const_mult: all f:fn UInt->UInt, k:UInt.
+  if 1 ≤ k then f ≲ k * f
+proof
+  arbitrary f:fn UInt->UInt, k:UInt
+  assume k_pos: 1 ≤ k
+  expand operator≲ | operator*
+  choose 0, 1
+  arbitrary n:UInt
+  assume _
+  show f(n) ≤ 1 * (k * f(n))
+  have fn_fn: f(n) ≤ f(n) by .
+  have step: 1 * f(n) ≤ k * f(n)
+    by apply uint_mult_mono_le2 to k_pos, fn_fn
+  step
+end
+
+// Any constant function is O(1).
+theorem bigo_const_func_le_O_1: all c:UInt.
+  (fun n:UInt { c }) ≲ O_1
+proof
+  arbitrary c:UInt
+  expand operator≲ | O_1
+  choose 0, c
+  arbitrary n:UInt
+  assume _
+  show c ≤ c * 1
+  .
+end
+
 theorem constant_le_log: O_1 ≲ O_log
 proof
   expand operator≲ | O_1 | O_log
