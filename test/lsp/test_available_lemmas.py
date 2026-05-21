@@ -677,6 +677,68 @@ def test_unify_rejects_wrong_type_overload_as_full_tier() -> None:
         )
 
 
+def test_specificity_pushes_clean_match_above_noisy_ties() -> None:
+    """When many lemmas tie on head match + overlap, the Jaccard-like
+    specificity signal must keep the lemma whose formula contains no
+    extra operators above the noisy ones.
+
+    Issue #690 Bug 1 (latency): ``_rank_lemmas`` only runs the
+    expensive unifier on the top ``UNIFY_TOP_K`` cheap-ranked
+    candidates.  Without specificity as a secondary signal, dozens of
+    equation lemmas would tie on a ``a + b = b + a`` goal and the
+    real ``uint_add_commute`` could be elbowed past the cutoff -- the
+    user would never see the unify signal that earns it the top
+    slot.
+
+    Drives the ranker directly with synthetic ``LemmaInfo`` rows so
+    the assertion lands on the cheap-signal path without needing a
+    real stdlib import.
+    """
+    from lsp.query import _rank_lemmas
+
+    # Two synthetic lemmas tying on head=``=`` and 100% overlap with
+    # the goal tokens; ``noisy`` adds an unrelated ``-``.  Distinct
+    # sentinel strings stand in for the formula AST so the patched
+    # ``_formula_symbols`` can tell them apart.
+    candidates = (
+        (
+            LemmaInfo(name="add_pure", kind=SymbolKind.THEOREM,
+                      signature="add_pure: all a, b. a + b = b + a"),
+            "FORMULA_PURE",
+            "user",
+        ),
+        (
+            LemmaInfo(name="add_noisy", kind=SymbolKind.THEOREM,
+                      signature="add_noisy: all a, b, c. (a + b) - c = (b + a) - c"),
+            "FORMULA_NOISY",
+            "user",
+        ),
+    )
+    # Patch ``_formula_symbols`` for this call -- the real one walks
+    # an AST; we want to control symbol sets directly.
+    import lsp.query as Q
+    real = Q._formula_symbols
+    Q._formula_symbols = lambda f: (
+        frozenset({"+", "="}) if f == "FORMULA_PURE" else frozenset({"+", "-", "="})
+    )
+    try:
+        ranked = _rank_lemmas(
+            candidates,
+            goal_text="all x, y. x + y = y + x",
+            query=None,
+            user_module="user",
+        )
+    finally:
+        Q._formula_symbols = real
+
+    by_name = {m.name: m for m in ranked}
+    assert "add_pure" in by_name and "add_noisy" in by_name
+    assert by_name["add_pure"].relevance > by_name["add_noisy"].relevance, (
+        "Lemma with no extra operators must outrank one carrying "
+        "irrelevant `-` on a `+=+` goal"
+    )
+
+
 def test_current_theorem_excluded_from_lemma_list() -> None:
     """The theorem currently being proved must not appear in the
     candidate list -- a proof can't cite itself (issue #690 Bug 5).
