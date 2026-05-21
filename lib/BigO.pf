@@ -685,3 +685,53 @@ proof
   replace uint_two_mult[max(f(n), g(n))]
   sum_le
 end
+
+// Big-Omega: `bigo_omega(f, g)` means `f` asymptotically dominates `g`
+// — equivalently, `g ≲ f`. Big-Omega is the dual of the `≲` (Big-O) preorder.
+fun bigo_omega(f : fn UInt -> UInt, g : fn UInt -> UInt) {
+  g ≲ f
+}
+
+// Big-Omega is reflexive.
+theorem bigo_omega_refl: all f:fn UInt->UInt. bigo_omega(f, f)
+proof
+  arbitrary f:fn UInt->UInt
+  expand bigo_omega
+  bigo_refl
+end
+
+// Big-Omega is transitive.
+theorem bigo_omega_trans:
+  all f:fn UInt->UInt, g:fn UInt->UInt, h:fn UInt->UInt.
+  if bigo_omega(f, g) and bigo_omega(g, h) then bigo_omega(f, h)
+proof
+  arbitrary f:fn UInt->UInt, g:fn UInt->UInt, h:fn UInt->UInt
+  assume prem
+  have gf: g ≲ f by expand bigo_omega in prem
+  have hg: h ≲ g by expand bigo_omega in prem
+  expand bigo_omega
+  apply bigo_trans to hg, gf
+end
+
+// Asymptotic equivalence is exactly Big-Theta: `f ≈ g` iff `f` is both
+// Big-O and Big-Omega of `g`.
+theorem bigo_equiv_iff_theta: all f:fn UInt->UInt, g:fn UInt->UInt.
+  f ≈ g ⇔ (f ≲ g and bigo_omega(f, g))
+proof
+  arbitrary f:fn UInt->UInt, g:fn UInt->UInt
+  have fwd: if f ≈ g then (f ≲ g and bigo_omega(f, g)) by {
+    assume H
+    have fg: f ≲ g by expand operator≈ in H
+    have gf: g ≲ f by expand operator≈ in H
+    have go: bigo_omega(f, g) by { expand bigo_omega gf }
+    fg, go
+  }
+  have bkwd: if (f ≲ g and bigo_omega(f, g)) then f ≈ g by {
+    assume H
+    have fg: f ≲ g by H
+    have gf: g ≲ f by expand bigo_omega in H
+    expand operator≈
+    fg, gf
+  }
+  fwd, bkwd
+end
