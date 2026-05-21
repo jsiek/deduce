@@ -220,3 +220,201 @@ proof
 end
 
 auto mult_neg_lit_lit
+
+// Foundational division lemmas: pushing `pos` / `negsuc` through Int division.
+
+lemma div_pos_pos: all x:UInt, y:UInt. pos(x) / pos(y) = pos(x / y)
+proof
+  arbitrary x:UInt, y:UInt
+  suffices # pos(x) / pos(y) # = pos(x / y) by .
+  expand operator/
+  replace sign_pos | mult_pos_any | mult_pos_uint.
+end
+
+lemma div_pos_negsuc: all x:UInt, y:UInt.
+  pos(x) / negsuc(y) = - pos(x / (1 + y))
+proof
+  arbitrary x:UInt, y:UInt
+  suffices # pos(x) / negsuc(y) # = - pos(x / (1 + y)) by .
+  expand operator/
+  replace sign_pos | sign_negsuc | mult_pos_neg | mult_neg_uint.
+end
+
+lemma div_negsuc_pos: all x:UInt, y:UInt.
+  negsuc(x) / pos(y) = - pos((1 + x) / y)
+proof
+  arbitrary x:UInt, y:UInt
+  suffices # negsuc(x) / pos(y) # = - pos((1 + x) / y) by .
+  expand operator/
+  replace sign_pos | sign_negsuc | mult_neg_pos | mult_neg_uint.
+end
+
+lemma div_negsuc_negsuc: all x:UInt, y:UInt.
+  negsuc(x) / negsuc(y) = pos((1 + x) / (1 + y))
+proof
+  arbitrary x:UInt, y:UInt
+  suffices # negsuc(x) / negsuc(y) # = pos((1 + x) / (1 + y)) by .
+  expand operator/
+  replace sign_negsuc | mult_neg_neg | mult_pos_uint.
+end
+
+lemma div_pos_uint: all x:UInt, y:UInt. pos(x) / y = pos(x / y)
+proof
+  arbitrary x:UInt, y:UInt
+  suffices # pos(x) / y # = pos(x / y) by .
+  expand operator/
+  replace sign_pos | mult_pos_uint.
+end
+
+lemma div_negsuc_uint: all x:UInt, y:UInt.
+  negsuc(x) / y = - pos((1 + x) / y)
+proof
+  arbitrary x:UInt, y:UInt
+  suffices # negsuc(x) / y # = - pos((1 + x) / y) by .
+  expand operator/
+  replace sign_negsuc | mult_neg_uint.
+end
+
+// Division literal embedding theorems.
+
+theorem div_pos_lit_pos_lit: all x:Nat, y:Nat.
+  pos(fromNat(lit(x))) / pos(fromNat(lit(y))) = pos(fromNat(lit(x) / lit(y)))
+proof
+  arbitrary x:Nat, y:Nat
+  replace div_pos_pos.
+end
+
+auto div_pos_lit_pos_lit
+
+theorem div_pos_lit_lit: all x:Nat, y:Nat.
+  pos(fromNat(lit(x))) / fromNat(lit(y)) = pos(fromNat(lit(x) / lit(y)))
+proof
+  arbitrary x:Nat, y:Nat
+  replace div_pos_uint.
+end
+
+auto div_pos_lit_lit
+
+theorem div_pos_lit_neg_lit: all x:Nat, y:Nat.
+  pos(fromNat(lit(x))) / negsuc(fromNat(lit(y)))
+  = - pos(fromNat(lit(x)) / (1 + fromNat(lit(y))))
+proof
+  arbitrary x:Nat, y:Nat
+  replace div_pos_negsuc.
+end
+
+auto div_pos_lit_neg_lit
+
+theorem div_neg_lit_pos_lit: all x:Nat, y:Nat.
+  negsuc(fromNat(lit(x))) / pos(fromNat(lit(y)))
+  = - pos((1 + fromNat(lit(x))) / fromNat(lit(y)))
+proof
+  arbitrary x:Nat, y:Nat
+  replace div_negsuc_pos.
+end
+
+auto div_neg_lit_pos_lit
+
+theorem div_neg_lit_lit: all x:Nat, y:Nat.
+  negsuc(fromNat(lit(x))) / fromNat(lit(y))
+  = - pos((1 + fromNat(lit(x))) / fromNat(lit(y)))
+proof
+  arbitrary x:Nat, y:Nat
+  replace div_negsuc_uint.
+end
+
+auto div_neg_lit_lit
+
+theorem div_neg_lit_neg_lit: all x:Nat, y:Nat.
+  negsuc(fromNat(lit(x))) / negsuc(fromNat(lit(y)))
+  = pos((1 + fromNat(lit(x))) / (1 + fromNat(lit(y))))
+proof
+  arbitrary x:Nat, y:Nat
+  replace div_negsuc_negsuc.
+end
+
+auto div_neg_lit_neg_lit
+
+// Order ≤ literal embedding theorems.
+
+theorem int_lit_less_equal_pos_pos: all x:Nat, y:Nat.
+  (pos(fromNat(lit(x))) ≤ pos(fromNat(lit(y)))) = (lit(x) ≤ lit(y))
+proof
+  arbitrary x:Nat, y:Nat
+  suffices # pos(fromNat(lit(x))) ≤ pos(fromNat(lit(y))) # = (lit(x) ≤ lit(y))
+    by .
+  expand operator≤.
+end
+
+auto int_lit_less_equal_pos_pos
+
+theorem int_lit_less_equal_pos_negsuc: all x:Nat, y:Nat.
+  (pos(fromNat(lit(x))) ≤ negsuc(fromNat(lit(y)))) = false
+proof
+  arbitrary x:Nat, y:Nat
+  expand operator≤.
+end
+
+auto int_lit_less_equal_pos_negsuc
+
+theorem int_lit_less_equal_negsuc_pos: all x:Nat, y:Nat.
+  (negsuc(fromNat(lit(x))) ≤ pos(fromNat(lit(y)))) = true
+proof
+  arbitrary x:Nat, y:Nat
+  expand operator≤.
+end
+
+auto int_lit_less_equal_negsuc_pos
+
+theorem int_lit_less_equal_negsuc_negsuc: all x:Nat, y:Nat.
+  (negsuc(fromNat(lit(x))) ≤ negsuc(fromNat(lit(y)))) = (lit(y) ≤ lit(x))
+proof
+  arbitrary x:Nat, y:Nat
+  suffices # negsuc(fromNat(lit(x))) ≤ negsuc(fromNat(lit(y))) # = (lit(y) ≤ lit(x))
+    by .
+  expand operator≤.
+end
+
+auto int_lit_less_equal_negsuc_negsuc
+
+// Order < literal embedding theorems.
+
+theorem int_lit_less_pos_pos: all x:Nat, y:Nat.
+  (pos(fromNat(lit(x))) < pos(fromNat(lit(y)))) = (lit(x) < lit(y))
+proof
+  arbitrary x:Nat, y:Nat
+  suffices # pos(fromNat(lit(x))) < pos(fromNat(lit(y))) # = (lit(x) < lit(y))
+    by .
+  expand operator<.
+end
+
+auto int_lit_less_pos_pos
+
+theorem int_lit_less_pos_negsuc: all x:Nat, y:Nat.
+  (pos(fromNat(lit(x))) < negsuc(fromNat(lit(y)))) = false
+proof
+  arbitrary x:Nat, y:Nat
+  expand operator<.
+end
+
+auto int_lit_less_pos_negsuc
+
+theorem int_lit_less_negsuc_pos: all x:Nat, y:Nat.
+  (negsuc(fromNat(lit(x))) < pos(fromNat(lit(y)))) = true
+proof
+  arbitrary x:Nat, y:Nat
+  expand operator<.
+end
+
+auto int_lit_less_negsuc_pos
+
+theorem int_lit_less_negsuc_negsuc: all x:Nat, y:Nat.
+  (negsuc(fromNat(lit(x))) < negsuc(fromNat(lit(y)))) = (lit(y) < lit(x))
+proof
+  arbitrary x:Nat, y:Nat
+  suffices # negsuc(fromNat(lit(x))) < negsuc(fromNat(lit(y))) # = (lit(y) < lit(x))
+    by .
+  expand operator<.
+end
+
+auto int_lit_less_negsuc_negsuc

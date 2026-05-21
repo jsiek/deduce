@@ -127,3 +127,97 @@ theorem negM23: -(2 * 3) = -6
 proof
   .
 end
+
+// Division literal embeddings.
+
+theorem Dpp: +6 / +2 = +3
+proof
+  .
+end
+
+theorem Dpu: +6 / 2 = +3
+proof
+  .
+end
+
+theorem Dpn: +6 / -2 = -3
+proof
+  .
+end
+
+theorem Dnp: -6 / +2 = -3
+proof
+  .
+end
+
+theorem Dnu: -6 / 2 = -3
+proof
+  .
+end
+
+theorem Dnn: -6 / -2 = +3
+proof
+  .
+end
+
+// Order literal embeddings (≤ and <).
+
+theorem Lpp_t: (+2 ≤ +3) = true
+proof
+  .
+end
+
+theorem Lpp_f: (+3 ≤ +2) = false
+proof
+  .
+end
+
+theorem Lpn: (+1 ≤ -1) = false
+proof
+  .
+end
+
+theorem Lnp: (-1 ≤ +1) = true
+proof
+  .
+end
+
+theorem Lnn_t: (-3 ≤ -2) = true
+proof
+  .
+end
+
+theorem Lnn_f: (-2 ≤ -3) = false
+proof
+  .
+end
+
+theorem LTpp_t: (+2 < +3) = true
+proof
+  .
+end
+
+theorem LTpp_f: (+2 < +2) = false
+proof
+  .
+end
+
+theorem LTpn: (+1 < -1) = false
+proof
+  .
+end
+
+theorem LTnp: (-1 < +1) = true
+proof
+  .
+end
+
+theorem LTnn_t: (-3 < -2) = true
+proof
+  .
+end
+
+theorem LTnn_f: (-2 < -3) = false
+proof
+  .
+end
