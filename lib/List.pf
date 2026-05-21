@@ -206,6 +206,57 @@ fun tail<T>(ls : List<T>) {
   }
 }
 
+// The last element, as an `Option`: `just(x)` if non-empty,
+// otherwise `none`.
+//   last([1,2,3]) = just(3),    last([]) = none.
+recursive last<T>(List<T>) -> Option<T> {
+  last(empty) = @none<T>
+  last(node(x, xs)) =
+    switch xs {
+      case empty { just(x) }
+      case node(y, ys) { last(xs) }
+    }
+}
+
+// All elements except the final one. Returns the empty list for
+// empty or singleton input.
+//   init([1,2,3]) = [1,2],     init([x]) = [],     init([]) = [].
+recursive init<T>(List<T>) -> List<T> {
+  init(empty) = @empty<T>
+  init(node(x, xs)) =
+    switch xs {
+      case empty { @empty<T> }
+      case node(y, ys) { node(x, init(xs)) }
+    }
+}
+
+// All suffixes, starting with `xs` and ending with `empty`.
+//   tails([1,2,3]) = [[1,2,3], [2,3], [3], []].
+recursive tails<T>(List<T>) -> List< List<T> > {
+  tails(empty) = node(empty, empty)
+  tails(node(x, xs)) = node(node(x, xs), tails(xs))
+}
+
+// All prefixes, starting with `empty` and ending with `xs`.
+//   inits([1,2,3]) = [[], [1], [1,2], [1,2,3]].
+recursive inits<T>(List<T>) -> List< List<T> > {
+  inits(empty) = node(empty, empty)
+  inits(node(x, xs)) = node(empty, map(inits(xs), λys:List<T>{node(x, ys)}))
+}
+
+// Insert `sep` between consecutive elements of `xs`.
+//   intersperse([1,2,3,4], 0) = [1, 0, 2, 0, 3, 0, 4]
+//   intersperse([x], sep)     = [x]
+//   intersperse([], sep)      = []
+recursive intersperse<T>(List<T>, T) -> List<T> {
+  intersperse(empty, sep) = @empty<T>
+  intersperse(node(x, xs), sep) =
+    switch xs {
+      case empty { node(x, empty) }
+      case node(y, ys) { node(x, node(sep, intersperse(xs, sep))) }
+    }
+}
+
 /********************** Theorems *********************************/
 
 // Length distributes over append: |xs ++ ys| = |xs| + |ys|.
@@ -934,5 +985,162 @@ proof
     suppose pos_len
     expand operator++ | tail.
   }
+end
+
+// `length(tails(xs)) = 1 + length(xs)`: one suffix per "cut point",
+// including the empty suffix at the end.
+theorem length_tails: all T:type. all xs:List<T>.
+  length(tails(xs)) = 1 + length(xs)
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    expand tails | 2*length.
+  }
+  case node(x, xs') assume IH: length(tails(xs')) = 1 + length(xs') {
+    equations
+      length(tails(node(x, xs')))
+          = length(node(node(x, xs'), tails(xs')))   by expand tails.
+      ... = 1 + length(tails(xs'))                   by expand length.
+      ... = 1 + (1 + length(xs'))                    by replace IH.
+      ... = # 1 + length(node(x, xs')) #             by expand length.
+  }
+end
+
+// The first suffix is the whole list.
+theorem head_tails: all T:type. all xs:List<T>.
+  head(tails(xs)) = just(xs)
+proof
+  arbitrary T:type
+  arbitrary xs:List<T>
+  switch xs {
+    case empty { expand tails | head. }
+    case node(x, xs') { expand tails | head. }
+  }
+end
+
+// Every `tails(xs)` contains the empty list — it is the last suffix.
+theorem tails_contains_empty: all T:type. all xs:List<T>.
+  contains(tails(xs), @empty<T>) = true
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty { expand tails | contains. }
+  case node(x, xs') assume IH: contains(tails(xs'), @empty<T>) = true {
+    expand tails | contains
+    replace IH.
+  }
+end
+
+// `length(inits(xs)) = 1 + length(xs)`: one prefix per "cut point",
+// including the empty prefix at the front.
+theorem length_inits: all T:type. all xs:List<T>.
+  length(inits(xs)) = 1 + length(xs)
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    expand inits | 2*length.
+  }
+  case node(x, xs') assume IH: length(inits(xs')) = 1 + length(xs') {
+    equations
+      length(inits(node(x, xs')))
+          = length(node(@empty<T>, map(inits(xs'), λys:List<T>{node(x, ys)})))
+              by expand inits.
+      ... = 1 + length(map(inits(xs'), λys:List<T>{node(x, ys)}))
+              by expand length.
+      ... = 1 + length(inits(xs'))
+              by replace length_map<List<T>>[λys:List<T>{node(x, ys)}, inits(xs')].
+      ... = 1 + (1 + length(xs'))
+              by replace IH.
+      ... = # 1 + length(node(x, xs')) #
+              by expand length.
+  }
+end
+
+// The first prefix is always the empty list.
+theorem head_inits: all T:type. all xs:List<T>.
+  head(inits(xs)) = just(@empty<T>)
+proof
+  arbitrary T:type
+  arbitrary xs:List<T>
+  switch xs {
+    case empty { expand inits | head. }
+    case node(x, xs') { expand inits | head. }
+  }
+end
+
+// Snoc-ing `y` makes `y` the last element: `last(xs ++ [y]) = just(y)`.
+theorem last_append_node: all T:type. all xs:List<T>, y:T.
+  last(xs ++ node(y, @empty<T>)) = just(y)
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary y:T
+    expand operator++ | last.
+  }
+  case node(x, xs') assume IH: all y:T. last(xs' ++ node(y, @empty<T>)) = just(y) {
+    arbitrary y:T
+    switch xs' {
+      case empty {
+        expand 2*operator++ | 2*last.
+      }
+      case node(z, zs') assume eq {
+        have rec: last(node(z, zs') ++ node(y, @empty<T>)) = just(y)
+          by replace eq in IH[y]
+        equations
+          last(node(x, node(z, zs')) ++ node(y, @empty<T>))
+              = last(node(x, node(z, zs' ++ node(y, @empty<T>))))
+                                                          by expand 2*operator++.
+          ... = last(node(z, zs' ++ node(y, @empty<T>)))  by expand last.
+          ... = # last(node(z, zs') ++ node(y, @empty<T>)) #
+                                                          by expand operator++.
+          ... = just(y)                                   by rec
+      }
+    }
+  }
+end
+
+// Snoc-ing `y` makes `init` forget it: `init(xs ++ [y]) = xs`.
+theorem init_append_node: all T:type. all xs:List<T>, y:T.
+  init(xs ++ node(y, @empty<T>)) = xs
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary y:T
+    expand operator++ | init.
+  }
+  case node(x, xs') assume IH: all y:T. init(xs' ++ node(y, @empty<T>)) = xs' {
+    arbitrary y:T
+    switch xs' {
+      case empty {
+        expand 2*operator++ | 2*init.
+      }
+      case node(z, zs') assume eq {
+        have rec: init(node(z, zs') ++ node(y, @empty<T>)) = node(z, zs')
+          by replace eq in IH[y]
+        equations
+          init(node(x, node(z, zs')) ++ node(y, @empty<T>))
+              = init(node(x, node(z, zs' ++ node(y, @empty<T>))))
+                                                          by expand 2*operator++.
+          ... = node(x, init(node(z, zs' ++ node(y, @empty<T>))))
+                                                          by expand init.
+          ... = # node(x, init(node(z, zs') ++ node(y, @empty<T>))) #
+                                                          by expand operator++.
+          ... = node(x, node(z, zs'))                     by replace rec.
+      }
+    }
+  }
+end
+
+// Intersperse on a singleton is the identity: nothing to interleave.
+theorem intersperse_singleton: all T:type. all x:T, sep:T.
+  intersperse(node(x, @empty<T>), sep) = node(x, @empty<T>)
+proof
+  arbitrary T:type
+  arbitrary x:T, sep:T
+  expand intersperse.
 end
 
