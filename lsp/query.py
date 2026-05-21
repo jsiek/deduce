@@ -87,6 +87,7 @@ __all__ = [
     "apply_at",
     "hole_context_at",
     "available_lemmas_at",
+    "insert_lemma_at",
     "validate_proof_at",
     "preview_replace_at",
     "preview_expand_at",
@@ -3700,6 +3701,124 @@ def available_lemmas_at(
     return tuple(ranked)
 
 
+def insert_lemma_at(
+    path: str,
+    content: str,
+    pos: Position,
+    name: str,
+    prelude: Sequence[str] = (),
+) -> Optional[WorkspaceEdit]:
+    """Return a tier-aware ``WorkspaceEdit`` that references ``name`` at
+    ``pos``.
+
+    Template shape depends on how the lemma's conclusion relates to the
+    current goal at the hole at ``pos`` -- the same tier classifier
+    :func:`available_lemmas_at` uses to rank candidates (see
+    :class:`LemmaMatch`). The four shapes:
+
+    - **full** (conclusion unifies, every premise discharged by a local
+      given): replaces ``?`` with ``conclude <goal> by apply <name> to
+      <p1>, ..., <pN>`` -- or just ``conclude <goal> by <name>`` when
+      the lemma has no premises.
+    - **premises_remain** (conclusion unifies, some premises stay open):
+      replaces ``?`` with ``apply <name> to ?`` -- one fresh ``?`` for
+      the user to fill.
+    - **rewrite_subterm** (equation lemma whose LHS/RHS matches a goal
+      subterm): replaces ``?`` with ``replace <name>``.
+    - **none** (no tier match, or cursor not on a hole, or browse mode):
+      inserts the bare ``<name>`` at ``pos`` (zero-width edit when not
+      on a hole, otherwise replacing the ``?``).
+
+    Tier is recomputed server-side from the current buffer, so callers
+    don't have to round-trip it through the prior
+    :func:`available_lemmas_at` response -- a buffer that changed
+    between picker and insertion still produces a sensible template.
+
+    Returns ``None`` when ``name`` is not in scope as a theorem, lemma,
+    or postulate at ``pos``.
+    """
+    from lsp.library import check_file
+
+    hole_range = _find_hole_at(content, pos)
+    goal_text: Optional[str] = None
+    goal_ast: Any = None
+    env: Any = None
+
+    if hole_range is not None:
+        target = (hole_range.start.line, hole_range.start.column)
+        with _target_hole(target):
+            result = check_file(path, content=content, prelude=prelude)
+        if not result.ok:
+            exc = result.exception
+            goal = _goal_from_exception(exc, hole_range)
+            if goal is not None:
+                goal_text = goal.formula
+            goal_ast = getattr(exc, "formula", None)
+            env = getattr(exc, "env", None)
+        ast_nodes = result.ast
+    else:
+        result = check_file(path, content=content, prelude=prelude)
+        ast_nodes = result.ast
+
+    candidates = _collect_lemma_candidates(path, ast_nodes, prelude)
+    target_formula: Any = None
+    for info, formula, _module in candidates:
+        if info.name == name:
+            target_formula = formula
+            break
+    if target_formula is None:
+        return None
+
+    tier: Optional[str] = None
+    discharged: tuple[tuple[str, str], ...] = ()
+    if goal_ast is not None and env is not None:
+        given_pairs = _collect_local_givens(env)
+        _score, tier, discharged = _unify_score(
+            target_formula, goal_ast, env, given_pairs
+        )
+
+    template = _insert_lemma_template(
+        name, target_formula, tier, discharged, goal_text
+    )
+
+    if hole_range is None:
+        zero_range = Range(start=pos, end=pos)
+        return WorkspaceEdit(path=path, range=zero_range, new_text=template)
+
+    template = _indent_continuation(
+        template, _line_indent_at(content, hole_range.start)
+    )
+    return WorkspaceEdit(path=path, range=hole_range, new_text=template)
+
+
+def _insert_lemma_template(
+    name: str,
+    formula: Any,
+    tier: Optional[str],
+    discharged: tuple[tuple[str, str], ...],
+    goal_text: Optional[str],
+) -> str:
+    """Pick the tactic-shape template for ``insert_lemma_at`` (issue #690).
+
+    The tier picks the surrounding shape; ``discharged`` supplies the
+    given labels for the ``full`` case; ``formula`` is consulted to
+    count premises when there are no labels (e.g. ``premises_remain``
+    where every premise is open, or ``full`` with 0 premises).
+    """
+    if tier == "full":
+        if not discharged and goal_text is not None:
+            return f"conclude {goal_text} by {name}"
+        labels = ", ".join(label for _, label in discharged)
+        if goal_text is not None:
+            return f"conclude {goal_text} by apply {name} to {labels}"
+        return f"apply {name} to {labels}"
+    if tier == "premises_remain":
+        return f"apply {name} to ?"
+    if tier == "rewrite_subterm":
+        return f"replace {name}"
+    return name
+
+
 def _module_for_path(path: str) -> str:
     """Module name for the file at ``path`` -- the path's stem."""
     from pathlib import Path
@@ -4255,8 +4374,8 @@ def _unify_score(
     # Tier 3: equation conclusion -> try LHS/RHS against goal subterms.
     if isinstance(conc, Call) and isinstance(conc.rator, VarRef):
         try:
-            if conc.rator.get_name() == "=" and len(conc.rands) == 2:
-                lhs, rhs = conc.rands
+            if conc.rator.get_name() == "=" and len(conc.args) == 2:
+                lhs, rhs = conc.args
                 subterms = _iter_subterms(goal_ast)
                 for side in (lhs, rhs):
                     for sub in subterms:

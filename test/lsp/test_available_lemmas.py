@@ -564,6 +564,38 @@ def test_unify_outranks_head_symbol_only_match() -> None:
     )
 
 
+def test_unify_rewrite_subterm_tier_fires_for_equation_lemma() -> None:
+    """An equation lemma whose LHS unifies with a subterm of the goal
+    -- but whose whole-conclusion shape doesn't unify -- gets the
+    ``rewrite_subterm`` tier.  Regression for the typo in Part 1 of
+    issue #690 where ``conc.rands`` (instead of ``conc.args``) made
+    the tier-3 branch silently dead code."""
+    source = (
+        "theorem not_not: all P:bool. P = not (not P)\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  switch P {\n"
+        "    case true { . }\n"
+        "    case false { . }\n"
+        "  }\n"
+        "end\n"
+        "\n"
+        "theorem with_hole: all P:bool, Q:bool."
+        " if P and Q then not (not P) and Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  suppose h: P and Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    matches = available_lemmas_at(
+        "lemmas.pf", source, Position(line=14, column=3)
+    )
+    by_name = {m.name: m for m in matches}
+    assert "not_not" in by_name
+    assert by_name["not_not"].unify_tier == "rewrite_subterm"
+
+
 def test_browse_mode_leaves_unify_tier_unset() -> None:
     """Browse mode (no goal, no query) doesn't run the unifier, so
     ``unify_tier`` stays ``None`` on every result."""
