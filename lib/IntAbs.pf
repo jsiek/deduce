@@ -18,6 +18,7 @@ import IntLess
   proofs route through `int_abs_mult` and `int_abs_eq_zero_implies_zero`.
 */
 
+// Structural identity: a nonnegative integer's absolute value is its UInt magnitude.
 theorem int_abs_pos: all n:UInt. abs(pos(n)) = n
 proof
   arbitrary n:UInt
@@ -26,6 +27,7 @@ end
 
 auto int_abs_pos
 
+// Structural identity: |negsuc(n)| = 1 + n (since negsuc(n) represents -(1+n)).
 theorem int_abs_negsuc: all n:UInt. abs(negsuc(n)) = 1 + n
 proof
   arbitrary n:UInt
@@ -34,6 +36,7 @@ end
 
 auto int_abs_negsuc
 
+// |+0| = 0.
 theorem int_abs_zero: abs(+0) = 0
 proof
   evaluate
@@ -41,6 +44,8 @@ end
 
 auto int_abs_zero
 
+// If |x| = 0 then x is the integer zero. The negsuc branch is vacuous
+// since |negsuc(n)| = 1 + n > 0.
 theorem int_abs_eq_zero_implies_zero: all x:Int.
   if abs(x) = 0 then x = +0
 proof
@@ -57,6 +62,7 @@ proof
   }
 end
 
+// Converse of `int_abs_eq_zero_implies_zero`: the zero integer has zero absolute value.
 theorem int_zero_implies_abs_eq_zero: all x:Int.
   if x = +0 then abs(x) = 0
 proof
@@ -66,6 +72,7 @@ proof
   int_abs_zero
 end
 
+// Combined characterization: |x| = 0 iff x is the integer zero.
 theorem int_abs_eq_zero_iff_zero: all x:Int.
   abs(x) = 0 ⇔ x = +0
 proof
@@ -73,6 +80,7 @@ proof
   int_abs_eq_zero_implies_zero[x], int_zero_implies_abs_eq_zero[x]
 end
 
+// Absolute value distributes over multiplication: |x*y| = |x|*|y|.
 theorem int_abs_mult: all x:Int, y:Int.
   abs(x * y) = abs(x) * abs(y)
 proof

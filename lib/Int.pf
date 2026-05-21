@@ -19,13 +19,25 @@ public import IntLess
 public import IntEvenOdd
 public import IntAbs
 
-// Need the following for integer literals.
+// The following exports are needed for integer literals: the
+// `lit`/`zero`/`suc` triple supplies the underlying numeric
+// constructors and `fromNat` lifts a literal Nat into a UInt magnitude.
 
 export lit
 export zero
 export suc
 export fromNat
 
+/*
+  Auto-rules for Int literal addition.
+
+  These let `auto` simplify sums whose operands are integer literals
+  (i.e. `pos(fromNat(lit(...)))` or `negsuc(fromNat(lit(...)))`) into
+  the corresponding combined-literal form. They cover the mixed
+  pos/negsuc shapes the user sees in source.
+*/
+
+// Sum of two literal nonnegative integers reduces to the literal of their UInt sum.
 theorem lit_add_pos_pos: all x:Nat, y:Nat.
   pos(fromNat(lit(x))) + pos(fromNat(lit(y))) = pos(fromNat(lit(x) + lit(y)))
 proof
@@ -35,6 +47,7 @@ end
 
 auto lit_add_pos_pos
 
+// Mixed-form sum: `pos(literal) + literal` collapses like `pos(literal) + pos(literal)`.
 theorem lit_add_pos_lit: all x:Nat, y:Nat.
   pos(fromNat(lit(x))) + fromNat(lit(y)) = pos(fromNat(lit(x) + lit(y)))
 proof
@@ -44,6 +57,7 @@ end
 
 auto lit_add_pos_lit
 
+// Mixed-form sum: `literal + pos(literal)` collapses to the literal of the sum.
 theorem lit_add_lit_pos: all x:Nat, y:Nat.
   fromNat(lit(x)) + pos(fromNat(lit(y))) = pos(fromNat(lit(x) + lit(y)))
 proof
@@ -53,6 +67,8 @@ end
 
 auto lit_add_lit_pos
 
+// Cancellation step when adding a positive literal and a negative literal,
+// both with a successor magnitude: peel one unit off each side.
 theorem lit_add_pos_negsuc_suc: all x:Nat, y:Nat. pos(fromNat(lit(suc(y)))) + negsuc(fromNat(lit(suc(x)))) = pos(fromNat(lit(y))) + negsuc(fromNat(lit(x)))
 proof
   arbitrary x:Nat, y:Nat
@@ -62,6 +78,7 @@ end
 
 auto lit_add_pos_negsuc_suc
 
+// Symmetric cancellation: same as `lit_add_pos_negsuc_suc` with operands swapped.
 theorem lit_add_negsuc_pos_suc: all x:Nat, y:Nat. negsuc(fromNat(lit(suc(x)))) + pos(fromNat(lit(suc(y)))) = negsuc(fromNat(lit(x))) + pos(fromNat(lit(y)))
 proof
   arbitrary x:Nat, y:Nat
@@ -71,6 +88,8 @@ end
 
 auto lit_add_negsuc_pos_suc
 
+// Base case of the cancellation: `pos(suc(y)) + negsuc(zero) = pos(y)`
+// (adding -1 to a positive successor literal decrements).
 theorem lit_add_pos_suc_negsuc_zero: all x:Nat, y:Nat. pos(fromNat(lit(suc(y)))) + negsuc(fromNat(lit(zero))) = pos(fromNat(lit(y)))
 proof
   arbitrary x:Nat, y:Nat
@@ -80,6 +99,7 @@ end
 
 auto lit_add_pos_suc_negsuc_zero
 
+// Symmetric base case: `negsuc(zero) + pos(suc(y)) = pos(y)`.
 theorem lit_add_negsuc_zero_pos_suc: all x:Nat, y:Nat. negsuc(fromNat(lit(zero))) + pos(fromNat(lit(suc(y)))) = pos(fromNat(lit(y)))
 proof
   arbitrary x:Nat, y:Nat
@@ -89,6 +109,15 @@ end
 
 auto lit_add_negsuc_zero_pos_suc
 
+/*
+  Auto-rules for Int literal negation.
+
+  Push unary minus through literal integer constructors so that, for
+  example, `- pos(suc(x))` rewrites to `negsuc(x)` and `- negsuc(x)`
+  rewrites to `pos(suc(x))`.
+*/
+
+// `-(+0) = +0`.
 theorem neg_lit_zero: - pos(fromNat(lit(zero))) = pos(fromNat(lit(zero)))
 proof
   expand operator-.
@@ -96,6 +125,7 @@ end
 
 auto neg_lit_zero
 
+// `-0 = +0` for the bare UInt-literal form.
 theorem neg_uint_zero: - fromNat(lit(zero)) = pos(fromNat(lit(zero)))
 proof
   expand operator-.
@@ -103,6 +133,7 @@ end
 
 auto neg_uint_zero
 
+// `-(pos(suc(x))) = negsuc(x)`: negating a positive successor gives the negative successor.
 theorem neg_pos_lit_suc: all x:Nat.
   - pos(fromNat(lit(suc(x)))) = negsuc(fromNat(lit(x)))
 proof
@@ -112,6 +143,7 @@ end
 
 auto neg_pos_lit_suc
 
+// Bare-literal form: `-suc(x) = negsuc(x)`.
 theorem neg_lit_suc: all x:Nat.
   - fromNat(lit(suc(x))) = negsuc(fromNat(lit(x)))
 proof
@@ -121,6 +153,7 @@ end
 
 auto neg_lit_suc
 
+// `-(negsuc(x)) = pos(suc(x))`: negation of a negative successor is the corresponding positive.
 theorem neg_negsuc_lit: all x:Nat.
   - negsuc(fromNat(lit(x))) = pos(fromNat(lit(suc(x))))
 proof
@@ -130,6 +163,11 @@ end
 
 auto neg_negsuc_lit
 
+/*
+  Auto-rules for absolute value and sign on Int literals.
+*/
+
+// `abs(pos(literal))` is the literal itself.
 theorem abs_lit: all x:Nat. abs(pos(fromNat(lit(x)))) = fromNat(lit(x))
 proof
   arbitrary x:Nat
@@ -138,6 +176,7 @@ end
 
 auto abs_lit
 
+// Sign of a nonnegative literal is `positive`.
 theorem sign_pos_lit: all x:Nat. sign(pos(fromNat(lit(x)))) = positive
 proof
   arbitrary x:Nat
@@ -146,6 +185,7 @@ end
 
 auto sign_pos_lit
 
+// Sign of a negative-successor literal is `negative`.
 theorem sign_neg_lit: all x:Nat. sign(negsuc(fromNat(lit(x)))) = negative
 proof
   arbitrary x:Nat
@@ -154,6 +194,14 @@ end
 
 auto sign_neg_lit
 
+/*
+  Auto-rules for Int literal multiplication.
+
+  Cover the four sign combinations of literal operands, plus the
+  mixed-form variants where one side is bare `fromNat(lit(...))`.
+*/
+
+// `pos(literal) * pos(literal)` reduces to the literal of the product.
 theorem mult_pos_lit_pos_lit: all x:Nat, y:Nat.
   pos(fromNat(lit(x))) * pos(fromNat(lit(y))) = pos(fromNat(lit(x) * lit(y)))
 proof
@@ -163,6 +211,7 @@ end
 
 auto mult_pos_lit_pos_lit
 
+// Mixed form: `literal * pos(literal)`.
 theorem mult_lit_pos_lit: all x:Nat, y:Nat.
   fromNat(lit(x)) * pos(fromNat(lit(y))) = pos(fromNat(lit(x) * lit(y)))
 proof
@@ -172,6 +221,7 @@ end
 
 auto mult_lit_pos_lit
 
+// Mixed form: `pos(literal) * literal`.
 theorem mult_pos_lit_lit: all x:Nat, y:Nat.
   pos(fromNat(lit(x))) * fromNat(lit(y)) = pos(fromNat(lit(x) * lit(y)))
 proof
@@ -181,6 +231,7 @@ end
 
 auto mult_pos_lit_lit
 
+// `pos(x) * negsuc(y) = -(x + x*y)`: the product is negative with magnitude x*(1+y).
 theorem mult_pos_lit_neg_lit: all x:Nat, y:Nat.
   pos(fromNat(lit(x))) * negsuc(fromNat(lit(y)))
   = - pos(fromNat(lit(x)) + fromNat(lit(x)) * fromNat(lit(y)))
@@ -191,6 +242,7 @@ end
 
 auto mult_pos_lit_neg_lit
 
+// Mixed form of `mult_pos_lit_neg_lit`: bare literal on the left.
 theorem mult_lit_neg_lit: all x:Nat, y:Nat.
   fromNat(lit(x)) * negsuc(fromNat(lit(y)))
   = - pos(fromNat(lit(x)) + fromNat(lit(x)) * fromNat(lit(y)))
@@ -201,6 +253,7 @@ end
 
 auto mult_lit_neg_lit
 
+// `negsuc(x) * pos(y) = -(y + y*x)`: commute then reuse `mult_pos_negsuc`.
 theorem mult_neg_lit_pos: all x:Nat, y:Nat.
   negsuc(fromNat(lit(x))) * pos(fromNat(lit(y)))
   = - pos(fromNat(lit(y)) + fromNat(lit(y)) * fromNat(lit(x)))
@@ -211,6 +264,7 @@ end
 
 auto mult_neg_lit_pos
 
+// Mixed form of `mult_neg_lit_pos`: bare literal on the right.
 theorem mult_neg_lit_lit: all x:Nat, y:Nat.
   negsuc(fromNat(lit(x))) * fromNat(lit(y))
   = - pos(fromNat(lit(y)) + fromNat(lit(y)) * fromNat(lit(x)))
