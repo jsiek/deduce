@@ -36,11 +36,12 @@ If a name on this page is unfamiliar, follow the link in the Reference column fo
 
 | Form | Effect |
 | --- | --- |
-| `.` (period) | Close the goal trivially: definitional equality, reflexivity, or `true`. |
-| `evaluate` | Reduce both sides of the goal to normal form. |
+| `.` (period) | **Closes the goal** trivially: definitional equality, reflexivity, or `true`. |
+| `evaluate` | **Closes the goal** by expanding every (non-opaque) definition on both sides; fails if the result is not `true`. It is a terminal tactic — cannot be followed by `replace`/`expand`/etc. For the transforming variant, see `evaluate in p` below. |
 | `expand f \| g` | Unfold the definitions of `f` and `g` in the goal. |
 | `replace eq` | Rewrite the **goal** left-to-right using `eq : LHS = RHS`. |
 | `replace eq in p` | Rewrite within proof `p`'s formula and return a new proof of the rewritten formula. |
+| `evaluate in p` | Given a proof `p : P`, return a proof of `P` with every (non-opaque) definition expanded. The transforming counterpart of `evaluate`. |
 | `replace eq1 \| eq2 \| ...` | Apply rewrites in sequence. |
 | `simplify with h` | Like `replace`, but accepts non-equation hypotheses: `h : not P` substitutes `P` with `false` in the goal; `h : P` (bare boolean) substitutes `P` with `true`. Use in the `case false` arm of a boolean `switch`, where `replace` rejects the `not P` hypothesis. |
 | `symmetric p` | If `p : a = b`, returns a proof of `b = a`. |
