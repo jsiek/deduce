@@ -735,3 +735,85 @@ proof
   }
   fwd, bkwd
 end
+
+// Little-o: `bigo_little_o(f, g)` recasts the standard ε-formulation
+// `lim f/g = 0` to the `UInt` setting. As `ε` shrinks toward `0`, its
+// reciprocal `c = 1/ε` grows without bound, so the condition
+// `f(n) < ε * g(n)` becomes `c * f(n) < g(n)` — eventually true for every
+// positive `UInt` constant `c`. Spelled as a named function rather than an
+// operator because no `≪` token is wired into the grammar.
+fun bigo_little_o(f : fn UInt -> UInt, g : fn UInt -> UInt) {
+  all c:UInt. if 0 < c then some n0:UInt. all n:UInt. if n0 ≤ n then c * f(n) < g(n)
+}
+
+// Little-omega: the strict cousin of Big-Omega and the dual of little-o.
+// `bigo_little_omega(f, g)` says `f` strictly dominates `g`, i.e. little-o
+// the other way round.
+fun bigo_little_omega(f : fn UInt -> UInt, g : fn UInt -> UInt) {
+  bigo_little_o(g, f)
+}
+
+// Little-o implies Big-O: strict eventual domination is stronger than
+// constant-factor eventual domination.
+theorem bigo_little_implies_big: all f:fn UInt->UInt, g:fn UInt->UInt.
+  if bigo_little_o(f, g) then f ≲ g
+proof
+  arbitrary f:fn UInt->UInt, g:fn UInt->UInt
+  assume H: bigo_little_o(f, g)
+  have one_pos: (0:UInt) < 1 by .
+  have step1: some n0:UInt. all n:UInt. if n0 ≤ n then 1 * f(n) < g(n)
+    by apply (expand bigo_little_o in H)[1] to one_pos
+  obtain n0 where step: all n:UInt. if n0 ≤ n then 1 * f(n) < g(n) from step1
+  expand operator≲
+  choose n0, 1
+  arbitrary n:UInt
+  assume n0_n: n0 ≤ n
+  show f(n) ≤ 1 * g(n)
+  have lt: f(n) < g(n) by apply step to n0_n
+  apply uint_less_implies_less_equal to lt
+end
+
+// Little-o is irreflexive: no function strictly dominates itself.
+// Instantiating the `c = 1` case at `n = n0` would force `f(n0) < f(n0)`.
+theorem bigo_little_irrefl: all f:fn UInt->UInt. not bigo_little_o(f, f)
+proof
+  arbitrary f:fn UInt->UInt
+  assume H: bigo_little_o(f, f)
+  have one_pos: (0:UInt) < 1 by .
+  have step1: some n0:UInt. all n:UInt. if n0 ≤ n then 1 * f(n) < f(n)
+    by apply (expand bigo_little_o in H)[1] to one_pos
+  obtain n0 where step: all n:UInt. if n0 ≤ n then 1 * f(n) < f(n) from step1
+  have n0_n0: n0 ≤ n0 by .
+  have lt: f(n0) < f(n0) by apply step to n0_n0
+  apply uint_less_irreflexive to lt
+end
+
+// Little-omega unfolds to a swapped little-o.
+theorem bigo_little_omega_swap: all f:fn UInt->UInt, g:fn UInt->UInt.
+  if bigo_little_omega(f, g) then bigo_little_o(g, f)
+proof
+  arbitrary f:fn UInt->UInt, g:fn UInt->UInt
+  assume H
+  expand bigo_little_omega in H
+end
+
+// Little-omega is irreflexive, by symmetry with little-o.
+theorem bigo_little_omega_irrefl: all f:fn UInt->UInt. not bigo_little_omega(f, f)
+proof
+  arbitrary f:fn UInt->UInt
+  assume H: bigo_little_omega(f, f)
+  have ff: bigo_little_o(f, f) by expand bigo_little_omega in H
+  apply bigo_little_irrefl to ff
+end
+
+// Little-omega implies Big-Omega.
+theorem bigo_little_omega_implies_big_omega: all f:fn UInt->UInt, g:fn UInt->UInt.
+  if bigo_little_omega(f, g) then bigo_omega(f, g)
+proof
+  arbitrary f:fn UInt->UInt, g:fn UInt->UInt
+  assume H: bigo_little_omega(f, g)
+  have gf: bigo_little_o(g, f) by expand bigo_little_omega in H
+  have gf_big: g ≲ f by apply bigo_little_implies_big to gf
+  expand bigo_omega
+  gf_big
+end
