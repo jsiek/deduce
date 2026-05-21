@@ -717,3 +717,63 @@ proof
   have step: n * x < n * y by apply int_pos_mult_mono_less_left[n, x, y] to prem
   replace int_mult_commute[n, x] | int_mult_commute[n, y] in step
 end
+
+// Multiplication on the left by a non-positive Int reverses `≤`.
+theorem int_nonpos_mult_mono_le_left: all n:Int, x:Int, y:Int.
+  if n ≤ +0 and x ≤ y
+  then n * y ≤ n * x
+proof
+  arbitrary n:Int, x:Int, y:Int
+  assume prem
+  have npos: n ≤ +0 by conjunct 0 of prem
+  have xy: x ≤ y by conjunct 1 of prem
+  have neg_n_nn0: -+0 ≤ -n by apply int_neg_le_mono[n, +0] to npos
+  have neg_n_nn: +0 ≤ -n by replace neg_zero in neg_n_nn0
+  have neg_n_mult: (-n) * x ≤ (-n) * y
+    by apply int_nonneg_mult_mono_le_left[-n, x, y] to neg_n_nn, xy
+  have eq_x: (-n) * x = -(n * x) by symmetric dist_neg_mult[n, x]
+  have eq_y: (-n) * y = -(n * y) by symmetric dist_neg_mult[n, y]
+  have neg_step: -(n * x) ≤ -(n * y) by replace eq_x | eq_y in neg_n_mult
+  apply (conjunct 1 of int_neg_le_iff[n * y, n * x]) to neg_step
+end
+
+// Multiplication on the right by a non-positive Int reverses `≤`.
+theorem int_nonpos_mult_mono_le_right: all n:Int, x:Int, y:Int.
+  if n ≤ +0 and x ≤ y
+  then y * n ≤ x * n
+proof
+  arbitrary n:Int, x:Int, y:Int
+  assume prem
+  have step: n * y ≤ n * x by apply int_nonpos_mult_mono_le_left[n, x, y] to prem
+  replace int_mult_commute[n, x] | int_mult_commute[n, y] in step
+end
+
+// Multiplication on the left by a negative Int reverses `<`.
+theorem int_neg_mult_mono_less_left: all n:Int, x:Int, y:Int.
+  if n < +0 and x < y
+  then n * y < n * x
+proof
+  arbitrary n:Int, x:Int, y:Int
+  assume prem
+  have nneg: n < +0 by conjunct 0 of prem
+  have xy: x < y by conjunct 1 of prem
+  have neg_n_pos0: -+0 < -n by apply int_neg_less_mono[n, +0] to nneg
+  have neg_n_pos: +0 < -n by replace neg_zero in neg_n_pos0
+  have neg_n_mult: (-n) * x < (-n) * y
+    by apply int_pos_mult_mono_less_left[-n, x, y] to neg_n_pos, xy
+  have eq_x: (-n) * x = -(n * x) by symmetric dist_neg_mult[n, x]
+  have eq_y: (-n) * y = -(n * y) by symmetric dist_neg_mult[n, y]
+  have neg_step: -(n * x) < -(n * y) by replace eq_x | eq_y in neg_n_mult
+  apply (conjunct 1 of int_neg_less_iff[n * y, n * x]) to neg_step
+end
+
+// Multiplication on the right by a negative Int reverses `<`.
+theorem int_neg_mult_mono_less_right: all n:Int, x:Int, y:Int.
+  if n < +0 and x < y
+  then y * n < x * n
+proof
+  arbitrary n:Int, x:Int, y:Int
+  assume prem
+  have step: n * y < n * x by apply int_neg_mult_mono_less_left[n, x, y] to prem
+  replace int_mult_commute[n, x] | int_mult_commute[n, y] in step
+end
