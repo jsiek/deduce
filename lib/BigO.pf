@@ -668,16 +668,16 @@ proof
   apply uint_max_less_equal to f_le, g_le
 end
 
-// The pointwise sum is at most twice the pointwise max.
-theorem bigo_add_le_2max: all f:fn UInt->UInt, g:fn UInt->UInt.
-  f + g ≲ 2 * max(f, g)
+// The pointwise sum is bounded by a constant multiple of the pointwise max.
+theorem bigo_add_le_max: all f:fn UInt->UInt, g:fn UInt->UInt.
+  f + g ≲ max(f, g)
 proof
   arbitrary f:fn UInt->UInt, g:fn UInt->UInt
-  expand operator≲ | operator+ | operator* | max
-  choose 0, 1
+  expand operator≲ | operator+ | max
+  choose 0, 2
   arbitrary n:UInt
   assume _
-  show f(n) + g(n) ≤ 1 * (2 * max(f(n), g(n)))
+  show f(n) + g(n) ≤ 2 * max(f(n), g(n))
   have f_le: f(n) ≤ max(f(n), g(n)) by uint_max_greater_left
   have g_le: g(n) ≤ max(f(n), g(n)) by uint_max_greater_right
   have sum_le: f(n) + g(n) ≤ max(f(n), g(n)) + max(f(n), g(n))
