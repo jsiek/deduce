@@ -28,8 +28,7 @@ proof
   induction List<UInt>
   case empty {
     arbitrary ys:List<UInt>
-    expand maximum | operator++
-    replace uint_zero_max[maximum(ys)].
+    expand maximum | operator++.
   }
   case node(x, xs') assume IH: (all ys:List<UInt>.
       maximum(xs' ++ ys) = max(maximum(xs'), maximum(ys))) {
@@ -55,8 +54,7 @@ proof
   }
   case node(x, xs') assume IH: maximum(reverse(xs')) = maximum(xs') {
     have singleton_max: maximum([x]) = x
-      by expand 2*maximum
-         replace uint_max_zero[x].
+      by expand 2*maximum.
     equations
       maximum(reverse(node(x, xs')))
           = maximum(reverse(xs') ++ [x])           by expand reverse.
