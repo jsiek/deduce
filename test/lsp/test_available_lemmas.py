@@ -596,6 +596,87 @@ def test_unify_rewrite_subterm_tier_fires_for_equation_lemma() -> None:
     assert by_name["not_not"].unify_tier == "rewrite_subterm"
 
 
+def test_unify_uses_typed_lemma_overload_for_right_type_match() -> None:
+    """A right-type lemma whose first lexically-resolved overload
+    candidate does NOT alias the goal's resolved operator must still
+    match as ``full``.
+
+    Reproduces Bug 3 from issue #690: ``stmt.what`` (the parsed,
+    pre-typecheck lemma AST) keeps :class:`OverloadedVar` with a
+    candidate list whose first entry is just whatever uniquify saw
+    first.  The matcher's name-equality check compares only that
+    first candidate, so a lemma about ``A * A`` whose first ``*``
+    overload happens to be the ``B * B`` one gets rejected even
+    though it's the right answer.
+
+    The fix is to look the lemma up in the proof environment (where
+    overloads have been resolved during the prelude's type check)
+    before unifying."""
+    source = (
+        "import OverloadShared\n"
+        "\n"
+        "theorem t: all a:A, c:A. a * c = c * a\n"
+        "proof\n"
+        "  arbitrary a:A, c:A\n"
+        "  ?\n"
+        "end\n"
+    )
+    matches = available_lemmas_at(
+        "user.pf", source, Position(line=6, column=3),
+        prelude=("OverloadShared",),
+    )
+    by_name = {m.name: m for m in matches}
+    assert "aa_star_commute" in by_name, (
+        "the right-type lemma should appear in the candidate list"
+    )
+    assert by_name["aa_star_commute"].unify_tier == "full", (
+        "aa_star_commute applies to an A * A goal -- it should be "
+        "the full-tier top match, not buried at None"
+    )
+
+
+def test_unify_rejects_wrong_type_overload_as_full_tier() -> None:
+    """A wrong-type lemma whose first lexically-resolved overload
+    candidate ALIASES the goal's resolved operator must not match as
+    ``full``.
+
+    Reproduces Bug 2 from issue #690: ``bb_star_commute`` and
+    ``ab_star_refl`` both reference ``*`` with an :class:`OverloadedVar`
+    candidate list that includes the A*A overload (because all three
+    overloads are in scope where they were declared).  The matcher's
+    first-candidate-only name-equality test mis-accepts the wrong-type
+    lemma whenever that lexical first candidate happens to be the A*A
+    one.
+
+    The fix (looking up the typed formula in the proof environment)
+    sees the resolved single overload and rejects the mismatch."""
+    source = (
+        "import OverloadShared\n"
+        "\n"
+        "theorem t: all a:A, c:A. a * c = c * a\n"
+        "proof\n"
+        "  arbitrary a:A, c:A\n"
+        "  ?\n"
+        "end\n"
+    )
+    matches = available_lemmas_at(
+        "user.pf", source, Position(line=6, column=3),
+        prelude=("OverloadShared",),
+    )
+    by_name = {m.name: m for m in matches}
+    if "bb_star_commute" in by_name:
+        assert by_name["bb_star_commute"].unify_tier != "full", (
+            "bb_star_commute is about B * B; an A * A goal must not "
+            "full-match it just because the first overload of `*` in "
+            "the lemma's candidate list happens to be the A*A one"
+        )
+    if "ab_star_refl" in by_name:
+        assert by_name["ab_star_refl"].unify_tier != "full", (
+            "ab_star_refl is about A * B; an A * A goal must not "
+            "full-match it"
+        )
+
+
 def test_browse_mode_leaves_unify_tier_unset() -> None:
     """Browse mode (no goal, no query) doesn't run the unifier, so
     ``unify_tier`` stays ``None`` on every result."""

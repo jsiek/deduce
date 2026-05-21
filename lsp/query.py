@@ -4285,6 +4285,47 @@ def _iter_subterms(node: Any) -> Any:
     return out
 
 
+def _resolve_typed_formula(name: str, env: Any) -> Any:
+    """Return the post-typecheck formula for the named lemma from
+    ``env``, or ``None`` when ``env`` doesn't surface a
+    :class:`ProofBinding` under any key whose base name is ``name``.
+
+    The formula stored on :class:`abstract_syntax.declarations.Theorem`
+    and :class:`Postulate` is the parsed, pre-typecheck AST -- bound
+    variables and operators are still :class:`OverloadedVar` carrying
+    a list of candidate resolved names. The matcher's
+    ``get_name()`` returns only the first candidate, which produces
+    both false positives (an unrelated lemma whose first overload
+    happens to alias the goal's resolved operator -- e.g.
+    ``add_commute_uint_int : all x:UInt, y:Int. x + y = y + x``
+    against a ``UInt + UInt`` goal) and false negatives (a
+    right-type lemma whose first overload doesn't alias the goal --
+    e.g. ``uint_add_commute`` when its first candidate is the
+    inherited Nat ``+``).
+
+    The proof environment, by contrast, stores the post-typecheck
+    formula -- overloads have been resolved to single names and
+    variable types pinned to a single overload candidate during the
+    prelude's check pass. Using that formula for unification (issue
+    #690) fixes both classes of bug at once.
+
+    Theorem names are forbidden from being overloaded (see
+    :meth:`Postulate.uniquify`), so a base-name lookup uniquely
+    identifies the binding.
+    """
+    if env is None or not hasattr(env, "dict"):
+        return None
+    from abstract_syntax import ProofBinding, base_name
+
+    for key in env.dict:
+        if base_name(key) != name:
+            continue
+        binding = env.dict[key]
+        if isinstance(binding, ProofBinding):
+            return binding.formula
+    return None
+
+
 def _unify_score(
     formula: Any,
     goal_ast: Any,
@@ -4490,8 +4531,16 @@ def _rank_lemmas(
             continue
 
         if has_unify_signal:
+            # Prefer the env-resolved typed formula over the parsed
+            # one when available: the latter still has OverloadedVar
+            # candidate lists for both operators and variable types,
+            # and the matcher's first-candidate-only comparison
+            # produces both false-positive and false-negative full
+            # tiers depending on lexical order (issue #690 Bug 2/3).
+            typed_formula = _resolve_typed_formula(info.name, env)
+            unify_input = typed_formula if typed_formula is not None else formula
             unify_score, unify_tier, discharged = _unify_score(
-                formula, goal_ast, env, given_pairs
+                unify_input, goal_ast, env, given_pairs
             )
         else:
             unify_score, unify_tier, discharged = 0.0, None, ()

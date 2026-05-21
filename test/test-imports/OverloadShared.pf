@@ -1,0 +1,45 @@
+/*
+  Test fixture for issue #690 (Bug 2 + Bug 3 in `_unify_score`):
+  two distinct types `A` and `B` that share an overloaded operator
+  `*`, plus three theorems that exercise the matcher's overload
+  handling.
+
+  In a `?` over an `A*A` goal, the typed-formula resolver must:
+    - accept `aa_star_commute` (the right-type lemma) as `full`
+    - reject `ab_star_swap` (mixed-overload lemma) as not `full`
+    - reject `bb_star_commute` (wrong-type lemma) as not `full`
+
+  Without the fix, the matcher's first-candidate-only comparison of
+  `OverloadedVar.resolved_names` produces both false positives and
+  false negatives depending on the lexical order of the overload
+  candidates.
+*/
+
+union A {
+  ma
+}
+
+union B {
+  mb
+}
+
+fun operator *(x:A, y:A) {
+  ma
+}
+
+fun operator *(x:B, y:B) {
+  mb
+}
+
+fun operator *(x:A, y:B) {
+  mb
+}
+
+postulate aa_star_commute: all x:A, y:A. x * y = y * x
+postulate bb_star_commute: all x:B, y:B. x * y = y * x
+// A mixed-overload `*` reference, but trivially refl on the RHS so
+// the type checker can resolve the lemma itself. Plays the role of
+// `add_commute_uint_int` in the stdlib reproducer for issue #690:
+// a real lemma about an A×B `*` whose first-resolved-name aliases
+// the A×A overload, fooling the matcher's first-candidate check.
+postulate ab_star_refl:    all x:A, y:B. x * y = x * y
