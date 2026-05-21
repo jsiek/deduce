@@ -44,6 +44,12 @@ You should see the following response from Deduce.
 example.pf is valid
 ```
 
+On the very first run Deduce also prints one `> checking <module>` line for
+each module in the standard-library prelude (around three dozen) while it
+builds the per-module `.thm` cache under `lib/`; subsequent runs reuse that
+cache and print just the `example.pf is valid` line above. This is normal
+output, not an error — pass `--quiet` to suppress it.
+
 This response means that all the proofs in `example.pf` are complete and flawless!
 Most of the time you will be working on incomplete or flawed proofs and
 Deduce will try to give you helpful feedback. For example, if you replace
