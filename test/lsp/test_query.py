@@ -99,6 +99,7 @@ EXPECTED_PUBLIC = {
     "apply_at",
     "hole_context_at",
     "available_lemmas_at",
+    "insert_lemma_at",
     "validate_proof_at",
     "preview_replace_at",
     "preview_expand_at",

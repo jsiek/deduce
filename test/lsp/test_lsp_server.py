@@ -128,6 +128,8 @@ def test_all_expected_features_are_registered():
         lsp_server.ELIMINABLE_VARS_REQUEST,
         lsp_server.HOLE_CONTEXT_AT_REQUEST,
         lsp_server.VALIDATE_PROOF_REQUEST,
+        lsp_server.AVAILABLE_LEMMAS_REQUEST,
+        lsp_server.INSERT_LEMMA_REQUEST,
     }
     assert expected.issubset(set(fm.features))
 
@@ -1108,3 +1110,142 @@ def test_eliminate_at_returns_null_when_label_omitted(server, open_doc):
         "position": {"line": 0, "character": 0},
     }
     assert lsp_server.on_eliminate_at(server, params) is None
+
+
+# --------------------------------------------------------------------------
+# Custom requests: deduce/availableLemmasAt and deduce/insertLemma
+# (issue #690 -- Part 2)
+# --------------------------------------------------------------------------
+
+
+def test_available_lemmas_at_returns_ranked_lemmas_with_tier(
+    server, open_doc
+):
+    """Cursor on `?`; the response lists in-scope lemmas, each tagged
+    with a `unify_tier` reflecting how its conclusion relates to the
+    goal."""
+    src = (
+        "theorem and_intro: all P:bool, Q:bool. if P then if Q then P and Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  suppose pP: P\n"
+        "  suppose qQ: Q\n"
+        "  pP, qQ\n"
+        "end\n"
+        "\n"
+        "theorem with_hole: all P:bool, Q:bool."
+        " if P then if Q then P and Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  suppose pP: P\n"
+        "  suppose qQ: Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    _, uri = open_doc("avail.pf", src)
+    # `?` is at line 14 col 3 (1-indexed) -> LSP line 13, char 2.
+    params = {
+        "textDocument": {"uri": uri},
+        "position": {"line": 13, "character": 2},
+    }
+    result = lsp_server.on_available_lemmas_at(server, params)
+    by_name = {m["name"]: m for m in result}
+    assert "and_intro" in by_name
+    assert by_name["and_intro"]["unify_tier"] == "full"
+    assert by_name["and_intro"]["kind"] == "theorem"
+    # discharged_premises is a list of [premise, by_given] pairs on the
+    # wire; check that both local givens contribute.
+    labels = {pair[1] for pair in by_name["and_intro"]["discharged_premises"]}
+    assert labels == {"pP", "qQ"}
+
+
+def test_available_lemmas_at_honours_query_filter(server, open_doc):
+    """A substring `query` narrows the candidate set to matching
+    lemmas, even when the cursor isn't on a hole."""
+    src = (
+        "theorem alpha_keep: true\nproof\n  .\nend\n"
+        "theorem beta_drop: true\nproof\n  .\nend\n"
+    )
+    _, uri = open_doc("query.pf", src)
+    params = {
+        "textDocument": {"uri": uri},
+        "position": {"line": 0, "character": 0},
+        "query": "alpha",
+    }
+    result = lsp_server.on_available_lemmas_at(server, params)
+    names = {m["name"] for m in result}
+    assert "alpha_keep" in names
+    assert "beta_drop" not in names
+
+
+def test_available_lemmas_at_returns_empty_when_uri_missing(
+    server, open_doc
+):
+    """Missing `textDocument.uri` -> empty list (defensive)."""
+    result = lsp_server.on_available_lemmas_at(
+        server, {"position": {"line": 0, "character": 0}}
+    )
+    assert result == []
+
+
+def test_insert_lemma_returns_full_tier_workspace_edit(server, open_doc):
+    """Cursor on `?` with a name whose conclusion unifies and whose
+    premises are all discharged -> WorkspaceEdit with `conclude ... by
+    apply <name> to <labels>`."""
+    src = (
+        "theorem and_intro: all P:bool, Q:bool. if P then if Q then P and Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  suppose pP: P\n"
+        "  suppose qQ: Q\n"
+        "  pP, qQ\n"
+        "end\n"
+        "\n"
+        "theorem with_hole: all P:bool, Q:bool."
+        " if P then if Q then P and Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  suppose pP: P\n"
+        "  suppose qQ: Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    _, uri = open_doc("insert_full.pf", src)
+    params = {
+        "textDocument": {"uri": uri},
+        "position": {"line": 13, "character": 2},
+        "name": "and_intro",
+    }
+    result = lsp_server.on_insert_lemma(server, params)
+    assert result is not None
+    edits = result["changes"][uri]
+    assert len(edits) == 1
+    assert edits[0]["newText"] == (
+        "conclude (P and Q) by apply and_intro to pP, qQ"
+    )
+    assert edits[0]["range"]["start"] == {"line": 13, "character": 2}
+    assert edits[0]["range"]["end"] == {"line": 13, "character": 3}
+
+
+def test_insert_lemma_returns_null_for_unknown_name(server, open_doc):
+    src = (
+        "theorem t: true\nproof\n  ?\nend\n"
+    )
+    _, uri = open_doc("insert_bad.pf", src)
+    params = {
+        "textDocument": {"uri": uri},
+        "position": {"line": 2, "character": 2},
+        "name": "no_such_lemma",
+    }
+    assert lsp_server.on_insert_lemma(server, params) is None
+
+
+def test_insert_lemma_returns_null_when_name_omitted(server, open_doc):
+    """Missing `name` field -> null (defensive)."""
+    src = "x"
+    _, uri = open_doc("noop3.pf", src)
+    params = {
+        "textDocument": {"uri": uri},
+        "position": {"line": 0, "character": 0},
+    }
+    assert lsp_server.on_insert_lemma(server, params) is None

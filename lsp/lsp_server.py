@@ -153,6 +153,16 @@ ELIMINABLE_VARS_REQUEST = "deduce/eliminableVarsAt"
 FILL_FROM_GIVEN_REQUEST = "deduce/fillFromGivenAt"
 MATCHING_GIVENS_REQUEST = "deduce/matchingGivensAt"
 
+# Custom requests for issue #690 (lemma search at a hole).  Same shape
+# as the eliminate / fill-from-given pair: the editor fetches ranked
+# lemma candidates via ``deduce/availableLemmasAt`` for the picker,
+# then issues ``deduce/insertLemma`` with the user's chosen name.
+# Tier-aware insertion (``conclude ... by``, ``apply ... to``,
+# ``replace``, bare name) is recomputed server-side from the buffer
+# state so the client doesn't have to round-trip the tier.
+AVAILABLE_LEMMAS_REQUEST = "deduce/availableLemmasAt"
+INSERT_LEMMA_REQUEST = "deduce/insertLemma"
+
 # Custom request for the Claude hole-fill sidecar (hole-fill-plan
 # Phase 1 / Step 2). Returns goal + givens + lemmas-in-scope +
 # fingerprint for the ``?`` token at the cursor. Sibling to
@@ -957,6 +967,113 @@ def on_fill_from_given_at(
     path = _path_from_uri(uri)
     edit = _query.fill_from_given_at(
         path, content, pos, str(label), prelude=_prelude_for(path)
+    )
+    if edit is None:
+        return None
+    return _workspace_edit_payload(uri, edit)
+
+
+def _lemma_match_payload(m: _query.LemmaMatch) -> dict[str, object]:
+    """Render a :class:`LemmaMatch` for the LSP wire.
+
+    Mirrors the MCP shape produced by :func:`lsp.mcp_server._to_serializable`
+    so editor clients see the same field names whether they came in
+    via MCP or LSP: ``kind`` and ``unify_tier`` are the enum/string
+    values, ``discharged_premises`` is a list of ``[premise,
+    by_given]`` pairs.
+    """
+    return {
+        "name": m.name,
+        "kind": m.kind.value,
+        "signature": m.signature,
+        "module": m.module,
+        "relevance": m.relevance,
+        "unify_tier": m.unify_tier,
+        "discharged_premises": [
+            [premise, by_given] for premise, by_given in m.discharged_premises
+        ],
+    }
+
+
+@server.feature(AVAILABLE_LEMMAS_REQUEST)
+def on_available_lemmas_at(
+    ls: LanguageServer, params: object
+) -> list[dict[str, object]]:
+    """Custom request: return ranked lemmas relevant at the cursor.
+
+    Params: ``{"textDocument": {"uri": "..."}, "position": {"line":
+    int, "character": int}, "query": str?, "limit": int?}``.  Cursor
+    on a ``?`` drives ranking by goal shape (unify tier first, then
+    head/symbol/module heuristics); ``query`` filters by substring or
+    goal-shape pattern with ``_`` placeholders; off-hole with no
+    query is browse mode -- everything in scope, ranked by module
+    proximity.
+
+    Result: a list of ``{"name", "kind", "signature", "module",
+    "relevance", "unify_tier", "discharged_premises"}`` dicts ordered
+    best-first.  ``unify_tier`` is one of ``"full"``,
+    ``"premises_remain"``, ``"rewrite_subterm"``, or ``null``;
+    ``discharged_premises`` is a list of ``[premise_text, given_label]``
+    pairs (non-empty only for the ``"full"`` tier).  Empty list when
+    nothing is in scope or the ``query`` matches nothing.
+    """
+    text_doc = _get_field(params, "textDocument")
+    pos_obj = _get_field(params, "position")
+    uri = _field_as_str(text_doc, "uri")
+    if not uri:
+        return []
+    content = _document_content(ls, uri)
+    if content is None:
+        return []
+    pos = _query_pos_from_lsp(
+        _position_from_param(pos_obj)
+    )
+    path = _path_from_uri(uri)
+    query = _field_as_str(params, "query")
+    limit_obj = _get_field(params, "limit")
+    limit = limit_obj if isinstance(limit_obj, int) else 50
+    matches = _query.available_lemmas_at(
+        path, content, pos,
+        query=query,
+        prelude=_prelude_for(path),
+        limit=limit,
+    )
+    return [_lemma_match_payload(m) for m in matches]
+
+
+@server.feature(INSERT_LEMMA_REQUEST)
+def on_insert_lemma(
+    ls: LanguageServer, params: object
+) -> Optional[dict[str, object]]:
+    """Custom request: return a tier-aware WorkspaceEdit that splices a
+    reference to the named lemma at the cursor.
+
+    Params: ``{"textDocument": {"uri": "..."}, "position": {"line":
+    int, "character": int}, "name": str}``.  ``name`` must be in scope
+    as a theorem, lemma, or postulate at ``position``.
+
+    Result: ``{"changes": {<uri>: [{"range": Range, "newText":
+    str}]}}`` (an LSP-shaped WorkspaceEdit) or ``null`` when ``name``
+    isn't in scope at the cursor.
+
+    Tier is recomputed server-side; see :func:`lsp.query.insert_lemma_at`
+    for the four template shapes.
+    """
+    text_doc = _get_field(params, "textDocument")
+    pos_obj = _get_field(params, "position")
+    uri = _field_as_str(text_doc, "uri")
+    name = _field_as_str(params, "name")
+    if not uri or not name:
+        return None
+    content = _document_content(ls, uri)
+    if content is None:
+        return None
+    pos = _query_pos_from_lsp(
+        _position_from_param(pos_obj)
+    )
+    path = _path_from_uri(uri)
+    edit = _query.insert_lemma_at(
+        path, content, pos, str(name), prelude=_prelude_for(path)
     )
     if edit is None:
         return None
