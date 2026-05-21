@@ -1320,13 +1320,17 @@ own [severity] header so the user can tell them apart."
     (should (null (deduce-lsp--lemma-tier-tag lemma)))))
 
 
-(ert-deftest deduce-lsp/search-lemma-display-string-includes-signature ()
-  "Picker rows show `name : signature' so users can pick by formula
-shape, not just by memorized name."
+(ert-deftest deduce-lsp/search-lemma-display-string-uses-signature-verbatim ()
+  "Picker rows show the server's `:signature' verbatim.
+
+The server already renders the declaration in `.thm' style --
+`NAME: formula' for theorems/postulates -- so prepending the
+name again would produce the `t : t: (...)' duplication the
+user reported."
   (let ((lemma '(:name "uint_add_commute"
-                 :signature "all a:UInt, b:UInt. a + b = b + a")))
+                 :signature "uint_add_commute: all x:UInt, y:UInt. x + y = y + x")))
     (should (equal (deduce-lsp--lemma-display-string lemma)
-                   "uint_add_commute : all a:UInt, b:UInt. a + b = b + a"))))
+                   "uint_add_commute: all x:UInt, y:UInt. x + y = y + x"))))
 
 
 (ert-deftest deduce-lsp/search-lemma-display-string-no-signature ()
@@ -1339,16 +1343,16 @@ shape, not just by memorized name."
 (ert-deftest deduce-lsp/search-lemma-build-alist-disambiguates-duplicates ()
   "Two lemmas with the same display string get unique alist keys --
 otherwise `completing-read' can't tell them apart."
-  (let* ((lemmas (list '(:name "foo" :signature "Sig" :module "A")
-                       '(:name "foo" :signature "Sig" :module "B")))
+  (let* ((lemmas (list '(:name "foo" :signature "foo: Sig" :module "A")
+                       '(:name "foo" :signature "foo: Sig" :module "B")))
          (alist (deduce-lsp--build-lemma-alist lemmas))
          (keys (mapcar #'car alist)))
     (should (= (length keys) 2))
     (should (equal (length (delete-dups (copy-sequence keys))) 2))
     ;; The second occurrence is suffixed; the first keeps the plain
     ;; form so the common case has no visual noise.
-    (should (equal (car keys) "foo : Sig"))
-    (should (equal (cadr keys) "foo : Sig (2)"))))
+    (should (equal (car keys) "foo: Sig"))
+    (should (equal (cadr keys) "foo: Sig (2)"))))
 
 
 (ert-deftest deduce-lsp/search-lemma-annotation-fn-renders-tier-and-module ()
@@ -1392,7 +1396,7 @@ then the insertion request with the picked lemma name."
           (forward-char 2)
           (let ((lemma `(:name "eq_refl"
                          :kind "theorem"
-                         :signature "all x:bool. x = x"
+                         :signature "eq_refl: all x:bool. x = x"
                          :module "Base"
                          :relevance 1.0
                          :unify_tier "full"
@@ -1410,7 +1414,7 @@ then the insertion request with the picked lemma name."
                           ((eq method :deduce/insertLemma) nil))))
                       ((symbol-function 'completing-read)
                        (lambda (&rest _args)
-                         "eq_refl : all x:bool. x = x")))
+                         "eq_refl: all x:bool. x = x")))
               (ignore-errors (deduce-lsp-search-lemma))))
           (let* ((calls (reverse calls))
                  (call1 (assq :deduce/availableLemmasAt calls))

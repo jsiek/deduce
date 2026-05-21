@@ -3679,7 +3679,19 @@ def available_lemmas_at(
         result = check_file(path, content=content, prelude=prelude)
         ast_nodes = result.ast
 
-    candidates = _collect_lemma_candidates(path, ast_nodes, prelude)
+    # A proof can't cite the theorem it's proving -- circularity --
+    # so drop the enclosing theorem from candidates before ranking.
+    # Only applies when the cursor is at a hole inside a proof body;
+    # browse mode (cursor anywhere else) keeps every declaration
+    # visible, including the theorem that happens to start at pos.
+    exclude = (
+        _enclosing_theorem_name(ast_nodes, pos)
+        if hole_range is not None
+        else None
+    )
+    candidates = _collect_lemma_candidates(
+        path, ast_nodes, prelude, exclude_name=exclude
+    )
     if not candidates:
         return ()
 
@@ -3826,8 +3838,45 @@ def _module_for_path(path: str) -> str:
     return Path(path).stem
 
 
+def _enclosing_theorem_name(ast_nodes: Any, pos: Position) -> Optional[str]:
+    """Return the base name of the user-file ``Theorem`` whose body
+    encloses ``pos``, or ``None`` when ``pos`` isn't inside one.
+
+    Theorems don't nest at the top level, so the enclosing one is the
+    last ``Theorem`` whose start ``location`` is at or before ``pos``
+    and which has no later top-level statement starting at or before
+    ``pos``. The intent is to skip the theorem currently being proved
+    when surfacing lemmas at one of its holes -- the proof can't
+    refer to itself.
+    """
+    if ast_nodes is None:
+        return None
+    from abstract_syntax import Theorem, base_name
+
+    enclosing: Optional[str] = None
+    for stmt in ast_nodes:
+        loc = getattr(stmt, "location", None)
+        if loc is None or getattr(loc, "empty", True):
+            continue
+        if not _meta_at_or_before(loc, pos):
+            # ``ast_nodes`` is in source order; no later sibling can be
+            # at-or-before ``pos`` either.
+            break
+        if isinstance(stmt, Theorem):
+            enclosing = base_name(stmt.name)
+        else:
+            # A non-Theorem starts at-or-before pos, which means any
+            # earlier Theorem ended before this stmt -- pos is outside
+            # it. Reset.
+            enclosing = None
+    return enclosing
+
+
 def _collect_lemma_candidates(
-    path: str, ast_nodes: Any, prelude: Sequence[str]
+    path: str,
+    ast_nodes: Any,
+    prelude: Sequence[str],
+    exclude_name: Optional[str] = None,
 ) -> tuple[tuple[LemmaInfo, Any, str], ...]:
     """Build the ranking input: theorems/lemmas/postulates with their
     formula AST and module of origin.
@@ -3845,6 +3894,11 @@ def _collect_lemma_candidates(
       ``using``/``hiding`` clause.
     - Each module named in ``prelude`` (public theorems/postulates
       only, matching ``print_theorems``' visibility filter).
+
+    When ``exclude_name`` is set, any theorem/postulate with that
+    base name is dropped from the user-file slice -- used to keep
+    the theorem currently being proved out of the picker at one of
+    its own holes.
     """
     from abstract_syntax import (
         Import as _ImportNode,
@@ -3897,6 +3951,8 @@ def _collect_lemma_candidates(
             if info is None:
                 continue
             if info.name in seen_names:
+                continue
+            if exclude_name is not None and info.name == exclude_name:
                 continue
             seen_names.add(info.name)
             out.append((info, stmt.what, user_module))

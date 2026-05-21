@@ -677,6 +677,35 @@ def test_unify_rejects_wrong_type_overload_as_full_tier() -> None:
         )
 
 
+def test_current_theorem_excluded_from_lemma_list() -> None:
+    """The theorem currently being proved must not appear in the
+    candidate list -- a proof can't cite itself (issue #690 Bug 5).
+
+    User report: with cursor on the ``?`` inside ``theorem t``,
+    `C-c C-l` listed ``t`` as one of the applicable lemmas.
+    """
+    source = (
+        "theorem helper: true\nproof\n  .\nend\n"
+        "\n"
+        "theorem t: all a:UInt, b:UInt. a + b = b + a\n"
+        "proof\n"
+        "  arbitrary a:UInt, b:UInt\n"
+        "  ?\n"
+        "end\n"
+    )
+    # Hole sits on line 9 inside ``theorem t``.
+    matches = available_lemmas_at(
+        "user.pf", source, Position(line=9, column=3),
+    )
+    names = {m.name for m in matches}
+    assert "t" not in names, (
+        "The current theorem must not be offered as a lemma -- "
+        "citing it from its own proof is circular"
+    )
+    # Sibling theorems remain visible.
+    assert "helper" in names
+
+
 def test_browse_mode_leaves_unify_tier_unset() -> None:
     """Browse mode (no goal, no query) doesn't run the unifier, so
     ``unify_tier`` stays ``None`` on every result."""

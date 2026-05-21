@@ -729,13 +729,21 @@ and returns the tier + module annotation."
 
 (defun deduce-lsp--lemma-display-string (lemma)
   "Return the picker-row display string for LEMMA.
-The signature is included so a student who has not memorized
-every theorem in the prelude can pick by formula shape, not just
-by name."
+
+The server's `:signature' field is the `.thm'-style rendering of
+the declaration -- already prefixed with `NAME: ' for theorems
+and postulates, or starting with the keyword (`recursive', `auto',
+etc.) for other declaration kinds.  Showing it verbatim keeps a
+student's eyes on formula shape, not just on the bare name, and
+avoids the `t : t: (...)' duplication that prefixing a redundant
+NAME would produce.
+
+Falls back to just the name when the signature is missing or
+empty (defensive -- the server always sets one in practice)."
   (let ((name (plist-get lemma :name))
         (signature (plist-get lemma :signature)))
     (if (and signature (not (equal signature "")))
-        (format "%s : %s" name signature)
+        signature
       name)))
 
 
