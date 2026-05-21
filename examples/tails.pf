@@ -1,0 +1,81 @@
+// tails.pf
+//
+// The classic Haskell intro-FP function:
+//
+//     tails :: [a] -> [[a]]
+//     tails []     = [[]]
+//     tails (x:xs) = (x:xs) : tails xs
+//
+// `tails(xs)` is the list of all suffixes of `xs`, starting with `xs`
+// itself and ending with the empty list. For example,
+//   tails([1,2,3]) = [[1,2,3], [2,3], [3], []]
+//
+// We define `tails` and prove three correctness theorems:
+//
+//   1. length_tails:          length(tails(xs)) = 1 + length(xs)
+//   2. head_tails:            head(tails(xs)) = just(xs)
+//   3. tails_contains_empty:  contains(tails(xs), empty) = true
+
+import List
+
+recursive tails<T>(List<T>) -> List< List<T> > {
+  tails(empty) = node(empty, empty)
+  tails(node(x, xs)) = node(node(x, xs), tails(xs))
+}
+
+assert tails([1, 2, 3]) = [[1,2,3], [2,3], [3], []]
+assert tails(@[]<UInt>) = [@[]<UInt>]
+
+// The length of tails(xs) is one more than length(xs),
+// since tails always ends with the empty suffix.
+theorem length_tails: all T:type. all xs:List<T>.
+  length(tails(xs)) = 1 + length(xs)
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    expand tails | 2*length.
+  }
+  case node(x, xs') assume IH: length(tails(xs')) = 1 + length(xs') {
+    equations
+      length(tails(node(x, xs')))
+          = length(node(node(x, xs'), tails(xs')))   by expand tails.
+      ... = 1 + length(tails(xs'))                   by expand length.
+      ... = 1 + (1 + length(xs'))                    by replace IH.
+      ... = # 1 + length(node(x, xs')) #             by expand length.
+  }
+end
+
+// The head of tails(xs) is xs itself: the first suffix is the
+// whole list. No induction is needed --- the result is immediate
+// once we have unfolded `tails` once.
+theorem head_tails: all T:type. all xs:List<T>.
+  head(tails(xs)) = just(xs)
+proof
+  arbitrary T:type
+  arbitrary xs:List<T>
+  switch xs {
+    case empty {
+      expand tails | head.
+    }
+    case node(x, xs') {
+      expand tails | head.
+    }
+  }
+end
+
+// Every tails(xs) contains the empty list as a suffix --- it is
+// always the last element produced.
+theorem tails_contains_empty: all T:type. all xs:List<T>.
+  contains(tails(xs), @empty<T>) = true
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    expand tails | contains.
+  }
+  case node(x, xs') assume IH: contains(tails(xs'), @empty<T>) = true {
+    expand tails | contains
+    replace IH.
+  }
+end
