@@ -1,4 +1,5 @@
 import Int
+import Nat
 
 assert +1 ≤ +1
 assert +1 ≤ +2
@@ -24,4 +25,69 @@ theorem abs_zero_iff_int_zero_sample: all x:Int.
   abs(x) = 0 ⇔ x = +0
 proof
   int_abs_eq_zero_iff_zero
+end
+
+// === Spec theorems for ÷, ≤, < (Issue #722) ===
+
+// Order: literal cross-sign assertions
+assert (+1 ≤ -1) = false
+assert (-1 ≤ +1) = true
+assert (-3 ≤ -2) = true
+assert (+1 < +2) = true
+assert (-2 < -1) = true
+assert (+5 < -1) = false
+assert (-5 < +0) = true
+
+// Division: each constructor pair reduces to UInt division.
+assert +6 / +2 = +3
+assert +6 / -2 = -3
+assert -7 / +2 = -3       // negsuc(6) / pos(2) = -((1+6)/2) = -3
+assert -6 / -2 = +3       // negsuc(5) / negsuc(1) = (1+5)/(1+1) = 3
+assert +6 / 2 = +3        // Int / UInt
+assert -6 / 2 = -3        // Int / UInt with negative dividend
+
+theorem int_pos_le_pos_sample: all au:UInt, bu:UInt.
+  (pos(au) ≤ pos(bu)) = (au ≤ bu)
+proof
+  int_pos_le_pos
+end
+
+theorem int_negsuc_le_negsuc_sample: all au:UInt, bu:UInt.
+  (negsuc(au) ≤ negsuc(bu)) = (bu ≤ au)
+proof
+  int_negsuc_le_negsuc
+end
+
+theorem int_pos_less_pos_sample: all au:UInt, bu:UInt.
+  (pos(au) < pos(bu)) = (au < bu)
+proof
+  int_pos_less_pos
+end
+
+theorem div_pos_pos_sample: all au:UInt, bu:UInt.
+  pos(au) / pos(bu) = pos(au / bu)
+proof
+  div_pos_pos
+end
+
+theorem div_negsuc_negsuc_sample: all au:UInt, bu:UInt.
+  negsuc(au) / negsuc(bu) = pos((1 + au) / (1 + bu))
+proof
+  div_negsuc_negsuc
+end
+
+// Literal-level: the structural auto rules chain with `uint_lit_div`
+// to evaluate divisions on integer literals.
+theorem div_pos_lit_pos_lit: all x:Nat, y:Nat.
+  pos(fromNat(lit(x))) / pos(fromNat(lit(y))) = pos(fromNat(lit(x) / lit(y)))
+proof
+  arbitrary x:Nat, y:Nat
+  .
+end
+
+theorem pos_lit_le_pos_lit: all x:Nat, y:Nat.
+  (pos(fromNat(lit(x))) ≤ pos(fromNat(lit(y)))) = (lit(x) ≤ lit(y))
+proof
+  arbitrary x:Nat, y:Nat
+  .
 end

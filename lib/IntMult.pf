@@ -533,24 +533,14 @@ proof
     case pos(au) {
       switch b {
         case pos(bu) {
-          assume _prem
           replace mult_pos_pos
           show +0 ≤ pos(au * bu)
-          expand operator≤
           uint_zero_le[au * bu]
         }
-        case negsuc(bu) {
-          assume prem
-          have bad: +0 ≤ negsuc(bu) by conjunct 1 of prem
-          conclude false by expand operator≤ in bad
-        }
+        case negsuc(bu) { . }
       }
     }
-    case negsuc(au) {
-      assume prem
-      have bad: +0 ≤ negsuc(au) by conjunct 0 of prem
-      conclude false by expand operator≤ in bad
-    }
+    case negsuc(au) { . }
   }
 end
 
@@ -565,27 +555,16 @@ proof
       switch b {
         case pos(bu) {
           assume prem
-          have zlt_au: 0 < au by expand operator< in (conjunct 0 of prem)
-          have zlt_bu: 0 < bu by expand operator< in (conjunct 1 of prem)
+          have zlt_au: 0 < au by conjunct 0 of prem
+          have zlt_bu: 0 < bu by conjunct 1 of prem
           replace mult_pos_pos
           show +0 < pos(au * bu)
-          expand operator<
-          have step: 0 < au * bu
-            by apply uint_pos_mult_both_sides_of_less[au, 0, bu] to zlt_au, zlt_bu
-          step
+          apply uint_pos_mult_both_sides_of_less[au, 0, bu] to zlt_au, zlt_bu
         }
-        case negsuc(bu) {
-          assume prem
-          have bad: +0 < negsuc(bu) by conjunct 1 of prem
-          conclude false by expand operator< in bad
-        }
+        case negsuc(bu) { . }
       }
     }
-    case negsuc(au) {
-      assume prem
-      have bad: +0 < negsuc(au) by conjunct 0 of prem
-      conclude false by expand operator< in bad
-    }
+    case negsuc(au) { . }
   }
 end
 

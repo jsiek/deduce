@@ -260,9 +260,7 @@ proof
     case pos(n) {
       int_less_equal_refl[pos(n)]
     }
-    case negsuc(n) {
-      expand operator≤.
-    }
+    case negsuc(n) { . }
   }
 end
 
@@ -286,7 +284,7 @@ proof
   arbitrary x:Int, y:UInt
   have fwd: if abs(x) ≤ y then -pos(y) ≤ x and x ≤ pos(y) by {
     assume prem
-    have ax_le_y: pos(abs(x)) ≤ pos(y) by expand operator≤ prem
+    have ax_le_y: pos(abs(x)) ≤ pos(y) by prem
     have x_le_ax: x ≤ pos(abs(x)) by int_le_abs[x]
     have x_le_y: x ≤ pos(y)
       by apply int_less_equal_trans[x, pos(abs(x)), pos(y)] to x_le_ax, ax_le_y
@@ -307,13 +305,11 @@ proof
     }
     switch x {
       case pos(n) assume xp {
-        have ubn: pos(n) ≤ pos(y) by replace xp in ub
-        expand operator≤ in ubn
+        replace xp in ub
       }
       case negsuc(n) assume xn {
         have neg_x_eq: -x = pos(1 + n) by replace xn expand operator-.
-        have h: pos(1 + n) ≤ pos(y) by replace neg_x_eq in neg_x_le
-        expand operator≤ in h
+        replace neg_x_eq in neg_x_le
       }
     }
   }
