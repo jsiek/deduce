@@ -532,3 +532,93 @@ proof
     by apply log_sum_less_equal_product[f,g] to f_pos, g_pos
   A, B
 end
+
+// Pointwise equality lifts to asymptotic equivalence.
+theorem bigo_pointwise_eq: all f:fn UInt->UInt, g:fn UInt->UInt.
+  if (all n:UInt. f(n) = g(n)) then f ≈ g
+proof
+  arbitrary f:fn UInt->UInt, g:fn UInt->UInt
+  assume H
+  expand operator≈
+  have fg: f ≲ g by {
+    expand operator≲
+    choose 0, 1
+    arbitrary n:UInt
+    assume _
+    show f(n) ≤ 1 * g(n)
+    have eq: f(n) = g(n) by H
+    replace eq.
+  }
+  have gf: g ≲ f by {
+    expand operator≲
+    choose 0, 1
+    arbitrary n:UInt
+    assume _
+    show g(n) ≤ 1 * f(n)
+    have eq: f(n) = g(n) by H
+    replace symmetric eq.
+  }
+  fg, gf
+end
+
+// Pointwise addition is associative up to ≈.
+theorem bigo_add_assoc: all f:fn UInt->UInt, g:fn UInt->UInt, h:fn UInt->UInt.
+  (f + g) + h ≈ f + (g + h)
+proof
+  arbitrary f:fn UInt->UInt, g:fn UInt->UInt, h:fn UInt->UInt
+  have pointwise: all m:UInt. ((f + g) + h)(m) = (f + (g + h))(m) by {
+    arbitrary m:UInt
+    expand operator+.
+  }
+  apply bigo_pointwise_eq[(f + g) + h, f + (g + h)] to pointwise
+end
+
+// Pointwise multiplication is associative up to ≈.
+theorem bigo_mult_assoc: all f:fn UInt->UInt, g:fn UInt->UInt, h:fn UInt->UInt.
+  (f * g) * h ≈ f * (g * h)
+proof
+  arbitrary f:fn UInt->UInt, g:fn UInt->UInt, h:fn UInt->UInt
+  have pointwise: all m:UInt. ((f * g) * h)(m) = (f * (g * h))(m) by {
+    arbitrary m:UInt
+    expand operator*.
+  }
+  apply bigo_pointwise_eq[(f * g) * h, f * (g * h)] to pointwise
+end
+
+// The zero cost function is a right identity for + up to ≈.
+theorem bigo_add_zero: all f:fn UInt->UInt.
+  f + (fun n:UInt { 0 }) ≈ f
+proof
+  arbitrary f:fn UInt->UInt
+  have pointwise: all m:UInt. (f + (fun n:UInt { 0 }))(m) = f(m) by {
+    arbitrary m:UInt
+    expand operator+.
+  }
+  apply bigo_pointwise_eq[f + (fun n:UInt { 0 }), f] to pointwise
+end
+
+// The constant-1 function is a right identity for * up to ≈.
+theorem bigo_mult_one_func: all f:fn UInt->UInt.
+  f * (fun n:UInt { 1 }) ≈ f
+proof
+  arbitrary f:fn UInt->UInt
+  have pointwise: all m:UInt. (f * (fun n:UInt { 1 }))(m) = f(m) by {
+    arbitrary m:UInt
+    expand operator*.
+  }
+  apply bigo_pointwise_eq[f * (fun n:UInt { 1 }), f] to pointwise
+end
+
+// Pointwise multiplication distributes over pointwise addition up to ≈.
+theorem bigo_dist: all f:fn UInt->UInt, g:fn UInt->UInt, h:fn UInt->UInt.
+  f * (g + h) ≈ f * g + f * h
+proof
+  arbitrary f:fn UInt->UInt, g:fn UInt->UInt, h:fn UInt->UInt
+  have pointwise: all m:UInt. (f * (g + h))(m) = (f * g + f * h)(m) by {
+    arbitrary m:UInt
+    expand operator+ | operator*
+    show f(m) * (g(m) + h(m)) = f(m) * g(m) + f(m) * h(m)
+    uint_dist_mult_add
+  }
+  apply bigo_pointwise_eq[f * (g + h), f * g + f * h] to pointwise
+end
