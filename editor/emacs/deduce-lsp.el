@@ -654,15 +654,180 @@ out without applying when the server returns null."
       (deduce-lsp--apply-workspace-edit edit))))
 
 
+;; ---------------------------------------------------------------------
+;; Lemma search at a hole (issue #690, Part 3)
+;; ---------------------------------------------------------------------
+;;
+;; Cursor on a `?', the interactive form fetches ranked lemma candidates
+;; via `deduce/availableLemmasAt' and presents them through
+;; `completing-read', with an annotation column showing the unify tier
+;; (e.g. "applies (by H, G)", "premises remain", "rewrite subterm") and
+;; the module of origin.  The selected name drives a
+;; `deduce/insertLemma' request whose tier-aware WorkspaceEdit is
+;; applied directly (see `lsp/query.py:insert_lemma_at' for the four
+;; template shapes).
+;;
+;; With a prefix arg (or off-hole), the user is prompted for a query
+;; string -- substring or goal-shape pattern with `_' placeholders --
+;; which the server uses to filter candidates.
+;;
+;; This is the human-facing surface of the lemma-search work: agents
+;; can already reach `available_lemmas_at' via MCP, but a student
+;; stuck on a `?' had no path to it before this binding (see issue
+;; #690 for the full rationale).
+
+(defun deduce-lsp--lemma-tier-tag (lemma)
+  "Return a short annotation string describing LEMMA's unify tier.
+LEMMA is a plist with `:unify_tier' and `:discharged_premises'
+fields, as returned by `deduce/availableLemmasAt'.  Returns nil
+when no tier matched (browse mode or no goal AST available)."
+  (let ((tier (plist-get lemma :unify_tier))
+        (discharged (plist-get lemma :discharged_premises)))
+    (cond
+     ((equal tier "full")
+      (if (and discharged (> (length discharged) 0))
+          (format "applies (by %s)"
+                  (mapconcat
+                   (lambda (pair)
+                     ;; `pair' is `[premise label]' (a JSON array
+                     ;; decodes to a vector by default).
+                     (format "%s" (elt pair 1)))
+                   discharged
+                   ", "))
+        "applies"))
+     ((equal tier "premises_remain") "premises remain")
+     ((equal tier "rewrite_subterm") "rewrite subterm"))))
+
+
+(defun deduce-lsp--lemma-annotation-fn (lemma-by-name)
+  "Build an `:annotation-function' for the lemma-search picker.
+LEMMA-BY-NAME is an alist mapping a unique display string to the
+lemma plist; the returned function looks the display string up
+and returns the tier + module annotation."
+  (lambda (display)
+    (let* ((lemma (cdr (assoc display lemma-by-name)))
+           (tier-tag (and lemma (deduce-lsp--lemma-tier-tag lemma)))
+           (module (and lemma (plist-get lemma :module)))
+           (parts nil))
+      (when tier-tag (push (concat "  -- " tier-tag) parts))
+      (when (and module (not (equal module ""))
+                 (not (eq module :null))
+                 (not (eq module :json-null)))
+        (push (format "  [%s]" module) parts))
+      (apply #'concat (nreverse parts)))))
+
+
+(defun deduce-lsp--lemma-display-string (lemma)
+  "Return the picker-row display string for LEMMA.
+The signature is included so a student who has not memorized
+every theorem in the prelude can pick by formula shape, not just
+by name."
+  (let ((name (plist-get lemma :name))
+        (signature (plist-get lemma :signature)))
+    (if (and signature (not (equal signature "")))
+        (format "%s : %s" name signature)
+      name)))
+
+
+(defun deduce-lsp--build-lemma-alist (lemmas)
+  "Build an alist of (display . lemma) entries from LEMMAS.
+LEMMAS is the vector or list returned by
+`deduce/availableLemmasAt'.  Duplicate display strings are
+disambiguated by appending ` (2)', ` (3)', ... -- this keeps each
+key unique so `completing-read' can look the candidate up by
+identity."
+  (let ((counts (make-hash-table :test 'equal))
+        (result nil))
+    (seq-doseq (lemma lemmas)
+      (let* ((display (deduce-lsp--lemma-display-string lemma))
+             (n (gethash display counts 0))
+             (key (if (zerop n) display (format "%s (%d)" display (1+ n)))))
+        (puthash display (1+ n) counts)
+        (push (cons key lemma) result)))
+    (nreverse result)))
+
+
+(defun deduce-lsp--read-lemma (lemmas)
+  "Prompt the user to pick one of LEMMAS via `completing-read'.
+Returns the chosen lemma plist.  Preserves the server's ordering
+(best-first) so the top candidate is the natural default for
+RET-on-empty-input.  Errors out when LEMMAS is empty."
+  (when (or (null lemmas) (zerop (length lemmas)))
+    (user-error "No lemma candidates at point"))
+  (let* ((alist (deduce-lsp--build-lemma-alist lemmas))
+         (candidates (mapcar #'car alist))
+         (completion-extra-properties
+          (list :annotation-function
+                (deduce-lsp--lemma-annotation-fn alist)))
+         (chosen (completing-read
+                  "Lemma: "
+                  candidates
+                  nil t nil nil
+                  (car candidates))))
+    (cdr (assoc chosen alist))))
+
+
+(defun deduce-lsp-search-lemma (&optional query)
+  "Pick an in-scope lemma and splice a reference to it at point.
+
+Cursor on a `?': issues `deduce/availableLemmasAt' with no query,
+presents the ranked candidates via `completing-read' with
+annotations showing the unify tier (e.g. \"applies (by H, G)\",
+\"premises remain\", \"rewrite subterm\") and the module of
+origin.  The top entry is the natural default -- RET on an empty
+filter picks it.
+
+With a prefix arg (`C-u'), or when called non-interactively with
+a non-nil QUERY argument, prompts for a query string -- substring
+match against names + signatures, or a goal-shape pattern with
+`_' placeholders.  The query is forwarded to the server.
+
+The selected name then drives a `deduce/insertLemma' request; the
+returned WorkspaceEdit is applied directly.  Template shape
+depends on the server-computed tier at the time of insertion (see
+`lsp/query.py:insert_lemma_at'): `conclude ... by apply <name> to
+...' for a full match with discharged premises, `apply <name> to
+?' when premises remain, `replace <name>' for an equation match
+against a goal subterm, or just the bare `<name>' otherwise."
+  (interactive
+   (list (when current-prefix-arg
+           (read-string "Lemma search (substring or `_'-pattern): "))))
+  (let ((server (eglot-current-server)))
+    (unless server
+      (user-error
+       "No eglot server active in this buffer; M-x eglot first"))
+    (let* ((base-params (deduce-lsp--text-document-position))
+           (params (if (and query (not (equal query "")))
+                       (append base-params (list :query query))
+                     base-params))
+           (response (deduce-lsp--request server
+                                          :deduce/availableLemmasAt
+                                          params))
+           (lemmas (if (vectorp response) response (or response []))))
+      (when (or (null lemmas) (zerop (length lemmas)))
+        (user-error "No lemma candidates at point"))
+      (let* ((chosen (deduce-lsp--read-lemma lemmas))
+             (name (plist-get chosen :name))
+             (insert-params (append base-params (list :name name)))
+             (edit (deduce-lsp--request server
+                                        :deduce/insertLemma
+                                        insert-params)))
+        (unless edit
+          (user-error
+           "Server returned no edit for lemma `%s'" name))
+        (deduce-lsp--apply-workspace-edit edit)))))
+
+
 ;; Bind `C-c C-r' (refine), `C-c C-c' (case split), `C-c C-i'
-;; (induction), `C-c C-e' (eliminate), and `C-c C-f' (fill from
-;; given) in `deduce-mode-map'.  Same rationale as `C-c C-g': only
-;; meaningful when LSP is loaded.
+;; (induction), `C-c C-e' (eliminate), `C-c C-f' (fill from
+;; given), and `C-c C-l' (lemma search) in `deduce-mode-map'.
+;; Same rationale as `C-c C-g': only meaningful when LSP is loaded.
 (define-key deduce-mode-map (kbd "C-c C-r") #'deduce-lsp-refine-hole)
 (define-key deduce-mode-map (kbd "C-c C-c") #'deduce-lsp-case-split)
 (define-key deduce-mode-map (kbd "C-c C-i") #'deduce-lsp-induction)
 (define-key deduce-mode-map (kbd "C-c C-e") #'deduce-lsp-eliminate)
 (define-key deduce-mode-map (kbd "C-c C-f") #'deduce-lsp-fill-from-given)
+(define-key deduce-mode-map (kbd "C-c C-l") #'deduce-lsp-search-lemma)
 
 
 ;; ---------------------------------------------------------------------
