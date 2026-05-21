@@ -70,9 +70,9 @@ lockstep with it.
   *Deduce: Go to next hole*) moves the cursor to the next
   standalone `?` proof hole, wrapping once at end of file.  Mirror
   of Emacs's `C-c C-n` / `deduce-mode-next-hole`.
-- **Structured-editing commands** — five commands that transform
+- **Structured-editing commands** — seven commands that transform
   a `?` hole into a step closer to a complete proof.  Mirror of
-  Emacs's `C-c C-{r,c,i,e,f}` bindings (`deduce-lsp.el`):
+  Emacs's `C-c C-{r,c,i,e,f,l}` bindings (`deduce-lsp.el`):
 
   | Keybinding   | Command                    | Effect |
   | ------------ | -------------------------- | ------ |
@@ -81,6 +81,8 @@ lockstep with it.
   | `Ctrl+Alt+C` | `deduce.caseSplit`         | Prompt for an in-scope variable (Union-typed term or `or`-shaped proof) via QuickPick, replace the surrounding `?` with the matching `switch` / `cases` skeleton. |
   | `Ctrl+Alt+E` | `deduce.eliminate`         | Prompt for an in-scope hypothesis label via QuickPick, replace the `?` with a tactic that uses that fact based on its formula shape (modus ponens on `if`, destructure on `and`, etc.). |
   | `Ctrl+Alt+F` | `deduce.fillFromGiven`     | Pick the first in-scope given whose formula equals the goal and replace the `?` with `conclude <goal> by <label>`. No prompt. |
+  | `Ctrl+Alt+L` | `deduce.searchLemma`       | Pick an in-scope lemma via QuickPick (server-ranked best-first, with a unify-tier marker and module annotation) and replace the `?` with the right tactic shape — `conclude … by …`, `apply … to ?`, `replace …`, or a bare name — depending on how the lemma matches the goal. |
+  | `Ctrl+Alt+Shift+L` | `deduce.searchLemmaWithQuery` | Same as `deduce.searchLemma`, but first prompts for a substring or `_`-pattern that the server uses to filter the candidate list. |
 
   After every successful edit the cursor jumps to the first new
   `?` inside the inserted text, so the next refine / case-split
