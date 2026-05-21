@@ -622,3 +622,66 @@ proof
   }
   apply bigo_pointwise_eq[f * (g + h), f * g + f * h] to pointwise
 end
+
+// Two-sided sum absorption: a dominated summand can be dropped under ≈.
+theorem bigo_add_dominated_absorb_equiv: all f:fn UInt->UInt, g:fn UInt->UInt.
+  if g ≲ f then f + g ≈ f
+proof
+  arbitrary f:fn UInt->UInt, g:fn UInt->UInt
+  assume g_f: g ≲ f
+  expand operator≈
+  have A: f + g ≲ f by apply bigo_add_absorb to g_f
+  have B: f ≲ f + g by bigo_self_le_add
+  A, B
+end
+
+// A positive constant factor drops out of ≈.
+theorem bigo_const_mult_equiv: all f:fn UInt->UInt, k:UInt.
+  if 0 < k then k * f ≈ f
+proof
+  arbitrary f:fn UInt->UInt, k:UInt
+  assume k_pos: 0 < k
+  expand operator≈
+  have A: k * f ≲ f by bigo_const_mult
+  have k_ge_1: 1 ≤ k by apply uint_pos_implies_one_le to k_pos
+  have B: f ≲ k * f by apply bigo_le_const_mult[f, k] to k_ge_1
+  A, B
+end
+
+// Pointwise maximum of cost functions.
+fun max (f : fn UInt -> UInt, g : fn UInt -> UInt) {
+  fun n:UInt { max(f(n), g(n)) }
+}
+
+// The pointwise max is bounded above by the pointwise sum.
+theorem bigo_max_le_add: all f:fn UInt->UInt, g:fn UInt->UInt.
+  max(f, g) ≲ f + g
+proof
+  arbitrary f:fn UInt->UInt, g:fn UInt->UInt
+  expand operator≲ | operator+ | max
+  choose 0, 1
+  arbitrary n:UInt
+  assume _
+  show max(f(n), g(n)) ≤ 1 * (f(n) + g(n))
+  have f_le: f(n) ≤ f(n) + g(n) by uint_less_equal_add
+  have g_le: g(n) ≤ f(n) + g(n) by uint_less_equal_add_left
+  apply uint_max_less_equal to f_le, g_le
+end
+
+// The pointwise sum is bounded by a constant multiple of the pointwise max.
+theorem bigo_add_le_max: all f:fn UInt->UInt, g:fn UInt->UInt.
+  f + g ≲ max(f, g)
+proof
+  arbitrary f:fn UInt->UInt, g:fn UInt->UInt
+  expand operator≲ | operator+ | max
+  choose 0, 2
+  arbitrary n:UInt
+  assume _
+  show f(n) + g(n) ≤ 2 * max(f(n), g(n))
+  have f_le: f(n) ≤ max(f(n), g(n)) by uint_max_greater_left
+  have g_le: g(n) ≤ max(f(n), g(n)) by uint_max_greater_right
+  have sum_le: f(n) + g(n) ≤ max(f(n), g(n)) + max(f(n), g(n))
+    by apply uint_add_mono_less_equal to f_le, g_le
+  replace uint_two_mult[max(f(n), g(n))]
+  sum_le
+end
