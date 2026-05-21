@@ -4147,7 +4147,7 @@ def _formulas_match_modulo_env(frm1: Any, frm2: Any, env: Any) -> bool:
     if env is None:
         return False
     try:
-        return frm1.reduce(env) == frm2.reduce(env)
+        return bool(frm1.reduce(env) == frm2.reduce(env))
     except Exception:
         return False
 
