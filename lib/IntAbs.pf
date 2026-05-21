@@ -80,6 +80,61 @@ proof
   int_abs_eq_zero_implies_zero[x], int_zero_implies_abs_eq_zero[x]
 end
 
+// Two integers share an absolute value exactly when they are equal or
+// negatives of each other. Useful as a normalization step in proofs that
+// would otherwise re-derive this by case-splitting on `pos`/`negsuc`.
+theorem int_abs_eq_iff_eq_or_neg: all x:Int, y:Int.
+  abs(x) = abs(y) ⇔ x = y or x = - y
+proof
+  arbitrary x:Int, y:Int
+  have fwd: if abs(x) = abs(y) then x = y or x = - y by {
+    assume ax_ay: abs(x) = abs(y)
+    switch x {
+      case pos(a) assume xa {
+        switch y {
+          case pos(b) assume yb {
+            have ab: a = b by replace xa | yb in ax_ay
+            conclude pos(a) = pos(b) or pos(a) = - pos(b) by replace ab.
+          }
+          case negsuc(b) assume yb {
+            have ab: a = 1 + b by replace xa | yb in ax_ay
+            have nyb: - negsuc(b) = pos(1 + b) by expand operator-.
+            have eq2: pos(a) = - negsuc(b) by replace ab | nyb.
+            conclude pos(a) = negsuc(b) or pos(a) = - negsuc(b) by eq2
+          }
+        }
+      }
+      case negsuc(a) assume xa {
+        switch y {
+          case pos(b) assume yb {
+            have ab: 1 + a = b by replace xa | yb in ax_ay
+            have nxa: - negsuc(a) = pos(1 + a) by expand operator-.
+            have eq2: - negsuc(a) = pos(b) by replace ab in nxa
+            have eq3: negsuc(a) = - pos(b) by {
+              have h: - - negsuc(a) = - pos(b) by replace eq2.
+              replace neg_involutive[negsuc(a)] in h
+            }
+            conclude negsuc(a) = pos(b) or negsuc(a) = - pos(b) by eq3
+          }
+          case negsuc(b) assume yb {
+            have ab: 1 + a = 1 + b by replace xa | yb in ax_ay
+            have ab2: a = b by apply uint_add_both_sides_of_equal[1, a, b] to ab
+            conclude negsuc(a) = negsuc(b) or negsuc(a) = - negsuc(b)
+              by replace ab2.
+          }
+        }
+      }
+    }
+  }
+  have bwd: if x = y or x = - y then abs(x) = abs(y) by {
+    assume disj
+    cases disj
+    case xy { replace xy. }
+    case xny { replace xny | abs_neg[y]. }
+  }
+  fwd, bwd
+end
+
 // Absolute value distributes over multiplication: |x*y| = |x|*|y|.
 theorem int_abs_mult: all x:Int, y:Int.
   abs(x * y) = abs(x) * abs(y)

@@ -188,6 +188,52 @@ proof
   }
 end
 
+// Constructor injectivity and disjointness for `pos` / `negsuc`, plus
+// injectivity of unary negation. These explicitly state the
+// pos/negsuc/`- ·` normalization facts that other Int proofs otherwise
+// derive ad-hoc via `switch`.
+
+theorem int_pos_injective: all x:UInt, y:UInt.
+  if pos(x) = pos(y) then x = y
+proof
+  arbitrary x:UInt, y:UInt
+  assume eq
+  injective pos eq
+end
+
+theorem int_negsuc_injective: all x:UInt, y:UInt.
+  if negsuc(x) = negsuc(y) then x = y
+proof
+  arbitrary x:UInt, y:UInt
+  assume eq
+  injective negsuc eq
+end
+
+theorem int_pos_eq_negsuc_false: all x:UInt, y:UInt.
+  not (pos(x) = negsuc(y))
+proof
+  arbitrary x:UInt, y:UInt
+  assume eq
+  conclude false by eq
+end
+
+theorem int_negsuc_eq_pos_false: all x:UInt, y:UInt.
+  not (negsuc(x) = pos(y))
+proof
+  arbitrary x:UInt, y:UInt
+  assume eq
+  conclude false by eq
+end
+
+theorem int_neg_injective: all x:Int, y:Int.
+  if - x = - y then x = y
+proof
+  arbitrary x:Int, y:Int
+  assume eq
+  have h: - - x = - - y by replace eq.
+  replace neg_involutive[x] | neg_involutive[y] in h
+end
+
 // Properties of addition
 
 theorem int_zero_add: all n:Int.
