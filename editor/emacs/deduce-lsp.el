@@ -757,6 +757,28 @@ identity."
     (nreverse result)))
 
 
+(defun deduce-lsp--ranked-completion-table (candidates)
+  "Build a completion table over CANDIDATES that preserves order.
+
+`completing-read' sorts candidates alphabetically by default,
+which throws away the server's best-first relevance ranking --
+the whole point of the unify-tier ranker is to surface the right
+match first.  Setting `display-sort-function' and
+`cycle-sort-function' to `identity' via the table's `metadata'
+tells the completion machinery (including `vertico', `ivy', the
+standard `*Completions*' buffer, and `M-n'/`M-p' cycling) to leave
+the order alone."
+  (lambda (string pred action)
+    (cond
+     ((eq action 'metadata)
+      '(metadata
+        (category . deduce-lemma)
+        (display-sort-function . identity)
+        (cycle-sort-function . identity)))
+     (t
+      (complete-with-action action candidates string pred)))))
+
+
 (defun deduce-lsp--read-lemma (lemmas)
   "Prompt the user to pick one of LEMMAS via `completing-read'.
 Returns the chosen lemma plist.  Preserves the server's ordering
@@ -771,7 +793,7 @@ RET-on-empty-input.  Errors out when LEMMAS is empty."
                 (deduce-lsp--lemma-annotation-fn alist)))
          (chosen (completing-read
                   "Lemma: "
-                  candidates
+                  (deduce-lsp--ranked-completion-table candidates)
                   nil t nil nil
                   (car candidates))))
     (cdr (assoc chosen alist))))

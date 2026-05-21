@@ -1544,6 +1544,33 @@ buffer at the picker's chosen lemma."
       (delete-file tmp))))
 
 
+(ert-deftest deduce-lsp/search-lemma-completion-table-disables-sort ()
+  "The completion table the picker hands to `completing-read' must
+declare `display-sort-function' and `cycle-sort-function' as
+`identity', so vertico / ivy / the standard `*Completions*'
+buffer all leave the server's best-first ranking alone instead
+of re-sorting alphabetically (which would bury the right match
+under unrelated lemmas whose names happen to come first in the
+alphabet)."
+  (let* ((table (deduce-lsp--ranked-completion-table
+                 '("c_first" "a_second" "b_third")))
+         (meta (funcall table "" nil 'metadata))
+         (cat (alist-get 'category (cdr meta)))
+         (display-sort (alist-get 'display-sort-function (cdr meta)))
+         (cycle-sort (alist-get 'cycle-sort-function (cdr meta))))
+    (should (eq (car meta) 'metadata))
+    (should (eq cat 'deduce-lemma))
+    (should (eq display-sort 'identity))
+    (should (eq cycle-sort 'identity))
+    ;; The table still answers completion queries against the
+    ;; underlying candidate list -- metadata isn't a replacement,
+    ;; it's an annotation on top of `complete-with-action'.
+    (should (member "c_first"
+                    (all-completions "" table)))
+    (should (member "a_second"
+                    (all-completions "" table)))))
+
+
 (ert-deftest deduce-lsp/search-lemma-passes-custom-timeout-to-jsonrpc ()
   "Both `availableLemmasAt' and `insertLemma' round trips use
 `deduce-lsp-search-lemma-timeout' instead of the 10s default --
