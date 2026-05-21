@@ -457,3 +457,124 @@ def test_browse_mode_respects_limit() -> None:
         limit=2,
     )
     assert len(matches) == 2
+
+
+# ---------------------------------------------------------------------------
+# Unify-score tier classifier (issue #690).
+# ---------------------------------------------------------------------------
+
+
+def test_unify_full_tier_when_all_premises_discharged() -> None:
+    """A lemma whose conclusion unifies with the goal and whose
+    premises are all discharged by local givens gets ``"full"``."""
+    source = (
+        "theorem and_intro: all P:bool, Q:bool. if P then if Q then P and Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  suppose pP: P\n"
+        "  suppose qQ: Q\n"
+        "  pP, qQ\n"
+        "end\n"
+        "\n"
+        "theorem with_hole: all P:bool, Q:bool. if P then if Q then P and Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  suppose pP: P\n"
+        "  suppose qQ: Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    matches = available_lemmas_at(
+        "lemmas.pf", source, Position(line=14, column=3)
+    )
+    by_name = {m.name: m for m in matches}
+    assert "and_intro" in by_name
+    assert by_name["and_intro"].unify_tier == "full"
+    # Discharged premises pair each instantiated premise with the
+    # local-given label that satisfies it.
+    labels = {label for _, label in by_name["and_intro"].discharged_premises}
+    assert labels == {"pP", "qQ"}
+
+
+def test_unify_premises_remain_when_no_givens_match() -> None:
+    """The conclusion unifies but no local given satisfies the
+    premise: tier collapses to ``"premises_remain"``."""
+    source = (
+        "theorem and_intro: all P:bool, Q:bool. if P then if Q then P and Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  suppose pP: P\n"
+        "  suppose qQ: Q\n"
+        "  pP, qQ\n"
+        "end\n"
+        "\n"
+        "theorem with_hole: all P:bool, Q:bool. P and Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  ?\n"
+        "end\n"
+    )
+    matches = available_lemmas_at(
+        "lemmas.pf", source, Position(line=12, column=3)
+    )
+    by_name = {m.name: m for m in matches}
+    assert "and_intro" in by_name
+    assert by_name["and_intro"].unify_tier == "premises_remain"
+    assert by_name["and_intro"].discharged_premises == ()
+
+
+def test_unify_outranks_head_symbol_only_match() -> None:
+    """A lemma whose conclusion actually unifies outranks one whose
+    head is the same but whose conclusion shape doesn't unify."""
+    source = (
+        "theorem and_intro: all P:bool, Q:bool. if P then if Q then P and Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  suppose pP: P\n"
+        "  suppose qQ: Q\n"
+        "  pP, qQ\n"
+        "end\n"
+        "\n"
+        "theorem head_match_only: true and true\n"
+        "proof\n"
+        "  .\n"
+        "end\n"
+        "\n"
+        "theorem with_hole: all P:bool, Q:bool. if P then if Q then P and Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  suppose pP: P\n"
+        "  suppose qQ: Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    matches = available_lemmas_at(
+        "lemmas.pf", source, Position(line=19, column=3)
+    )
+    by_name = {m.name: m for m in matches}
+    assert "and_intro" in by_name
+    assert "head_match_only" in by_name
+    # Both share the ``and`` head symbol, but only ``and_intro``
+    # unifies against the goal.
+    assert by_name["and_intro"].unify_tier == "full"
+    assert by_name["head_match_only"].unify_tier != "full"
+    assert (
+        by_name["and_intro"].relevance
+        > by_name["head_match_only"].relevance
+    )
+
+
+def test_browse_mode_leaves_unify_tier_unset() -> None:
+    """Browse mode (no goal, no query) doesn't run the unifier, so
+    ``unify_tier`` stays ``None`` on every result."""
+    source = (
+        "theorem alpha: true\nproof\n  .\nend\n"
+        "theorem beta: all P:bool. P = P\n"
+        "proof\n  arbitrary P:bool\n  reflexive\nend\n"
+    )
+    matches = available_lemmas_at(
+        "lemmas.pf", source, Position(line=1, column=1)
+    )
+    assert matches  # browse mode surfaces everything
+    assert all(m.unify_tier is None for m in matches)
+    assert all(m.discharged_premises == () for m in matches)
