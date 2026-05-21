@@ -861,3 +861,89 @@ proof
        xnyn
   apply int_pos_mult_left_cancel_le[n, x, y] to zn, nxny
 end
+
+// Left cancellation by a negative Int under `<`. Multiplying by a
+// negative number flips the inequality, so `n * y < n * x` cancels to
+// `x < y`.
+theorem int_neg_mult_left_cancel_less: all n:Int, x:Int, y:Int.
+  if n < +0 and n * y < n * x
+  then x < y
+proof
+  arbitrary n:Int, x:Int, y:Int
+  assume prem
+  have nn: n < +0 by conjunct 0 of prem
+  have nynx: n * y < n * x by conjunct 1 of prem
+  have tri: x < y or x = y or y < x by int_trichotomy[x, y]
+  cases tri
+  case x_l_y: x < y { x_l_y }
+  case x_eq_y: x = y {
+    have nx_eq_ny: n * x = n * y by replace x_eq_y.
+    have bad: n * y < n * y by replace nx_eq_ny in nynx
+    conclude false by apply int_less_irreflexive[n * y] to bad
+  }
+  case y_l_x: y < x {
+    have nx_l_ny: n * x < n * y
+      by apply int_neg_mult_mono_less_left[n, y, x] to nn, y_l_x
+    have bad: n * y < n * y
+      by apply int_less_trans[n * y, n * x, n * y] to nynx, nx_l_ny
+    conclude false by apply int_less_irreflexive[n * y] to bad
+  }
+end
+
+// Right cancellation by a negative Int under `<`.
+theorem int_neg_mult_right_cancel_less: all n:Int, x:Int, y:Int.
+  if n < +0 and y * n < x * n
+  then x < y
+proof
+  arbitrary n:Int, x:Int, y:Int
+  assume prem
+  have nn: n < +0 by conjunct 0 of prem
+  have ynxn: y * n < x * n by conjunct 1 of prem
+  have nynx: n * y < n * x
+    by replace int_mult_commute[n, y] | int_mult_commute[n, x]
+       ynxn
+  apply int_neg_mult_left_cancel_less[n, x, y] to nn, nynx
+end
+
+// Left cancellation by a negative Int under `≤`.
+theorem int_neg_mult_left_cancel_le: all n:Int, x:Int, y:Int.
+  if n < +0 and n * y ≤ n * x
+  then x ≤ y
+proof
+  arbitrary n:Int, x:Int, y:Int
+  assume prem
+  have nn: n < +0 by conjunct 0 of prem
+  have nynx: n * y ≤ n * x by conjunct 1 of prem
+  have tri: x < y or x = y or y < x by int_trichotomy[x, y]
+  cases tri
+  case x_l_y: x < y {
+    apply int_less_implies_less_equal[x, y] to x_l_y
+  }
+  case x_eq_y: x = y {
+    replace symmetric x_eq_y
+    int_less_equal_refl[x]
+  }
+  case y_l_x: y < x {
+    have nx_l_ny: n * x < n * y
+      by apply int_neg_mult_mono_less_left[n, y, x] to nn, y_l_x
+    have bad: n * y < n * y
+      by apply int_less_trans_less_equal_left[n * y, n * x, n * y]
+         to nynx, nx_l_ny
+    conclude false by apply int_less_irreflexive[n * y] to bad
+  }
+end
+
+// Right cancellation by a negative Int under `≤`.
+theorem int_neg_mult_right_cancel_le: all n:Int, x:Int, y:Int.
+  if n < +0 and y * n ≤ x * n
+  then x ≤ y
+proof
+  arbitrary n:Int, x:Int, y:Int
+  assume prem
+  have nn: n < +0 by conjunct 0 of prem
+  have ynxn: y * n ≤ x * n by conjunct 1 of prem
+  have nynx: n * y ≤ n * x
+    by replace int_mult_commute[n, y] | int_mult_commute[n, x]
+       ynxn
+  apply int_neg_mult_left_cancel_le[n, x, y] to nn, nynx
+end
