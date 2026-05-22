@@ -1073,6 +1073,8 @@ def _check_proof_of_apply_defs_goal(proof: Any, formula: Any, env: Env) -> None:
   loc = proof.location
   new_formula = expand_definitions(loc, formula, proof.definitions, env)
   red_formula = new_formula.reduce(env)
+  sink = get_active_sink()
+  before_len = len(sink.errors) if sink is not None else 0
   try:
     _try_check_proof_of(proof.body, red_formula, env)
   except UserError as e:
@@ -1080,6 +1082,17 @@ def _check_proof_of_apply_defs_goal(proof: Any, formula: Any, env: Env) -> None:
     if hint:
       raise wrap_user_error(e, hint) from e
     raise
+  # Sink path: _try_check_proof_of swallows the exception into the sink
+  # and returns normally, so the except clause above never fires. Walk
+  # any entries it added during this call and attach the same hint so
+  # collect_errors mode (MCP / LSP) sees the helpful tail the CLI gets.
+  if sink is not None and len(sink.errors) > before_len:
+    hint = expand_residual_hint(red_formula, proof.definitions, env)
+    if hint:
+      for i in range(before_len, len(sink.errors)):
+        entry = sink.errors[i]
+        if isinstance(entry, UserError):
+          sink.errors[i] = wrap_user_error(entry, hint)
 
 def _check_proof_of_all_intro(proof: Any, formula: Any, env: Env) -> None:
   loc = proof.location
