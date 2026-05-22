@@ -240,7 +240,7 @@ def test_splittable_vars_at_signature():
     _check_sig(
         splittable_vars_at,
         ["path", "content", "pos", "prelude"],
-        tuple,
+        tuple[str, ...],
     )
 
 
@@ -264,7 +264,7 @@ def test_eliminable_vars_at_signature():
     _check_sig(
         eliminable_vars_at,
         ["path", "content", "pos", "prelude"],
-        tuple,
+        tuple[str, ...],
     )
 
 
