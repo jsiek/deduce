@@ -18,6 +18,7 @@ from abstract_syntax import (
     get_default_mark_LHS, intToNat, listToNodeList, mkEqual, mkIntLit,
     mkUIntLit, remove_mark,
 )
+import re
 from lark import Lark, Token, exceptions
 from lark.tree import Meta
 from typing import Any, cast
@@ -931,9 +932,19 @@ def parse(program_text: str,
           # surface the message without their process being killed.
           # The CLI in deduce.py catches this and prints str(e), which
           # produces the same stdout the print() did before.
+          hint = ''
+          if t.token.type == 'LESSTHAN':
+              preceding = program_text[:t.token.start_pos]
+              m = re.search(r'\bdefine\s+([A-Za-z_]\w*)\s*\Z', preceding)
+              if m:
+                  name = m.group(1)
+                  hint = ('\n`define` does not take type parameters.'
+                          ' For a generic value, use:\n'
+                          '\tfun ' + name + '<T>(...) { ... }\nor\n'
+                          '\trecursive ' + name + '<T>(...) -> ... { ... }')
           msg = (get_filename() + ":" + str(t.token.line) + "." + str(t.token.column)
                  + "-" + str(t.token.end_line) + "." + str(t.token.end_column) + ": "
                  + "error in parsing, unexpected token: " + token_str(t.token, program_text) + '\n'
-                 + "(The error may be immediately before this token.)")
+                 + "(The error may be immediately before this token.)" + hint)
           raise Exception(msg)
         

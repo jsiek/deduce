@@ -1,0 +1,4 @@
+// Issue #743: `define name<T> : ...` should point users at `fun`/`recursive`
+// rather than just complaining about the `<` token.
+import List
+define id_list<T> : fn List<T> -> List<T> = λxs { xs }
