@@ -1,0 +1,78 @@
+// fast_reverse.pf
+//
+// The classic intro-FP optimization: replace the naive quadratic
+// `reverse` with a tail-recursive accumulator-passing version,
+// `fast_reverse`, and prove the two functions compute the same list.
+//
+// This is the canonical first "two implementations agree" proof in
+// Haskell / OCaml / SML introductions to functional programming.
+//
+// We prove two correctness theorems:
+//
+//   1. fast_reverse_helper_correct (lemma):
+//        fast_reverse_helper(xs, acc) = reverse(xs) ++ acc
+//
+//   2. fast_reverse_correct:
+//        fast_reverse(xs) = reverse(xs)
+
+import List
+
+// Tail-recursive reverse-helper: walks `xs` left-to-right, building
+// up the reversed list in the accumulator `acc`.
+recursive fast_reverse_helper<T>(List<T>, List<T>) -> List<T> {
+  fast_reverse_helper(empty, acc) = acc
+  fast_reverse_helper(node(x, xs), acc) = fast_reverse_helper(xs, node(x, acc))
+}
+
+// The user-facing function: start with an empty accumulator.
+fun fast_reverse<T>(xs : List<T>) {
+  fast_reverse_helper(xs, @empty<T>)
+}
+
+assert fast_reverse([1, 2, 3, 4]) = [4, 3, 2, 1]
+assert fast_reverse(@[]<UInt>) = []
+assert fast_reverse([42]) = [42]
+
+// Key lemma: `fast_reverse_helper` is just `reverse` with the
+// accumulator concatenated on the right. Note that `acc` must stay
+// universally quantified inside the induction on `xs` -- the IH gets
+// applied with a *different* accumulator (node(x, acc)) in the
+// inductive step.
+theorem fast_reverse_helper_correct: all T:type. all xs:List<T>. all acc:List<T>.
+  fast_reverse_helper(xs, acc) = reverse(xs) ++ acc
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary acc:List<T>
+    expand fast_reverse_helper | reverse | operator++.
+  }
+  case node(x, xs') assume IH: all acc:List<T>.
+      fast_reverse_helper(xs', acc) = reverse(xs') ++ acc {
+    arbitrary acc:List<T>
+    equations
+      fast_reverse_helper(node(x, xs'), acc)
+          = fast_reverse_helper(xs', node(x, acc))
+                                                by expand fast_reverse_helper.
+      ... = reverse(xs') ++ node(x, acc)        by IH[node(x, acc)]
+      ... = # reverse(xs') ++ ([x] ++ acc) #    by expand 2*operator++.
+      ... = (reverse(xs') ++ [x]) ++ acc
+                                                by symmetric
+                                                   append_assoc<T>[reverse(xs'), [x], acc]
+      ... = # reverse(node(x, xs')) ++ acc #    by expand reverse.
+  }
+end
+
+// The main theorem: instantiating the helper with the empty
+// accumulator collapses the trailing `++ []`.
+theorem fast_reverse_correct: all T:type. all xs:List<T>.
+  fast_reverse(xs) = reverse(xs)
+proof
+  arbitrary T:type, xs:List<T>
+  equations
+    fast_reverse(xs)
+        = fast_reverse_helper(xs, @empty<T>)
+                                              by expand fast_reverse.
+    ... = reverse(xs) ++ @empty<T>            by fast_reverse_helper_correct<T>[xs][@empty<T>]
+    ... = reverse(xs)                         by append_empty<T>[reverse(xs)]
+end
