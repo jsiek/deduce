@@ -1220,8 +1220,11 @@ def test_insert_lemma_returns_full_tier_workspace_edit(server, open_doc):
     assert result is not None
     edits = result["changes"][uri]
     assert len(edits) == 1
+    # The unifier resolves ``P := P, Q := Q`` from the conclusion
+    # match, so the splice carries explicit instantiations (issue
+    # #734) ahead of the discharged-given labels.
     assert edits[0]["newText"] == (
-        "conclude (P and Q) by apply and_intro to pP, qQ"
+        "conclude (P and Q) by apply and_intro[P, Q] to pP, qQ"
     )
     assert edits[0]["range"]["start"] == {"line": 13, "character": 2}
     assert edits[0]["range"]["end"] == {"line": 13, "character": 3}
