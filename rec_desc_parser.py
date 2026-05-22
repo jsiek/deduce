@@ -1608,9 +1608,10 @@ def parse_define(visibility):
     if current_token().type == 'LESSTHAN':
       raise ParseError(meta_from_tokens(current_token(), current_token()),
             '`define` does not take type parameters.\n'
-            'For a generic value, use:\n'
+            'For a generic value, put the type parameters on the right:\n'
+            '\tdefine ' + name + ' : fn <T> ... -> ... = generic T { ... }\n'
+            'or use `fun`/`recursive`:\n'
             '\tfun ' + name + '<T>(...) { ... }\n'
-            'or\n'
             '\trecursive ' + name + '<T>(...) -> ... { ... }')
     if current_token().type == 'COLON':
       advance()

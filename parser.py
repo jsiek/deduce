@@ -939,8 +939,11 @@ def parse(program_text: str,
               if m:
                   name = m.group(1)
                   hint = ('\n`define` does not take type parameters.'
-                          ' For a generic value, use:\n'
-                          '\tfun ' + name + '<T>(...) { ... }\nor\n'
+                          ' For a generic value, put the type parameters'
+                          ' on the right:\n'
+                          '\tdefine ' + name + ' : fn <T> ... -> ... = generic T { ... }\n'
+                          'or use `fun`/`recursive`:\n'
+                          '\tfun ' + name + '<T>(...) { ... }\n'
                           '\trecursive ' + name + '<T>(...) -> ... { ... }')
           msg = (get_filename() + ":" + str(t.token.line) + "." + str(t.token.column)
                  + "-" + str(t.token.end_line) + "." + str(t.token.end_column) + ": "
