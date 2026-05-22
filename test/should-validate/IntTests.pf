@@ -91,3 +91,58 @@ proof
   arbitrary x:Nat, y:Nat
   .
 end
+
+// Smoke tests for the abs-routed spec family (Refs #722 follow-up):
+// `int_sub_add_cancel`, `int_add_sub_cancel`, `int_abs_sub_symm`,
+// `int_rev_triangle` (and its symmetric form), `int_pos_abs_eq_iff_nonneg`,
+// `int_abs_div`.
+
+assert (+10 - +3) + +3 = +10
+assert (-5 - +3) + +3 = -5
+assert (+10 + +3) - +3 = +10
+assert (-5 + +3) - +3 = -5
+
+theorem int_sub_add_cancel_sample: all x:Int, y:Int. (x - y) + y = x
+proof
+  int_sub_add_cancel
+end
+
+theorem int_add_sub_cancel_sample: all x:Int, y:Int. (x + y) - y = x
+proof
+  int_add_sub_cancel
+end
+
+theorem int_abs_sub_symm_sample: all x:Int, y:Int. abs(x - y) = abs(y - x)
+proof
+  int_abs_sub_symm
+end
+
+assert abs(+5 - +3) = abs(+3 - +5)
+assert abs(-2 - +4) = abs(+4 - -2)
+assert abs(-3 - -7) = abs(-7 - -3)
+
+theorem int_rev_triangle_sample: all x:Int, y:Int. abs(x) ∸ abs(y) ≤ abs(x - y)
+proof
+  int_rev_triangle
+end
+
+theorem int_rev_triangle_right_sample: all x:Int, y:Int. abs(y) ∸ abs(x) ≤ abs(x - y)
+proof
+  int_rev_triangle_right
+end
+
+theorem int_pos_abs_eq_iff_nonneg_sample: all x:Int.
+  pos(abs(x)) = x  ⇔  +0 ≤ x
+proof
+  int_pos_abs_eq_iff_nonneg
+end
+
+theorem int_abs_div_sample: all x:Int, y:Int. abs(x / y) = abs(x) / abs(y)
+proof
+  int_abs_div
+end
+
+assert abs(+12 / +5) = abs(+12) / abs(+5)
+assert abs(-12 / +5) = abs(-12) / abs(+5)
+assert abs(+12 / -5) = abs(+12) / abs(-5)
+assert abs(-12 / -5) = abs(-12) / abs(-5)
