@@ -447,7 +447,8 @@ def try_rewrite(
   if rewrite_debug and get_verbose():
       print('try rewrite? ' + str(formula) + '\n\twith equation ' + str(rule.equation))
   matching: dict[str, Term] = {}
-  formula_match(loc, rule.variables, rule.lhs, formula, matching, Env())
+  formula_match(loc, rule.variables, rule.lhs, formula, matching, Env(),
+                outer_env=env)
   for premise in rule.premises:
       instantiated = premise.substitute(matching)
       if not premise_holds(cast(Formula, instantiated), env):
@@ -487,7 +488,15 @@ def formula_match(
     matching: dict[str, Term],
     env: Env,
     numeric_literals: bool = False,
+    outer_env: Env | None = None,
 ) -> None:
+  # ``env`` is used for the fallback reduction-based equality check and
+  # is intentionally an empty ``Env()`` from ``try_rewrite`` so heavy
+  # definitions don't fire during matching. ``outer_env`` is the real
+  # caller env, threaded through only for environment-derived metadata
+  # such as associativity lookups.
+  if outer_env is None:
+      outer_env = env
   if rewrite_debug and get_verbose():
     print("formula_match:\n\t" + str(pattern_frm) + "\n\t" + str(frm) + "\n")
     print("\tin  " + ','.join([str(x) for x in vars]))
@@ -500,23 +509,23 @@ def formula_match(
         matching2 = dict(matching)
         for (t1,t2) in zip(tyargs1, tyargs2):
           formula_match(loc, vars, t1, t2, matching2, env,
-                        numeric_literals)
+                        numeric_literals, outer_env=outer_env)
         formula_match(loc, vars, subject1, subject2, matching2, env,
-                      numeric_literals)
+                      numeric_literals, outer_env=outer_env)
         matching.clear()
         matching.update(matching2)
       except MatchFailed:
         formula_match(loc, vars, subject1, frm, matching, env,
-                      numeric_literals)
-        
+                      numeric_literals, outer_env=outer_env)
+
     case (TermInst(_, _, subject, _, _), _):
       formula_match(loc, vars, subject, frm, matching, env,
-                    numeric_literals)
-      
+                    numeric_literals, outer_env=outer_env)
+
     case (_, TermInst(_, _, subject, _, _)):
       formula_match(loc, vars, pattern_frm, subject, matching, env,
-                    numeric_literals)
-      
+                    numeric_literals, outer_env=outer_env)
+
     case _ if isinstance(pattern_frm, VarRef) and isinstance(frm, VarRef) \
               and pattern_frm.get_name() == frm.get_name():
       pass
@@ -524,7 +533,7 @@ def formula_match(
       tyvar_name = pattern_frm.get_name()
       if tyvar_name in matching.keys():
         formula_match(loc, vars, matching[tyvar_name], frm, matching, env,
-                      numeric_literals)
+                      numeric_literals, outer_env=outer_env)
       else:
         if get_verbose():
             print("formula_match, " + base_name(tyvar_name) + ' := ' + str(frm))
@@ -536,7 +545,17 @@ def formula_match(
           print("matching Call with Call\n\trator pattern: " + str(goal_rator) + '\n'\
                 + '\trator formula: ' + str(rator))
       formula_match(loc, vars, goal_rator, rator, matching, env,
-                    numeric_literals)
+                    numeric_literals, outer_env=outer_env)
+      # If the operator is associative, flatten both arg lists so a
+      # parenthesized pattern like ``(a * b) * c`` matches the
+      # flattened formula ``a * b * c`` regardless of how the user
+      # grouped sub-products. Without this, ``replace eq in h`` could
+      # fail when the equation LHS hadn't been auto-flattened by reduce.
+      op_name = callable_name(rator)
+      if op_name is not None \
+         and is_associative(loc3, op_name, tyof3, outer_env):
+          goal_rands = flatten_assoc_list(op_name, goal_rands)
+          rands = flatten_assoc_list(op_name, rands)
       if len(rands) >= len(goal_rands):
         while len(rands) > 0:
           # What is the following for? -Jeremy
@@ -547,13 +566,13 @@ def formula_match(
           else:
               rand = rands[0]
               rands = rands[1:]
-              
+
           goal_rand = goal_rands[0]
           goal_rands = goal_rands[1:]
-            
+
           new_goal_rand = goal_rand.substitute(matching)
           formula_match(loc, vars, new_goal_rand, rand, matching, env,
-                        numeric_literals)
+                        numeric_literals, outer_env=outer_env)
           
       else:
         match_failed(loc, "formula: " + str(frm) + "\n" \
@@ -564,20 +583,20 @@ def formula_match(
       for (goal_arg, arg) in zip(goal_args, args):
           new_goal_arg = goal_arg.substitute(matching)
           formula_match(loc, vars, new_goal_arg, arg, matching, env,
-                        numeric_literals)
+                        numeric_literals, outer_env=outer_env)
     case (Or(_, _, goal_args),
           Or(loc3, tyof3, args)):
       for (goal_arg, arg) in zip(goal_args, args):
           new_goal_arg = goal_arg.substitute(matching)
           formula_match(loc, vars, new_goal_arg, arg, matching, env,
-                        numeric_literals)
+                        numeric_literals, outer_env=outer_env)
     case (IfThen(_, _, goal_prem, goal_conc),
           IfThen(loc3, tyof3, prem, conc)):
       formula_match(loc, vars, goal_prem, prem, matching, env,
-                    numeric_literals)
+                    numeric_literals, outer_env=outer_env)
       new_goal_conc = goal_conc.substitute(matching)
       formula_match(loc, vars, new_goal_conc, conc, matching, env,
-                    numeric_literals)
+                    numeric_literals, outer_env=outer_env)
     # UNDER CONSTRUCTION
     case _:
       red_pattern = pattern_frm.reduce(env)
