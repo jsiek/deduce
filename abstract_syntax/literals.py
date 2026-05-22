@@ -405,33 +405,18 @@ def uintToInt(t: Term) -> int:
 def _extract_lit_nat_names(t: Term) -> tuple[str, str | None, str] | None:
   # If `t` is `lit(suc(suc(...zero)))`, return the uniquified
   # `(lit_name, suc_name_or_None, zero_name)` extracted from its nodes.
-  # `suc_name` is None only when the value is 0 (no `suc` in the AST).
-  if not isinstance(t, Call) or len(t.args) != 1:
+  # `suc_name` is None when the value is 0 (no `suc` in the AST).
+  if not isLitNat(t):
     return None
-  rator = t.rator
-  if isinstance(rator, (Var, OverloadedVar, ResolvedVar)):
-    lit_name = rator.get_name()
-  else:
+  assert isinstance(t, Call) and isinstance(t.rator, VarRef)
+  inner = t.args[0]
+  zname = getZero(inner)
+  if not isinstance(zname, str):
     return None
-  if base_name(lit_name) != 'lit':
-    return None
-  cur: Term = t.args[0]
-  suc_name: str | None = None
-  while isinstance(cur, Call) and len(cur.args) == 1:
-    sub_rator = cur.rator
-    if not isinstance(sub_rator, (Var, OverloadedVar, ResolvedVar)):
-      return None
-    sname = sub_rator.get_name()
-    if base_name(sname) != 'suc':
-      return None
-    suc_name = sname
-    cur = cur.args[0]
-  if not isinstance(cur, (Var, OverloadedVar, ResolvedVar)):
-    return None
-  zero_name = cur.get_name()
-  if base_name(zero_name) != 'zero':
-    return None
-  return (lit_name, suc_name, zero_name)
+  sname = getSuc(inner)
+  return (t.rator.get_name(),
+          sname if isinstance(sname, str) else None,
+          zname)
 
 def try_fast_lit_nat_arith(loc: Meta, rator: Term, args: list[Term],
                            ty: Type | None) -> Term | None:
