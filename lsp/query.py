@@ -3785,14 +3785,15 @@ def insert_lemma_at(
 
     tier: Optional[str] = None
     discharged: tuple[tuple[str, str], ...] = ()
+    instantiations: tuple[str, ...] = ()
     if goal_ast is not None and env is not None:
         given_pairs = _collect_local_givens(env)
-        _score, tier, discharged = _unify_score(
+        _score, tier, discharged, instantiations = _unify_score(
             target_formula, goal_ast, env, given_pairs
         )
 
     template = _insert_lemma_template(
-        name, target_formula, tier, discharged, goal_text
+        name, target_formula, tier, discharged, goal_text, instantiations
     )
 
     if hole_range is None:
@@ -3811,6 +3812,7 @@ def _insert_lemma_template(
     tier: Optional[str],
     discharged: tuple[tuple[str, str], ...],
     goal_text: Optional[str],
+    instantiations: tuple[str, ...] = (),
 ) -> str:
     """Pick the tactic-shape template for ``insert_lemma_at`` (issue #690).
 
@@ -3818,18 +3820,27 @@ def _insert_lemma_template(
     given labels for the ``full`` case; ``formula`` is consulted to
     count premises when there are no labels (e.g. ``premises_remain``
     where every premise is open, or ``full`` with 0 premises).
+
+    ``instantiations`` (issue #734) supplies the explicit ``[t1, ..., tN]``
+    forall-instantiation suffix: when the unifier resolved every
+    all-bound variable of the lemma, the splice writes
+    ``name[t1, ..., tN]`` instead of bare ``name`` so the resulting
+    ``apply ... to ?`` (or ``conclude``/``replace``) elaborates with
+    the right inner subgoal. Empty tuple ``()`` means either no
+    forall to instantiate, or the unifier didn't resolve all vars.
     """
+    name_inst = f"{name}[{', '.join(instantiations)}]" if instantiations else name
     if tier == "full":
         if not discharged and goal_text is not None:
-            return f"conclude {goal_text} by {name}"
+            return f"conclude {goal_text} by {name_inst}"
         labels = ", ".join(label for _, label in discharged)
         if goal_text is not None:
-            return f"conclude {goal_text} by apply {name} to {labels}"
-        return f"apply {name} to {labels}"
+            return f"conclude {goal_text} by apply {name_inst} to {labels}"
+        return f"apply {name_inst} to {labels}"
     if tier == "premises_remain":
-        return f"apply {name} to ?"
+        return f"apply {name_inst} to ?"
     if tier == "rewrite_subterm":
-        return f"replace {name}"
+        return f"replace {name_inst}"
     return name
 
 
@@ -4390,12 +4401,38 @@ def _typed_formula_index(env: Any) -> dict[str, Any]:
     return out
 
 
+def _render_instantiations(
+    vars: Sequence[Any], matching: dict[str, Any]
+) -> tuple[str, ...]:
+    """Render ``matching[v.name]`` for each ``v`` in ``vars``.
+
+    Returns the rendered terms in declaration order so the caller can
+    emit ``name[t1, ..., tN]``. Returns ``()`` if any var is missing
+    from ``matching`` or any rendering raises -- a partial
+    instantiation suffix would be ill-formed.
+    """
+    out: list[str] = []
+    for v in vars:
+        if v.name not in matching:
+            return ()
+        try:
+            out.append(str(matching[v.name]))
+        except Exception:
+            return ()
+    return tuple(out)
+
+
 def _unify_score(
     formula: Any,
     goal_ast: Any,
     env: Any,
     given_pairs: tuple[tuple[str, Any], ...],
-) -> tuple[float, Optional[str], tuple[tuple[str, str], ...]]:
+) -> tuple[
+    float,
+    Optional[str],
+    tuple[tuple[str, str], ...],
+    tuple[str, ...],
+]:
     """Score how well ``formula``'s conclusion unifies with ``goal_ast``.
 
     Three-tier classifier (see :class:`LemmaMatch` for the meaning of
@@ -4407,12 +4444,16 @@ def _unify_score(
       open. Score ``0.7``.
     - ``"rewrite_subterm"`` -- conclusion is an equation whose LHS
       (or RHS) unifies with a subterm of the goal. Score ``0.4``.
-    - falls back to ``(0.0, None, ())`` on no match, missing AST/env,
-      or any internal exception in the unifier.
+    - falls back to ``(0.0, None, (), ())`` on no match, missing AST/
+      env, or any internal exception in the unifier.
 
-    Returns ``(score, tier, discharged_premises)`` where
+    Returns ``(score, tier, discharged_premises, instantiations)``.
     ``discharged_premises`` is a tuple of ``(premise_text, given_label)``
     pairs filled in for the ``"full"`` tier (empty otherwise).
+    ``instantiations`` is the rendered substitution for the lemma's
+    outermost ``all``-bound variables, in declaration order, so
+    callers can emit ``name[t1, ..., tN]`` splices (issue #734).
+    Empty when no tier matched or the lemma had no forall to peel.
 
     The implementation reuses :func:`formula_match` from
     ``abstract_syntax.rewrite`` -- the same first-order matcher
@@ -4421,14 +4462,14 @@ def _unify_score(
     heuristic: a failed unification must never crash the caller.
     """
     if goal_ast is None or env is None or formula is None:
-        return (0.0, None, ())
+        return (0.0, None, (), ())
 
     from abstract_syntax import Call, VarRef, formula_match
     from error import MatchFailed
 
     peeled = _peel_quantified_implication(formula)
     if peeled is None:
-        return (0.0, None, ())
+        return (0.0, None, (), ())
     vars, premises, conc = peeled
 
     location = getattr(formula, "location", None)
@@ -4447,8 +4488,9 @@ def _unify_score(
         pass
 
     if conc_matched:
+        instantiations = _render_instantiations(vars, matching)
         if not premises:
-            return (_UNIFY_TIER_SCORE["full"], "full", ())
+            return (_UNIFY_TIER_SCORE["full"], "full", (), instantiations)
 
         discharged: list[tuple[str, str]] = []
         all_discharged = True
@@ -4473,8 +4515,14 @@ def _unify_score(
                 _UNIFY_TIER_SCORE["full"],
                 "full",
                 tuple(discharged),
+                instantiations,
             )
-        return (_UNIFY_TIER_SCORE["premises_remain"], "premises_remain", ())
+        return (
+            _UNIFY_TIER_SCORE["premises_remain"],
+            "premises_remain",
+            (),
+            instantiations,
+        )
 
     # Tier 3: equation conclusion -> try LHS/RHS against goal subterms.
     if isinstance(conc, Call) and isinstance(conc.rator, VarRef):
@@ -4483,6 +4531,14 @@ def _unify_score(
                 lhs, rhs = conc.args
                 subterms = _iter_subterms(goal_ast)
                 for side in (lhs, rhs):
+                    # When the side is a bare forall-var, ``formula_match``
+                    # binds it to the first subterm visited -- typically
+                    # the whole goal -- which is a meaningless
+                    # "instantiation" for the splice. Skip emitting
+                    # instantiations in that case: a bare ``replace name``
+                    # lets the rewrite engine pattern-match across the
+                    # goal as before.
+                    side_is_bare_var = isinstance(side, VarRef) and side in vars
                     for sub in subterms:
                         sub_matching: dict[str, Any] = {}
                         try:
@@ -4498,15 +4554,21 @@ def _unify_score(
                         ]
                         if unmatched:
                             continue
+                        insts: tuple[str, ...] = (
+                            ()
+                            if side_is_bare_var
+                            else _render_instantiations(vars, sub_matching)
+                        )
                         return (
                             _UNIFY_TIER_SCORE["rewrite_subterm"],
                             "rewrite_subterm",
                             (),
+                            insts,
                         )
         except Exception:
             pass
 
-    return (0.0, None, ())
+    return (0.0, None, (), ())
 
 
 def _rank_lemmas(
@@ -4677,7 +4739,7 @@ def _rank_lemmas(
                 else None
             )
             unify_input = typed_formula if typed_formula is not None else formula
-            unify_score, unify_tier, discharged = _unify_score(
+            unify_score, unify_tier, discharged, _insts = _unify_score(
                 unify_input, goal_ast, env, given_pairs
             )
         else:
