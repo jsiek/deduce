@@ -906,3 +906,32 @@ proof
   show n^a ≤ 1 * n^b
   apply (apply uint_pow_le_mono_r[b, n, a] to one_n) to a_le_b
 end
+
+// Pointwise: `log(f)(n) = log(f(n)) ≤ f(n)` by `uint_logn_le_n`.
+// Hence `log(f) ≲ f` for any cost function `f`.
+theorem bigo_log_le_self: all f:fn UInt->UInt. log(f) ≲ f
+proof
+  arbitrary f:fn UInt->UInt
+  expand operator≲ | log
+  choose 0, 1
+  arbitrary n:UInt
+  assume _
+  show log(f(n)) ≤ 1 * f(n)
+  uint_logn_le_n
+end
+
+// Log of a constant function is bounded: `log(O_1) ≲ O_1`.
+// Instance of `bigo_log_le_self` at `f = O_1`.
+theorem bigo_log_const: log(O_1) ≲ O_1
+proof
+  bigo_log_le_self[O_1]
+end
+
+// Iterated log is bounded by log: `log(O_log) ≲ O_log`.
+// Instance of `bigo_log_le_self` at `f = O_log`; concretely
+// `log(log(n)) ≤ log(n)` for every `n`, which is the
+// `n_log_log(n) ≤ log(n)` step in the `O(n log log n)` discussion.
+theorem bigo_log_log: log(O_log) ≲ O_log
+proof
+  bigo_log_le_self[O_log]
+end
