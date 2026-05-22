@@ -13,36 +13,42 @@ import IntDefs
 
 // Properties of signs
 
+// Sign of a `pos(n)` integer is `positive`.
 lemma sign_pos: all n:UInt. sign(pos(n)) = positive
 proof
   arbitrary n:UInt
   expand sign.
 end
 
+// Sign of a `negsuc(n)` integer is `negative`.
 lemma sign_negsuc: all n:UInt. sign(negsuc(n)) = negative
 proof
   arbitrary n:UInt
   expand sign.
 end
 
+// Negating a strictly positive integer produces a negative one.
 lemma sign_neg_pos: all n:UInt. sign(-pos(1 + n)) = negative
 proof
   arbitrary n:UInt
   expand operator- | sign.
 end
 
+// Negating a `negsuc(n)` produces a positive integer (since `negsuc(n)` is `-(1+n)`).
 lemma sign_neg_negsuc: all n:UInt. sign(-negsuc(n)) = positive
 proof
   arbitrary n:UInt
   expand operator - | sign.
 end
 
+// `positive` is the left identity for Sign multiplication.
 lemma mult_pos_any: all s:Sign. positive * s = s
 proof
   arbitrary s:Sign
   expand operator*.
 end
 
+// `positive` is the right identity for Sign multiplication.
 lemma mult_any_pos: all s:Sign. s * positive = s
 proof
   arbitrary s:Sign
@@ -57,27 +63,32 @@ proof
   }
 end
 
+// Sign multiplication table: positive × negative = negative.
 lemma mult_pos_neg: positive * negative = negative
 proof
   expand operator*.
 end
 
+// Sign multiplication table: negative × positive = negative.
 lemma mult_neg_pos: negative * positive = negative
 proof
   expand operator* | flip.
 end
 
+// Sign multiplication table: negative × negative = positive.
 lemma mult_neg_neg: negative * negative = positive
 proof
   expand operator* | flip.
 end
 
+// `positive` × UInt magnitude embeds as the corresponding `pos` integer.
 lemma mult_pos_uint: all n:UInt. positive * n = pos(n)
 proof
   arbitrary n:UInt
   evaluate
 end
 
+// Multiplying an Int by the `positive` sign is the identity.
 lemma mult_pos_int: all n:Int. positive * n = n
 proof
   arbitrary n:Int
@@ -91,6 +102,7 @@ proof
   }
 end
 
+// `negative` × UInt magnitude flips to the corresponding negative integer.
 lemma mult_neg_uint: all n:UInt. negative * n = - pos(n)
 proof
   arbitrary n:UInt
@@ -99,18 +111,22 @@ end
 
 // Properties of absolute value and subtraction
 
+// Structural identity for `abs` on `pos`: `abs(pos(n)) = n`. (Private helper;
+// `IntAbs.pf` re-exports a public `int_abs_pos` with the same statement.)
 lemma abs_pos: all n:UInt. abs(pos(n)) = n
 proof
   arbitrary n:UInt
   expand abs.
 end
 
+// Structural identity for `abs` on `negsuc`: `abs(negsuc(n)) = 1 + n`.
 lemma abs_negsuc: all n:UInt. abs(negsuc(n)) = 1 + n
 proof
   arbitrary n:UInt
   expand abs.
 end
 
+// Absolute value is invariant under negation: `abs(-n) = abs(n)`.
 theorem abs_neg: all n:Int. abs(- n) = abs(n)
 proof
   arbitrary n:Int
@@ -139,11 +155,13 @@ end
 
 // Properties of negation
 
+// Negation of zero is zero.
 theorem neg_zero: - +0 = +0
 proof
   evaluate
 end
 
+// Negating a strictly positive integer produces the matching `negsuc`.
 lemma neg_pos: all n:UInt.
 	- pos(1 + n) = negsuc(n)
 proof
@@ -151,6 +169,7 @@ proof
   expand operator-.
 end
 
+// Bare-UInt form of `neg_pos`: `-(1 + n) = negsuc(n)`.
 lemma neg_suc: all n:UInt.
 	- (1 + n) = negsuc(n)
 proof
@@ -158,6 +177,7 @@ proof
   expand 2* operator-.
 end
 
+// Double negation is the identity: `- - n = n`.
 theorem neg_involutive: all n:Int. - - n = n
 proof
   arbitrary n:Int
@@ -193,6 +213,7 @@ end
 // pos/negsuc/`- ·` normalization facts that other Int proofs otherwise
 // derive ad-hoc via `switch`.
 
+// `pos` is injective: equal `pos` integers have equal UInt magnitudes.
 theorem int_pos_injective: all x:UInt, y:UInt.
   if pos(x) = pos(y) then x = y
 proof
@@ -201,6 +222,7 @@ proof
   injective pos eq
 end
 
+// `negsuc` is injective: equal `negsuc` integers have equal UInt indices.
 theorem int_negsuc_injective: all x:UInt, y:UInt.
   if negsuc(x) = negsuc(y) then x = y
 proof
@@ -209,6 +231,7 @@ proof
   injective negsuc eq
 end
 
+// The constructors `pos` and `negsuc` are disjoint: `pos(x) ≠ negsuc(y)`.
 theorem int_pos_eq_negsuc_false: all x:UInt, y:UInt.
   not (pos(x) = negsuc(y))
 proof
@@ -217,6 +240,7 @@ proof
   conclude false by eq
 end
 
+// Symmetric disjointness: `negsuc(x) ≠ pos(y)`.
 theorem int_negsuc_eq_pos_false: all x:UInt, y:UInt.
   not (negsuc(x) = pos(y))
 proof
@@ -225,6 +249,7 @@ proof
   conclude false by eq
 end
 
+// Unary negation is injective: `-x = -y` implies `x = y`.
 theorem int_neg_injective: all x:Int, y:Int.
   if - x = - y then x = y
 proof
@@ -236,6 +261,7 @@ end
 
 // Properties of addition
 
+// Zero is a left identity for Int addition.
 theorem int_zero_add: all n:Int.
   +0 + n = n
 proof
@@ -253,6 +279,7 @@ end
 
 auto int_zero_add
 
+// Zero is a right identity for Int addition.
 theorem int_add_zero: all n:Int.
   n + +0 = n
 proof
@@ -270,6 +297,7 @@ end
 
 auto int_add_zero
 
+// Int addition is commutative.
 theorem int_add_commute: all x:Int, y:Int. x + y = y + x
 proof
   arbitrary x:Int, y:Int
@@ -299,6 +327,7 @@ proof
   }
 end
 
+// Truncated subtraction starting from zero: `0 ⊝ (1+n) = negsuc(n)`.
 lemma zero_monuso_neg: all n:UInt. 0 ⊝ (1 + n) = negsuc(n)
 proof
   arbitrary n:UInt
@@ -306,6 +335,7 @@ proof
   neg_suc
 end
 
+// Truncated subtraction by zero embeds a UInt: `n ⊝ 0 = pos(n)`.
 lemma int_monuso_zero: all n:UInt. n ⊝ 0 = pos(n)
 proof
   arbitrary n:UInt
@@ -314,12 +344,16 @@ proof
 end
 
 
+// Truncated subtraction of equals is zero: `n ⊝ n = +0`.
 lemma int_monuso_cancel: all n:UInt. n ⊝ n = +0
 proof
   arbitrary n:UInt
   expand operator⊝.
 end
 
+// Truncated subtraction of UInts agrees with Int subtraction of the embedded
+// `pos` values: `x ⊝ y = pos(x) - pos(y)`. This is the bridge lemma between
+// the `⊝` builder and the public `-` operator on Int.
 lemma subo_monus: all x:UInt, y:UInt. x ⊝ y = pos(x) - pos(y)
 proof
   arbitrary x:UInt, y:UInt
@@ -377,6 +411,8 @@ proof
   }
 end
 
+// Truncated subtraction is invariant under adding 1 to both operands:
+// `(1+x) ⊝ (1+y) = x ⊝ y`.
 theorem suc_uint_monuso: all x:UInt, y:UInt. (1 + x) ⊝ (1 + y) = x ⊝ y
 proof
   arbitrary x:UInt, y:UInt
@@ -401,6 +437,7 @@ proof
   }
 end
 
+// Distribute a `pos` summand into a `⊝` on the left: `(n ⊝ o) + pos(m) = (n + m) ⊝ o`.
 lemma distrib_left_monus_add: all m:UInt, n:UInt, o:UInt.
   (n ⊝ o) + pos(m) = (n + m) ⊝ o
 proof
@@ -442,6 +479,7 @@ proof
   expand P in apply uint_induction[P] to P0, ind
 end
 
+// Structural rule: `pos(n) + pos(m) = pos(n + m)`.
 lemma add_pos_pos: all n:UInt, m:UInt.
   pos(n) + pos(m) = pos(n + m)
 proof
@@ -449,7 +487,8 @@ proof
   conclude #pos(n) + pos(m)# = pos(n + m)
     by expand operator+.
 end
-  
+
+// Structural rule: `pos(n) + negsuc(m) = n ⊝ (1 + m)`.
 lemma add_pos_negsuc: all n:UInt, m:UInt.
   pos(n) + negsuc(m) = n ⊝ (1 + m)
 proof
@@ -458,6 +497,7 @@ proof
     by expand operator+.
 end
 
+// Structural rule: `negsuc(n) + pos(m) = m ⊝ (1 + n)`.
 lemma add_negsuc_pos: all n:UInt, m:UInt.
   negsuc(n) + pos(m) = m ⊝ (1 + n)
 proof
@@ -465,6 +505,7 @@ proof
   conclude #negsuc(n) + pos(m)# = m ⊝ (1 + n) by expand operator+.
 end
 
+// Structural rule: `negsuc(n) + negsuc(m) = negsuc(1 + n + m)` (magnitudes add, sign stays negative).
 lemma add_negsuc_negsuc: all n:UInt, m:UInt.
   negsuc(n) + negsuc(m) = negsuc(1 + n + m)
 proof
@@ -473,6 +514,8 @@ proof
     by expand operator+.
 end
 
+// Distribute a `negsuc` summand into a `⊝` on the left:
+// `(n ⊝ o) + negsuc(m) = n ⊝ ((1 + o) + m)`.
 lemma distrib_left_monus_add_neg: all m:UInt, n:UInt, o:UInt.
   (n ⊝ o) + negsuc(m) = n ⊝ ((1 + o) + m)
 proof
@@ -513,6 +556,7 @@ proof
   expand P in apply uint_induction[P] to P0, ind
 end
 
+// Mixed-form commutativity: a UInt and an Int commute under addition.
 theorem add_commute_uint_int: all x:UInt, y:Int.
   x + y = y + x
 proof
@@ -527,6 +571,7 @@ proof
   }
 end
 
+// Distribute a `pos` summand into a `⊝` on the right: `pos(m) + (n ⊝ o) = (m + n) ⊝ o`.
 lemma distrib_right_monus_add: all m:UInt, n:UInt, o:UInt.
   pos(m) + (n ⊝ o) = (m + n) ⊝ o
 proof
@@ -538,6 +583,8 @@ proof
   ... = (m + n) ⊝ o        by replace uint_add_commute.
 end
 
+// Distribute a `negsuc` summand into a `⊝` on the right:
+// `negsuc(m) + (n ⊝ o) = n ⊝ (1 + m + o)`.
 lemma distrib_right_monus_add_neg: all m:UInt, n:UInt, o:UInt.
   negsuc(m) + (n ⊝ o) = n ⊝ (1 + m + o)
 proof
@@ -549,6 +596,7 @@ proof
   ... = n ⊝ (1 + m + o)          by replace uint_add_commute[o,m].
 end
 
+// Int addition is associative: `(x + y) + z = x + (y + z)`.
 theorem int_add_assoc: all x:Int, y:Int, z:Int. (x + y) + z = x + (y + z)
 proof
   arbitrary x:Int, y:Int, z:Int
@@ -647,6 +695,7 @@ associative operator+ in Int
 
 // Properties of Addition and Negation
 
+// Right additive inverse: `x + -x = +0`.
 theorem int_add_inverse: all x:Int. x + -x = +0
 proof
   arbitrary x:Int
@@ -672,6 +721,7 @@ proof
   }
 end
 
+// Left additive inverse: `-x + x = +0`.
 theorem int_add_left_inverse: all x:Int. -x + x = +0
 proof
   arbitrary x:Int
@@ -679,6 +729,7 @@ proof
   int_add_inverse[x]
 end
 
+// Left cancellation under addition: `x + y = x + z` implies `y = z`.
 theorem int_add_both_sides_of_equal: all x:Int, y:Int, z:Int.
   if x + y = x + z then y = z
 proof
@@ -706,6 +757,7 @@ proof
   ... = z              by rhs
 end
 
+// Iff form of left cancellation: `x + y = x + z ⇔ y = z`.
 theorem int_add_both_sides_of_equal_iff: all x:Int, y:Int, z:Int.
   x + y = x + z ⇔ y = z
 proof
@@ -721,6 +773,7 @@ proof
   fwd, bkwd
 end
 
+// Right cancellation under addition: `y + x = z + x` implies `y = z`.
 theorem int_add_both_sides_of_equal_right: all x:Int, y:Int, z:Int.
   if y + x = z + x then y = z
 proof
@@ -733,12 +786,14 @@ proof
   apply int_add_both_sides_of_equal[x, y, z] to step
 end
 
+// Negating a bare UInt agrees with negating its `pos` embedding: `-x = -pos(x)`.
 lemma neg_uint: all x:UInt. -x = -pos(x)
 proof
   arbitrary x:UInt
   evaluate
 end
 
+// Negation flips the operands of truncated subtraction: `-(x ⊝ y) = y ⊝ x`.
 lemma neg_monuso: all x:UInt, y:UInt. - (x ⊝ y) = y ⊝ x
 proof
   arbitrary x:UInt, y:UInt
@@ -766,6 +821,7 @@ proof
   }
 end
 
+// Negation distributes over addition: `-(x + y) = (-x) + (-y)`.
 theorem neg_distr_add: all x:Int, y:Int. -(x + y) = (- x) + (- y)
 proof
   arbitrary x:Int, y:Int
@@ -836,6 +892,7 @@ end
 
 // Properties of Subtraction
 
+// Self-subtraction is zero: `x - x = +0`.
 theorem int_sub_cancel: all x:Int. x - x = +0
 proof
   arbitrary x:Int
