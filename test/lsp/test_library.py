@@ -129,3 +129,23 @@ def test_unsaved_content_bypasses_module_cache(tmp_path: Path) -> None:
 
     assert result.ok
     assert path.stem not in get_uniquified_modules()
+
+
+def test_collect_errors_includes_expand_residual_hint() -> None:
+    """Regression test for issue #745: the ``expand_residual_hint``
+    appended by ``_check_proof_of_apply_defs_goal`` must reach the
+    diagnostic surfaced through ``collect_errors=True`` (MCP / LSP),
+    not just the CLI. The fixture file at
+    ``test/should-error/advice_expand_more.pf`` is the same one the
+    CLI ``test/should-error`` sweep uses; here we additionally verify
+    the hint round-trips through the sink path."""
+    path = ERROR_DIR / "advice_expand_more.pf"
+    result = check_file(str(path), collect_errors=True)
+    assert result.errors is not None
+    assert not result.ok
+    assert len(result.errors) >= 1
+    body = getattr(result.errors[0], "message_body", str(result.errors[0]))
+    assert "goal still contains" in body and "sum_test" in body, (
+        "expand-residual hint missing from collect_errors diagnostic:\n"
+        + body
+    )
