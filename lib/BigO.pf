@@ -817,3 +817,92 @@ proof
   expand bigo_omega
   gf_big
 end
+
+// Linearithmic time: n * log(n).
+fun O_n_log_n(n:UInt) { n * log(n) }
+
+// Cubic time.
+fun O_n3(n:UInt) { n * n * n }
+
+// Exponential time: 2^n.
+fun O_2pow_n(n:UInt) { 2 ^ n }
+
+// Linear is bounded by linearithmic: for n ≥ 2, log(n) ≥ 1, so
+// n ≤ n * log(n).
+theorem bigo_linear_le_n_log_n: O_n ≲ O_n_log_n
+proof
+  expand operator≲ | O_n | O_n_log_n
+  choose 2, 1
+  arbitrary n:UInt
+  assume two_n: 2 ≤ n
+  show n ≤ 1 * (n * log(n))
+  have one_log: 1 ≤ log(n) by apply uint_log_greater_one to two_n
+  apply uint_mult_mono_le[n] to one_log
+end
+
+// Linearithmic is bounded by quadratic: log(n) ≤ n, so n * log(n) ≤ n * n.
+theorem bigo_n_log_n_le_quadratic: O_n_log_n ≲ O_n2
+proof
+  expand operator≲ | O_n_log_n | O_n2
+  choose 0, 1
+  arbitrary n:UInt
+  assume _
+  show n * log(n) ≤ 1 * (n * n)
+  have logn_n: log(n) ≤ n by uint_logn_le_n
+  have n_n: n ≤ n by .
+  conclude n * log(n) ≤ 1 * (n * n) by apply uint_mult_mono_le2 to n_n, logn_n
+end
+
+// Quadratic is bounded by cubic: for n ≥ 1, n * n ≤ n * n * n.
+theorem bigo_quadratic_le_cubic: O_n2 ≲ O_n3
+proof
+  expand operator≲ | O_n2 | O_n3
+  choose 1, 1
+  arbitrary n:UInt
+  assume one_n: 1 ≤ n
+  show n * n ≤ 1 * (n * n * n)
+  apply uint_mult_mono_le[n * n] to one_n
+end
+
+// Linear is bounded by exponential: for n ≥ 1, n < 2^(1+log(n)) ≤ 2^(1+n) = 2 * 2^n.
+theorem bigo_linear_le_2pow_n: O_n ≲ O_2pow_n
+proof
+  expand operator≲ | O_n | O_2pow_n
+  choose 1, 2
+  arbitrary n:UInt
+  assume one_n: 1 ≤ n
+  show n ≤ 2 * 2^n
+  have n_pos: 0 < n by replace uint_less_is_less_equal[0, n] one_n
+  have lt: n < 2^(1 + log(n)) by apply less_pow_log to n_pos
+  have logn_n: log(n) ≤ n by uint_logn_le_n
+  have one_le: (1:UInt) ≤ 1 by .
+  have step: 1 + log(n) ≤ 1 + n by apply uint_add_mono_less_equal to one_le, logn_n
+  have one_le_two: (1:UInt) ≤ 2 by .
+  have pow_step: 2^(1 + log(n)) ≤ 2^(1 + n)
+    by apply (apply uint_pow_le_mono_r[1 + n, 2, 1 + log(n)] to one_le_two) to step
+  have lt_le: n < 2^(1 + n) by {
+    have or_eq: 2^(1 + log(n)) < 2^(1 + n) or 2^(1 + log(n)) = 2^(1 + n) by expand operator≤ in pow_step
+    cases or_eq
+    case lt_case { apply uint_less_trans to lt, lt_case }
+    case eq_case { replace eq_case in lt }
+  }
+  have expand_pow: 2^(1 + n) = 2 * 2^n by uint_pow_add_r[2, 1, n]
+  have lt_le2: n < 2 * 2^n by replace expand_pow in lt_le
+  apply uint_less_implies_less_equal to lt_le2
+end
+
+// Polynomial monotonicity in the exponent. For n ≥ 1, n^a ≤ n^b when a ≤ b.
+// The threshold n0 = 1 is enough: 0^a is 0 (when a > 0) or 1 (when a = 0),
+// so the n = 0 corner is excluded here for simplicity.
+theorem bigo_pow_mono: all a:UInt, b:UInt.
+  if a ≤ b then (fun n:UInt { n^a }) ≲ (fun n:UInt { n^b })
+proof
+  arbitrary a:UInt, b:UInt
+  assume a_le_b: a ≤ b
+  expand operator≲
+  choose 1, 1
+  arbitrary n:UInt
+  assume one_n: 1 ≤ n
+  show n^a ≤ 1 * n^b
+  apply (apply uint_pow_le_mono_r[b, n, a] to one_n) to a_le_b
+end
