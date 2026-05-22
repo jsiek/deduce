@@ -94,6 +94,16 @@
         "command": "deduce.fillHole",
         "title": "Deduce: Fill hole with LLM",
         "category": "Deduce"
+      },
+      {
+        "command": "deduce.searchLemma",
+        "title": "Deduce: Search for a lemma at cursor",
+        "category": "Deduce"
+      },
+      {
+        "command": "deduce.searchLemmaWithQuery",
+        "title": "Deduce: Search for a lemma at cursor (with query)",
+        "category": "Deduce"
       }
     ],
     "keybindings": [
@@ -135,6 +145,16 @@
       {
         "command": "deduce.fillHole",
         "key": "ctrl+alt+a",
+        "when": "editorTextFocus && editorLangId == deduce"
+      },
+      {
+        "command": "deduce.searchLemma",
+        "key": "ctrl+alt+l",
+        "when": "editorTextFocus && editorLangId == deduce"
+      },
+      {
+        "command": "deduce.searchLemmaWithQuery",
+        "key": "ctrl+alt+shift+l",
         "when": "editorTextFocus && editorLangId == deduce"
       }
     ],

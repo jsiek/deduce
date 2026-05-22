@@ -207,6 +207,36 @@ function activate(context) {
             )),
     );
 
+    // --- Lemma search at a hole (issue #690, Part 4) ------------
+    //
+    // Mirror of editor/emacs/deduce-lsp.el's C-c C-l
+    // `deduce-lsp-search-lemma'.  Cursor on a `?': fetch ranked
+    // candidates via `deduce/availableLemmasAt', show them in a
+    // QuickPick with the unify-tier marker and module of origin,
+    // and on selection drive a `deduce/insertLemma' request whose
+    // tier-aware WorkspaceEdit is applied directly.
+    //
+    // Two commands:
+    //
+    //   deduce.searchLemma          no query; lists everything in
+    //                               scope, ranked best-first
+    //   deduce.searchLemmaWithQuery prompts via showInputBox for a
+    //                               substring or `_'-pattern that
+    //                               the server uses to filter --
+    //                               mirror of Emacs's `C-u C-c C-l'
+    context.subscriptions.push(
+        vscode.commands.registerCommand('deduce.searchLemma', () =>
+            searchLemmaCommand(client, null)),
+        vscode.commands.registerCommand('deduce.searchLemmaWithQuery', async () => {
+            const query = await vscode.window.showInputBox({
+                prompt: 'Lemma search (substring or `_`-pattern)',
+                placeHolder: 'e.g. commute, _ + _ = _ + _',
+            });
+            if (query === undefined) return;
+            searchLemmaCommand(client, query);
+        }),
+    );
+
     // --- LLM-driven hole filling --------------------------------
     //
     // Mirror of editor/emacs/deduce-fill-hole.el (C-c C-a).  Flow:
@@ -730,6 +760,107 @@ async function applyFirstCandidateEdit(
         return;
     }
     await applyLspWorkspaceEdit(editor, edit);
+}
+
+// Lemma search shape: query the ranked candidate list via
+// `deduce/availableLemmasAt', show them in a QuickPick with the
+// unify-tier marker + module annotation, and on selection drive a
+// `deduce/insertLemma' request whose tier-aware WorkspaceEdit is
+// applied directly.  Mirror of editor/emacs/deduce-lsp.el's
+// `deduce-lsp-search-lemma'.  ``query'' is null for browse mode (no
+// server-side filter), or a substring / `_'-pattern string that the
+// server uses to filter candidates.
+async function searchLemmaCommand(client, query) {
+    const editor = ensureDeduceEditor();
+    if (!editor || !client) return;
+    const params = textDocumentPosition(editor);
+    if (query !== null && query !== '') {
+        params.query = query;
+    }
+    let lemmas;
+    try {
+        lemmas = await client.sendRequest('deduce/availableLemmasAt', params);
+    } catch (err) {
+        vscode.window.showErrorMessage(
+            `Deduce: availableLemmasAt failed: ${err.message || err}`);
+        return;
+    }
+    const list = Array.isArray(lemmas) ? lemmas : [];
+    if (list.length === 0) {
+        vscode.window.showInformationMessage(
+            'Deduce: no lemma candidates at point.');
+        return;
+    }
+    const items = list.map((lemma) => lemmaQuickPickItem(lemma));
+    const pick = await vscode.window.showQuickPick(items, {
+        placeHolder: 'Lemma:',
+        matchOnDescription: true,
+        matchOnDetail: true,
+    });
+    if (!pick) return;
+    let edit;
+    try {
+        edit = await client.sendRequest('deduce/insertLemma', {
+            ...textDocumentPosition(editor),
+            name: pick.lemma.name,
+        });
+    } catch (err) {
+        vscode.window.showErrorMessage(
+            `Deduce: insertLemma failed: ${err.message || err}`);
+        return;
+    }
+    if (!edit) {
+        vscode.window.showErrorMessage(
+            `Deduce: server returned no edit for lemma '${pick.lemma.name}'.`);
+        return;
+    }
+    await applyLspWorkspaceEdit(editor, edit);
+}
+
+// Build the QuickPickItem shape for one lemma row.  Matches the
+// mockup in issue #690 Part 4:
+//
+//   label        signature (the .thm-style declaration line; the
+//                server already prefixes `NAME: ' for theorems and
+//                postulates, so showing it verbatim avoids the
+//                `t : t: (...)' duplication noted in Bug 6 of #690)
+//   description  tier marker (e.g. "applies (by h, g)")
+//   detail       "[ModuleName]"
+//
+// VS Code's QuickPick filter looks at all three fields when
+// `matchOnDescription' / `matchOnDetail' are on, so type-to-filter
+// hits the formula text as well as the name.
+function lemmaQuickPickItem(lemma) {
+    const item = {
+        label: lemma.signature || lemma.name,
+        lemma,
+    };
+    const tier = lemmaTierTag(lemma);
+    if (tier) item.description = tier;
+    const module = lemma.module;
+    if (module && module !== '') {
+        item.detail = `[${module}]`;
+    }
+    return item;
+}
+
+// Convert a lemma's unify_tier + discharged_premises into the short
+// annotation string shown to the right of the QuickPick label.
+// Returns the empty string when the tier didn't match (browse mode,
+// or no goal AST available at this cursor).
+function lemmaTierTag(lemma) {
+    const tier = lemma.unify_tier;
+    const discharged = lemma.discharged_premises || [];
+    if (tier === 'full') {
+        if (discharged.length > 0) {
+            const labels = discharged.map((pair) => pair[1]).join(', ');
+            return `applies (by ${labels})`;
+        }
+        return 'applies';
+    }
+    if (tier === 'premises_remain') return 'premises remain';
+    if (tier === 'rewrite_subterm') return 'rewrite subterm';
+    return '';
 }
 
 // Pretty-print a deduce/goalAt response into the goal Output channel.
