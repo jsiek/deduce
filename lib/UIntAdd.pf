@@ -15,6 +15,10 @@ import UIntLess
   and monotonicity lemmas.
 */
 
+// ============================================================
+// `toNat` / `fromNat` bridge for addition
+// ============================================================
+
 // UInt addition agrees with Nat addition under `toNat`.
 theorem toNat_add: all x:UInt, y:UInt.
   toNat(x + y) = toNat(x) + toNat(y)
@@ -64,6 +68,7 @@ proof
   }
 end
 
+// UInt addition agrees with Nat addition under `fromNat`.
 theorem fromNat_add: all x:Nat, y:Nat.
   fromNat(x + y) = fromNat(x) + fromNat(y)
 proof
@@ -73,6 +78,8 @@ proof
   replace toNat_add | uint_toNat_fromNat.
 end
 
+// Numeric literals push `fromNat` outward across `+`; registered as `auto` to
+// keep literal arithmetic in a single `fromNat(...)` envelope during checking.
 theorem lit_add_fromNat: all x:Nat, y:Nat.
   fromNat(lit(x)) + fromNat(lit(y)) = fromNat(lit(x) + lit(y))
 proof
@@ -102,6 +109,11 @@ end
 auto add_lit_fromNat
 */
 
+// ============================================================
+// Basic algebra: commutativity, associativity, identities
+// ============================================================
+
+// Commutativity of UInt addition.
 theorem uint_add_commute: all x:UInt, y:UInt.
   x + y = y + x
 proof
@@ -114,6 +126,8 @@ proof
     ... = #toNat(y + x)#        by replace toNat_add.
 end
 
+// Associativity of UInt addition; the `associative operator+ in UInt`
+// declaration just below makes the prover automatically re-associate `+`.
 theorem uint_add_assoc: all x:UInt, y:UInt, z:UInt.
   (x + y) + z = x + (y + z)
 proof
@@ -129,12 +143,15 @@ end
 
 associative operator+ in UInt
 
+// Smoke test that the `associative operator+` declaration above closes
+// re-association goals automatically.
 lemma check_assoc: all x:UInt, y:UInt, z:UInt.
   (x + y) + z = x + (y + z)
 proof
   .
 end
 
+// Left identity in raw `bzero` form (used to derive `uint_zero_add` below).
 lemma uint_bzero_add: all x:UInt.
   bzero + x = x
 proof
@@ -146,6 +163,8 @@ proof
   ... = toNat(x)                   by expand toNat evaluate
 end
 
+// Right identity in raw `bzero` form; registered as `auto` so `x + bzero`
+// collapses without explicit rewriting.
 lemma uint_add_bzero: all x:UInt.
   x + bzero = x
 proof
@@ -159,6 +178,8 @@ end
 
 auto uint_add_bzero
 
+// `1 + n` is strictly positive (raw constructor form: `inc_dub(bzero)`
+// is the UInt encoding of 1, before `lit`/`fromNat` rewriting).
 lemma uint_bzero_less_one_add: all n:UInt.
   bzero < inc_dub(bzero) + n
 proof
@@ -171,6 +192,12 @@ proof
   }
 end
 
+// ============================================================
+// Cancellation laws
+// ============================================================
+
+// Left-cancellation for `+`: equal sums with the same left summand have
+// equal right summands, and conversely.
 theorem uint_add_both_sides_of_equal: all x:UInt, y:UInt, z:UInt.
   x + y = x + z ⇔ y = z
 proof
@@ -191,6 +218,8 @@ proof
   fwd, bkwd
 end
 
+// If two UInts sum to `bzero` then both summands are `bzero` (raw form;
+// `uint_add_to_zero` below restates this with numeric `0`).
 lemma uint_add_to_bzero: all n:UInt, m:UInt.
   if n + m = bzero
   then n = bzero and m = bzero
@@ -207,6 +236,11 @@ proof
   (apply uint_toNat_injective to nz), (apply uint_toNat_injective to mz)
 end
 
+// ============================================================
+// Interaction with `<` and `≤`
+// ============================================================
+
+// Adding any UInt on the right cannot decrease the value.
 theorem uint_less_equal_add: all x:UInt, y:UInt.
   x ≤ x + y
 proof
@@ -216,6 +250,8 @@ proof
   less_equal_add
 end
 
+// Adding any UInt on the left cannot decrease the value (mirror of
+// `uint_less_equal_add`).
 theorem uint_less_equal_add_left: all x:UInt, y:UInt. y ≤ x + y
 proof
   arbitrary x:UInt, y:UInt
@@ -223,6 +259,8 @@ proof
   uint_less_equal_add
 end
 
+// Strict version of `uint_less_equal_add`: adding a positive summand on
+// the right makes the result strictly greater.
 lemma uint_less_add_pos: all x:UInt, y:UInt.
   if bzero < y
   then x < x + y
@@ -237,6 +275,11 @@ proof
   conclude x < x + y by apply less_toNat to B
 end
   
+// ============================================================
+// `inc` / `pred` and `1 + _` interaction
+// ============================================================
+
+// `pred` undoes `inc`. Used below to drive the UInt induction principle.
 lemma uint_pred_inc: all b:UInt.
   pred(inc(b)) = b
 proof
@@ -247,6 +290,8 @@ proof
   expand pred.
 end
 
+// `inc(b)` equals `1 + b` written in raw constructor form (where
+// `inc_dub(bzero)` is the UInt encoding of 1).
 lemma inc_one_add: all b:UInt.
   inc(b) = inc_dub(bzero) + b
 proof
@@ -258,6 +303,7 @@ proof
   evaluate
 end
 
+// User-facing restatement of `inc_one_add` with the numeric literal `1`.
 theorem inc_add_one: all n:UInt.
   inc(n) = 1 + n
 proof
@@ -267,6 +313,7 @@ proof
   evaluate
 end
 
+// Every UInt is strictly less than its successor.
 theorem uint_less_plus1: all n:UInt.
   n < 1 + n
 proof
@@ -277,6 +324,8 @@ proof
   less_equal_refl
 end
 
+// Boolean form of `uint_less_plus1`, registered as `auto` so `n < 1 + n`
+// reduces to `true` automatically during checking.
 theorem uint_less_plus1_true: all n:UInt.
   (n < 1 + n) = true
 proof
@@ -286,6 +335,8 @@ end
 
 auto uint_less_plus1_true
 
+// Adding the same UInt to both sides preserves strict inequality (both
+// directions).
 theorem uint_add_both_sides_of_less: all x:UInt, y:UInt, z:UInt.
   x + y < x + z ⇔ y < z
 proof
@@ -311,6 +362,9 @@ proof
   fwd, bkwd
 end
 
+// `x < y` is the same proposition as `1 + x ≤ y` on UInt; rewriting in
+// either direction is often the easiest way to move between strict and
+// non-strict comparisons.
 theorem uint_less_is_less_equal: all x:UInt, y:UInt.
   x < y = 1 + x ≤ y
 proof
@@ -345,6 +399,7 @@ proof
   fwd, bkwd
 end
 
+// Adding the same UInt to both sides preserves `≤` (both directions).
 theorem uint_add_both_sides_of_less_equal: all x:UInt. all y:UInt, z:UInt. x + y ≤ x + z ⇔ y ≤ z
 proof
   arbitrary x:UInt
@@ -370,6 +425,8 @@ proof
   fwd, bkwd
 end
 
+// Boolean-equation form of `uint_add_both_sides_of_less_equal`,
+// registered as `auto` to simplify common `≤` goals automatically.
 theorem uint_add_both_sides_of_le_equal: all x:UInt. all y:UInt, z:UInt. (x + y ≤ x + z) = (y ≤ z)
 proof
   arbitrary x:UInt
@@ -379,12 +436,19 @@ end
 
 auto uint_add_both_sides_of_le_equal
 
+// `x < 1 + y` implies `x ≤ y`; convenient when peeling a successor off
+// the upper bound during induction.
 theorem uint_less_add_one_implies_less_equal: all x:UInt, y:UInt. (if x < 1 + y then x ≤ y)
 proof
   arbitrary x:UInt, y:UInt
   replace uint_less_is_less_equal.
 end
 
+// ============================================================
+// Zero / positivity characterizations
+// ============================================================
+
+// A successor `1 + n` is never zero.
 theorem uint_not_one_add_zero: all n:UInt.
     not (1 + n = 0)
 proof
@@ -396,12 +460,14 @@ proof
   conclude false by apply nat_not_one_add_zero to eq3
 end
 
+// The only UInt bounded above by `0` is `0` itself.
 theorem uint_zero_le_zero: all x:UInt. (if x ≤ 0 then x = 0)
 proof
   arbitrary x:UInt
   uint_less_equal_zero
 end
 
+// `≤`-version of `uint_not_one_add_zero`: a successor is never `≤ 0`.
 theorem uint_not_one_add_le_zero: all n:UInt.
   not (1 + n ≤ 0)
 proof
@@ -411,6 +477,7 @@ proof
   apply uint_zero_le_zero to prem
 end
 
+// Nonzero implies strictly positive on UInt (no negatives).
 theorem uint_not_zero_pos: all n:UInt.
   if not (n = 0) then 0 < n
 proof
@@ -429,6 +496,7 @@ proof
   }
 end
 
+// Converse direction: strict positivity implies nonzero.
 theorem uint_pos_not_zero: all n:UInt.
   if 0 < n then not (n = 0)
 proof
@@ -440,6 +508,8 @@ proof
 end
 
     
+// Positive UInt is at least `1`; the discrete-counterpart of "no values
+// strictly between 0 and 1".
 theorem uint_pos_implies_one_le: all n:UInt.
   if 0 < n
   then 1 ≤ n
@@ -450,6 +520,8 @@ proof
   A
 end
 
+// A positive UInt is the successor of some UInt; useful for peeling off
+// a `1 +` when doing induction-style case analysis.
 theorem uint_positive_add_one: all n:UInt.
   if 0 < n
   then some n':UInt. n = 1 + n'
@@ -469,6 +541,7 @@ proof
   }
 end
 
+// Total dichotomy: every UInt is either `0` or a successor `1 + x'`.
 theorem uint_zero_or_add_one: all x:UInt. x = 0 or (some x':UInt. x = 1 + x')
 proof
   arbitrary x:UInt
@@ -487,6 +560,7 @@ proof
   }
 end
 
+// A successor is strictly positive.
 theorem uint_zero_less_one_add: all n:UInt.
   0 < 1 + n
 proof
@@ -494,6 +568,8 @@ proof
   uint_bzero_less_one_add
 end
 
+// Boolean form of `uint_zero_less_one_add`, registered as `auto` so the
+// prover discharges `0 < 1 + n` automatically.
 theorem uint_zero_less_one_add_true: all n:UInt. (0 < 1 + n) = true
 proof
   arbitrary n:UInt
@@ -502,6 +578,7 @@ end
 
 auto uint_zero_less_one_add_true
 
+// Left identity in user-facing `0` form (auto-rewrite).
 theorem uint_zero_add: all x:UInt.
   0 + x = x
 proof
@@ -511,6 +588,7 @@ end
 
 auto uint_zero_add
 
+// Right identity in user-facing `0` form (auto-rewrite).
 theorem uint_add_zero: all x:UInt.
   x + 0 = x
 proof
@@ -520,6 +598,8 @@ end
   
 auto uint_add_zero
 
+// If `n + m = 0` then both `n` and `m` are `0` (user-facing version of
+// `uint_add_to_bzero`).
 theorem uint_add_to_zero: all n:UInt, m:UInt.
   if n + m = 0
   then n = 0 and m = 0
@@ -528,6 +608,8 @@ proof
   uint_add_to_bzero
 end
   
+// Boolean form of `uint_not_one_add_zero`, registered as `auto` so
+// `1 + n = 0` rewrites to `false`.
 theorem uint_one_add_zero_false: all n:UInt.
     (1 + n = 0) = false
 proof
@@ -537,6 +619,11 @@ end
 
 auto uint_one_add_zero_false
 
+// ============================================================
+// Monotonicity in both arguments
+// ============================================================
+
+// `+` is monotone in both arguments under `≤`.
 theorem uint_add_mono_less_equal: all a:UInt, b:UInt, c:UInt, d:UInt.
   (if a ≤ c and b ≤ d then a + b ≤ c + d)
 proof
@@ -550,6 +637,7 @@ proof
   conclude a + b ≤ c + d by apply less_equal_toNat to B
 end
 
+// `+` is strictly monotone in both arguments under `<`.
 theorem uint_add_mono_less: all a:UInt, b:UInt, c:UInt, d:UInt.
   (if a < c and b < d then a + b < c + d)
 proof
@@ -563,6 +651,8 @@ proof
   conclude a + b < c + d by apply less_toNat to B
 end
 
+// For positive `x`, the successor is at most `x + x`; useful as a quick
+// upper-bound step when reasoning about doubling.
 theorem uint_add_one_le_double: all x:UInt. if 0 < x then 1 + x ≤ x + x
 proof
   arbitrary x:UInt
@@ -573,6 +663,12 @@ end
 
 auto uint_bzero_add
 
+// ============================================================
+// Induction principles for UInt
+// ============================================================
+
+// Workhorse lemma behind UInt induction: induct on the Nat index `k`
+// that bridges `fromNat(k) = n`, then transfer the predicate back.
 lemma uint_ind: all P:fn UInt -> bool, k : Nat, n : UInt.
   if n = fromNat(k) then
   if P(0) and (all m:UInt. if P(m) then P(1 + m)) then P(n)
@@ -603,6 +699,7 @@ proof
   }
 end
 
+// Ordinary `0` / `1 +` induction principle for UInt predicates.
 theorem uint_induction: all P:fn UInt -> bool.
   if P(0) and (all m:UInt. if P(m) then P(1 + m))
   then all n : UInt. P(n)
@@ -614,6 +711,8 @@ proof
   apply (apply uint_ind[P, toNat(n), n] to eq) to prem
 end
 
+// Induction starting from an arbitrary base point `k`: prove `P(k)` and
+// the step from `m ≥ k` to `1 + m`, then conclude `P(n)` for all `n ≥ k`.
 theorem uint_k_induction: all P: fn UInt -> bool, k:UInt.
   if (P(k) and (all m:UInt. (if k ≤ m and P(m) then P(1 + m))))
   then all n:UInt. if k ≤ n then P(n)
@@ -646,6 +745,8 @@ proof
   expand Q in apply uint_induction[Q] to base, ind_case
 end
 
+// Strong (well-founded) induction on UInt: to prove `P(n)` it suffices
+// to derive `P(j)` from `P(i)` holding for every `i < j`.
 theorem uint_strong_induction: all P: fn UInt -> bool, n:UInt.
   if (all j:UInt. if (all i:UInt. if i < j then P(i)) then P(j))
   then P(n)
