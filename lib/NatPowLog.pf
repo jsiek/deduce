@@ -20,6 +20,7 @@ import NatDiv
  Properties of pow2
  */
  
+// Every power of two is positive.
 lemma pow_positive: all n:Nat. zero < pow2(n)
 proof
   induction Nat
@@ -48,6 +49,7 @@ end
   */
 
 
+// Any base raised to the zero exponent is one.
 lemma expt_zero : all n : Nat.
   n ^ zero = suc(zero)
 proof
@@ -55,6 +57,7 @@ proof
   evaluate
 end
 
+// Literal-form: any base raised to ℕ0 is ℕ1.
 theorem lit_expt_zero : all n : Nat.
   n ^ ℕ0 = ℕ1
 proof
@@ -64,6 +67,7 @@ end
 
 auto lit_expt_zero
 
+// Unfolds a literal-exponent power by one step: n^(suc m) = n * n^m.
 theorem lit_expt_suc: all n:Nat, m:Nat. n ^ lit(suc(m)) = n * n ^ lit(m)
 proof
   arbitrary n:Nat, m:Nat
@@ -71,6 +75,7 @@ proof
 end
 auto lit_expt_suc
 
+// Any base raised to the first power is itself.
 lemma expt_one : all n : Nat.
   n ^ suc(zero) = n
 proof
@@ -79,6 +84,7 @@ proof
   mult_one
 end
 
+// Literal-form: any base raised to ℕ1 is itself.
 lemma lit_expt_one : all n:Nat.
   n ^ ℕ1 = n
 proof
@@ -88,6 +94,7 @@ end
 
 //auto lit_expt_one
 
+// Squaring is the second power.
 lemma expt_two : all n : Nat.
   n ^ suc(suc(zero)) = n * n
 proof
@@ -95,6 +102,7 @@ proof
   evaluate
 end
 
+// One raised to any exponent is one.
 lemma one_expt : all n : Nat.
   suc(zero) ^ n = suc(zero)
 proof
@@ -109,6 +117,7 @@ proof
   }
 end
 
+// Power distributes over addition in the exponent: m^(n+o) = m^n * m^o.
 theorem pow_add_r : all n : Nat, m : Nat, o : Nat.
   m ^ (n + o) = m ^ n * m ^ o
 proof
@@ -128,6 +137,7 @@ proof
   }
 end
 
+// Power distributes over multiplication of bases: (m*n)^o = m^o * n^o.
 theorem pow_mul_l : all o : Nat, m : Nat, n : Nat.
   (m * n) ^ o = m ^ o * n ^ o
 proof
@@ -144,6 +154,7 @@ proof
   }
 end
 
+// Iterated power flattens to multiplied exponents: (m^n)^o = m^(n*o).
 theorem pow_mul_r : all o : Nat, m : Nat, n : Nat.
   (m ^ n) ^ o = m ^ (n * o)
 proof
@@ -165,6 +176,7 @@ proof
   }
 end
 
+// A positive base raised to any exponent is positive.
 theorem pow_pos_nonneg : all b : Nat, a : Nat.
   if zero<a then zero<a^b
 proof
@@ -182,6 +194,7 @@ proof
 end
 
 
+// Zero raised to any positive exponent is zero.
 theorem pow_zero_l : all a : Nat. if zero<a then zero^a = zero
 proof
   arbitrary a : Nat
@@ -196,6 +209,7 @@ proof
 end
 
 
+// If a power equals zero, the base must be zero.
 theorem pow_eq_zero : all n : Nat, m : Nat.
   if m ^ n = zero then m = zero
 proof
@@ -222,6 +236,7 @@ proof
   }
 end
 
+// If a power equals one, the exponent is zero or the base is one.
 theorem exp_one_implies_zero_or_one : all m : Nat, n : Nat.
   if m ^ n = suc(zero) then n = zero or m = suc(zero)
 proof 
@@ -238,6 +253,7 @@ proof
   }
 end
 
+// Strict monotonicity in the base: positive exponent preserves `<`.
 theorem pow_lt_mono_l : all  c : Nat, a : Nat, b : Nat.
   if zero < c then if a < b then a ^ c < b ^ c
 proof
@@ -284,6 +300,7 @@ proof
   }
 end
 
+// For a base above one, the power exceeds one iff the exponent is positive.
 lemma pow_gt_1 : all n : Nat, m : Nat.
   if suc(zero) < n then (zero < m <=> suc(zero) < n ^ m)
 proof
@@ -307,6 +324,7 @@ proof
   r, l
 end
 
+// Monotonicity in the base under `≤`, for any exponent.
 theorem pow_le_mono_l : all c : Nat, a : Nat, b : Nat.
   if a <= b then a ^ c <= b ^ c
 proof 
@@ -329,6 +347,7 @@ proof
   }
 end
 
+// Strict monotonicity in the exponent: base above one preserves `<`.
 theorem pow_lt_mono_r : all c : Nat, a : Nat, b : Nat.
   if suc(zero) < a then if b < c then a^b < a^c
 proof
@@ -360,6 +379,7 @@ proof
   replace symmetric mult_one[a^x] in apply (apply pow_gt_1[a, x] to prem) to zlx
 end
 
+// Injectivity in the base when the exponent is positive.
 lemma pow_inj_l : all a : Nat, b : Nat, c : Nat.
   if zero < c then (if a^c = b^c then a = b)
 proof
@@ -378,6 +398,7 @@ proof
   }
 end
 
+// Injectivity in the exponent when the base is above one.
 lemma pow_inj_r : all a : Nat, b : Nat, c : Nat.
   if suc(zero) < a then if a^b = a ^ c then b = c
 proof
@@ -402,6 +423,8 @@ end
   Properties of log
   */
 
+// Correctness helper for `log`: `find_log` returns an exponent whose
+// power-of-two bounds the running sum `m + n`.
 lemma add_less_equal_pow_find_log: all m:Nat. all n:Nat, l:Nat.
   if n ≤ pow2(l)
   then m + n ≤ pow2(find_log(m, n, l))
@@ -460,6 +483,7 @@ proof
   }
 end
 
+// Upper bound: every Nat is at most `2^log(n)`.
 theorem less_equal_pow_log: all n:Nat.
   n ≤ pow2(log(n))
 proof
@@ -472,6 +496,8 @@ proof
     by { evaluate in f1 }
 end
 
+// Correctness helper for `log2`: the exponent returned by `find_log2`
+// keeps the running power-of-two bounded above by `n`.
 lemma pow_find_log2_less_equal: all k:Nat, n:Nat, l:Nat.
   if ℕ2^l ≤ n
   then ℕ2^find_log2(k, n, l) ≤ n
@@ -510,6 +536,7 @@ proof
   }
 end
 
+// Lower bound for `log2`: `2^log2(n) ≤ n` whenever `n` is positive.
 theorem pow_log2_less_equal: all n:Nat. if ℕ0 < n then ℕ2^log2(n) ≤ n
 proof
   arbitrary n:Nat
@@ -522,6 +549,8 @@ proof
   apply pow_find_log2_less_equal[n, n, zero] to Y
 end
 
+// Companion to `pow_find_log2_less_equal`: the next power of two
+// (twice the result) strictly exceeds `n`.
 lemma pos_find_log2_greater: all k:Nat, n:Nat, l:Nat.
   if n < k + ℕ2^l
   then n < ℕ2 * ℕ2 ^ find_log2(k, n, l)
@@ -584,6 +613,7 @@ proof
   }
 end
   
+// Strict upper bound: doubling `2^log2(n)` overshoots `n`.
 theorem pow_log2_greater: all n:Nat. n < ℕ2 * ℕ2^log2(n)
 proof
   arbitrary n:Nat
