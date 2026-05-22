@@ -1166,3 +1166,109 @@ proof
   show n * n * n ≤ 1 * 2 ^ n
   apply uint_cube_le_2pow to ten_n
 end
+
+// Pointwise bound: for `k ≥ 1`, `log(n^k) ≤ k * (1 + log(n))`. Used by
+// `bigo_log_pow`. Proof outline: when `n > 0`, `n ≤ 2^(1 + log(n))` by
+// `less_pow_log`, so `n^k ≤ (2^(1 + log(n)))^k = 2^((1 + log(n)) * k)`,
+// hence `log(n^k) ≤ (1 + log(n)) * k`. The `n = 0` case folds into the
+// trivial `0 ≤ k * (1 + log(0))`.
+lemma uint_log_pow_le: all n:UInt, k:UInt.
+  if 1 ≤ k then log(n^k) ≤ k * (1 + log(n))
+proof
+  arbitrary n:UInt, k:UInt
+  assume one_le_k: 1 ≤ k
+  have k_pos: 0 < k by replace uint_less_is_less_equal[0, k] one_le_k
+  cases uint_zero_or_positive[n]
+  case n_zero: n = 0 {
+    have zk: (0:UInt)^k = 0 by apply uint_zero_pow to k_pos
+    replace n_zero | zk
+    show log((0:UInt)) ≤ k * (1 + log((0:UInt)))
+    uint_zero_le
+  }
+  case n_pos: 0 < n {
+    have n_lt: n < 2^(1 + log(n)) by apply less_pow_log to n_pos
+    have n_le: n ≤ 2^(1 + log(n)) by apply uint_less_implies_less_equal to n_lt
+    have step_pow: n^k ≤ (2^(1 + log(n)))^k
+      by apply uint_pow_le_mono_l[k, n, 2^(1 + log(n))] to n_le
+    have flat_pow: (2^(1 + log(n)))^k = 2^((1 + log(n)) * k)
+      by uint_pow_mul_r[2, 1 + log(n), k]
+    have step_pow2: n^k ≤ 2^((1 + log(n)) * k)
+      by replace flat_pow in step_pow
+    have step_log: log(n^k) ≤ log(2^((1 + log(n)) * k))
+      by apply uint_log_mono to step_pow2
+    have log_simp: log(2^((1 + log(n)) * k)) = (1 + log(n)) * k by log_pow
+    have step_final: log(n^k) ≤ (1 + log(n)) * k
+      by replace log_simp in step_log
+    show log(n^k) ≤ k * (1 + log(n))
+    replace uint_mult_commute[k, 1 + log(n)]
+    step_final
+  }
+end
+
+// Asymptotic log-of-power: for fixed exponent `k ≥ 1`, the cost function
+// `fun n. log(n^k)` is asymptotically equivalent to `log(O_n) = fun n. log(n)`.
+// Concretely `log(n^k)` lies between `log(n)` and `k * (1 + log(n))`, and the
+// constant factor `k` drops under `≈` — change of base for powers is invisible
+// in big-Theta.
+theorem bigo_log_pow: all k:UInt.
+  if 1 ≤ k then log((fun n:UInt { n^k })) ≈ log(O_n)
+proof
+  arbitrary k:UInt
+  assume one_le_k: 1 ≤ k
+  expand operator≈
+  have upper: log((fun n:UInt { n^k })) ≲ log(O_n) by {
+    expand operator≲ | log | O_n
+    choose 2, 2 * k
+    arbitrary n:UInt
+    assume two_n: 2 ≤ n
+    show log(n^k) ≤ 2 * k * log(n)
+    have bound: log(n^k) ≤ k * (1 + log(n))
+      by apply uint_log_pow_le[n, k] to one_le_k
+    have dist: k * (1 + log(n)) = k + k * log(n)
+      by uint_dist_mult_add[k, 1, log(n)]
+    have bound2: log(n^k) ≤ k + k * log(n) by replace dist in bound
+    have one_logn: 1 ≤ log(n) by apply uint_log_greater_one to two_n
+    have k_le_klog: k ≤ k * log(n) by {
+      have h: k * 1 ≤ k * log(n) by apply uint_mult_mono_le[k] to one_logn
+      h
+    }
+    have klog_le: k * log(n) ≤ k * log(n) by .
+    have sum_le: k + k * log(n) ≤ k * log(n) + k * log(n)
+      by apply uint_add_mono_less_equal to k_le_klog, klog_le
+    have klog_klog_eq: k * log(n) + k * log(n) = 2 * k * log(n) by {
+      have assoc_eq: 2 * (k * log(n)) = 2 * k * log(n)
+        by symmetric uint_mult_assoc[2, k, log(n)]
+      replace symmetric uint_two_mult[k * log(n)]
+      assoc_eq
+    }
+    have sum_le2: k + k * log(n) ≤ 2 * k * log(n)
+      by replace klog_klog_eq in sum_le
+    apply uint_less_equal_trans to bound2, sum_le2
+  }
+  have lower: log(O_n) ≲ log((fun n:UInt { n^k })) by {
+    expand operator≲ | log | O_n
+    choose 1, 1
+    arbitrary n:UInt
+    assume one_n: 1 ≤ n
+    show log(n) ≤ 1 * log(n^k)
+    have n_le: n ≤ n^k
+      by apply (apply uint_pow_le_mono_r[k, n, 1] to one_n) to one_le_k
+    have log_le: log(n) ≤ log(n^k) by apply uint_log_mono to n_le
+    log_le
+  }
+  upper, lower
+end
+
+// Log of a power is bounded by log: for `k ≥ 1`, `log((fun n. n^k)) ≲ log(O_n)`.
+// One direction of `bigo_log_pow`; spelled out separately because callers often
+// only need the upper bound (a `log(n^k)` factor in a complexity expression
+// collapses to `log(n)` for asymptotic purposes).
+theorem bigo_log_pow_le: all k:UInt.
+  if 1 ≤ k then log((fun n:UInt { n^k })) ≲ log(O_n)
+proof
+  arbitrary k:UInt
+  assume one_le_k: 1 ≤ k
+  have eq: log((fun n:UInt { n^k })) ≈ log(O_n)
+    by apply bigo_log_pow[k] to one_le_k
+  expand operator≈ in eq
+end
