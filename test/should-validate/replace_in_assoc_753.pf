@@ -1,0 +1,49 @@
+// Regression test for issue #753.
+//
+// `replace eq in h` used to fail when the equation LHS contained a
+// parenthesized subterm whose associative operator had been flattened
+// in the hypothesis by auto-rule normalization. Examples below all
+// have the shape ``a + (b * c) * d`` (the right summand's left factor
+// is itself a product), which the user-side equation preserves but
+// the hypothesis has flattened to ``a + b * c * d``.
+
+import UInt
+import UIntAdd
+import UIntMult
+
+theorem replace_in_parenthesized_inner_mult: all m:UInt.
+  if m + (2 * m) * m ≤ 5 then m + (2 * m) * m ≤ 5
+proof
+  arbitrary m:UInt
+  assume h: m + (2 * m) * m ≤ 5
+  have eq: m + (2 * m) * m = m + (2 * m) * m by .
+  replace eq in h
+end
+
+theorem replace_in_three_factor_mult_sum: all m:UInt.
+  if m * m + 3 * m * m ≤ 7 then m * m + 3 * m * m ≤ 7
+proof
+  arbitrary m:UInt
+  assume h: m * m + 3 * m * m ≤ 7
+  have eq: m * m + 3 * m * m = m * m + 3 * m * m by .
+  replace eq in h
+end
+
+theorem replace_in_three_factor_mult_eq: all m:UInt.
+  if m * m + 3 * m * m = 7 then m * m + 3 * m * m = 7
+proof
+  arbitrary m:UInt
+  assume h: m * m + 3 * m * m = 7
+  have eq: m * m + 3 * m * m = m * m + 3 * m * m by .
+  replace eq in h
+end
+
+// Associative re-grouping in a hypothesis: `(a * b) * c ≤ 100`
+// literally proves `a * b * c ≤ 100` because `*` is associative.
+theorem assoc_grouping_in_hypothesis: all a:UInt, b:UInt, c:UInt.
+  if (a * b) * c ≤ 100 then a * b * c ≤ 100
+proof
+  arbitrary a:UInt, b:UInt, c:UInt
+  assume h: (a * b) * c ≤ 100
+  h
+end
