@@ -1030,3 +1030,139 @@ proof
   show n * n ≤ 1 * 2 ^ n
   apply uint_quad_le_2pow to four_n
 end
+
+// Polynomial-vs-exponential domination, k = 3: n*n*n ≤ 2^n for n ≥ 10.
+// Proven by k-induction starting at 10 (base 10^3 = 1000 ≤ 1024 = 2^10).
+// In the inductive step (1+m)^3 expands to 1 + 3m + 3*m*m + m*m*m; the
+// polynomial slack 1 + 3m + 3*m*m ≤ m*m*m holds for m ≥ 4 (and so for
+// m ≥ 10), giving (1+m)^3 ≤ 2 * m*m*m and folding the IH through a factor
+// of 2 to land on 2^(1+m).
+lemma uint_cube_le_2pow: all n:UInt. if 10 ≤ n then n * n * n ≤ 2 ^ n
+proof
+  define P = fun n:UInt { n * n * n ≤ 2 ^ n }
+  have base: P(10) by {
+    expand P
+    show 10 * 10 * 10 ≤ 2 ^ 10
+    .
+  }
+  have ind: all m:UInt. if 10 ≤ m and P(m) then P(1 + m) by {
+    arbitrary m:UInt
+    assume prem
+    have m_ge_10: 10 ≤ m by prem
+    have IH: m * m * m ≤ 2 ^ m by expand P in prem
+    expand P
+    show (1 + m) * (1 + m) * (1 + m) ≤ 2 ^ (1 + m)
+
+    have m_ge_4: 4 ≤ m by {
+      have four_le_ten: (4:UInt) ≤ 10 by .
+      apply uint_less_equal_trans to four_le_ten, m_ge_10
+    }
+    have m_ge_1: 1 ≤ m by {
+      have one_le_four: (1:UInt) ≤ 4 by .
+      apply uint_less_equal_trans to one_le_four, m_ge_4
+    }
+    have m_le_m: m ≤ m by .
+
+    have expand_sq: (1 + m) * (1 + m) = 1 + 2 * m + m * m by {
+      replace uint_dist_mult_add_right[1, m, 1+m]
+           | uint_dist_mult_add[m, 1, m]
+           | uint_two_mult[m].
+    }
+    have step1: (1 + m) * (1 + m) * (1 + m) = (1 + 2*m + m*m) * (1 + m)
+      by replace expand_sq.
+    have step2: (1 + 2*m + m*m) * (1 + m) = (1 + 2*m + m*m) + (1 + 2*m + m*m) * m
+      by uint_dist_mult_add[1 + 2*m + m*m, 1, m]
+    have step3: (1 + 2*m + m*m) * m = m + 2*m*m + m*m*m by {
+      replace uint_dist_mult_add_right[1, 2*m + m*m, m]
+           | uint_dist_mult_add_right[2*m, m*m, m].
+    }
+    have step4: (1 + m) * (1 + m) * (1 + m)
+              = 1 + 2*m + m*m + m + 2*m*m + m*m*m by {
+      replace step1 | step2 | step3.
+    }
+    // Regroup to the standard form 1 + 3*m + 3*m*m + m*m*m.
+    have regroup: 1 + 2*m + m*m + m + 2*m*m + m*m*m = 1 + 3*m + 3*m*m + m*m*m by {
+      equations
+            1 + 2*m + m*m + m + 2*m*m + m*m*m
+          = 1 + 2*m + m + m*m + 2*m*m + m*m*m   by replace uint_add_commute[m*m, m].
+      ... = 1 + (2*m + m) + (m*m + 2*m*m) + m*m*m   by .
+      ... = 1 + 3*m + (m*m + 2*m*m) + m*m*m   by {
+              have e: 2*m + m = 3*m by symmetric uint_dist_mult_add_right[2, 1, m]
+              replace e.
+            }
+      ... = 1 + 3*m + 3*m*m + m*m*m   by {
+              have ee: 1 * m * m + 2 * m * m = (1 + 2) * m * m
+                by symmetric uint_dist_mult_add_right[1, 2, m*m]
+              replace ee.
+            }
+    }
+    have step5: (1 + m) * (1 + m) * (1 + m) = 1 + 3*m + 3*m*m + m*m*m
+      by transitive step4 regroup
+
+    // Polynomial slack: 1 + 3*m + 3*m*m ≤ m*m*m for m ≥ 4.
+    // 1 + 3*m ≤ 4*m (via 1 ≤ m) ≤ m*m (via 4 ≤ m).
+    have step_A: 1 + 3 * m ≤ 4 * m by {
+      have three_m_le: 3 * m ≤ 3 * m by .
+      have rev: 1 + 3 * m ≤ m + 3 * m by apply uint_add_mono_less_equal to m_ge_1, three_m_le
+      have e: m + 3 * m = 4 * m by {
+        have hh: (1 + 3) * m = 1 * m + 3 * m by uint_dist_mult_add_right[1, 3, m]
+        replace hh.
+      }
+      replace e in rev
+    }
+    have step_B: 4 * m ≤ m * m by apply uint_mult_mono_le2 to m_ge_4, m_le_m
+    have step_C: 1 + 3 * m ≤ m * m by apply uint_less_equal_trans to step_A, step_B
+    // (1 + 3*m) + 3*m*m ≤ m*m + 3*m*m.
+    have three_mm_le: 3 * m * m ≤ 3 * m * m by .
+    have step_D_sum: (1 + 3 * m) + 3 * m * m ≤ m * m + 3 * m * m
+      by apply uint_add_mono_less_equal to step_C, three_mm_le
+    // m*m + 3*m*m ≤ m*m*m via (m + 3*m)*m: distrib m + 3m ≤ m*m, multiply by m.
+    have e_4m: m + 3 * m = 4 * m by {
+      have hh: (1 + 3) * m = 1 * m + 3 * m by uint_dist_mult_add_right[1, 3, m]
+      replace hh.
+    }
+    have step_m3m_le_mm: m + 3 * m ≤ m * m by replace e_4m step_B
+    have step_dist_m: (m + 3 * m) * m ≤ m * m * m
+      by apply uint_mult_mono_le2 to step_m3m_le_mm, m_le_m
+    have dist_3mm: (m + 3 * m) * m = m * m + 3 * m * m
+      by uint_dist_mult_add_right[m, 3 * m, m]
+    have step_mm3mm_le_mmm: m * m + 3 * m * m ≤ m * m * m
+      by replace dist_3mm in step_dist_m
+    // Compose.
+    have step_F: (1 + 3 * m) + 3 * m * m ≤ m * m * m
+      by apply uint_less_equal_trans to step_D_sum, step_mm3mm_le_mmm
+
+    // (1 + 3*m + 3*m*m) + m*m*m ≤ m*m*m + m*m*m = 2 * (m*m*m).
+    have mmm_le_mmm: m * m * m ≤ m * m * m by .
+    have step_sum_full: ((1 + 3 * m) + 3 * m * m) + m * m * m ≤ m * m * m + m * m * m
+      by apply uint_add_mono_less_equal to step_F, mmm_le_mmm
+    have two_mmm_eq: 2 * (m * m * m) = m * m * m + m * m * m
+      by uint_two_mult[m * m * m]
+
+    have step_lhs_2mmm: (1 + m) * (1 + m) * (1 + m) ≤ 2 * (m * m * m) by {
+      replace step5
+      replace two_mmm_eq
+      step_sum_full
+    }
+    have step_two_pow_m: 2 * (m * m * m) ≤ 2 * 2 ^ m
+      by apply uint_mult_mono_le[2] to IH
+    have step_chain: (1 + m) * (1 + m) * (1 + m) ≤ 2 * 2 ^ m
+      by apply uint_less_equal_trans to step_lhs_2mmm, step_two_pow_m
+    have pow_step: 2 ^ (1 + m) = 2 * 2 ^ m by uint_pow_add_r[2, 1, m]
+    replace pow_step
+    step_chain
+  }
+  expand P in apply uint_k_induction[P, 10] to base, ind
+end
+
+// Cubic is bounded by exponential: O(n^3) ≲ O(2^n). Threshold n0 = 10,
+// constant c = 1 (uint_cube_le_2pow gives the pointwise inequality directly).
+theorem bigo_cubic_le_2pow_n: O_n3 ≲ O_2pow_n
+proof
+  expand operator≲ | O_n3 | O_2pow_n
+  choose 10, 1
+  arbitrary n:UInt
+  assume ten_n: 10 ≤ n
+  show n * n * n ≤ 1 * 2 ^ n
+  apply uint_cube_le_2pow to ten_n
+end
