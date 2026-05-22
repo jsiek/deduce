@@ -935,3 +935,98 @@ theorem bigo_log_log: log(O_log) ≲ O_log
 proof
   bigo_log_le_self[O_log]
 end
+
+// Polynomial-vs-exponential domination, base case k = 2: n*n ≤ 2^n for n ≥ 4.
+// Proven by k-induction starting at 4. The inductive step uses the polynomial
+// slack 1 + 2m ≤ m*m (via 1 + 2m ≤ 4m ≤ m*m, both valid for m ≥ 4) to bound
+// (1+m)*(1+m) = 1 + 2m + m*m ≤ 2 * m*m, then folds the IH m*m ≤ 2^m through a
+// factor of 2 to land on 2^(1+m).
+lemma uint_quad_le_2pow: all n:UInt. if 4 ≤ n then n * n ≤ 2 ^ n
+proof
+  define P = fun n:UInt { n * n ≤ 2 ^ n }
+  have base: P(4) by {
+    expand P
+    show 4 * 4 ≤ 2 ^ 4
+    .
+  }
+  have ind: all m:UInt. if 4 ≤ m and P(m) then P(1 + m) by {
+    arbitrary m:UInt
+    assume prem
+    have m_ge_4: 4 ≤ m by prem
+    have IH: m * m ≤ 2 ^ m by expand P in prem
+    expand P
+    show (1 + m) * (1 + m) ≤ 2 ^ (1 + m)
+
+    have expand_sq: (1 + m) * (1 + m) = 1 + 2 * m + m * m by {
+      replace uint_dist_mult_add_right[1, m, 1+m]
+           | uint_dist_mult_add[m, 1, m]
+           | uint_two_mult[m].
+    }
+
+    have m_ge_1: 1 ≤ m by {
+      have one_le_four: (1:UInt) ≤ 4 by .
+      apply uint_less_equal_trans to one_le_four, m_ge_4
+    }
+
+    have m_le_m: m ≤ m by .
+    have four_m_le_m_m: 4 * m ≤ m * m
+      by apply uint_mult_mono_le2 to m_ge_4, m_le_m
+
+    have one_le_2m: (1:UInt) ≤ 2 * m by {
+      have one_le_two: (1:UInt) ≤ 2 by .
+      have two_le_2m: (2:UInt) ≤ 2 * m by apply uint_mult_mono_le[2] to m_ge_1
+      apply uint_less_equal_trans to one_le_two, two_le_2m
+    }
+
+    have four_m_eq: (4:UInt) * m = 2 * m + 2 * m
+      by uint_dist_mult_add_right[2, 2, m]
+
+    have step_2m_le_4m: 1 + 2 * m ≤ 4 * m by {
+      replace four_m_eq
+      have two_m_le: 2 * m ≤ 2 * m by .
+      apply uint_add_mono_less_equal to one_le_2m, two_m_le
+    }
+
+    have slack: 1 + 2 * m ≤ m * m
+      by apply uint_less_equal_trans to step_2m_le_4m, four_m_le_m_m
+
+    have step_sum: (1 + 2 * m) + m * m ≤ m * m + m * m by {
+      have mm_le_mm: m * m ≤ m * m by .
+      apply uint_add_mono_less_equal to slack, mm_le_mm
+    }
+
+    have two_mm_eq: m * m + m * m = 2 * (m * m)
+      by symmetric uint_two_mult[m * m]
+    have step_2mm: (1 + 2 * m) + m * m ≤ 2 * (m * m)
+      by replace two_mm_eq in step_sum
+
+    have step_lhs_2mm: (1 + m) * (1 + m) ≤ 2 * (m * m) by {
+      replace expand_sq
+      step_2mm
+    }
+
+    have step_two_pow_m: 2 * (m * m) ≤ 2 * 2 ^ m
+      by apply uint_mult_mono_le[2] to IH
+
+    have step_chain: (1 + m) * (1 + m) ≤ 2 * 2 ^ m
+      by apply uint_less_equal_trans to step_lhs_2mm, step_two_pow_m
+
+    have pow_step: 2 ^ (1 + m) = 2 * 2 ^ m by uint_pow_add_r[2, 1, m]
+
+    replace pow_step
+    step_chain
+  }
+  expand P in apply uint_k_induction[P, 4] to base, ind
+end
+
+// Quadratic is bounded by exponential: O(n^2) ≲ O(2^n). Threshold n0 = 4,
+// constant c = 1 (uint_quad_le_2pow gives the pointwise inequality directly).
+theorem bigo_quadratic_le_2pow_n: O_n2 ≲ O_2pow_n
+proof
+  expand operator≲ | O_n2 | O_2pow_n
+  choose 4, 1
+  arbitrary n:UInt
+  assume four_n: 4 ≤ n
+  show n * n ≤ 1 * 2 ^ n
+  apply uint_quad_le_2pow to four_n
+end
