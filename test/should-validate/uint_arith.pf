@@ -58,5 +58,24 @@ proof
   .
 end
 
+// Regression for #746: chained multiplications and exponentiation
+// of UInt literals must reduce quickly. Without the literal-arithmetic
+// fast path these took minutes (lit_suc_mult/lit_suc_add unfold one
+// `suc` at a time, which is O(N^2) for N-digit operands).
+theorem cube_le_pow_lit: 10 * 10 * 10 ≤ 2 ^ 10
+proof
+  .
+end
+
+theorem pow_lit: 2 ^ 10 = 1024
+proof
+  .
+end
+
+theorem mul_chain_lit: 10 * 10 * 10 = 1000
+proof
+  .
+end
+
 
 

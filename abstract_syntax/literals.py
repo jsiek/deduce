@@ -402,6 +402,107 @@ def uintToInt(t: Term) -> int:
     case _:
       raise InternalError('uintToInt: not a uint ' + str(t))
 
+def _extract_lit_nat_names(t: Term) -> tuple[str, str | None, str] | None:
+  # If `t` is `lit(suc(suc(...zero)))`, return the uniquified
+  # `(lit_name, suc_name_or_None, zero_name)` extracted from its nodes.
+  # `suc_name` is None only when the value is 0 (no `suc` in the AST).
+  if not isinstance(t, Call) or len(t.args) != 1:
+    return None
+  rator = t.rator
+  if isinstance(rator, (Var, OverloadedVar, ResolvedVar)):
+    lit_name = rator.get_name()
+  else:
+    return None
+  if base_name(lit_name) != 'lit':
+    return None
+  cur: Term = t.args[0]
+  suc_name: str | None = None
+  while isinstance(cur, Call) and len(cur.args) == 1:
+    sub_rator = cur.rator
+    if not isinstance(sub_rator, (Var, OverloadedVar, ResolvedVar)):
+      return None
+    sname = sub_rator.get_name()
+    if base_name(sname) != 'suc':
+      return None
+    suc_name = sname
+    cur = cur.args[0]
+  if not isinstance(cur, (Var, OverloadedVar, ResolvedVar)):
+    return None
+  zero_name = cur.get_name()
+  if base_name(zero_name) != 'zero':
+    return None
+  return (lit_name, suc_name, zero_name)
+
+def try_fast_lit_nat_arith(loc: Meta, rator: Term, args: list[Term],
+                           ty: Type | None) -> Term | None:
+  # Compute `op` on `lit`-wrapped Nat literals directly, bypassing the
+  # step-by-step auto-rewrite rules (lit_suc_mult, lit_suc_add, etc.)
+  # whose recursive unfolding is O(N^2) or worse for N-digit operands.
+  # Returns the result as a literal Nat (or Bool for comparisons), or
+  # None if the fast path does not apply.
+  if len(args) < 2:
+    return None
+  if not isinstance(rator, (Var, OverloadedVar, ResolvedVar)):
+    return None
+  op = base_name(rator.get_name())
+  if op not in ('+', '*', '^', '∸', '/', '%', '≤', '<'):
+    return None
+  values: list[int] = []
+  lit_name: str | None = None
+  suc_name: str | None = None
+  zero_name: str | None = None
+  for arg in args:
+    comp = _extract_lit_nat_names(arg)
+    if comp is None:
+      return None
+    ln, sn, zn = comp
+    values.append(natToInt(arg))
+    if lit_name is None:
+      lit_name = ln
+    if suc_name is None:
+      suc_name = sn
+    if zero_name is None:
+      zero_name = zn
+  if lit_name is None or zero_name is None:
+    return None
+  if len(values) > 2 and op not in ('+', '*'):
+    return None
+  if op == '+':
+    result_int = sum(values)
+  elif op == '*':
+    result_int = 1
+    for v in values:
+      result_int *= v
+  elif op == '^':
+    if values[1] > 4096:
+      return None
+    result_int = values[0] ** values[1]
+  elif op == '∸':
+    result_int = max(0, values[0] - values[1])
+  elif op == '/':
+    if values[1] == 0:
+      return None
+    result_int = values[0] // values[1]
+  elif op == '%':
+    if values[1] == 0:
+      return None
+    result_int = values[0] % values[1]
+  elif op == '≤':
+    return Bool(loc, ty, values[0] <= values[1])
+  elif op == '<':
+    return Bool(loc, ty, values[0] < values[1])
+  else:
+    return None
+  if result_int > 0 and suc_name is None:
+    return None
+  inner = intToNat(loc, result_int, zname=zero_name,
+                   sname=suc_name or 'suc')
+  if '.' in lit_name:
+    lit_var: Term = ResolvedVar(loc, None, lit_name)
+  else:
+    lit_var = Var(loc, None, lit_name)
+  return Call(loc, ty, lit_var, [inner])
+
 def _same_numeric_literal(t1: Any, t2: Any) -> bool:
   if isNat(t1) and isNat(t2):
     return natToInt(t1) == natToInt(t2)
