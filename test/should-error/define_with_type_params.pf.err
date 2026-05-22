@@ -1,0 +1,13 @@
+./test/should-error/define_with_type_params.pf:4.1-4.15: while parsing
+	proof_stmt ::= "define" identifier "=" term
+
+
+define id_list<T> : fn List<T> -> List<T> = λxs { xs }
+              ^
+
+./test/should-error/define_with_type_params.pf:4.15-4.16: `define` does not take type parameters.
+For a generic value, put the type parameters on the right:
+	define id_list : fn <T> ... -> ... = generic T { ... }
+or use `fun`/`recursive`:
+	fun id_list<T>(...) { ... }
+	recursive id_list<T>(...) -> ... { ... }
