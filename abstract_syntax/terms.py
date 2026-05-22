@@ -54,6 +54,7 @@ if TYPE_CHECKING:
         natToInt,
         nodeListToList,
         nodeListToString,
+        try_fast_lit_nat_arith,
         uintToInt,
     )
     from .ops import (
@@ -1135,6 +1136,16 @@ class Call(Term):
     else:
       flat_args = self.args
     args = [arg.reduce(env) for arg in flat_args]
+    # Fast path: arithmetic/comparison on `lit`-wrapped Nat literals
+    # collapses to a single literal (or Bool) without unfolding the
+    # step-by-step auto-rewrite rules (lit_suc_mult, lit_suc_add,
+    # le_lit_suc, lit_expt_suc, ...).  Those rules are correct but
+    # O(N^2) for N-digit operands, which makes proofs that touch a
+    # concrete `P(10)` instance take minutes (see #746).
+    if not get_eval_all():
+      fast = try_fast_lit_nat_arith(self.location, self.rator, args, self.typeof)
+      if fast is not None:
+        return auto_rewrites(fast, env)
     ret: Term | None = None
     match cast(Any, fun):
       case Var(loc, _, '=') | OverloadedVar(loc, _, ['=']) | ResolvedVar(loc, _, '='):
