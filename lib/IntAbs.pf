@@ -5,6 +5,7 @@ import Base
 import IntDefs
 import IntAddSub
 import IntMult
+import IntDiv
 import IntLess
 
 /*
@@ -166,6 +167,31 @@ proof
           expand operator*
           replace sign_negsuc | mult_neg_neg | mult_pos_uint.
         }
+      }
+    }
+  }
+end
+
+// Division analogue of `int_abs_mult`: absolute value distributes over
+// integer division. Truncating division on `Int` is defined sign-then-
+// magnitude, so once the four `pos`/`negsuc` cases of `x` and `y` are
+// fixed the `div_pos_pos` / `div_pos_negsuc` / etc. auto rules collapse
+// the LHS to a (possibly negated) `pos`-wrapped UInt quotient, and
+// `abs_neg` peels any outer `-`.
+theorem int_abs_div: all x:Int, y:Int. abs(x / y) = abs(x) / abs(y)
+proof
+  arbitrary x:Int, y:Int
+  switch x {
+    case pos(au) {
+      switch y {
+        case pos(bu) { . }
+        case negsuc(bu) { replace abs_neg. }
+      }
+    }
+    case negsuc(au) {
+      switch y {
+        case pos(bu) { replace abs_neg. }
+        case negsuc(bu) { . }
       }
     }
   }
@@ -340,4 +366,192 @@ proof
   }
   have lb: -pos(abs(x) + abs(y)) ≤ x + y by replace neg_eq lb1
   apply (conjunct 1 of int_abs_le_iff[x + y, abs(x) + abs(y)]) to lb, ub
+end
+
+// `abs(x - y) = abs(y - x)`: subtraction is symmetric inside absolute
+// value. Use case analysis on the `pos`/`negsuc` representation: the
+// `pos`/`pos` and `negsuc`/`negsuc` cases reduce to a `⊝` swap via
+// `neg_monuso`; the cross-sign cases reduce after commuting addends.
+theorem int_abs_sub_symm: all x:Int, y:Int. abs(x - y) = abs(y - x)
+proof
+  arbitrary x:Int, y:Int
+  switch x {
+    case pos(xu) {
+      switch y {
+        case pos(yu) {
+          have lhs: pos(xu) - pos(yu) = (xu ⊝ yu) by symmetric subo_monus[xu, yu]
+          have rhs: pos(yu) - pos(xu) = (yu ⊝ xu) by symmetric subo_monus[yu, xu]
+          replace lhs | rhs
+          have neg_swap: (yu ⊝ xu) = -(xu ⊝ yu) by symmetric neg_monuso[xu, yu]
+          replace neg_swap | abs_neg[xu ⊝ yu].
+        }
+        case negsuc(yu) {
+          // pos - negsuc: x + (1 + yu) on one side, abs of negsuc(yu + xu)
+          // on the other. Reduce to a UInt equality by computing both
+          // sides through `int_abs_pos` / `int_abs_negsuc`.
+          have ya_eq: abs(pos(xu) - negsuc(yu)) = xu + (1 + yu) by {
+            expand 2* operator-
+            show abs(pos(xu) + pos(1 + yu)) = xu + (1 + yu)
+            replace add_pos_pos[xu, 1 + yu]
+            int_abs_pos[xu + (1 + yu)]
+          }
+          have yb_eq: abs(negsuc(yu) - pos(xu)) = 1 + (yu + xu) by {
+            cases uint_zero_or_positive[xu]
+            case xz: xu = 0 {
+              replace xz
+              show abs(negsuc(yu) - +0) = 1 + (yu + 0)
+              have step: negsuc(yu) - +0 = negsuc(yu) by {
+                expand 2* operator-.
+              }
+              replace step.
+            }
+            case xpos: 0 < xu {
+              obtain xu' where xu_eq: xu = 1 + xu'
+                from apply uint_positive_add_one to xpos
+              replace xu_eq
+              expand 2* operator-
+              show abs(negsuc(yu) + negsuc(xu')) = 1 + (yu + (1 + xu'))
+              replace add_negsuc_negsuc[yu, xu']
+              // Goal: `2 + yu + xu' = 1 + yu + 1 + xu'` — same up to commute.
+              show 2 + yu + xu' = 1 + yu + 1 + xu'
+              have e: 1 + yu + 1 + xu' = 2 + yu + xu' by {
+                replace uint_add_commute[yu, 1].
+              }
+              symmetric e
+            }
+          }
+          replace ya_eq | yb_eq
+          // Goal: xu + 1 + yu = 1 + yu + xu.
+          replace uint_add_commute[xu, 1]
+                | uint_add_commute[xu, yu].
+        }
+      }
+    }
+    case negsuc(xu) {
+      switch y {
+        case pos(yu) {
+          have ya_eq: abs(negsuc(xu) - pos(yu)) = 1 + (xu + yu) by {
+            cases uint_zero_or_positive[yu]
+            case yz: yu = 0 {
+              replace yz
+              have step: negsuc(xu) - +0 = negsuc(xu) by {
+                expand 2* operator-.
+              }
+              replace step.
+            }
+            case ypos: 0 < yu {
+              obtain yu' where yu_eq: yu = 1 + yu'
+                from apply uint_positive_add_one to ypos
+              replace yu_eq
+              expand 2* operator-
+              show abs(negsuc(xu) + negsuc(yu')) = 1 + (xu + (1 + yu'))
+              replace add_negsuc_negsuc[xu, yu']
+              show 2 + xu + yu' = 1 + xu + 1 + yu'
+              have e: 1 + xu + 1 + yu' = 2 + xu + yu' by {
+                replace uint_add_commute[xu, 1].
+              }
+              symmetric e
+            }
+          }
+          have yb_eq: abs(pos(yu) - negsuc(xu)) = yu + (1 + xu) by {
+            expand 2* operator-
+            show abs(pos(yu) + pos(1 + xu)) = yu + (1 + xu)
+            replace add_pos_pos[yu, 1 + xu]
+            int_abs_pos[yu + (1 + xu)]
+          }
+          replace ya_eq | yb_eq
+          // Goal (after auto): 1 + xu + yu = yu + 1 + xu.
+          show 1 + (xu + yu) = yu + (1 + xu)
+          replace uint_add_commute[1 + xu, yu].
+        }
+        case negsuc(yu) {
+          have lhs: negsuc(xu) - negsuc(yu) = ((1 + yu) ⊝ (1 + xu))
+            by expand 2* operator- | operator+.
+          have rhs: negsuc(yu) - negsuc(xu) = ((1 + xu) ⊝ (1 + yu))
+            by expand 2* operator- | operator+.
+          replace lhs | rhs
+          have neg_swap: ((1 + xu) ⊝ (1 + yu)) = -((1 + yu) ⊝ (1 + xu))
+            by symmetric neg_monuso[1 + yu, 1 + xu]
+          replace neg_swap | abs_neg[(1 + yu) ⊝ (1 + xu)].
+        }
+      }
+    }
+  }
+end
+
+// Reverse triangle inequality: `abs(x) ∸ abs(y) ≤ abs(x - y)`. Standard
+// consequence of `int_abs_add` applied to the identity `x = (x - y) + y`:
+// `abs(x) ≤ abs(x - y) + abs(y)`, then read off the monus form.
+theorem int_rev_triangle: all x:Int, y:Int. abs(x) ∸ abs(y) ≤ abs(x - y)
+proof
+  arbitrary x:Int, y:Int
+  have h0: abs((x - y) + y) ≤ abs(x - y) + abs(y) by int_abs_add[x - y, y]
+  have h1: abs(x) ≤ abs(x - y) + abs(y)
+    by replace int_sub_add_cancel[x, y] in h0
+  cases uint_dichotomy[abs(y), abs(x)]
+  case ay_le_ax: abs(y) ≤ abs(x) {
+    // `abs(y) ≤ abs(x)` means the monus does not truncate:
+    // `(abs(x) ∸ abs(y)) + abs(y) = abs(x)`. Combine with `h1` and cancel.
+    have monus_eq0: abs(y) + (abs(x) ∸ abs(y)) = abs(x)
+      by apply uint_monus_add_identity[abs(x), abs(y)] to ay_le_ax
+    have monus_eq: (abs(x) ∸ abs(y)) + abs(y) = abs(x)
+      by replace uint_add_commute[abs(y), abs(x) ∸ abs(y)] in monus_eq0
+    have combined: (abs(x) ∸ abs(y)) + abs(y) ≤ abs(x - y) + abs(y)
+      by replace monus_eq h1
+    have commuted: abs(y) + (abs(x) ∸ abs(y)) ≤ abs(y) + abs(x - y)
+      by replace uint_add_commute[abs(x) ∸ abs(y), abs(y)]
+              | uint_add_commute[abs(x - y), abs(y)] in combined
+    apply (conjunct 0 of uint_add_both_sides_of_less_equal[abs(y), abs(x) ∸ abs(y), abs(x - y)])
+      to commuted
+  }
+  case ax_l_ay: abs(x) < abs(y) {
+    have axay: abs(x) ≤ abs(y) by apply uint_less_implies_less_equal to ax_l_ay
+    have rw: abs(x) ∸ abs(y) = 0
+      by apply (conjunct 0 of uint_monus_zero_iff_less_eq[abs(x), abs(y)]) to axay
+    replace rw
+    uint_zero_le
+  }
+end
+
+// Symmetric form: `abs(y) ∸ abs(x) ≤ abs(x - y)`. Follows from
+// `int_rev_triangle` after swapping operands inside `abs(- -)`.
+theorem int_rev_triangle_right: all x:Int, y:Int. abs(y) ∸ abs(x) ≤ abs(x - y)
+proof
+  arbitrary x:Int, y:Int
+  have step: abs(y) ∸ abs(x) ≤ abs(y - x) by int_rev_triangle[y, x]
+  replace symmetric int_abs_sub_symm[x, y] in step
+end
+
+// Round-trip via `abs`: `pos(abs(x)) = x` exactly when `x` is nonnegative.
+// This is the abs-routed analogue of `uint_fromNat_toNat` — the side
+// where round-trip is total. The negative side is exactly excluded.
+theorem int_pos_abs_eq_iff_nonneg: all x:Int.
+  pos(abs(x)) = x  ⇔  +0 ≤ x
+proof
+  arbitrary x:Int
+  switch x {
+    case pos(n) {
+      have fwd: if pos(abs(pos(n))) = pos(n) then +0 ≤ pos(n) by {
+        assume _
+        // `+0 ≤ pos(n)` reduces to `0 ≤ n` (auto via `int_pos_le_pos`).
+        .
+      }
+      have bkwd: if +0 ≤ pos(n) then pos(abs(pos(n))) = pos(n) by {
+        assume _.
+      }
+      fwd, bkwd
+    }
+    case negsuc(n) {
+      have fwd: if pos(abs(negsuc(n))) = negsuc(n) then +0 ≤ negsuc(n) by {
+        assume bad: pos(abs(negsuc(n))) = negsuc(n)
+        conclude false by expand abs in bad
+      }
+      have bkwd: if +0 ≤ negsuc(n) then pos(abs(negsuc(n))) = negsuc(n) by {
+        // `+0 ≤ negsuc(n)` is already `false` after auto.
+        assume bad
+        bad
+      }
+      fwd, bkwd
+    }
+  }
 end

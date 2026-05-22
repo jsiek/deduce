@@ -843,3 +843,29 @@ proof
   show x + (- x) = +0
   int_add_inverse
 end
+
+// Subtracting then adding the same value cancels: `(x - y) + y = x`. The
+// abs-routed reverse triangle inequality and similar rewrites use this
+// to relate `abs(x)` and `abs(x - y)`.
+theorem int_sub_add_cancel: all x:Int, y:Int. (x - y) + y = x
+proof
+  arbitrary x:Int, y:Int
+  equations
+        (x - y) + y
+      = (x + - y) + y    by expand operator-.
+  ... = x + (- y + y)    by int_add_assoc[x, -y, y]
+  ... = x + +0           by replace int_add_left_inverse[y].
+  ... = x                by int_add_zero[x]
+end
+
+// Symmetric form: adding then subtracting the same value cancels.
+theorem int_add_sub_cancel: all x:Int, y:Int. (x + y) - y = x
+proof
+  arbitrary x:Int, y:Int
+  equations
+        (x + y) - y
+      = (x + y) + - y    by expand operator-.
+  ... = x + (y + - y)    by int_add_assoc[x, y, -y]
+  ... = x + +0           by replace int_add_inverse[y].
+  ... = x                by int_add_zero[x]
+end
