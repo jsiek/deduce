@@ -1030,3 +1030,132 @@ proof
   show n * n ≤ 1 * 2 ^ n
   apply uint_quad_le_2pow to four_n
 end
+
+// Polynomial-vs-exponential domination, k = 3: n*n*n ≤ 2^n for n ≥ 10.
+// Proven by k-induction starting at 10 (10^3 = 1000 ≤ 1024 = 2^10). The
+// inductive step expands (1+m)*(1+m)*(1+m) to 1 + 3m + 3*(m*m) + m*m*m,
+// then uses the polynomial slack 1 + 3m + 3*(m*m) ≤ m*m*m to bound the
+// expansion by 2*(m*m*m) and folds the IH through a factor of 2 to land
+// on 2^(1+m). The slack chain is 1 + 3m ≤ 4m ≤ m*m and m*m + 3*(m*m) =
+// 4*(m*m) ≤ m*(m*m) = m*m*m, both valid for m ≥ 4.
+lemma uint_cube_le_2pow: all n:UInt. if 10 ≤ n then n * n * n ≤ 2 ^ n
+proof
+  define P = fun n:UInt { n * n * n ≤ 2 ^ n }
+  have base: P(10) by {
+    expand P
+    show 10 * 10 * 10 ≤ 2 ^ 10
+    .
+  }
+  have ind: all m:UInt. if 10 ≤ m and P(m) then P(1 + m) by {
+    arbitrary m:UInt
+    assume prem
+    have m_ge_10: 10 ≤ m by prem
+    have IH: m * m * m ≤ 2 ^ m by expand P in prem
+    expand P
+    show (1 + m) * (1 + m) * (1 + m) ≤ 2 ^ (1 + m)
+
+    have m_ge_4: 4 ≤ m by {
+      have four_le_ten: (4:UInt) ≤ 10 by .
+      apply uint_less_equal_trans to four_le_ten, m_ge_10
+    }
+    have m_ge_1: 1 ≤ m by {
+      have one_le_ten: (1:UInt) ≤ 10 by .
+      apply uint_less_equal_trans to one_le_ten, m_ge_10
+    }
+
+    have expand_sq: (1 + m) * (1 + m) = 1 + 2 * m + m * m by {
+      replace uint_dist_mult_add_right[1, m, 1+m]
+           | uint_dist_mult_add[m, 1, m]
+           | uint_two_mult[m].
+    }
+
+    // (1+m)^3 = ((1+m)*(1+m))*(1+m) = (1 + 2m + m^2)*(1+m)
+    //         = 1 + m + 2m + 2m^2 + m^2 + m^3
+    //         = 1 + 3m + 3*(m^2) + m^3
+    have expand_cube:
+      (1 + m) * (1 + m) * (1 + m) = 1 + 3 * m + 3 * (m * m) + m * m * m
+    by {
+      replace expand_sq
+      show (1 + 2*m + m*m) * (1 + m) = 1 + 3*m + 3*(m*m) + m*m*m
+      have combine_m: 2 * m + m = 3 * m
+        by symmetric uint_dist_mult_add_right[2, 1, m]
+      have combine_m2: 2 * (m * m) + m * m = 3 * (m * m)
+        by symmetric uint_dist_mult_add_right[2, 1, m * m]
+      replace uint_dist_mult_add_right[1 + 2*m, m*m, 1+m]
+           | uint_dist_mult_add[1 + 2*m, 1, m]
+           | uint_dist_mult_add[m*m, 1, m]
+           | uint_dist_mult_add_right[1, 2*m, m]
+           | combine_m
+           | combine_m2.
+    }
+
+    // 1 + 3m ≤ m*m via 1 + 3m ≤ 4m ≤ m*m (using m ≥ 4).
+    have four_eq: (4:UInt) * m = m + 3 * m by uint_dist_mult_add_right[1, 3, m]
+    have one_3m_le_4m: 1 + 3 * m ≤ 4 * m by {
+      replace four_eq
+      have step: 3 * m ≤ 3 * m by .
+      apply uint_add_mono_less_equal to m_ge_1, step
+    }
+    have m_le_m: m ≤ m by .
+    have four_m_le_mm: 4 * m ≤ m * m
+      by apply uint_mult_mono_le2 to m_ge_4, m_le_m
+    have one_3m_le_mm: 1 + 3 * m ≤ m * m
+      by apply uint_less_equal_trans to one_3m_le_4m, four_m_le_mm
+
+    // (1 + 3m) + 3*(m*m) ≤ m*m + 3*(m*m) = 4*(m*m) ≤ m*(m*m) = m*m*m.
+    have three_mm_le: 3 * (m * m) ≤ 3 * (m * m) by .
+    have step_sum: (1 + 3 * m) + 3 * (m * m) ≤ m * m + 3 * (m * m)
+      by apply uint_add_mono_less_equal to one_3m_le_mm, three_mm_le
+
+    have four_mm_eq: m * m + 3 * (m * m) = 4 * (m * m) by {
+      have eq: (4:UInt) * (m * m) = 1 * (m * m) + 3 * (m * m)
+        by uint_dist_mult_add_right[1, 3, m * m]
+      replace eq.
+    }
+
+    have mm_le_mm: m * m ≤ m * m by .
+    have four_mm_le_mmm: 4 * (m * m) ≤ m * (m * m)
+      by apply uint_mult_mono_le2 to m_ge_4, mm_le_mm
+    have mmm_assoc: m * (m * m) = m * m * m by symmetric uint_mult_assoc[m, m, m]
+    have four_mm_le: 4 * (m * m) ≤ m * m * m by replace mmm_assoc in four_mm_le_mmm
+
+    have slack: (1 + 3 * m) + 3 * (m * m) ≤ m * m * m by {
+      have step1: (1 + 3 * m) + 3 * (m * m) ≤ 4 * (m * m)
+        by replace four_mm_eq in step_sum
+      apply uint_less_equal_trans to step1, four_mm_le
+    }
+
+    // Add m*m*m to both sides of the slack: (1 + 3m + 3m^2) + m^3 ≤ 2*m^3.
+    have mmm_le_mmm: m * m * m ≤ m * m * m by .
+    have step_combined: ((1 + 3 * m) + 3 * (m * m)) + m * m * m
+                      ≤ m * m * m + m * m * m
+      by apply uint_add_mono_less_equal to slack, mmm_le_mmm
+    have cube_le_2mmm: (1 + m) * (1 + m) * (1 + m) ≤ 2 * (m * m * m) by {
+      replace expand_cube
+      replace uint_two_mult[m * m * m]
+      step_combined
+    }
+
+    // Chain with the IH m*m*m ≤ 2^m to land at 2^(1+m) = 2 * 2^m.
+    have two_mmm_le: 2 * (m * m * m) ≤ 2 * 2 ^ m
+      by apply uint_mult_mono_le[2] to IH
+    have pow_step: 2 ^ (1 + m) = 2 * 2 ^ m by uint_pow_add_r[2, 1, m]
+    have cube_le_pow: (1 + m) * (1 + m) * (1 + m) ≤ 2 * 2 ^ m
+      by apply uint_less_equal_trans to cube_le_2mmm, two_mmm_le
+    replace pow_step
+    cube_le_pow
+  }
+  expand P in apply uint_k_induction[P, 10] to base, ind
+end
+
+// Cubic is bounded by exponential: O(n^3) ≲ O(2^n). Threshold n0 = 10,
+// constant c = 1 (uint_cube_le_2pow gives the pointwise inequality directly).
+theorem bigo_cubic_le_2pow_n: O_n3 ≲ O_2pow_n
+proof
+  expand operator≲ | O_n3 | O_2pow_n
+  choose 10, 1
+  arbitrary n:UInt
+  assume ten_n: 10 ≤ n
+  show n * n * n ≤ 1 * 2 ^ n
+  apply uint_cube_le_2pow to ten_n
+end
