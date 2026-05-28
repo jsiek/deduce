@@ -46,7 +46,7 @@ If a name on this page is unfamiliar, follow the link in the Reference column fo
 | `simplify with h` | Like `replace`, but accepts non-equation hypotheses: `h : not P` substitutes `P` with `false` in the goal; `h : P` (bare boolean) substitutes `P` with `true`. Use in the `case false` arm of a boolean `switch`, where `replace` rejects the `not P` hypothesis. |
 | `symmetric p` | If `p : a = b`, returns a proof of `b = a`. |
 | `transitive p1 p2` | `p1 : a = b` together with `p2 : b = c` gives a proof of `a = c`. |
-| `equations a = b by r1   ... = c by r2   ... = d by r3` | Equational chain — a readable form of nested `transitive`. |
+| `equations a = b by r1   ... = c by r2   ... = d by r3` | Equational chain — a readable form of nested `transitive`. Inside each step, `expand`/`replace` target the **LHS** by default; wrap a subterm of the RHS in `#...#` to retarget there. |
 
 ## Applying lemmas
 
@@ -109,7 +109,9 @@ Use these when `apply lemma to p` doesn't typecheck because `p` is a wider conju
 
 8. **Views need their law before use.** A `view` declaration checks the supplied `roundtrip` theorem exactly. For a target type `T`, prove `all v:T. into(out(v)) = v` before the `view` declaration; for generic views, quantify type parameters first.
 
-9. **`switch P` on a boolean introduces asymmetric assumptions.** `case true assume h { ... }` makes `h : P` available; `case false assume h { ... }` makes `h : not P` available. `simplify with h` works in both branches (it substitutes `P` with `true` or `false` and reduces). If `P` is itself an equation `a = b`, you may also use `replace h` in the `case true` branch; for any other boolean (a predicate call, `≤`, etc.), `replace h` fails with "expected an equation" and you should use `simplify with h`. Also: the introduced formula is `P` (resp. `not P`), not `P = true` (resp. `P = false`) — annotating `assume h: P = true` will fail to match the expected assumption.
+9. **Inside `equations`, `expand`/`replace` only touch the LHS.** Each step's left-hand side is implicitly marked as the target; the right-hand side is invisible to `expand`/`replace`. The fix is to wrap the part of the RHS you want to transform in hash marks: `... = # f(x) + y # by expand f.`. The error message "could not find a place to expand definition of `f` in: ..." with the RHS shown is usually this — see [Equations](./Reference.md#equations) for the full rule.
+
+10. **`switch P` on a boolean introduces asymmetric assumptions.** `case true assume h { ... }` makes `h : P` available; `case false assume h { ... }` makes `h : not P` available. `simplify with h` works in both branches (it substitutes `P` with `true` or `false` and reduces). If `P` is itself an equation `a = b`, you may also use `replace h` in the `case true` branch; for any other boolean (a predicate call, `≤`, etc.), `replace h` fails with "expected an equation" and you should use `simplify with h`. Also: the introduced formula is `P` (resp. `not P`), not `P = true` (resp. `P = false`) — annotating `assume h: P = true` will fail to match the expected assumption.
 
 ## Working tips
 
