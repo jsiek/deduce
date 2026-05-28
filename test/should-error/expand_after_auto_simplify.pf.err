@@ -1,4 +1,5 @@
 ./test/should-error/expand_after_auto_simplify.pf:8.3-8.13: could not find a place to expand definition of foo in:
 	true
-The goal has been simplified to `true`, possibly by an `auto` rewrite rule.
-Finish the proof with `.` (which closes any goal of the form `true`).
+The goal has been simplified to `true`, possibly by an earlier transformation
+in this chain or an `auto` rewrite rule. Drop the remaining transformation(s)
+and end the step with `.`, or replace the whole step with `evaluate`.

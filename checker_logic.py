@@ -368,8 +368,9 @@ def collect_all(frm: Formula) -> tuple[list[Term], Formula]:
 
 def auto_simplified_hint(new_formula: Formula) -> str:
   if is_true(new_formula):
-    return '\nThe goal has been simplified to `true`, possibly by an `auto` rewrite rule.\n' \
-           'Finish the proof with `.` (which closes any goal of the form `true`).'
+    return '\nThe goal has been simplified to `true`, possibly by an earlier transformation\n' \
+           'in this chain or an `auto` rewrite rule. Drop the remaining transformation(s)\n' \
+           'and end the step with `.`, or replace the whole step with `evaluate`.'
   return ''
 
 

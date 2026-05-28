@@ -5,5 +5,6 @@ in
 	true
 while trying to replace using the below equation, left to right
 	(all x:UInt, y:UInt. toNat(x * y) = toNat(x) * toNat(y))
-The goal has been simplified to `true`, possibly by an `auto` rewrite rule.
-Finish the proof with `.` (which closes any goal of the form `true`).
+The goal has been simplified to `true`, possibly by an earlier transformation
+in this chain or an `auto` rewrite rule. Drop the remaining transformation(s)
+and end the step with `.`, or replace the whole step with `evaluate`.
