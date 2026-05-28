@@ -1,0 +1,141 @@
+// count_if.pf
+//
+// An introductory functional programming example: define `count_if`,
+// which counts how many elements of a list satisfy a predicate, then
+// prove three correctness properties.
+//
+// In Haskell:
+//
+//     countIf :: (a -> Bool) -> [a] -> Int
+//     countIf p xs = length (filter p xs)
+
+import List
+
+recursive count_if<T>(List<T>, fn (T) -> bool) -> UInt {
+  count_if(empty, p) = 0
+  count_if(node(x, xs), p) =
+    if p(x) then 1 + count_if(xs, p)
+    else count_if(xs, p)
+}
+
+define is_even : fn UInt -> bool = λ n { n % 2 = 0 }
+assert count_if([1, 2, 3, 4, 5, 6], is_even) = 3
+assert count_if(@[]<UInt>, is_even) = 0
+
+// Property 1: count_if distributes over append.
+theorem count_if_append: all T:type. all xs:List<T>, ys:List<T>. all p:fn (T) -> bool.
+  count_if(xs ++ ys, p) = count_if(xs, p) + count_if(ys, p)
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary ys:List<T>
+    arbitrary p:fn (T) -> bool
+    expand count_if | operator++.
+  }
+  case node(x, xs') assume IH: all ys:List<T>. all p:fn (T) -> bool.
+      count_if(xs' ++ ys, p) = count_if(xs', p) + count_if(ys, p) {
+    arbitrary ys:List<T>
+    arbitrary p:fn (T) -> bool
+    switch p(x) {
+      case true assume px_true {
+        equations
+          count_if(node(x, xs') ++ ys, p)
+              = 1 + count_if(xs' ++ ys, p)
+                  by expand operator++ | count_if
+                     simplify with px_true.
+          ... = 1 + (count_if(xs', p) + count_if(ys, p))
+                  by replace IH[ys][p].
+          ... = (1 + count_if(xs', p)) + count_if(ys, p)
+                  by .
+          ... = #count_if(node(x, xs'), p)# + count_if(ys, p)
+                  by expand count_if simplify with px_true.
+      }
+      case false assume px_false {
+        equations
+          count_if(node(x, xs') ++ ys, p)
+              = count_if(xs' ++ ys, p)
+                  by expand operator++ | count_if
+                     simplify with px_false.
+          ... = count_if(xs', p) + count_if(ys, p)
+                  by replace IH[ys][p].
+          ... = #count_if(node(x, xs'), p)# + count_if(ys, p)
+                  by expand count_if simplify with px_false.
+      }
+    }
+  }
+end
+
+// Property 2: count_if can never exceed the length of the list.
+theorem count_if_bound: all T:type. all xs:List<T>. all p:fn (T) -> bool.
+  count_if(xs, p) ≤ length(xs)
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary p:fn (T) -> bool
+    expand count_if.
+  }
+  case node(x, xs') assume IH: all p:fn (T) -> bool.
+      count_if(xs', p) ≤ length(xs') {
+    arbitrary p:fn (T) -> bool
+    switch p(x) {
+      case true assume px_true {
+        suffices 1 + count_if(xs', p) ≤ 1 + length(xs')
+          by expand count_if | length simplify with px_true.
+        IH[p]
+      }
+      case false assume px_false {
+        suffices count_if(xs', p) ≤ 1 + length(xs')
+          by expand count_if | length simplify with px_false.
+        apply uint_less_equal_trans[count_if(xs', p), length(xs'), 1 + length(xs')]
+          to IH[p], uint_less_equal_add_left[1, length(xs')]
+      }
+    }
+  }
+end
+
+// Property 3: count_if matches length(filter(...)), connecting the
+// two intro-FP functions. This is the equation the Haskell definition
+//
+//     countIf p xs = length (filter p xs)
+//
+// would imply.
+theorem count_if_length_filter: all T:type. all xs:List<T>. all p:fn (T) -> bool.
+  count_if(xs, p) = length(filter(xs, p))
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary p:fn (T) -> bool
+    expand count_if | filter | length.
+  }
+  case node(x, xs') assume IH: all p:fn (T) -> bool.
+      count_if(xs', p) = length(filter(xs', p)) {
+    arbitrary p:fn (T) -> bool
+    switch p(x) {
+      case true assume px_true {
+        equations
+          count_if(node(x, xs'), p)
+              = 1 + count_if(xs', p)
+                  by expand count_if simplify with px_true.
+          ... = 1 + length(filter(xs', p))
+                  by replace IH[p].
+          ... = #length(node(x, filter(xs', p)))#
+                  by expand length.
+          ... = #length(filter(node(x, xs'), p))#
+                  by expand filter simplify with px_true.
+      }
+      case false assume px_false {
+        equations
+          count_if(node(x, xs'), p)
+              = count_if(xs', p)
+                  by expand count_if simplify with px_false.
+          ... = length(filter(xs', p))
+                  by replace IH[p].
+          ... = #length(filter(node(x, xs'), p))#
+                  by expand filter simplify with px_false.
+      }
+    }
+  }
+end
