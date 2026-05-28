@@ -511,9 +511,13 @@ end
 If you want to skip the proof of one of the earlier steps, you can use
 [`sorry`](./Reference.md#sorry-proof) for the reason.
 
-If you want to work backwards by transforming the right-hand side of
-an equation into the left-hand side using `replace` or `expand`,
-then [mark](./Reference.md#mark) the right-hand side.
+Inside an `equations` block, `replace` and `expand` apply to the
+**left-hand side** of each step by default. If you need to transform
+part of the right-hand side instead (for example, to work backwards
+from the goal), wrap that subterm in hash marks — this is the
+[mark](./Reference.md#mark) form. For example, `... = # f(x) + y # by
+expand f.` tells Deduce to unfold `f` inside the marked region on the
+right.
 
 The `equations` feature is implemented in Deduce by translating into a
 bunch of `transitive` statements.
