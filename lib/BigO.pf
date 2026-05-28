@@ -1272,3 +1272,53 @@ proof
     by apply bigo_log_pow[k] to one_le_k
   expand operator≈ in eq
 end
+
+// Strict (little-o) form of `bigo_pow_mono`: for `a < b`, `n^a` is little-o
+// of `n^b`, i.e. for any constant `c > 0`, eventually `c * n^a < n^b`.
+// Threshold `n0 = 1 + c`, factor `n^b = n^a * n^(b ∸ a)` via `a + (b ∸ a) = b`
+// and `uint_pow_add_r`; with `b ∸ a ≥ 1` and `1 ≤ n`, `n^(b ∸ a) ≥ n > c`,
+// then multiply through by `n^a > 0`.
+theorem bigo_pow_strict_mono: all a:UInt, b:UInt.
+  if a < b then bigo_little_o(fun n:UInt {n^a}, fun n:UInt {n^b})
+proof
+  arbitrary a:UInt, b:UInt
+  assume a_lt_b
+  have a_le_b: a ≤ b by apply uint_less_implies_less_equal to a_lt_b
+  have ba_id: a + (b ∸ a) = b by apply uint_monus_add_identity[b, a] to a_le_b
+  have ba_ge_1: 1 ≤ b ∸ a by {
+    have one_plus_a_le_b: 1 + a ≤ b by replace uint_less_is_less_equal in a_lt_b
+    have shaped: a + 1 ≤ b by replace uint_add_commute[1, a] in one_plus_a_le_b
+    replace symmetric ba_id in shaped
+  }
+  expand bigo_little_o
+  arbitrary c:UInt
+  assume _c_pos
+  choose 1 + c
+  arbitrary n:UInt
+  assume n_ge: 1 + c ≤ n
+  show c * n^a < n^b
+  have one_le_n: 1 ≤ n by {
+    have h: (1:UInt) ≤ 1 + c by uint_less_equal_add
+    apply uint_less_equal_trans to h, n_ge
+  }
+  have n_pos: 0 < n by replace uint_less_is_less_equal[0, n] one_le_n
+  have na_pos: 0 < n^a by apply uint_pow_pos[n, a] to n_pos
+  have c_lt_n: c < n by replace uint_less_is_less_equal[c, n] n_ge
+  have n_le_nba: n ≤ n^(b ∸ a)
+    by apply (apply uint_pow_le_mono_r[b ∸ a, n, 1] to one_le_n) to ba_ge_1
+  have c_lt_nba: c < n^(b ∸ a) by {
+    have or_n: n < n^(b ∸ a) or n = n^(b ∸ a) by expand operator≤ in n_le_nba
+    cases or_n
+    case lt { apply uint_less_trans to c_lt_n, lt }
+    case eq: n = n^(b ∸ a) { replace symmetric eq c_lt_n }
+  }
+  have mult_step: n^a * c < n^a * n^(b ∸ a)
+    by apply uint_pos_mult_both_sides_of_less to na_pos, c_lt_nba
+  have pow_factor: n^b = n^a * n^(b ∸ a) by {
+    replace symmetric ba_id
+    uint_pow_add_r[n, a, b ∸ a]
+  }
+  replace pow_factor
+  replace uint_mult_commute[c, n^a]
+  mult_step
+end
