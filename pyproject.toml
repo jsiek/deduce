@@ -75,21 +75,21 @@ strict_equality = true
 disallow_subclassing_any = true
 # disallow_untyped_decorators is enabled globally now that the CI
 # workflow installs requirements-lsp.txt (`pygls` and `mcp`). Both
-# ship inline type annotations, so the LSP/MCP decorators no longer
-# resolve to Any in CI. Developers who skip the LSP install will see
-# this flag fire on `lsp/lsp_server.py` / `lsp/mcp_server.py`; install
-# `requirements-lsp.txt` to develop on those modules.
+# ship inline type annotations, so the LSP/MCP decorators resolve to
+# real types in the normal `mypy .` pass. The local `--no-site-packages`
+# pass intentionally hides those packages; the LSP/MCP module override
+# below suppresses only that decorator-boundary noise.
 disallow_untyped_decorators = true
 no_implicit_reexport = true
 exclude = [
     '^test/',
-    '^test-deduce\.py$',
+    '^test-deduce\\.py$',
     '^tmp/',
     '^lark/',
     '^editor/',
     '^live_code_vercel_api/',
     '^autograder_docker/',
-    '^\.claude/',
+    '^\\.claude/',
     '^gh_pages/',
 ]
 
@@ -154,6 +154,14 @@ disallow_untyped_decorators = true
 disallow_incomplete_defs = true
 check_untyped_defs = true
 warn_return_any = true
+
+# Keep the no-dependencies mypy pass useful without weakening the rest
+# of strict checking for the LSP/MCP adapters. When `--no-site-packages`
+# hides pygls/mcp, their decorators become Any and otherwise produce a
+# wall of untyped-decorator errors.
+[[tool.mypy.overrides]]
+module = ["lsp.lsp_server", "lsp.mcp_server"]
+disable_error_code = ["untyped-decorator"]
 
 # Submodules of abstract_syntax re-export sibling names through the
 # compatibility facade in abstract_syntax/__init__.py, which conflicts
