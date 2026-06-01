@@ -1,3 +1,3 @@
-./test/should-error/givens_switch_union_case_count.pf:7.3-10.4: expected 3 cases in switch (Red, Blue, Green), but only have Red, Blue
+./test/should-error/givens_switch_union_case_count.pf:7.3-10.4: expected 3 cases in switch (Red, Blue, Green), missing: Green
 Givens:
 	p: P

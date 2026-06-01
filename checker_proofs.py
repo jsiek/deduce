@@ -1580,14 +1580,24 @@ def _check_proof_of_switch(proof: Any, formula: Any, env: Env) -> None:
       match env.get_def_of_type_var(tname):
         case Union(_, _, typarams, alts):
           if len(cases) != len(alts):
-            alt_names = ', '.join(base_name(c.name) for c in alts)
+            alt_name_list = [base_name(c.name) for c in alts]
             def case_pattern_name(p: object) -> str:
               if isinstance(p, PatternCons) and isinstance(p.constructor, Var):
                 return cast(str, base_name(p.constructor.name))
               return str(p)
-            present = ', '.join(case_pattern_name(c.pattern) for c in cases) if cases else 'none'
+            present_names = [case_pattern_name(c.pattern) for c in cases]
+            present_set = set(present_names)
+            missing = [n for n in alt_name_list if n not in present_set]
+            extras = [n for n in present_names if n not in set(alt_name_list)]
+            suffix_parts = []
+            if missing:
+              suffix_parts.append('missing: ' + ', '.join(missing))
+            if extras:
+              suffix_parts.append('unexpected: ' + ', '.join(extras))
+            if not suffix_parts:
+              suffix_parts.append('got ' + str(len(cases)))
             add_diagnostic(loc, 'expected ' + str(len(alts)) + ' cases in switch ('
-                  + alt_names + '), but only have ' + present
+                  + ', '.join(alt_name_list) + '), ' + '; '.join(suffix_parts)
                   + givens_str(env))
           cases_present: dict[str, Any] = {}
           for (constr,scase) in zip(alts, cases):
