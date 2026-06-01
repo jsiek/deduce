@@ -24,7 +24,7 @@ from abstract_syntax import (
     ModusPonens, Omitted, Or, OverloadedVar, PAndElim, PAnnot,
     PExtensionality, PHelpUse, PHole, PInjective, PLet, PRecall,
     PReflexive, PSorry, PSymmetric, PTLetNew, PTransitive, PTrue,
-    PTuple, PVar, PatternBool, ProofBinding, ResolvedVar,
+    PTuple, PVar, PatternBool, PatternCons, ProofBinding, ResolvedVar,
     RewriteFact, RewriteGoal, RuleInduction, RuleInversion,
     SimplifyFact, SimplifyGoal, Some, SomeElim, SomeIntro, Suffices,
     SwitchProof, TLet, TermInst, Type, TypeInst, TypeType,
@@ -1581,8 +1581,13 @@ def _check_proof_of_switch(proof: Any, formula: Any, env: Env) -> None:
         case Union(_, _, typarams, alts):
           if len(cases) != len(alts):
             alt_names = ', '.join(base_name(c.name) for c in alts)
+            def case_pattern_name(p: object) -> str:
+              if isinstance(p, PatternCons):
+                return base_name(p.constructor.name)
+              return str(p)
+            present = ', '.join(case_pattern_name(c.pattern) for c in cases) if cases else 'none'
             add_diagnostic(loc, 'expected ' + str(len(alts)) + ' cases in switch ('
-                  + alt_names + '), but only have ' + str(len(cases))
+                  + alt_names + '), but only have ' + present
                   + givens_str(env))
           cases_present: dict[str, Any] = {}
           for (constr,scase) in zip(alts, cases):
