@@ -14,7 +14,7 @@ derivations, not a stepwise execution).  It steps through *terms*.
 Pass `--debug` to the CLI:
 
 ```sh
-python deduce.py --debug your_file.pf
+python3 deduce.py --debug your_file.pf
 ```
 
 The proof checker runs as usual.  When it reaches the first
@@ -167,7 +167,7 @@ print count_down(suc(suc(zero)))
 Launch the debugger:
 
 ```sh
-python deduce.py --debug count.pf
+python3 deduce.py --debug count.pf
 ```
 
 A typical session:

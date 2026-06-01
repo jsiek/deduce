@@ -3,7 +3,7 @@
 Deduce ships with an experimental compiler that turns the executable
 fragment of a checked `.pf` file into a self-contained C program. Once
 compiled, the binary runs without Python and produces the same output
-as `python deduce.py file.pf` does.
+as `python3 deduce.py file.pf` does.
 
 This page walks through how to use it.
 
