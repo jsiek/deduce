@@ -22,6 +22,7 @@ from abstract_syntax import (
     Call,
     Env,
     Formula,
+    GenRecFun,
     IfThen,
     Lambda,
     MarkException,
@@ -29,18 +30,23 @@ from abstract_syntax import (
     OverloadedVar,
     Pattern,
     PatternCons,
+    RecFun,
     ResolvedVar,
     Switch,
     SwitchCase,
+    TermBinding,
     TLet,
     Term,
     VarRef,
+    ViewRecFun,
     base_name,
     count_marks,
     find_mark,
     formula_match,
     formulas_equal_modulo_numeric_literals,
+    get_dont_reduce_opaque,
     get_num_rewrites,
+    get_reduce_all,
     get_reduced_defs,
     is_equation,
     is_true,
@@ -49,6 +55,8 @@ from abstract_syntax import (
     reset_num_rewrites,
     reset_reduced_defs,
     rewrite_aux,
+    set_dont_reduce_opaque,
+    set_reduce_all,
     split_equation,
 )
 from checker_common import *
@@ -482,6 +490,89 @@ def expand_residual_hint(residual: Any, defs: Any, env: Env) -> str:
   listed = ', '.join('`' + n + '`' for n in still_present)
   return ('\nThe goal still contains ' + listed + '. ' \
           'Chain another expand with `|` (e.g. `expand f | f.`) or use `N*f` to unfold further.')
+
+
+def _collect_unfoldable_recfun_names(formula: Any, env: Any) -> list[str]:
+  # Walk `formula`; return display names of any `VarRef` whose binding is
+  # a non-opaque recursive function (`recursive`, `generic recursive`,
+  # `view recursive`). Used to name concrete `expand` targets in the
+  # closed-goal hint below; we deliberately skip `define`/operator
+  # bindings here -- `expand` accepts them, but the dominant beginner
+  # trip-up is forgetting to unfold a `recursive` definition, and naming
+  # only those keeps the hint focused.
+  names: list[str] = []
+  seen_ids: set[int] = set()
+  seen_names: set[str] = set()
+  stack: list[Any] = [formula]
+  while stack:
+    n = stack.pop()
+    nid = id(n)
+    if nid in seen_ids:
+      continue
+    seen_ids.add(nid)
+    if isinstance(n, VarRef):
+      if isinstance(n, OverloadedVar):
+        candidates = list(n.resolved_names)
+      else:
+        candidates = [n.get_name()]
+      for nm in candidates:
+        if nm not in env.dict:
+          continue
+        binding = env.dict[nm]
+        if not isinstance(binding, TermBinding):
+          continue
+        if not isinstance(binding.defn, (RecFun, GenRecFun, ViewRecFun)):
+          continue
+        if binding.visibility == 'opaque' \
+           and binding.module != env.get_current_module():
+          continue
+        display = base_name(nm)
+        if display in seen_names:
+          continue
+        seen_names.add(display)
+        names.append(display)
+    if hasattr(n, '__dict__'):
+      for v in vars(n).values():
+        if isinstance(v, (list, tuple)):
+          stack.extend(v)
+        elif isinstance(v, dict):
+          stack.extend(v.values())
+        elif v is not None and not isinstance(v, (str, int, float, bool)):
+          stack.append(v)
+  return names
+
+
+def ground_goal_evaluate_hint(form_red: Any, formula_red: Any, env: Any) -> str:
+  # Fires when the user supplies `.` (proof of `true`) for a non-`true`
+  # goal and that goal would actually evaluate to `true` once recursive
+  # definitions are unfolded. Points the beginner at `evaluate` (and
+  # names the unfoldable recursive functions, if any, for `expand`) so
+  # the bare "proof of true vs. <complex goal>" error isn't a dead end.
+  if not is_true(form_red):
+    return ''
+  if is_true(formula_red):
+    return ''
+  prev_reduce_all = get_reduce_all()
+  prev_dont_reduce_opaque = get_dont_reduce_opaque()
+  set_reduce_all(True)
+  set_dont_reduce_opaque(True)
+  try:
+    fully_reduced = formula_red.reduce(env)
+  except Exception:
+    return ''
+  finally:
+    set_reduce_all(prev_reduce_all)
+    set_dont_reduce_opaque(prev_dont_reduce_opaque)
+  if not is_true(fully_reduced):
+    return ''
+  fns = _collect_unfoldable_recfun_names(formula_red, env)
+  base = '\nThe goal is a closed term but is not yet reduced. Try `evaluate`'
+  if not fns:
+    return base + '.'
+  if len(fns) == 1:
+    return base + ', or `expand ' + fns[0] + '` to unfold the definition.'
+  return base + ', or `expand ' + ' | '.join(fns) \
+              + '` to unfold the definitions.'
 
 
 def expand_backward_mark_hint(formula: Any, var: Any, env: Any) -> str:

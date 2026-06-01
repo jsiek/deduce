@@ -36,8 +36,8 @@ from abstract_syntax import (
 from checker_common import *
 from checker_logic import (
     apply_rewrites, check_implies, collect_all_if_then,
-    expand_definitions, expand_residual_hint, instantiate,
-    isolate_difference, pattern_to_term, rewrite,
+    expand_definitions, expand_residual_hint, ground_goal_evaluate_hint,
+    instantiate, isolate_difference, pattern_to_term, rewrite,
 )
 from checker_types import (
     check_formula, check_pattern, check_type, type_check_term,
@@ -1646,12 +1646,14 @@ def _check_synthesized_proof_against_goal(proof: Any, formula: Any, env: Env) ->
   except UserError as e:
     # It could be that form is never reduced, such as in a PHelpUse.
     # In that case, we don't give 'replace' advice.
-    replace_advice = ''
+    extra_advice = ''
     try:
       if is_equation(form_red):
-        replace_advice = '\nDid you mean `replace ' + str(proof) + '`?'
+        extra_advice = '\nDid you mean `replace ' + str(proof) + '`?'
+      else:
+        extra_advice = ground_goal_evaluate_hint(form_red, formula_red, env)
     finally:
-      raise wrap_user_error(e, replace_advice) from e
+      raise wrap_user_error(e, extra_advice) from e
 
 def _check_proof_of_goal_agnostic(proof: Any, formula: Any, env: Env) -> None:
   return _check_synthesized_proof_against_goal(proof, formula, env)
