@@ -1582,8 +1582,8 @@ def _check_proof_of_switch(proof: Any, formula: Any, env: Env) -> None:
           if len(cases) != len(alts):
             alt_names = ', '.join(base_name(c.name) for c in alts)
             def case_pattern_name(p: object) -> str:
-              if isinstance(p, PatternCons):
-                return base_name(p.constructor.name)
+              if isinstance(p, PatternCons) and isinstance(p.constructor, Var):
+                return cast(str, base_name(p.constructor.name))
               return str(p)
             present = ', '.join(case_pattern_name(c.pattern) for c in cases) if cases else 'none'
             add_diagnostic(loc, 'expected ' + str(len(alts)) + ' cases in switch ('
