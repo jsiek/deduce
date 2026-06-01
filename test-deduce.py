@@ -31,6 +31,10 @@ Standalone modes (mutually exclusive with the above):
                        These stay RD-only because RD diagnostics are the
                        user-facing diagnostics; LALR is checked for accepted
                        syntax and AST shape by ``--equiv`` instead.
+    --examples         ``examples/`` worked-example proofs (RD only).
+                       LALR/RD parity is already covered by ``--equiv`` for
+                       ``lib/`` + ``should-validate/``; here we just need to
+                       catch regressions in the examples themselves.
     --regenerate-errors      Regenerate every ``test/should-error/*.err``.
     --generate-error <path>  Regenerate one ``.err`` fixture.
     --gen-parse              Regenerate every ``test/parse/*.err``.
@@ -109,6 +113,7 @@ ERROR_DIR = Path("test/should-error")
 PRELUDE_DIR = Path("test/prelude")
 IMPORTS_DIR = Path("test/test-imports")
 PARSE_DIR = Path("test/parse")
+EXAMPLES_DIR = Path("examples")
 EXAMPLE_FILE = Path("example.pf")
 
 
@@ -519,6 +524,23 @@ def run_cli_test() -> list[tuple[str, str, str]]:
     return failures
 
 
+def run_examples_parallel(workers: int) -> list[tuple[str, str, str]]:
+    """``examples/*.pf`` × RD parser only.
+
+    Examples are end-user-facing proofs that rely on the auto-prelude
+    (``import UInt`` etc. is not written out); use the prelude-injection
+    worker so the stdlib is implicitly available, the same way
+    ``deduce.py`` runs them.
+    """
+    files = list_pf(EXAMPLES_DIR)
+    tasks = [(f, True) for f in files]
+    failures: list[tuple[str, str, str]] = []
+    for f, ok, label, msg in _map_or_serial(workers, _worker_prelude, tasks, 4):
+        if not ok:
+            failures.append((f, label, msg))
+    return failures
+
+
 def run_site(workers: int) -> list[tuple[str, str, str]]:
     """Generate ``doc_*.pf`` from ``gh_pages/doc/`` and check them."""
     from gh_pages.scripts.convert import convert_dir
@@ -587,11 +609,12 @@ def parse_args(argv: list[str]) -> dict:
     arguments still in scripts / muscle memory."""
     flags: dict[str, Any] = {
         "cli": False, "lib": False, "passable": False, "errors": False,
-        "equiv": False, "site": False, "parser": False,
+        "equiv": False, "site": False, "parser": False, "examples": False,
         "regen_all": False, "regen_files": [], "gen_parse": False,
         "workers": max(1, (os.cpu_count() or 4)),
     }
-    standalone = {"site", "parser", "regen_all", "regen_files", "gen_parse"}
+    standalone = {"site", "parser", "examples",
+                  "regen_all", "regen_files", "gen_parse"}
     i = 0
     while i < len(argv):
         a = argv[i]
@@ -602,6 +625,7 @@ def parse_args(argv: list[str]) -> dict:
         elif a == "--equiv": flags["equiv"] = True
         elif a == "--site": flags["site"] = True
         elif a == "--parser": flags["parser"] = True
+        elif a == "--examples": flags["examples"] = True
         elif a == "--regenerate-errors": flags["regen_all"] = True
         elif a == "--generate-error":
             flags["regen_files"].append(argv[i + 1])
@@ -619,7 +643,7 @@ def parse_args(argv: list[str]) -> dict:
     # If no flags at all, default to the per-PR regression sweep.
     if not any(flags[k] for k in
                ("cli", "lib", "passable", "errors", "site", "parser",
-                "equiv", "regen_all", "gen_parse")) and not flags["regen_files"]:
+                "examples", "equiv", "regen_all", "gen_parse")) and not flags["regen_files"]:
         flags["cli"] = flags["lib"] = flags["passable"] = True
         flags["errors"] = flags["equiv"] = True
 
@@ -685,6 +709,13 @@ def main(argv: list[str]) -> int:
         _, fails = time_section("test/parse",
                                 lambda: run_err_diff_parallel(
                                     PARSE_DIR, "parser", workers))
+        total_failures.extend(fails)
+        return _report(total_failures, total_t0)
+    if flags["examples"]:
+        print(f"=== --examples: {EXAMPLES_DIR} (RD only, parallel) ===")
+        bootstrap_prelude(lib_modules)
+        _, fails = time_section("examples",
+                                lambda: run_examples_parallel(workers))
         total_failures.extend(fails)
         return _report(total_failures, total_t0)
 
