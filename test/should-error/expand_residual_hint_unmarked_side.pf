@@ -1,0 +1,27 @@
+// Issue #771: inside an `equations` step the LHS is implicitly marked,
+// so `expand f` rewrites only the LHS. When the residual `f` survives
+// only on the unmarked RHS, the prior advice "chain another expand
+// (N*expand)" looped -- N*expand cannot reach the unmarked side. The
+// hint should now point at the `#...#` workaround instead.
+import UInt
+
+union Tree<T> {
+  empty_tree
+  tree_node(Tree<T>, T, Tree<T>)
+}
+recursive mirror<T>(Tree<T>) -> Tree<T> {
+  mirror(empty_tree) = empty_tree
+  mirror(tree_node(l, x, r)) = tree_node(mirror(r), x, mirror(l))
+}
+
+theorem tree_mirror_step: all T:type. all l:Tree<T>. all x:T. all r:Tree<T>.
+  mirror(mirror(tree_node(l, x, r))) = mirror(tree_node(mirror(r), x, mirror(l)))
+proof
+  arbitrary T:type
+  arbitrary l:Tree<T>
+  arbitrary x:T
+  arbitrary r:Tree<T>
+  equations
+    mirror(mirror(tree_node(l, x, r)))
+        = mirror(tree_node(mirror(r), x, mirror(l)))   by expand mirror.
+end

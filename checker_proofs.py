@@ -1078,7 +1078,8 @@ def _check_proof_of_apply_defs_goal(proof: Any, formula: Any, env: Env) -> None:
   try:
     _try_check_proof_of(proof.body, red_formula, env)
   except UserError as e:
-    hint = expand_residual_hint(red_formula, proof.definitions, env)
+    hint = expand_residual_hint(red_formula, proof.definitions, env,
+                                original=formula)
     if hint:
       raise wrap_user_error(e, hint) from e
     raise
@@ -1087,7 +1088,8 @@ def _check_proof_of_apply_defs_goal(proof: Any, formula: Any, env: Env) -> None:
   # any entries it added during this call and attach the same hint so
   # collect_errors mode (MCP / LSP) sees the helpful tail the CLI gets.
   if sink is not None and len(sink.errors) > before_len:
-    hint = expand_residual_hint(red_formula, proof.definitions, env)
+    hint = expand_residual_hint(red_formula, proof.definitions, env,
+                                original=formula)
     if hint:
       for i in range(before_len, len(sink.errors)):
         entry = sink.errors[i]
