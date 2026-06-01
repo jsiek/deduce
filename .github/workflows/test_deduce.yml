@@ -71,6 +71,9 @@ jobs:
           - name: equiv
             args: --equiv
             requirements: core
+          - name: examples
+            args: --examples
+            requirements: core
 
     steps:
       - name: Checkout repo content
