@@ -1,0 +1,26 @@
+// Issue #772: when the user closes a goal with `.` but the goal is a
+// closed ground term that needs to be reduced (e.g. an induction base
+// case before `evaluate`/`expand`), suggest `evaluate` instead of
+// failing with no advice.
+
+union Tree<T> {
+  empty_tree
+  tree_node(Tree<T>, T, Tree<T>)
+}
+
+recursive mirror<T>(Tree<T>) -> Tree<T> {
+  mirror(empty_tree) = empty_tree
+  mirror(tree_node(l, x, r)) = tree_node(mirror(r), x, mirror(l))
+}
+
+theorem tree_mirror_involutive: all T:type. all t:Tree<T>. mirror(mirror(t)) = t
+proof
+  arbitrary T:type
+  induction Tree<T>
+  case empty_tree {
+    .
+  }
+  case tree_node(l, x, r) assume IH_l: mirror(mirror(l)) = l, IH_r: mirror(mirror(r)) = r {
+    expand mirror replace IH_l | IH_r.
+  }
+end
