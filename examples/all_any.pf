@@ -1,0 +1,115 @@
+// all_any.pf
+//
+// The classic Haskell intro-FP pair of higher-order predicates:
+//
+//     all :: (a -> Bool) -> [a] -> Bool
+//     any :: (a -> Bool) -> [a] -> Bool
+//
+// `all(xs, p)` is true when every element of `xs` satisfies `p`;
+// `any(xs, p)` is true when at least one element does. (In Deduce
+// `all` and `some` are reserved keywords, so we name the functions
+// `list_all` and `list_any`.)
+//
+// We prove three correctness properties:
+//
+//   1. list_all_append:  list_all distributes over concatenation as a
+//        conjunction:  list_all(xs ++ ys, p) = list_all(xs, p) and list_all(ys, p)
+//   2. list_any_append:  list_any distributes over concatenation as a
+//        disjunction:  list_any(xs ++ ys, p) = list_any(xs, p) or list_any(ys, p)
+//   3. list_all_any_de_morgan:  the De Morgan duality between them,
+//        not list_all(xs, p) = list_any(xs, fun x { not p(x) })
+
+import List
+
+recursive list_all<T>(List<T>, fn T->bool) -> bool {
+  list_all(empty, p) = true
+  list_all(node(x, xs), p) = p(x) and list_all(xs, p)
+}
+
+recursive list_any<T>(List<T>, fn T->bool) -> bool {
+  list_any(empty, p) = false
+  list_any(node(x, xs), p) = p(x) or list_any(xs, p)
+}
+
+define is_even : fn UInt -> bool = λ n { n % 2 = 0 }
+assert list_all([2, 4, 6], is_even)
+assert not list_all([2, 3, 6], is_even)
+assert list_any([1, 3, 4], is_even)
+assert not list_any([1, 3, 5], is_even)
+assert list_all(@[]<UInt>, is_even)
+assert not list_any(@[]<UInt>, is_even)
+
+// list_all over a concatenation is the conjunction of the parts.
+theorem list_all_append: all T:type. all xs:List<T>. all ys:List<T>, p:fn T->bool.
+  list_all(xs ++ ys, p) = (list_all(xs, p) and list_all(ys, p))
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary ys:List<T>, p:fn T->bool
+    expand operator++ | list_all.
+  }
+  case node(x, xs') assume IH: all ys:List<T>, p:fn T->bool.
+      list_all(xs' ++ ys, p) = (list_all(xs', p) and list_all(ys, p)) {
+    arbitrary ys:List<T>, p:fn T->bool
+    switch p(x) {
+      case true assume px: p(x) {
+        expand operator++ | list_all
+        replace IH[ys, p].
+      }
+      case false assume px: not p(x) {
+        expand operator++ | list_all  simplify with px.
+      }
+    }
+  }
+end
+
+// list_any over a concatenation is the disjunction of the parts.
+theorem list_any_append: all T:type. all xs:List<T>. all ys:List<T>, p:fn T->bool.
+  list_any(xs ++ ys, p) = (list_any(xs, p) or list_any(ys, p))
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary ys:List<T>, p:fn T->bool
+    expand operator++ | list_any.
+  }
+  case node(x, xs') assume IH: all ys:List<T>, p:fn T->bool.
+      list_any(xs' ++ ys, p) = (list_any(xs', p) or list_any(ys, p)) {
+    arbitrary ys:List<T>, p:fn T->bool
+    switch p(x) {
+      case true assume px: p(x) {
+        expand operator++ | list_any  simplify with px.
+      }
+      case false assume px: not p(x) {
+        expand operator++ | list_any
+        replace IH[ys, p].
+      }
+    }
+  }
+end
+
+// De Morgan: the negation of `all` is the `any` of the negated predicate.
+theorem list_all_any_de_morgan: all T:type. all xs:List<T>. all p:fn T->bool.
+  (not list_all(xs, p)) = list_any(xs, fun z:T { not p(z) })
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary p:fn T->bool
+    expand list_all | list_any.
+  }
+  case node(x, xs') assume IH: all p:fn T->bool.
+      (not list_all(xs', p)) = list_any(xs', fun z:T { not p(z) }) {
+    arbitrary p:fn T->bool
+    switch p(x) {
+      case true assume px: p(x) {
+        expand list_all | list_any  simplify with px
+        replace IH[p].
+      }
+      case false assume px: not p(x) {
+        expand list_all | list_any  simplify with px.
+      }
+    }
+  }
+end
