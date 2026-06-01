@@ -41,6 +41,7 @@ fun operator ≈ (f : fn UInt -> UInt, g : fn UInt -> UInt) {
   (f ≲ g) and (g ≲ f)
 }
 
+// Pointwise log of a cost function (lifts `UInt` `log` from values to functions).
 fun log(f : fn UInt -> UInt) {
   fun x:UInt { log(f(x)) }
 }
@@ -58,6 +59,7 @@ fun O_n(n:UInt) { n }
 // Quadratic Time
 fun O_n2(n:UInt) { n * n }
 
+// Big-O preorder is reflexive: every function is ≲ itself (`n0 = 0`, `c = 1`).
 theorem bigo_refl: all f : fn UInt -> UInt. f ≲ f
 proof
   arbitrary f : fn UInt -> UInt
@@ -69,6 +71,7 @@ proof
   uint_less_equal_refl
 end
 
+// Big-O preorder is transitive: thresholds add and constants multiply.
 theorem bigo_trans: all f : fn UInt -> UInt, g : fn UInt -> UInt, h : fn UInt -> UInt.
   if f ≲ g and g ≲ h then f ≲ h
 proof
@@ -105,6 +108,7 @@ proof
     by apply uint_less_equal_trans to fg_n, c1g_c12_h
 end
 
+// Adding a function to itself stays asymptotically bounded by it (`c = 2`).
 theorem bigo_add: all f: fn UInt->UInt. f + f ≲ f
 proof
   arbitrary f: fn UInt->UInt
@@ -117,6 +121,7 @@ proof
   replace uint_two_mult.
 end
 
+// Any constant multiple of `f` is ≲ `f` — constant factors are absorbed by `c`.
 theorem bigo_const_mult: all f: fn UInt -> UInt, k:UInt.
   k * f ≲ f
 proof
@@ -153,6 +158,7 @@ proof
   expand P in apply uint_induction[P] to base, ind
 end
 
+// Pointwise multiplication is monotone in both arguments under ≲.
 theorem bigo_mult_mono:
   all f1: fn UInt->UInt, f2: fn UInt->UInt, g1: fn UInt->UInt, g2: fn UInt->UInt.
   if f1 ≲ g1 and f2 ≲ g2
@@ -219,6 +225,7 @@ proof
   uint_less_equal_add
 end
 
+// Sibling of `bigo_self_le_add`: the right summand is bounded by the sum.
 theorem bigo_le_add_self: all f:fn UInt->UInt, g:fn UInt->UInt. g ≲ f + g
 proof
   arbitrary f:fn UInt->UInt, g:fn UInt->UInt
@@ -239,6 +246,7 @@ proof
   rf, rf
 end
 
+// Symmetry of ≈: swap the two ≲ directions.
 theorem bigo_equiv_sym: all f:fn UInt->UInt, g:fn UInt->UInt.
   if f ≈ g then g ≈ f
 proof
@@ -250,6 +258,7 @@ proof
   gf, fg
 end
 
+// Transitivity of ≈, via `bigo_trans` on each direction.
 theorem bigo_equiv_trans:
   all f:fn UInt->UInt, g:fn UInt->UInt, h:fn UInt->UInt.
   if f ≈ g and g ≈ h then f ≈ h
@@ -411,6 +420,7 @@ proof
   .
 end
 
+// Hierarchy: constant ≲ log. For n ≥ 2, log(n) ≥ 1.
 theorem constant_le_log: O_1 ≲ O_log
 proof
   expand operator≲ | O_1 | O_log
@@ -420,6 +430,7 @@ proof
   apply uint_log_greater_one to two_n
 end
 
+// Hierarchy: log ≲ linear, since `log(n) ≤ n` for every `n`.
 theorem log_le_linear: O_log ≲ O_n
 proof
   expand operator≲ | O_log | O_n
@@ -429,6 +440,7 @@ proof
   uint_logn_le_n
 end
 
+// Hierarchy: linear ≲ quadratic. For n ≥ 1, n ≤ n * n.
 theorem linear_le_quadratic: O_n ≲ O_n2
 proof
   expand operator≲ | O_n | O_n2
@@ -439,8 +451,11 @@ proof
   conclude 1 * n ≤ n * n by apply uint_mult_mono_le2 to pos, n_n
 end
 
+// `2n` cost class: spelled out as a named function so the constant factor
+// can be shown to drop under ≈ in `O_n_eq_O_2n`.
 fun O_2n(n:UInt) { 2*n }
 
+// Constant factors drop in ≈: linear and `2n` are asymptotically the same.
 theorem O_n_eq_O_2n: O_n ≈ O_2n
 proof
   expand operator≈
@@ -463,10 +478,13 @@ proof
   A, B
 end
 
+// Pointwise positivity: every value of `f` is strictly positive.
 fun positive(f : fn UInt -> UInt) {
   all n:UInt. 0 < f(n)
 }
 
+// One direction of the log-product law (under `1 < f, g`):
+// `log(f*g) ≲ log(f) + log(g)`, via the pointwise `log(a*b) ≤ 1 + log(a) + log(b)`.
 theorem log_product_less_equal_sum:
   all f:fn UInt -> UInt, g:fn UInt -> UInt.
   if (all n:UInt. 1 < f(n)) and (all n:UInt. 1 < g(n))
@@ -491,6 +509,7 @@ proof
   apply uint_less_equal_trans to A, B
 end
 
+// Converse direction (under positivity): `log(f) + log(g) ≲ log(f*g)`.
 theorem log_sum_less_equal_product:
   all f:fn UInt -> UInt, g:fn UInt -> UInt.
   if (all n:UInt. 0 < f(n)) and (all n:UInt. 0 < g(n))
@@ -507,6 +526,7 @@ proof
   apply uint_log_add_le_log_mult to f_pos, g_pos
 end
 
+// Two-sided log-product law (under `1 < f, g`): `log(f*g) ≈ log(f) + log(g)`.
 theorem log_product_equiv_sum:
   all f:fn UInt -> UInt, g:fn UInt -> UInt.
   if (all n:UInt. 1 < f(n)) and (all n:UInt. 1 < g(n))
