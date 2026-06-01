@@ -14,6 +14,10 @@ import UIntToFrom
   lemmas used by the rest of the UInt library.
 */
 
+// ============================================================
+// `toNat` / `fromNat` bridge for order
+// ============================================================
+
 // UInt less-than implies Nat less-than after conversion.
 theorem toNat_less: all x:UInt, y:UInt.
   if x < y then toNat(x) < toNat(y)
@@ -133,6 +137,7 @@ proof
   }
 end
 
+// UInt less-than-or-equal implies Nat less-than-or-equal after conversion.
 theorem toNat_less_equal: all x:UInt, y:UInt.
   if x ≤ y then toNat(x) ≤ toNat(y)
 proof
@@ -150,6 +155,7 @@ proof
   }
 end
 
+// Converse of `toNat_less`: Nat less-than on the conversions implies UInt less-than.
 theorem less_toNat: all x:UInt, y:UInt.
   if toNat(x) < toNat(y) then x < y
 proof
@@ -246,12 +252,18 @@ proof
   }
 end
 
+// ============================================================
+// Reflexivity and `<` ⇒ `≤`
+// ============================================================
+
+// `≤` is reflexive on UInt.
 theorem uint_less_equal_refl: all n:UInt. n ≤ n
 proof
   arbitrary n:UInt
   expand operator≤.
 end
 
+// `<` strengthens to `≤` (recall `x ≤ y` is defined as `x < y or x = y`).
 theorem uint_less_implies_less_equal: all x:UInt, y:UInt.
   if x < y then x ≤ y
 proof
@@ -261,6 +273,7 @@ proof
   prem
 end
 
+// Converse of `toNat_less_equal`: closes the `≤` half of the `toNat` bridge.
 theorem less_equal_toNat: all x:UInt, y:UInt.
   if toNat(x) ≤ toNat(y) then x ≤ y
 proof
@@ -280,6 +293,11 @@ proof
   }
 end
   
+// ============================================================
+// Irreflexivity and disjointness with equality
+// ============================================================
+
+// `<` is irreflexive: no UInt is strictly less than itself.
 theorem uint_less_irreflexive: all x:UInt.
   not (x < x)
 proof
@@ -289,6 +307,7 @@ proof
   apply less_irreflexive to nat_x_l_x
 end
 
+// Strictly less means not equal.
 theorem uint_less_implies_not_equal: all x:UInt, y:UInt.
   if x < y then not (x = y)
 proof
@@ -300,6 +319,7 @@ proof
   conclude false by recall y < y, not (y < y)
 end
 
+// Mirror form for `>` since `>` is parsed as a distinct operator from `<`.
 theorem uint_greater_implies_not_equal: all x:UInt, y:UInt.
   if x > y then not (x = y)
 proof
@@ -312,6 +332,11 @@ proof
   conclude false by recall y < y, not (y < y)
 end
 
+// ============================================================
+// Transitivity
+// ============================================================
+
+// Transitivity of strict less-than on UInt, lifted via `toNat`.
 theorem uint_less_trans: all x:UInt, y:UInt, z:UInt.
   if x < y and y < z then x < z
 proof
@@ -323,6 +348,11 @@ proof
   conclude x < z by apply less_toNat to xz
 end
 
+// ============================================================
+// Zero bounds
+// ============================================================
+
+// Nothing is strictly less than the UInt zero literal.
 theorem uint_not_less_zero:
   all x:UInt. not (x < 0)
 proof
@@ -334,6 +364,11 @@ proof
   }
 end
 
+// ============================================================
+// Trichotomy and `not (x < y)` ↔ `y ≤ x`
+// ============================================================
+
+// Excluded-middle-free contrapositive: failure of `x < y` yields `y ≤ x`.
 theorem uint_not_less_implies_less_equal:
   all x: UInt, y: UInt.
   if not (x < y) then y ≤ x
@@ -355,6 +390,7 @@ proof
   }
 end
 
+// Two-sided form: negation of `x ≤ y` is exactly `y < x`.
 theorem uint_not_less_equal_iff_greater: all x:UInt, y:UInt. not (x ≤ y) ⇔ (y < x)
 proof
   arbitrary x:UInt, y:UInt
@@ -397,6 +433,7 @@ proof
   fwd, bkwd
 end
 
+// Transitivity of `≤` on UInt, composed from `uint_less_trans` and equality.
 theorem uint_less_equal_trans: all x:UInt, y:UInt, z:UInt.
   if x ≤ y and y ≤ z
   then x ≤ z
@@ -422,6 +459,7 @@ proof
   }
 end
 
+// `bzero` is the least UInt under `≤` (binary-representation level form of `uint_zero_le`).
 lemma uint_bzero_le: all x:UInt.
   bzero ≤ x
 proof
@@ -434,6 +472,7 @@ proof
   }
 end
 
+// Converse of `uint_bzero_le`: anything `≤ bzero` is exactly `bzero`.
 lemma uint_less_equal_bzero: all x:UInt.
   if x ≤ bzero then x = bzero
 proof
@@ -446,6 +485,7 @@ proof
   }
 end
 
+// `fromNat` is strictly monotone — the `<` half of the `fromNat` bridge.
 theorem less_fromNat: all x:Nat, y:Nat.
   if x < y
   then fromNat(x) < fromNat(y)
@@ -459,6 +499,7 @@ proof
   conclude fromNat(x) < fromNat(y) by apply less_toNat to A
 end
   
+// `fromNat` is monotone — the `≤` half of the `fromNat` bridge.
 theorem less_equal_fromNat: all x:Nat, y:Nat.
   if x ≤ y
   then fromNat(x) ≤ fromNat(y)
@@ -472,6 +513,7 @@ proof
   conclude fromNat(x) ≤ fromNat(y) by apply less_equal_toNat to A
 end
   
+// Every UInt is either zero or strictly positive — case-analysis aid for induction-free proofs.
 theorem uint_zero_or_positive: all x:UInt. x = 0 or 0 < x
 proof
   arbitrary x:UInt
@@ -489,6 +531,7 @@ proof
   }
 end
 
+// Trichotomy of UInt order, lifted from the Nat version.
 theorem uint_trichotomy:
   all x:UInt, y:UInt.
   x < y  or  x = y  or  y < x
@@ -508,6 +551,7 @@ proof
   }
 end
 
+// Two-way split: any two UInts are comparable as `≤` or strict `>`.
 theorem uint_dichotomy:  all x:UInt, y:UInt.  x ≤ y  or  y < x
 proof
   arbitrary x:UInt, y:UInt
@@ -529,6 +573,7 @@ proof
   }
 end
 
+// Asymmetry of `<`: `x < y` rules out `y < x`.
 theorem uint_less_implies_not_greater:
   all x:UInt, y:UInt.
   if x < y then not (y < x)
@@ -542,6 +587,7 @@ proof
   conclude false by apply B to C
 end
 
+// Antisymmetry of `≤`: two-sided `≤` forces equality.
 theorem uint_less_equal_antisymmetric:
   all x:UInt, y:UInt.
   (if x ≤ y and y ≤ x
@@ -557,6 +603,7 @@ proof
   apply uint_toNat_injective to eq
 end
 
+// Equality strengthens to `≤` (the equality disjunct of the `≤` definition).
 theorem uint_equal_implies_less_equal: all x:UInt, y:UInt. (if x = y then x ≤ y)
 proof
   arbitrary x:UInt, y:UInt
@@ -565,6 +612,7 @@ proof
   uint_less_equal_refl[y]
 end
 
+// Literal-level form of `uint_bzero_le`: the UInt literal `0` is the minimum.
 theorem uint_zero_le: all x:UInt.
   0 ≤ x
 proof
@@ -572,6 +620,11 @@ proof
   uint_bzero_le
 end
 
+// ============================================================
+// `auto` rewrite rules for literal/reflexive order forms
+// ============================================================
+
+// `0 ≤ x` simplifies to `true`; registered as `auto` so it drops out of goals.
 theorem uint_zero_less_equal_true: all x:UInt.
   (0 ≤ x) = true
 proof
@@ -581,6 +634,7 @@ end
 
 auto uint_zero_less_equal_true
 
+// Literal-level form of `uint_less_equal_bzero`: only `0` itself is `≤ 0`.
 theorem uint_less_equal_zero: all x:UInt.
   if x ≤ 0 then x = 0
 proof
@@ -588,6 +642,8 @@ proof
   uint_less_equal_bzero
 end
 
+// Pushes `≤` through `fromNat(lit(...))`; registered as `auto` so literal
+// UInt comparisons collapse to the underlying Nat comparison.
 theorem uint_lit_less_equal: all x:Nat, y:Nat. (fromNat(lit(x)) ≤ fromNat(lit(y))) = (lit(x) ≤ lit(y))
 proof
   arbitrary x:Nat, y:Nat
@@ -604,6 +660,7 @@ end
 
 auto uint_lit_less_equal
 
+// Strict-`<` companion to `uint_lit_less_equal`; also `auto`.
 theorem uint_lit_less: all x:Nat, y:Nat. (fromNat(lit(x)) < fromNat(lit(y))) = (lit(x) < lit(y))
 proof
   arbitrary x:Nat, y:Nat
@@ -620,6 +677,7 @@ end
 
 auto uint_lit_less
 
+// `auto` form of irreflexivity: `x < x` rewrites to `false`.
 theorem uint_less_refl_false: all x:UInt.
   (x < x) = false
 proof
@@ -629,6 +687,7 @@ end
 
 auto uint_less_refl_false
 
+// `auto` form of reflexivity: `n ≤ n` rewrites to `true`.
 theorem uint_less_equal_refl_true: all n:UInt. (n ≤ n) = true
 proof
   arbitrary n:UInt
@@ -637,6 +696,11 @@ end
 
 auto uint_less_equal_refl_true
 
+// ============================================================
+// `max` on UInt
+// ============================================================
+
+// `max(0, x) = x`; registered as `auto` to absorb the literal-zero case.
 theorem uint_zero_max: all x:UInt. max(0, x) = x
 proof
   arbitrary x:UInt
@@ -656,6 +720,7 @@ end
 
 auto uint_zero_max
 
+// `max` is commutative on UInt.
 theorem uint_max_symmetric: all x:UInt, y:UInt. max(x,y) = max(y,x)
 proof
   arbitrary x:UInt, y:UInt
@@ -675,6 +740,7 @@ proof
   }
 end
   
+// Right-zero companion to `uint_zero_max`; also `auto`.
 theorem uint_max_zero: all x:UInt. max(x, 0) = x
 proof
   arbitrary x:UInt
@@ -684,6 +750,7 @@ end
 
 auto uint_max_zero
 
+// Associativity of `max` — proved by case analysis on the relative order of `x`, `y`, `z`.
 theorem uint_max_assoc: all x:UInt, y:UInt,z:UInt. max(max(x, y), z) = max(x, max(y, z))
 proof
   arbitrary x:UInt, y:UInt, z:UInt
@@ -739,6 +806,7 @@ proof
   }
 end
 
+// If `x ≤ y` then `max` picks the right argument.
 theorem uint_max_equal_greater_right: all x:UInt, y:UInt. (if x ≤ y then max(x, y) = y)
 proof
   arbitrary x:UInt, y:UInt
@@ -759,6 +827,7 @@ proof
   }
 end
 
+// Mirror form: if `y ≤ x` then `max` picks the left argument.
 theorem uint_max_equal_greater_left: all x:UInt, y:UInt. (if y ≤ x then max(x, y) = x)
 proof
   arbitrary x:UInt, y:UInt
@@ -779,6 +848,7 @@ proof
   }
 end
 
+// Least-upper-bound shape: `max(x,y)` is the supremum of `{x, y}`.
 theorem uint_max_less_equal: all x:UInt, y:UInt, z:UInt. (if x ≤ z and y ≤ z then max(x, y) ≤ z)
 proof
   arbitrary x:UInt, y:UInt, z:UInt
@@ -798,6 +868,7 @@ proof
   }
 end
 
+// `max` dominates its left argument.
 theorem uint_max_greater_left: all x:UInt, y:UInt.
   x ≤ max(x, y)
 proof
@@ -815,6 +886,7 @@ proof
   }
 end
 
+// `max` dominates its right argument.
 theorem uint_max_greater_right: all x:UInt, y:UInt.
   y ≤ max(x, y)
 proof
@@ -832,6 +904,7 @@ proof
   }
 end
 
+// `max` always picks one of its inputs (no fresh value).
 theorem uint_max_is_left_or_right: all x:UInt, y:UInt.
   max(x, y) = x or max(x, y) = y
 proof
@@ -847,6 +920,7 @@ proof
   }
 end
 
+// Idempotence of `max`.
 theorem uint_max_idempotent: all x:UInt.
   max(x, x) = x
 proof
@@ -855,6 +929,11 @@ proof
   .
 end
 
+// ============================================================
+// `min` on UInt
+// ============================================================
+
+// `min` is dominated by its left argument.
 theorem uint_min_less_equal_left: all x:UInt, y:UInt.
   min(x, y) ≤ x
 proof
@@ -872,6 +951,7 @@ proof
   }
 end
 
+// `min` is dominated by its right argument.
 theorem uint_min_less_equal_right: all x:UInt, y:UInt.
   min(x, y) ≤ y
 proof
@@ -889,6 +969,7 @@ proof
   }
 end
 
+// If `x ≤ y` then `min` picks the left argument.
 theorem uint_min_equal_less_left: all x:UInt, y:UInt.
   (if x ≤ y then min(x, y) = x)
 proof
@@ -910,6 +991,7 @@ proof
   }
 end
 
+// Mirror form: if `y ≤ x` then `min` picks the right argument.
 theorem uint_min_equal_less_right: all x:UInt, y:UInt.
   (if y ≤ x then min(x, y) = y)
 proof
@@ -932,6 +1014,7 @@ proof
   simplify with not_x_l_y.
 end
 
+// `min` always picks one of its inputs (no fresh value).
 theorem uint_min_is_left_or_right: all x:UInt, y:UInt.
   min(x, y) = x or min(x, y) = y
 proof
@@ -947,6 +1030,7 @@ proof
   }
 end
 
+// Idempotence of `min`.
 theorem uint_min_idempotent: all x:UInt.
   min(x, x) = x
 proof
@@ -955,6 +1039,7 @@ proof
   .
 end
 
+// `min` is commutative on UInt.
 theorem uint_min_symmetric: all x:UInt, y:UInt.
   min(x, y) = min(y, x)
 proof
@@ -975,6 +1060,7 @@ proof
   }
 end
 
+// Greatest-lower-bound shape: `min(x,y)` is the infimum of `{x, y}`.
 theorem uint_min_greatest_less_equal: all x:UInt, y:UInt, z:UInt.
   (if z ≤ x and z ≤ y then z ≤ min(x, y))
 proof
@@ -995,6 +1081,11 @@ proof
   }
 end
 
+// ============================================================
+// `min` / `max` absorption laws
+// ============================================================
+
+// Lattice absorption: `min(x, max(x, y)) = x`.
 theorem uint_min_max_absorb_left: all x:UInt, y:UInt.
   min(x, max(x, y)) = x
 proof
@@ -1002,6 +1093,7 @@ proof
   apply uint_min_equal_less_left[x, max(x, y)] to uint_max_greater_left[x,y]
 end
 
+// Dual: `max(x, min(x, y)) = x`.
 theorem uint_max_min_absorb_left: all x:UInt, y:UInt.
   max(x, min(x, y)) = x
 proof
@@ -1009,6 +1101,7 @@ proof
   apply uint_max_equal_greater_left[x, min(x, y)] to uint_min_less_equal_left[x,y]
 end
 
+// Right-argument form via `uint_min_symmetric`.
 theorem uint_min_max_absorb_right: all x:UInt, y:UInt.
   min(max(x, y), x) = x
 proof
@@ -1017,6 +1110,7 @@ proof
   uint_min_max_absorb_left[x,y]
 end
 
+// Right-argument form via `uint_max_symmetric`.
 theorem uint_max_min_absorb_right: all x:UInt, y:UInt.
   max(min(x, y), x) = x
 proof
