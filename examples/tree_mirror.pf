@@ -1,0 +1,99 @@
+// tree_mirror.pf
+//
+// A classic introductory functional-programming example on a data
+// structure other than lists: binary trees and the `mirror` (a.k.a.
+// reflect) operation that swaps the left and right subtrees
+// everywhere in the tree.
+//
+// We prove three correctness properties of `mirror`:
+//
+//   1. tree_mirror_involutive: mirroring twice is the identity,
+//        mirror(mirror(t)) = t
+//   2. tree_size_mirror:       mirror preserves the number of nodes,
+//        size(mirror(t)) = size(t)
+//   3. tree_height_mirror:     mirror preserves the height,
+//        height(mirror(t)) = height(t)
+
+union Tree<T> {
+  empty_tree
+  tree_node(Tree<T>, T, Tree<T>)
+}
+
+recursive mirror<T>(Tree<T>) -> Tree<T> {
+  mirror(empty_tree) = empty_tree
+  mirror(tree_node(l, x, r)) = tree_node(mirror(r), x, mirror(l))
+}
+
+recursive size<T>(Tree<T>) -> UInt {
+  size(empty_tree) = 0
+  size(tree_node(l, x, r)) = size(l) + size(r) + 1
+}
+
+recursive height<T>(Tree<T>) -> UInt {
+  height(empty_tree) = 0
+  height(tree_node(l, x, r)) = max(height(l), height(r)) + 1
+}
+
+assert size(tree_node(tree_node(empty_tree, 1, empty_tree), 2, empty_tree)) = 2
+assert height(tree_node(tree_node(empty_tree, 1, empty_tree), 2, empty_tree)) = 2
+
+theorem tree_mirror_involutive: all T:type. all t:Tree<T>.
+  mirror(mirror(t)) = t
+proof
+  arbitrary T:type
+  induction Tree<T>
+  case empty_tree {
+    expand mirror.
+  }
+  case tree_node(l, x, r) assume IH_l: mirror(mirror(l)) = l,
+                                  IH_r: mirror(mirror(r)) = r {
+    equations
+      mirror(mirror(tree_node(l, x, r)))
+          = tree_node(mirror(mirror(l)), x, mirror(mirror(r)))
+                                                         by expand mirror.
+      ... = tree_node(l, x, r)                           by replace IH_l | IH_r.
+  }
+end
+
+theorem tree_size_mirror: all T:type. all t:Tree<T>.
+  size(mirror(t)) = size(t)
+proof
+  arbitrary T:type
+  induction Tree<T>
+  case empty_tree {
+    expand mirror.
+  }
+  case tree_node(l, x, r) assume IH_l: size(mirror(l)) = size(l),
+                                  IH_r: size(mirror(r)) = size(r) {
+    equations
+      size(mirror(tree_node(l, x, r)))
+          = size(tree_node(mirror(r), x, mirror(l)))     by expand mirror.
+      ... = size(mirror(r)) + size(mirror(l)) + 1        by expand size.
+      ... = size(r) + size(l) + 1                        by replace IH_l | IH_r.
+      ... = size(l) + size(r) + 1
+                                  by replace uint_add_commute[size(r), size(l)].
+      ... = #size(tree_node(l, x, r))#                   by expand size.
+  }
+end
+
+theorem tree_height_mirror: all T:type. all t:Tree<T>.
+  height(mirror(t)) = height(t)
+proof
+  arbitrary T:type
+  induction Tree<T>
+  case empty_tree {
+    expand mirror.
+  }
+  case tree_node(l, x, r) assume IH_l: height(mirror(l)) = height(l),
+                                  IH_r: height(mirror(r)) = height(r) {
+    equations
+      height(mirror(tree_node(l, x, r)))
+          = height(tree_node(mirror(r), x, mirror(l)))   by expand mirror.
+      ... = max(height(mirror(r)), height(mirror(l))) + 1
+                                                         by expand height.
+      ... = max(height(r), height(l)) + 1                by replace IH_l | IH_r.
+      ... = max(height(l), height(r)) + 1
+                          by replace uint_max_symmetric[height(r), height(l)].
+      ... = #height(tree_node(l, x, r))#                 by expand height.
+  }
+end
