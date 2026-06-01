@@ -23,19 +23,24 @@ You will need [Python](https://www.python.org/) version 3.10 or later. Here are 
 You will also need the [Lark](https://github.com/lark-parser/lark) parsing library, which you can install by running the following command in the same directory as `deduce.py`
 
 ```
-python -m pip install lark
+python3 -m pip install lark
 ```
+
+> **Note.** Some systems (recent macOS, several Linux distros, the
+> official python.org framework build) ship only `python3` on `PATH`,
+> with no bare `python` command. Use `python3` if `python` is not
+> found.
 
 ### Install Deduce
 
 You can find the stable releases of Deduce on
 [github](https://github.com/jsiek/deduce/releases). Download the zip
 file and unpack it. To check that Deduce is working, go into the top
-`deduce` directory, and run `python` on the `deduce.py` script and the
+`deduce` directory, and run `python3` on the `deduce.py` script and the
 provided example file.  (There is no executable for Deduce.)
 
 ```
-python ./deduce.py ./example.pf
+python3 ./deduce.py ./example.pf
 ```
 
 You should see the following response from Deduce.
@@ -215,7 +220,7 @@ directory, or use the run functionality provided by your deduce
 editor.
 
 ```
-python deduce.py hello.pf
+python3 deduce.py hello.pf
 ```
 
 You should see the output

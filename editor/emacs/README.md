@@ -14,7 +14,7 @@ Three layers, each independently usable:
 - **`deduce-fill-hole`** *(optional)* — ask an LLM to fill the hole at
   point. Validated proofs only; the LLM's output is checked before
   it is spliced into your buffer.
-- **`deduce-dap`** *(optional)* — drive the `python deduce.py --debug`
+- **`deduce-dap`** *(optional)* — drive the `python3 deduce.py --debug`
   command-line debugger through `dap-mode`, so gutter breakpoints,
   the call-stack pane, and the locals view all work directly from
   your `.pf` buffer.
@@ -256,7 +256,7 @@ auto-start hook:
   (`*dap-ui-locals*`), program-output pane (`*Deduce :: launch
   current file out*` — `print` results land here), and the
   Debug Console.  The very first pause lands at your file's
-  first user-level statement, mirroring `python deduce.py
+  first user-level statement, mirroring `python3 deduce.py
   --debug`.
 - **Stepping with F-keys.**  `F5` continues, `F10` steps over,
   `F11` steps in, `S-F11` steps out, `S-F5` disconnects.
@@ -747,7 +747,7 @@ also verify the debugger integration:
     expressions) for you automatically (see
     `deduce-dap-auto-ui`).  The source buffer should highlight
     a line at the first user-level statement (matching where
-    `python deduce.py --debug` would initially trap).
+    `python3 deduce.py --debug` would initially trap).
 
 16. The Locals tree starts collapsed — `RET` (or click the
     triangle next to `Locals`) to expand.  Inside a function

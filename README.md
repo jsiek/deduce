@@ -10,8 +10,8 @@ Deduce needs Python 3.10+ and the [Lark](https://github.com/lark-parser/lark)
 parsing library. From a fresh clone:
 
 ```sh
-python -m pip install lark
-python deduce.py example.pf
+python3 -m pip install lark
+python3 deduce.py example.pf
 ```
 
 You should see:

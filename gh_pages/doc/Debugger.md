@@ -14,7 +14,7 @@ derivations, not a stepwise execution).  It steps through *terms*.
 Pass `--debug` to the CLI:
 
 ```sh
-python deduce.py --debug your_file.pf
+python3 deduce.py --debug your_file.pf
 ```
 
 The proof checker runs as usual.  When it reaches the first
@@ -167,7 +167,7 @@ print count_down(suc(suc(zero)))
 Launch the debugger:
 
 ```sh
-python deduce.py --debug count.pf
+python3 deduce.py --debug count.pf
 ```
 
 A typical session:
@@ -238,7 +238,7 @@ repository:
   [`editor/vscode/README.md`](../../editor/vscode/README.md) for the
   full instructions.
 
-Both packages launch `python -m lsp.dap_server` as the adapter and
+Both packages launch `python3 -m lsp.dap_server` as the adapter and
 expose the same UI surface as gdb-style debug clients: gutter
 breakpoints, a call-stack panel, a locals view, an evaluate-in-REPL
 console, and Step Over / Step Into / Step Out / Continue.  The
