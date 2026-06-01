@@ -20,17 +20,20 @@ import NatEvenOdd
  Properties of div2
  */
 
+// Halving zero gives zero.
 lemma div2_zero: div2(zero) = zero
 proof
   evaluate
 end
- 
+
+// Adding two to the input increases div2 by one.
 lemma div2_add_2: all n:Nat.  div2(suc(suc(n))) = suc(div2(n))
 proof
   arbitrary n:Nat
   expand div2 | div2_helper | div2_helper.
 end
 
+// Doubling and then halving recovers the original (even case).
 lemma div2_double: all n:Nat.
   div2(n + n) = n
 proof
@@ -46,6 +49,7 @@ proof
   }
 end
 
+// Halving 2*n recovers n (multiplicative form of div2_double).
 lemma div2_times2: all n:Nat.
   div2(suc(suc(zero)) * n) = n
 proof
@@ -55,6 +59,7 @@ proof
   div2_double[n]
 end
 
+// Halving an odd number 2n+1 truncates to n.
 lemma div2_suc_double: all n:Nat.
   div2(suc(n + n)) = n
 proof
@@ -72,6 +77,7 @@ proof
   }
 end
 
+// Halving 2*n+1 recovers n (multiplicative form of div2_suc_double).
 lemma div2_suc_times2: all n:Nat.
   div2(suc(suc(suc(zero)) * n)) = n
 proof
@@ -81,6 +87,7 @@ proof
   div2_suc_double[n]
 end
 
+// Ceiling vs floor: the upper half of n is at most one more than the lower half.
 lemma monus_div2: all n:Nat. n ∸ div2(n) ≤ suc(div2(n))
 proof
   arbitrary n:Nat
@@ -105,6 +112,7 @@ proof
   }
 end
 
+// The upper half of a positive n is itself positive.
 lemma monus_div2_pos: all n:Nat. if zero < n then zero < n ∸ div2(n)
 proof
   arbitrary n:Nat
@@ -138,6 +146,7 @@ proof
   }
 end
 
+// Joint bound for div2 and the helper div2_aux used to prove div2_pos_less.
 lemma div2_aux_pos_less: all n:Nat. if zero < n then div2(n) < n and div2_aux(n) ≤ n
 proof
   induction Nat
@@ -181,11 +190,13 @@ proof
   }
 end
 
+// Halving a positive number strictly decreases it (used to drive log/div2 recursion).
 lemma div2_pos_less: all n:Nat. if zero < n then div2(n) < n
 proof
   div2_aux_pos_less
 end
 
+// Joint monotonicity of div2 and div2_aux; the auxiliary form needed for the induction.
 lemma div2_aux_mono: all x:Nat, y:Nat.
   if x ≤ y then div2(x) ≤ div2(y) and div2_aux(x) ≤ div2_aux(y)
 proof
@@ -218,6 +229,7 @@ proof
   }
 end
 
+// div2 is monotone in its argument.
 lemma div2_mono: all x:Nat, y:Nat.
   if x ≤ y then div2(x) ≤ div2(y)
 proof
@@ -252,10 +264,12 @@ terminates {
   less_equal_add
 }
 
+// Modulo: the remainder left after dividing n by m.
 fun operator % (n:Nat, m:Nat) {
   n ∸ (n / m) * m
 }
 
+// Helper for strong_induction: P holds for every k below an arbitrary bound j.
 lemma strong_induction_aux: all P: fn Nat -> bool.
   if (all n:Nat. if (all k:Nat. if k < n then P(k)) then P(n))
   then (all j:Nat, k:Nat. if k < j then P(k))
@@ -294,6 +308,7 @@ proof
   }
 end
   
+// Strong induction on Nat: to prove P(n), it suffices to prove P assuming it holds for every smaller value.
 theorem strong_induction: all P: fn Nat -> bool, n:Nat.
   if (all j:Nat. if (all i:Nat. if i < j then P(i)) then P(j))
   then P(n)
@@ -309,10 +324,12 @@ proof
   conclude P(n) by apply X[suc(n),n] to recall n < suc(n)
 end
 
+// Internal predicate used to prove `division` by strong induction on the dividend.
 private fun DivPred(n:Nat) {
   all m:Nat. if zero < m then some r:Nat. (n / m) * m + r = n and r < m
 }
 
+// Division algorithm: dividing n by m > 0 yields a remainder r with (n/m)*m + r = n and r < m.
 lemma division: all n:Nat, m:Nat.
   if zero < m
   then some r:Nat. (n/m)*m + r = n and r < m
@@ -374,6 +391,7 @@ proof
   expand DivPred in recall DivPred(n)
 end
 
+// Fundamental division equation: quotient * divisor + remainder = dividend.
 lemma div_mod: all n:Nat, m:Nat.
   if zero < m
   then (n / m) * m + (n % m) = n
@@ -407,6 +425,7 @@ proof
     by apply monus_add_identity to a_le_n
 end
 
+// The remainder of n % m is strictly less than the divisor m.
 lemma mod_less_divisor: all n:Nat, m:Nat. if zero < m then n % m < m
 proof
   arbitrary n:Nat, m:Nat
@@ -426,6 +445,7 @@ proof
   conjunct 1 of R
 end
 
+// A positive number divided by itself yields quotient 1 and remainder 0 (joint version).
 lemma mult_div_mod_self: all y:Nat.
   if zero < y
   then y / y = suc(zero) and y % y = zero
@@ -462,10 +482,12 @@ proof
   }
 end
 
+// Divisibility: a divides b iff some multiple of a equals b.
 fun divides(a : Nat, b : Nat) {
   some k:Nat. a * k = b
 }
 
+// If d divides both n and m % n, then d divides m (the divisibility law behind the gcd algorithm).
 lemma divides_mod: all d:Nat, m:Nat, n:Nat.
   if divides(d, n) and divides(d, m % n) and zero < n then divides(d, m)
 proof
@@ -486,6 +508,7 @@ proof
   eq5
 end
 
+// A positive number divided by itself is one.
 lemma div_cancel: all y:Nat. if zero < y then y / y = suc(zero)
 proof
   arbitrary y:Nat
@@ -493,6 +516,7 @@ proof
   apply mult_div_mod_self[y] to y_pos
 end
 
+// A number mod itself is zero (handles the y = 0 case too via 0 ∸ 0 = 0).
 lemma mod_self_zero: all y:Nat. y % y = zero
 proof
   arbitrary y:Nat
@@ -513,6 +537,7 @@ proof
   }
 end
 
+// Zero mod anything is zero.
 lemma zero_mod: all x:Nat. zero % x = zero
 proof
   arbitrary x:Nat
@@ -520,6 +545,7 @@ proof
   zero_monus
 end
 
+// Zero divided by any positive number is zero.
 lemma zero_div: all x:Nat. if zero < x then zero / x = zero
 proof
   arbitrary x:Nat
@@ -538,6 +564,7 @@ proof
   }
 end
 
+// Every Nat is exactly divisible by one, so the remainder is zero.
 lemma mod_one: all n:Nat. n % suc(zero) = zero
 proof
   arbitrary n:Nat
@@ -551,6 +578,7 @@ proof
   }
 end
 
+// Dividing by one returns the original value.
 lemma div_one: all n:Nat. n / suc(zero) = n
 proof
   arbitrary n:Nat
@@ -560,6 +588,7 @@ proof
   replace mod_one in eq2
 end
 
+// Adding the divisor m to n increases the quotient by exactly one.
 lemma add_div_one: all n:Nat, m:Nat.
   if zero < m
   then (n + m) / m = suc(zero) + n / m
@@ -586,6 +615,7 @@ proof
                                            | add_monus_identity.
 end
   
+// Multiplying by m and then dividing by m recovers the original (cancellation law).
 lemma mult_div_inverse: all n:Nat, m:Nat.
   if zero < m then (n * m) / m = n
 proof
@@ -612,6 +642,8 @@ end
 Alternative division algorithm.
 */
 
+// Alternative division: returns (a/y, a%y) using an accumulator-style recursion
+// that walks a from zero up to y while consuming b counts of subtraction.
 recfun div_alt(a: Nat, b: Nat, y: Nat) -> Pair<Nat,Nat>
   measure a + b + b of Nat
 {
