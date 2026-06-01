@@ -1580,7 +1580,9 @@ def _check_proof_of_switch(proof: Any, formula: Any, env: Env) -> None:
       match env.get_def_of_type_var(tname):
         case Union(_, _, typarams, alts):
           if len(cases) != len(alts):
-            add_diagnostic(loc, 'expected ' + str(len(alts)) + ' cases in switch, but only have ' + str(len(cases))
+            alt_names = ', '.join(base_name(c.name) for c in alts)
+            add_diagnostic(loc, 'expected ' + str(len(alts)) + ' cases in switch ('
+                  + alt_names + '), but only have ' + str(len(cases))
                   + givens_str(env))
           cases_present: dict[str, Any] = {}
           for (constr,scase) in zip(alts, cases):
