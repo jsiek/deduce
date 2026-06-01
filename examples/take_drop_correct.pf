@@ -1,0 +1,47 @@
+// take_drop_correct.pf
+//
+// An introductory-functional-programming example. The list functions
+// `take(xs, n)` and `drop(xs, n)` from the standard library split a
+// list into its first `n` elements and everything after them:
+//
+//   take([10,20,30,40], 2) = [10,20]
+//   drop([10,20,30,40], 2) = [30,40]
+//
+// A natural correctness property is that the two pieces really do
+// partition the list: appending `drop` onto the end of `take`
+// reconstructs the original list, no matter how many elements we asked
+// to take.
+//
+//   take_drop_append:  take(xs, n) ++ drop(xs, n) = xs
+//
+// The proof is by induction on the list, with a case split on whether
+// `n` is zero (using `uint_zero_or_add_one`).
+
+// A couple of quick tests of the definitions.
+assert take([10,20,30,40], 2) = [10,20]
+assert drop([10,20,30,40], 2) = [30,40]
+
+theorem take_drop_append: all T:type, xs:List<T>, n:UInt.
+  take(xs, n) ++ drop(xs, n) = xs
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary n:UInt
+    expand take | drop | operator++.
+  }
+  case node(x, xs') assume IH: all n:UInt. take(xs', n) ++ drop(xs', n) = xs' {
+    arbitrary n:UInt
+    cases uint_zero_or_add_one[n]
+    case nz {
+      replace nz
+      expand take | drop | operator++.
+    }
+    case n1 {
+      obtain n' where n_sn from n1
+      replace n_sn
+      expand take | drop | operator++
+      replace IH[n'].
+    }
+  }
+end
