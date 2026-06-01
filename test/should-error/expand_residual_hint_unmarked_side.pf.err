@@ -1,0 +1,7 @@
+./test/should-error/expand_residual_hint_unmarked_side.pf:26.72-26.73: 
+You provided a proof of:
+	true
+but that is different from what you need to prove:
+	tree_node(mirror(mirror(l)), x, mirror(mirror(r))) = mirror(tree_node(mirror(r), x, mirror(l)))
+The right-hand side contains `mirror`, but `expand` only unfolds inside the marked subterm. Inside an `equations` block, the left-hand side of each step is implicitly marked. To unfold the right-hand side instead, wrap that side in `#...#`:
+	# mirror(tree_node(mirror(r), x, mirror(l))) #

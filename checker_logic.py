@@ -457,15 +457,29 @@ def _expand_would_progress(residual: Any, defs: Any, env: Any) -> bool:
   return False
 
 
-def expand_residual_hint(residual: Any, defs: Any, env: Env) -> str:
-  # When `expand f.` fails and `f` still appears in the residual goal,
-  # tell the user the unfolding depth was too shallow. The common case
-  # is a recursive function whose body re-introduces its own name; one
-  # extra step (`expand f | f.` or `expand 2*f.`) finishes the proof.
-  # Only fire when another expand pass would actually change the
-  # residual -- otherwise the suggestion is misdirection (e.g. the
-  # function is stuck on a variable arg and the real fix is `switch`).
-  still_present: list[str] = []
+def _equation_marked_side(formula: Any) -> str | None:
+  # Return 'lhs' / 'rhs' if `formula` is an equation `L = R` whose single
+  # mark sits on exactly one side (explicit, or implicit from `equations`).
+  # Otherwise None.
+  if count_marks(formula) != 1:
+    return None
+  match formula:
+    case Call(_, _, rator, [side0, side1]) \
+         if isinstance(rator, VarRef) and rator.get_name() == '=':
+      marks0 = count_marks(side0)
+      marks1 = count_marks(side1)
+      if marks0 == 1 and marks1 == 0:
+        return 'lhs'
+      if marks0 == 0 and marks1 == 1:
+        return 'rhs'
+      return None
+    case _:
+      return None
+
+
+def _defs_mentioned_in(node: Any, defs: Any) -> list[str]:
+  # Display names of `defs` (VarRefs) that appear anywhere in `node`.
+  result: list[str] = []
   for d in defs:
     if not isinstance(d, VarRef):
       continue
@@ -473,22 +487,78 @@ def expand_residual_hint(residual: Any, defs: Any, env: Env) -> str:
       targets = set(d.resolved_names)
     else:
       targets = {d.get_name()}
-    if _ast_mentions_any(residual, targets):
+    if _ast_mentions_any(node, targets):
       display = base_name(d.get_name())
-      if display not in still_present:
-        still_present.append(display)
+      if display not in result:
+        result.append(display)
+  return result
+
+
+def expand_residual_hint(residual: Any, defs: Any, env: Env,
+                         original: Any = None) -> str:
+  # When `expand f.` fails and `f` still appears in the residual goal,
+  # tell the user the unfolding depth was too shallow. The common case
+  # is a recursive function whose body re-introduces its own name; one
+  # extra step (`expand f | f.` or `expand 2*f.`) finishes the proof.
+  # Only fire when another expand pass would actually change the
+  # residual -- otherwise the suggestion is misdirection (e.g. the
+  # function is stuck on a variable arg and the real fix is `switch`).
+  #
+  # `original` is the pre-expansion formula (with marks intact). When it
+  # is a marked equation -- explicit `#L# = R` or the implicit-LHS form
+  # that `equations` blocks inject -- `expand` only ever rewrites the
+  # marked side. Suggesting `N*expand` when the residual `f` lives on the
+  # unmarked side is misleading: chaining more expands won't touch it.
+  # In that case point the user at the `#...#` workaround instead (the
+  # advice already produced by [[expand_backward_mark_hint]] when expand
+  # itself fails -- #450).
+  still_present = _defs_mentioned_in(residual, defs)
   if not still_present:
+    return ''
+  marked_side = _equation_marked_side(original) if original is not None else None
+  if marked_side is not None and isinstance(residual, Call) \
+     and isinstance(residual.rator, VarRef) \
+     and residual.rator.get_name() == '=' \
+     and len(residual.args) == 2:
+    if marked_side == 'lhs':
+      marked_residual = residual.args[0]
+      unmarked_residual = residual.args[1]
+      other_label = 'right-hand side'
+    else:
+      marked_residual = residual.args[1]
+      unmarked_residual = residual.args[0]
+      other_label = 'left-hand side'
+    if _expand_would_progress(marked_residual, defs, env):
+      return _chain_expand_msg(_defs_mentioned_in(marked_residual, defs)
+                               or still_present)
+    if _expand_would_progress(unmarked_residual, defs, env):
+      unmarked_names = _defs_mentioned_in(unmarked_residual, defs) \
+                       or still_present
+      if len(unmarked_names) == 1:
+        listed = '`' + unmarked_names[0] + '`'
+      else:
+        listed = ', '.join('`' + n + '`' for n in unmarked_names)
+      return ('\nThe ' + other_label + ' contains ' + listed \
+              + ', but `expand` only unfolds inside the marked subterm. ' \
+              'Inside an `equations` block, the left-hand side of each step is ' \
+              'implicitly marked. To unfold the ' + other_label \
+              + ' instead, wrap that side in `#...#`:\n' \
+              '\t# ' + str(unmarked_residual) + ' #')
     return ''
   if not _expand_would_progress(residual, defs, env):
     return ''
-  if len(still_present) == 1:
-    name = still_present[0]
+  return _chain_expand_msg(still_present)
+
+
+def _chain_expand_msg(names: list[str]) -> str:
+  if len(names) == 1:
+    name = names[0]
     return ('\nThe goal still contains `' + name + '`. ' \
             'To unfold it again, chain another expand:\n' \
             '\texpand ' + name + ' | ' + name + '.\n' \
             'or equivalently\n' \
             '\texpand 2*' + name + '.')
-  listed = ', '.join('`' + n + '`' for n in still_present)
+  listed = ', '.join('`' + n + '`' for n in names)
   return ('\nThe goal still contains ' + listed + '. ' \
           'Chain another expand with `|` (e.g. `expand f | f.`) or use `N*f` to unfold further.')
 
