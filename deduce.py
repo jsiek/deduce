@@ -15,8 +15,11 @@ import sys
 import os
 from pathlib import Path
 from types import FrameType
-from typing import Any, Optional, Sequence
+from typing import TYPE_CHECKING, Optional, Sequence
 import style
+
+if TYPE_CHECKING:
+    from lsp.debugger import Debugger
 
 traceback_flag = False
 suppress_theorems = False
@@ -28,7 +31,7 @@ def handle_sigint(signal: int, stack_frame: Optional[FrameType]) -> None:
 def deduce_file(filename: str, error_expected: bool,
                 tracing_functions: Sequence[str],
                 prelude: list[str] = [],
-                debugger: Optional[Any] = None) -> None:
+                debugger: Optional["Debugger"] = None) -> None:
     """CLI wrapper around lsp.library.check_file.
 
     Translates CheckResult into the historical print/exit behavior so
@@ -121,7 +124,7 @@ def compile_file(filename: str, output: str, prelude: list[str],
 def deduce_directory(directory: str, recursive_directories: bool,
                      tracing_functions: Sequence[str],
                      prelude: list[str] = [],
-                     debugger: Optional[Any] = None) -> None:
+                     debugger: Optional["Debugger"] = None) -> None:
     for file in sorted(os.listdir(directory)):
         fpath = os.path.join(directory, file)
         if os.path.isfile(fpath):
@@ -265,7 +268,7 @@ if __name__ == "__main__":
     # all deducables in this CLI invocation.  Detached during prelude
     # bootstrap (lsp.library handles that) so the user lands in their
     # own file rather than stepping through lib/.
-    debugger = None
+    debugger: Optional["Debugger"] = None
     if debug_enabled:
         from lsp.debugger import Debugger
         debugger = Debugger()
