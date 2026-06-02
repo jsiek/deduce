@@ -95,6 +95,7 @@ end
 
 /* Partial Maps */
 
+// The totally undefined partial map: every key returns `none`.
 define empty_map = generic T, U { λk:T { @none<U> } }
 
 /*
@@ -105,6 +106,7 @@ define domain : fn<T,U>  (fn(T)->Option<U>) -> Set<T>
 		    case just(y) { true }
 		  }})}}
 */
+// The set of keys where the partial map `f` is defined (returns `just(_)`).
 fun domain<T,U>(f : fn(T)->Option<U>) {
   set_of_pred(fun x:T {
       switch f(x) {
@@ -114,12 +116,15 @@ fun domain<T,U>(f : fn(T)->Option<U>) {
 }
 
 
+// Restrict `f` to keys in `P`; keys outside `P` map to `none`.
 define restrict = generic T, U { λf:fn(T)->Option<U>, P:Set<T> { λx:T {
                       if x ∈ P then f(x) else @none<U> }}}
 
+// Left-biased merge: use `f(x)` where defined; fall back to `g(x)` otherwise.
 define combine = generic T, U { fun f:fn(T)->Option<U>, g:fn(T)->Option<U> { fun x:T {
                      if f(x) = none then g(x) else f(x) }}}
 
+// Where `g` is undefined, `combine(f, g)` agrees with `f`.
 theorem combine_left: all T:type, U:type, f:fn(T)->Option<U>, g:fn(T)->Option<U>, x:T.
   if g(x) = none
   then combine(f, g)(x) = f(x)
@@ -141,6 +146,7 @@ proof
   }
 end
 
+// Where `f` is undefined, `combine(f, g)` agrees with `g`.
 theorem combine_right: all T:type, U:type, f:fn(T)->Option<U>, g:fn(T)->Option<U>, x:T.
   if f(x) = none
   then combine(f, g)(x) = g(x)
@@ -153,6 +159,7 @@ proof
   replace recall f(x) = none.
 end
 
+// The domain of a restricted map is contained in the restriction set.
 theorem restrict_domain:
   < T, U > all f:fn(T)->Option<U>, P:Set<T>.
   domain(restrict(f, P)) ⊆ P
@@ -172,9 +179,13 @@ proof
   }
 end
 
+/* Argument flipping */
+
+// Swap the order of a binary function's arguments.
 define flip : fn<T,U,V> (fn T,U->V) ->(fn U,T->V)
   = generic T,U,V { λf{ λx,y{ f(y,x) }}}
 
+// Flipping a binary function twice returns the original function.
 theorem flip_flip:
   all T:type. all f:fn T,T->T. flip(flip(f)) = f
 proof
