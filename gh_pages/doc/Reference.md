@@ -383,9 +383,13 @@ assert (if true then 7 else 5+6) = 7
 
 ## Assume
 
-```
-proof_stmt ::= "assume" assumption
-proof_stmt ::= "suppose" assumption
+```deduce-grammar
+proof_stmt ::= "assume" identifier
+proof_stmt ::= "assume" identifier ":" term
+proof_stmt ::= "assume" ":" term
+proof_stmt ::= "suppose" identifier
+proof_stmt ::= "suppose" identifier ":" term
+proof_stmt ::= "suppose" ":" term
 ```
 
 A proof of the form
@@ -1753,8 +1757,9 @@ Deduce treats `x ≠ y` as syntactic sugar for `not (x = y)`.
 
 ## Obtain (Proof)
 
-```
-proof_stmt ::= "obtain" identifier_list "where" assumption "from" proof
+```deduce-grammar
+proof_stmt ::= "obtain" identifier_list "where" identifier "from" proof
+proof_stmt ::= "obtain" identifier_list "where" identifier ":" term "from" proof
 ```
 
 
@@ -2550,8 +2555,8 @@ theorems with `monus` in the name.
 
 ## Suffices (Proof Statement)
 
-```
-proof_stmt ::= "suffices" formula reason
+```deduce-grammar
+proof_stmt ::= "suffices" term reason
 ```
 
 A proof of the form
