@@ -671,6 +671,42 @@ def _custom_induction_case_hint(conjunct: Any) -> str:
   result: Any = gen_conjunct_advice(conjunct, [], [])
   return cast(str, result.replace('\t\t', '\t'))
 
+def _switch_pattern_could_match_alts(pat: Any, alts: list[Any]) -> bool:
+  """Heuristic: would ``pat`` plausibly match one of the union ``alts``?
+
+  Used to detect whether a ``switch`` case is targeting the union's
+  underlying constructors or the type's public (custom-induction) view.
+  Patterns that are not :class:`PatternCons` (e.g. ``with m. 1 + m`` /
+  numeric literal pseudo-patterns) never match constructors, and a
+  :class:`PatternCons` matches when any candidate name overlaps with an
+  alt name."""
+  if not isinstance(pat, PatternCons):
+    return False
+  constr = pat.constructor
+  if isinstance(constr, OverloadedVar):
+    candidates = constr.resolved_names
+  elif hasattr(constr, 'get_name'):
+    candidates = [constr.get_name()]
+  else:
+    return False
+  return any(alt.name in candidates for alt in alts)
+
+def _switch_public_view_redirect(ty: Type, alts: list[Any],
+                                 custom_ind: Any) -> str:
+  """Build a redirect message for ``switch`` on a type that has a
+  custom-induction (public) view distinct from its union constructors.
+  Lists the constructor names that ``switch`` actually expects and the
+  public-view case shapes the user should write under
+  ``induction <Type>`` instead."""
+  alt_name_list = [base_name(alt.name) for alt in alts]
+  expected = _custom_induction_expected_cases(custom_ind['conjuncts'])
+  return ('`switch` on `' + str(ty) + '` expects cases for the union\'s'
+          + ' constructors (' + ', '.join(alt_name_list) + '),'
+          + ' which are part of the type\'s private representation.'
+          + '\n\n`' + str(ty) + '` has a public induction theorem'
+          + ' — for the public view, use `induction ' + str(ty)
+          + '` instead:\n' + expected)
+
 def proof_advice(formula: Any, env: Env) -> str:
     prefix = style.dark_green('Advice:') + '\n'
 
@@ -1581,6 +1617,19 @@ def _check_proof_of_switch(proof: Any, formula: Any, env: Env) -> None:
       tname = get_type_name(ty)
       match env.get_def_of_type_var(tname):
         case Union(_, _, typarams, alts):
+          # When the type has a custom induction theorem (e.g. UInt's
+          # 0 / 1+m view) and any case looks like the public view rather
+          # than a union constructor, redirect to `induction <Type>`
+          # rather than emit a wall of "X is not a constructor" errors
+          # naming the private representation.
+          custom_ind = env.get_inductive(ty)
+          if custom_ind is not None and any(
+              not _switch_pattern_could_match_alts(c.pattern, alts)
+              for c in cases):
+            add_diagnostic(loc, _switch_public_view_redirect(ty, alts,
+                                                             custom_ind)
+                  + givens_str(env))
+            return
           if len(cases) != len(alts):
             alt_name_list = [base_name(c.name) for c in alts]
             def case_pattern_name(p: object) -> str:

@@ -1,0 +1,13 @@
+// Issue #774: `switch` on a type with a custom-induction (public) view
+// should redirect the user at `induction <Type>` instead of demanding
+// the private union constructors.
+import UInt
+
+theorem t: all n:UInt. n = n
+proof
+  arbitrary n:UInt
+  switch n {
+    case 0 { . }
+    case with m. 1 + m { . }
+  }
+end
