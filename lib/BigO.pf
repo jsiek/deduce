@@ -1322,3 +1322,100 @@ proof
   replace uint_mult_commute[c, n^a]
   mult_step
 end
+
+// Polynomial closure, degree 1: a degree-1 polynomial with positive leading
+// coefficient is asymptotically equivalent to its leading monomial.
+// `a*n + b ≈ n` when `1 ≤ a`. Upper bound at `n0 = 1`, `c = a + b`: the
+// constant term `b` is absorbed since `b ≤ b*n` for `n ≥ 1`. Lower bound at
+// `n0 = 0`, `c = 1`: `1 ≤ a` gives `n ≤ a*n ≤ a*n + b` pointwise.
+theorem bigo_linear_closure: all a:UInt, b:UInt.
+  if 1 ≤ a then (fun n:UInt { a * n + b }) ≈ (fun n:UInt { n })
+proof
+  arbitrary a:UInt, b:UInt
+  assume a_pos: 1 ≤ a
+  expand operator≈
+  have upper: (fun n:UInt { a * n + b }) ≲ (fun n:UInt { n }) by {
+    expand operator≲
+    choose 1, a + b
+    arbitrary n:UInt
+    assume n_ge_1: 1 ≤ n
+    show a * n + b ≤ (a + b) * n
+    have b_le_bn: b ≤ b * n by apply uint_mult_mono_le[b, 1, n] to n_ge_1
+    have an_le: a * n ≤ a * n by .
+    have sum_le: a * n + b ≤ a * n + b * n
+      by apply uint_add_mono_less_equal to an_le, b_le_bn
+    have expand_eq: (a + b) * n = a * n + b * n by uint_dist_mult_add_right
+    replace expand_eq
+    sum_le
+  }
+  have lower: (fun n:UInt { n }) ≲ (fun n:UInt { a * n + b }) by {
+    expand operator≲
+    choose 0, 1
+    arbitrary n:UInt
+    assume _
+    show n ≤ 1 * (a * n + b)
+    have n_le_n: n ≤ n by .
+    have n_le_an: n ≤ a * n
+      by apply uint_mult_mono_le2[1, n, a, n] to a_pos, n_le_n
+    have an_le_anb: a * n ≤ a * n + b by uint_less_equal_add
+    apply uint_less_equal_trans to n_le_an, an_le_anb
+  }
+  upper, lower
+end
+
+// Polynomial closure, degree 2: a degree-2 polynomial with positive leading
+// coefficient is asymptotically equivalent to its leading monomial.
+// `a*n*n + b*n + c ≈ n*n` when `1 ≤ a`. Upper bound at `n0 = 1`,
+// `c0 = a + b + c`: the lower-order terms `b*n` and `c` are absorbed since
+// `b*n ≤ b*(n*n)` and `c ≤ c*(n*n)` for `n ≥ 1`. Lower bound at `n0 = 0`,
+// `c0 = 1`: `1 ≤ a` gives `n*n ≤ a*(n*n) ≤ a*(n*n) + (b*n + c)` pointwise.
+theorem bigo_quadratic_closure: all a:UInt, b:UInt, c:UInt.
+  if 1 ≤ a then (fun n:UInt { a * n * n + b * n + c }) ≈ (fun n:UInt { n * n })
+proof
+  arbitrary a:UInt, b:UInt, c:UInt
+  assume a_pos: 1 ≤ a
+  expand operator≈
+  have upper: (fun n:UInt { a * n * n + b * n + c }) ≲ (fun n:UInt { n * n }) by {
+    expand operator≲
+    choose 1, a + b + c
+    arbitrary n:UInt
+    assume n_ge_1: 1 ≤ n
+    show a * n * n + b * n + c ≤ (a + b + c) * (n * n)
+    have n_le_n: n ≤ n by .
+    have n_le_nn: n ≤ n * n
+      by apply uint_mult_mono_le2[1, n, n, n] to n_ge_1, n_le_n
+    have one_le_nn: 1 ≤ n * n by apply uint_less_equal_trans to n_ge_1, n_le_nn
+    have bn_le_bnn: b * n ≤ b * (n * n) by apply uint_mult_mono_le[b, n, n*n] to n_le_nn
+    have c_le_cnn: c ≤ c * (n * n) by apply uint_mult_mono_le[c, 1, n*n] to one_le_nn
+    have ann_le: a * n * n ≤ a * (n * n) by .
+    have sum1: a * n * n + b * n ≤ a * (n * n) + b * (n * n)
+      by apply uint_add_mono_less_equal to ann_le, bn_le_bnn
+    have sum2: a * n * n + b * n + c ≤ a * (n * n) + b * (n * n) + c * (n * n)
+      by apply uint_add_mono_less_equal to sum1, c_le_cnn
+    have expand_eq: (a + b + c) * (n * n) = a * (n * n) + b * (n * n) + c * (n * n) by {
+      have step1: (a + b + c) * (n * n) = (a + b) * (n * n) + c * (n * n)
+        by uint_dist_mult_add_right[a + b, c, n * n]
+      have step2: (a + b) * (n * n) = a * (n * n) + b * (n * n)
+        by uint_dist_mult_add_right[a, b, n * n]
+      replace step1 | step2.
+    }
+    replace expand_eq
+    sum2
+  }
+  have lower: (fun n:UInt { n * n }) ≲ (fun n:UInt { a * n * n + b * n + c }) by {
+    expand operator≲
+    choose 0, 1
+    arbitrary n:UInt
+    assume _
+    show n * n ≤ 1 * (a * n * n + b * n + c)
+    have nn_le_nn: n * n ≤ n * n by .
+    have nn_le_ann: n * n ≤ a * n * n
+      by apply uint_mult_mono_le2[1, n*n, a, n*n] to a_pos, nn_le_nn
+    have ann_le_pluss: a * n * n ≤ a * n * n + b * n by uint_less_equal_add
+    have nn_le_first2: n * n ≤ a * n * n + b * n
+      by apply uint_less_equal_trans to nn_le_ann, ann_le_pluss
+    have last_le: a * n * n + b * n ≤ a * n * n + b * n + c by uint_less_equal_add
+    apply uint_less_equal_trans to nn_le_first2, last_le
+  }
+  upper, lower
+end
