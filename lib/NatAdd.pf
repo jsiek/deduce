@@ -11,10 +11,11 @@ import NatDefs
   make arithmetic on Nat literals evaluate smoothly.
 */
 
-/*
- Properties of lit
- */
- 
+// ============================================================
+// Properties of `lit`
+// ============================================================
+
+// `lit` is idempotent — wrapping a literal a second time is a no-op.
 theorem lit_idem: all x:Nat.
   lit(lit(x)) = lit(x)
 proof
@@ -24,6 +25,7 @@ end
 
 auto lit_idem
 
+// `suc` distributes through `lit` so suc-of-literal evaluates to a literal.
 theorem suc_lit: all n:Nat. suc(lit(n)) = lit(suc(n))
 proof
   arbitrary n:Nat
@@ -32,9 +34,9 @@ end
 
 auto suc_lit
 
-/*
- Properties of Addition
- */
+// ============================================================
+// Properties of addition
+// ============================================================
 
 // Zero is the left identity for addition.
 lemma zero_add: all n:Nat.
@@ -73,6 +75,7 @@ end
 
 auto add_zero
 
+// Literal zero is also the right identity.
 theorem nat_add_zero: all x:Nat.
   x + lit(zero) = x
 proof
@@ -82,6 +85,7 @@ end
 
 auto nat_add_zero
 
+// `suc` on the left of `+` factors out.
 lemma suc_add: all m:Nat, n:Nat.
   suc(m) + n = suc(m + n)
 proof
@@ -89,6 +93,7 @@ proof
   expand operator+.
 end
 
+// Literal-friendly form of `suc_add` for arithmetic on Nat literals.
 theorem lit_suc_add: all x:Nat, y:Nat.
   lit(suc(x)) + lit(y) = lit(suc(lit(x) + lit(y)))
 proof
@@ -99,6 +104,7 @@ end
 
 auto lit_suc_add
 
+// `suc(n) = 1 + n` — the one-plus form of successor.
 lemma suc_one_add: all n:Nat.
   suc(n) = suc(zero) + n
 proof
@@ -108,6 +114,7 @@ proof
        ... = suc(zero) + n         by symmetric suc_add[zero, n]
 end
 
+// Literal form of `suc_one_add`.
 theorem nat_suc_one_add: all n:Nat.
   suc(n) = lit(suc(zero)) + n
 proof
@@ -116,6 +123,7 @@ proof
   suc_one_add
 end
 
+// Reverse direction of `suc_one_add` — `1 + n = suc(n)`.
 lemma one_add_suc: all n:Nat.
   suc(zero) + n = suc(n)
 proof
@@ -123,6 +131,7 @@ proof
   symmetric suc_one_add[n]
 end
 
+// `1 + n` is never zero — a positivity fact used in many side conditions.
 lemma not_one_add_zero: all n:Nat.
   not (suc(zero) + n = zero)
 proof
@@ -130,6 +139,7 @@ proof
   expand operator+.
 end
 
+// `suc` on the right of `+` factors out.
 lemma add_suc: all m:Nat. all n:Nat.
   m + suc(n) = suc(m + n)
 proof
@@ -147,6 +157,7 @@ proof
   }
 end
 
+// Addition on Nat is commutative.
 theorem add_commute: all n:Nat. all m:Nat.  n + m = m + n
 proof
   induction Nat
@@ -163,12 +174,14 @@ proof
   }
 end
 
+// `1 + m = suc(m)` — duplicate of `one_add_suc` with a one-step proof.
 lemma one_add: all m:Nat.  suc(zero) + m = suc(m)
 proof
   arbitrary m:Nat
   expand 1 * operator+.
 end
 
+// `m + 1 = suc(m)` — successor as right-addition by one.
 lemma add_one: all m:Nat.  m + suc(zero) = suc(m)
 proof
   arbitrary m:Nat
@@ -177,6 +190,7 @@ proof
        ... = suc(m)       by one_add[m]
 end
 
+// Addition on Nat is associative (left-to-right form).
 theorem add_assoc: all m:Nat, n:Nat, o:Nat.
   (m + n) + o = m + (n + o)
 proof
@@ -196,6 +210,7 @@ end
 
 associative operator+ in Nat
 
+// Right-to-left form of associativity, for rewriting in the other direction.
 theorem assoc_add: all m:Nat, n:Nat, o:Nat.
   m + (n + o) = (m + n) + o
 proof
@@ -203,6 +218,7 @@ proof
   symmetric add_assoc
 end
 
+// Left-cancellation as an iff — adding the same term on the left preserves equality.
 theorem add_both_sides_of_equal: all x:Nat. all y:Nat, z:Nat.
   x + y = x + z ⇔ y = z
 proof
@@ -255,6 +271,7 @@ proof
   }
 end
 
+// A sum equals zero only if both summands are zero — used to discharge `n + m = 0` premises.
 lemma add_to_zero: all n:Nat. all m:Nat.
   if n + m = zero
   then n = zero and m = zero
