@@ -9,6 +9,11 @@
 
 import Base
 
+// ============================================================
+// Representation
+// ============================================================
+
+// A `Set<T>` is represented opaquely by its characteristic predicate.
 opaque union Set<T> {
   char_fun(fn (T) -> bool)
 }
@@ -32,6 +37,7 @@ opaque fun set_of_pred<T>(f : fn T -> bool) {
   empty_set()
 */
 
+// The empty set — its characteristic predicate is constantly `false`.
 opaque fun empty_set<T>() {
   char_fun(λx:T{false})
 }
@@ -61,6 +67,11 @@ fun operator ⊆ <T>(P : Set<T>, Q : Set<T>) {
   all x:T. if x ∈ P then x ∈ Q
 }
 
+// ============================================================
+// Singleton membership
+// ============================================================
+
+// `x` is a member of the singleton containing `x`.
 theorem single_member: <T> all x:T.  x ∈ single(x)
 proof
   arbitrary T:type
@@ -68,6 +79,7 @@ proof
   expand single | operator ∈ | rep.
 end
 
+// Membership in `single(x)` forces equality with `x`.
 theorem single_equal: all T:type. all x:T, y:T.
     if y ∈ single(x) then x = y
 proof
@@ -77,6 +89,7 @@ proof
   evaluate in y_in_x
 end
 
+// Boolean-equality form: `y ∈ single(x)` is `x = y`.
 theorem single_equal_equal: all T:type. all x:T, y:T.
     (y ∈ single(x)) = (x = y)
 proof
@@ -85,6 +98,7 @@ proof
   expand operator ∈ | single | rep.
 end
 
+// `single(x)` is the set built from the equality predicate `λy. x = y`.
 theorem single_pred: all T:type. all x:T.
   set_of_pred(fun y:T { x = y}) = single(x)
 proof
@@ -93,6 +107,11 @@ proof
   evaluate
 end
 
+// ============================================================
+// Empty set
+// ============================================================
+
+// Nothing is a member of the empty set.
 theorem empty_no_members: all T:type. all x:T.
   not (x ∈ ∅)
 proof
@@ -101,6 +120,7 @@ proof
   evaluate in x_in_empty
 end
 
+// Boolean form: membership in `∅` simplifies to `false`. Registered `auto`.
 theorem empty_member_false: all T:type. all x:T.
   (x ∈ ∅) = false
 proof
@@ -110,18 +130,25 @@ end
 
 auto empty_member_false
 
+// ============================================================
+// `rep` and `set_of_pred` laws
+// ============================================================
+
+// `rep` is the left inverse of the `char_fun` constructor.
 theorem rep_char_fun: all T:type, f: fn T -> bool. rep(char_fun(f)) = f
 proof
   arbitrary T:type, f:(fn T -> bool)
   expand rep.
 end
 
+// `rep` recovers the predicate that was wrapped by `set_of_pred`.
 theorem rep_set_of_pred: all T:type, f: fn T -> bool. rep(set_of_pred(f)) = f
 proof
   arbitrary T:type, f:(fn T -> bool)
   evaluate
 end
 
+// `set_of_pred` is injective — equal sets come from equal predicates.
 theorem set_of_pred_equal_fwd: all T:type, f: fn T -> bool, g:fn T -> bool.
   if set_of_pred(f) = set_of_pred(g) then f = g
 proof  
@@ -132,6 +159,7 @@ proof
   prem
 end
   
+// Converse: `set_of_pred` is a function — equal predicates yield equal sets.
 theorem set_of_pred_equal_bkwd: all T:type, f: fn T -> bool, g:fn T -> bool.
   if f = g then set_of_pred(f) = set_of_pred(g)
 proof
@@ -140,6 +168,7 @@ proof
   replace (recall f = g).
 end
 
+// Both directions together — `set_of_pred(f) = set_of_pred(g)` iff `f = g`.
 theorem set_of_pred_equal: all T:type, f: fn T -> bool, g:fn T -> bool.
   set_of_pred(f) = set_of_pred(g) ⇔ f = g
 proof
@@ -147,6 +176,7 @@ proof
   set_of_pred_equal_fwd<T>, set_of_pred_equal_bkwd<T>
 end
 
+// Membership in `set_of_pred(f)` reduces to `f(x)`.
 theorem member_set_of_pred: all T:type, x:T, f: fn T -> bool.
   if x ∈ set_of_pred(f) then f(x)
 proof
@@ -154,6 +184,7 @@ proof
   evaluate
 end
 
+// Union of two `set_of_pred` sets is the `set_of_pred` of the disjunction.
 theorem union_set_of_pred: all T:type, f: fn T -> bool, g:fn T -> bool.
   set_of_pred(f) ∪ set_of_pred(g) = set_of_pred(fun x { f(x) or g(x) })
 proof
@@ -162,6 +193,11 @@ proof
   evaluate
 end
 
+// ============================================================
+// Union
+// ============================================================
+
+// Introduction rule — `x ∈ A` or `x ∈ B` implies `x ∈ A ∪ B`.
 theorem union_member: all T:type. all x:T, A:Set<T>, B:Set<T>.
   if x ∈ A or x ∈ B
   then x ∈ (A ∪ B)
@@ -182,7 +218,8 @@ proof
   }
 end
 
-// Testing alternative asci symbols
+// Elimination rule — `x ∈ A ∪ B` implies `x ∈ A or x ∈ B`.
+// Also exercises the ASCII syntax (`in`, `|`) for the same operators.
 theorem member_union: all T:type. all x:T, A:Set<T>, B:Set<T>.
   if x in (A | B)
   then x in A or x in B
@@ -194,6 +231,7 @@ proof
   evaluate in x_AB
 end
 
+// Boolean-equality form combining the intro and elim rules. Registered `auto`.
 theorem member_union_equal: all T:type. all x:T, A:Set<T>, B:Set<T>.
   x ∈ (A ∪ B) = (x ∈ A or x ∈ B)
 proof
@@ -202,7 +240,8 @@ proof
   expand operator∈ | operator∪ | rep.
 end
 
-// testing alternate syntax for ∅
+// `∅` is the right identity for union. Also exercises the `.0.` ASCII form for `∅`.
+// Registered `auto`.
 theorem union_empty: all T:type. all A:Set<T>.
   A ∪ .0. = A
 proof
@@ -222,6 +261,7 @@ end
 
 auto union_empty
 
+// `∅` is also the left identity for union. Registered `auto`.
 theorem empty_union: all T:type. all A:Set<T>.
   @empty_set<T>() ∪ A = A
 proof
@@ -240,6 +280,7 @@ end
 
 auto empty_union
 
+// Union is commutative.
 theorem union_sym: all T:type. all A:Set<T>, B:Set<T>.
   A ∪ B = B ∪ A
 proof
@@ -264,6 +305,7 @@ proof
   }
 end
 
+// Union is associative — also registered below via `associative operator ∪`.
 theorem union_assoc: all T:type. all A:Set<T>, B:Set<T>, C:Set<T>.
   (A ∪ B) ∪ C = A ∪ (B ∪ C)
 proof
@@ -274,6 +316,7 @@ end
 
 associative operator ∪ <T> in Set<T>
 
+// `x ∈ A` lifts to `x ∈ A ∪ B` for any `B`.
 theorem in_left_union:
   all T:type. all B:Set<T>. all x:T, A: Set<T>.
   if x ∈ A then x ∈ (A ∪ B)
@@ -288,6 +331,7 @@ proof
   expand operator ∈ in x_A
 end
 
+// `x ∈ B` lifts to `x ∈ A ∪ B` for any `A`.
 theorem in_right_union:
   all T:type. all A: Set<T>. all x:T, B:Set<T>.
   if x ∈ B then x ∈ (A ∪ B)
@@ -299,6 +343,11 @@ proof
   conclude x ∈ A ∪ B   by apply union_member<T>[x,A,B] to x_B
 end
 
+// ============================================================
+// Subset and set equality
+// ============================================================
+
+// Antisymmetry of `⊆` — two-way containment implies set equality.
 theorem subset_equal:
   all T:type. all A:Set<T>, B:Set<T>.
   if A ⊆ B and B ⊆ A
@@ -338,6 +387,7 @@ proof
   }
 end
 
+// Extensionality — sets with the same members are equal.
 theorem member_equal: all T:type, A:Set<T>, B:Set<T>.
   if (all x:T. x ∈ A ⇔ x ∈ B) then A = B
 proof
@@ -356,6 +406,11 @@ proof
 end
 
 
+// ============================================================
+// Singleton ≠ empty
+// ============================================================
+
+// A singleton is never empty. Registered `auto`.
 theorem single_empty_false: all T:type, x:T. (single(x) = ∅) = false
 proof
   arbitrary T:type, x:T
@@ -370,6 +425,7 @@ auto single_empty_false
 
 auto single_equal_equal
 
+// `single(x) ∪ S` always contains `x`, so it cannot be empty. Registered `auto`.
 theorem single_union_empty_false: all T:type, x:T, S:Set<T>. (single(x) ∪ S = ∅) = false
 proof
   arbitrary T:type, x:T, S:Set<T>
@@ -383,6 +439,7 @@ end
 
 auto single_union_empty_false
 
+// Mirror of `single_union_empty_false` with the singleton on the right. Registered `auto`.
 theorem union_single_empty_false: all T:type, x:T, S:Set<T>. (S ∪ single(x) = ∅) = false
 proof
   arbitrary T:type, x:T, S:Set<T>
