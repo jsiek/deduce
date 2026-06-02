@@ -96,6 +96,7 @@ presentation while they are migrated to the strict check.
 - [Not Equal](#not-equal)
 - [Obtain (Proof)](#obtain-proof)
 - [Opaque (Visibility)](#opaque-visibility)
+- [Operator Precedence](#operator-precedence)
 - [Or  (logical disjunction)](#or-logical-disjunction)
 - [Parentheses](#parentheses)
 - [Pattern](#pattern)
@@ -1794,6 +1795,68 @@ visibility ::= "opaque"
 See [Visibility](#visibility).
 
 
+## Operator Precedence
+
+When parentheses are omitted, Deduce's binary operators group according
+to the precedence levels below, listed from **tightest** (binds first)
+to **loosest** (binds last). Function application `f(x, ...)` and array
+indexing `a[i]` bind tighter than every binary operator in the table.
+The unary prefix forms `not P` and `-n` apply only to the immediately
+following atom — for example, `not P and Q` means `(not P) and Q`, and
+`-x * y` means `(-x) * y`.
+
+| Level | Operators                                                                          | Meaning                                                            |
+|------:|------------------------------------------------------------------------------------|--------------------------------------------------------------------|
+|     1 | `^`                                                                                | exponent                                                           |
+|     2 | `*`  `/`  `%`  `∘` (also `.o.`)                                                    | multiply, divide, modulo, function composition                     |
+|     3 | `+`  `-`  `∸` (also `.-.`)  `⊝`  `++`  `∪`  `∩`  `⨄` (also `.+.`)                  | add, subtract, monus, list append, set/multiset union/intersection |
+|     4 | `<`  `>`  `≤` (also `<=`)  `≥` (also `>=`)  `⊆` (also `(=`)  `∈` (also `in`)  `≲`  `≈` | comparisons, subset, membership                                |
+|     5 | `=`  `≠` (also `/=`)                                                               | equality, inequality                                               |
+|     6 | `and`  `or`                                                                        | logical conjunction and disjunction                                |
+|     7 | `iff` (also `<=>`, `⇔`)                                                            | biconditional                                                      |
+|     8 | `:`                                                                                | type annotation                                                    |
+
+The ASCII aliases for `∪` and `∩` (the single characters used as the
+table separator and HTML-attribute character) are documented at
+[Union (Operator on Sets)](#union-operator-on-sets) and
+[Intersection](#intersection).
+
+The most common surprise is that **(in)equality binds tighter than the
+logical connectives**, so
+
+```
+list_all(xs ++ ys, p) = list_all(xs, p) and list_all(ys, p)
+```
+
+groups as
+
+```
+(list_all(xs ++ ys, p) = list_all(xs, p)) and list_all(ys, p)
+```
+
+rather than the often-intended `... = (list_all(xs, p) and list_all(ys, p))`.
+Parenthesize the right-hand side when the intent is the latter.
+
+Binders — `all`, `some`, `λ`/`fun`, `generic`, `switch`, `if ... then ... else`,
+`define ... ;`, and the mark form `# ... #` — extend their body as far to
+the right as possible. For example,
+
+```
+all x:UInt. P(x) and Q(x)
+```
+
+means `all x:UInt. (P(x) and Q(x))`, not `(all x:UInt. P(x)) and Q(x)`.
+
+Within a single precedence level, operators are read left to right;
+chaining the same comparison (e.g. `a < b < c`) is unusual and is *not*
+interpreted as a mathematical chained comparison — write it as
+`a < b and b < c` instead.
+
+The authoritative source for the precedence is the grammar in
+`Deduce.lark` and `rec_desc_parser.py`; the table above summarizes what
+those files implement.
+
+
 ## Or  (logical disjunction)
 
 ```
@@ -1844,6 +1907,9 @@ proof ::= "(" proof ")"
 ```
 
 A term, formula, or a proof may be surrounded in parentheses.
+
+For the binding strength of the built-in operators when parentheses
+are omitted, see [Operator Precedence](#operator-precedence).
 
 ## Pattern
 
