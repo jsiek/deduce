@@ -1,6 +1,7 @@
 module BigO
 
 import UInt
+import List
 
 /*
   Elementary asymptotic notation for functions `UInt -> UInt`.
@@ -1533,127 +1534,170 @@ proof
   upper, lower
 end
 
-// Polynomial closure, degree 4: a degree-4 polynomial with positive leading
-// coefficient is asymptotically equivalent to its leading monomial.
-// `a*n*n*n*n + b*n*n*n + c*n*n + d*n + e ≈ n*n*n*n` when `1 ≤ a`. Upper bound
-// at `n0 = 1`, `c0 = a + b + c + d + e`: each lower-order term is dominated by
-// a constant multiple of `n*n*n*n` since `n*n*n ≤ n*n*n*n`, `n*n ≤ n*n*n*n`,
-// `n ≤ n*n*n*n`, and `1 ≤ n*n*n*n` for `n ≥ 1`. Lower bound at `n0 = 0`,
-// `c0 = 1`: `1 ≤ a` gives
-// `n*n*n*n ≤ a*(n*n*n*n) ≤ a*n*n*n*n + b*n*n*n + c*n*n + d*n + e` pointwise.
-theorem bigo_quartic_closure: all a:UInt, b:UInt, c:UInt, d:UInt, e:UInt.
-  if 1 ≤ a then (fun n:UInt { a * n * n * n * n + b * n * n * n + c * n * n + d * n + e })
-              ≈ (fun n:UInt { n * n * n * n })
+// Generic polynomial evaluation in Horner form. Given a list of
+// coefficients `[a_0, a_1, ..., a_k]` (low-degree first), evaluates the
+// polynomial `a_0 + a_1*n + a_2*n^2 + ... + a_k*n^k`.
+recursive poly_eval(List<UInt>, UInt) -> UInt {
+  poly_eval(empty, n) = 0
+  poly_eval(node(a, rest), n) = a + n * poly_eval(rest, n)
+}
+
+// Sum of the elements of a `List<UInt>`. Used to bound polynomials
+// from above by a constant times the leading monomial.
+recursive sum_coeffs(List<UInt>) -> UInt {
+  sum_coeffs(empty) = 0
+  sum_coeffs(node(a, rest)) = a + sum_coeffs(rest)
+}
+
+// Pointwise upper bound for `poly_eval` on a polynomial whose
+// coefficients have the form `pre ++ [a]` (leading coefficient `a`,
+// degree `length(pre)`): for `n ≥ 1`,
+// `poly_eval(pre ++ [a], n) ≤ (a + sum_coeffs(pre)) * n^(length(pre))`.
+// Proof by induction on `pre`; the constant is built up term by term.
+lemma poly_eval_upper_bound:
+  all pre:List<UInt>. all a:UInt, n:UInt.
+  if 1 ≤ n
+  then poly_eval(pre ++ [a], n) ≤ (a + sum_coeffs(pre)) * n^(length(pre))
 proof
-  arbitrary a:UInt, b:UInt, c:UInt, d:UInt, e:UInt
-  assume a_pos: 1 ≤ a
-  expand operator≈
-  have upper: (fun n:UInt { a * n * n * n * n + b * n * n * n + c * n * n + d * n + e })
-            ≲ (fun n:UInt { n * n * n * n }) by {
-    expand operator≲
-    choose 1, a + b + c + d + e
-    arbitrary n:UInt
-    assume n_ge_1: 1 ≤ n
-    show a * n * n * n * n + b * n * n * n + c * n * n + d * n + e
-       ≤ (a + b + c + d + e) * (n * n * n * n)
-    have n_le_n: n ≤ n by .
-    have n_le_nn: n ≤ n * n
-      by apply uint_mult_mono_le2[1, n, n, n] to n_ge_1, n_le_n
-    have one_le_nn: 1 ≤ n * n
-      by apply uint_less_equal_trans to n_ge_1, n_le_nn
-    have nn_le_nn: n * n ≤ n * n by .
-    have nn_le_nnn: n * n ≤ n * n * n
-      by apply uint_mult_mono_le2[1, n*n, n, n*n] to n_ge_1, nn_le_nn
-    have n_le_nnn: n ≤ n * n * n
-      by apply uint_less_equal_trans to n_le_nn, nn_le_nnn
-    have one_le_nnn: 1 ≤ n * n * n
-      by apply uint_less_equal_trans to n_ge_1, n_le_nnn
-    have nnn_le_nnn: n * n * n ≤ n * n * n by .
-    have nnn_le_nnnn: n * n * n ≤ n * n * n * n
-      by apply uint_mult_mono_le2[1, n*n*n, n, n*n*n] to n_ge_1, nnn_le_nnn
-    have nn_le_nnnn: n * n ≤ n * n * n * n
-      by apply uint_less_equal_trans to nn_le_nnn, nnn_le_nnnn
-    have n_le_nnnn: n ≤ n * n * n * n
-      by apply uint_less_equal_trans to n_le_nnn, nnn_le_nnnn
-    have one_le_nnnn: 1 ≤ n * n * n * n
-      by apply uint_less_equal_trans to n_ge_1, n_le_nnnn
-    have annnn_le: a * n * n * n * n ≤ a * (n * n * n * n) by .
-    have bnnn_le_bnnn: b * n * n * n ≤ b * (n * n * n) by .
-    have bnnn_le_bnnnn_lifted: b * (n * n * n) ≤ b * (n * n * n * n)
-      by apply uint_mult_mono_le[b, n*n*n, n*n*n*n] to nnn_le_nnnn
-    have bnnn_le_bnnnn: b * n * n * n ≤ b * (n * n * n * n)
-      by apply uint_less_equal_trans to bnnn_le_bnnn, bnnn_le_bnnnn_lifted
-    have cnn_le_cnn: c * n * n ≤ c * (n * n) by .
-    have cnn_le_cnnnn_lifted: c * (n * n) ≤ c * (n * n * n * n)
-      by apply uint_mult_mono_le[c, n*n, n*n*n*n] to nn_le_nnnn
-    have cnn_le_cnnnn: c * n * n ≤ c * (n * n * n * n)
-      by apply uint_less_equal_trans to cnn_le_cnn, cnn_le_cnnnn_lifted
-    have dn_le_dnnnn: d * n ≤ d * (n * n * n * n)
-      by apply uint_mult_mono_le[d, n, n*n*n*n] to n_le_nnnn
-    have e_le_ennnn: e ≤ e * (n * n * n * n)
-      by apply uint_mult_mono_le[e, 1, n*n*n*n] to one_le_nnnn
-    have sum1: a * n * n * n * n + b * n * n * n
-             ≤ a * (n * n * n * n) + b * (n * n * n * n)
-      by apply uint_add_mono_less_equal to annnn_le, bnnn_le_bnnnn
-    have sum2: a * n * n * n * n + b * n * n * n + c * n * n
-             ≤ a * (n * n * n * n) + b * (n * n * n * n) + c * (n * n * n * n)
-      by apply uint_add_mono_less_equal to sum1, cnn_le_cnnnn
-    have sum3: a * n * n * n * n + b * n * n * n + c * n * n + d * n
-             ≤ a * (n * n * n * n) + b * (n * n * n * n) + c * (n * n * n * n)
-               + d * (n * n * n * n)
-      by apply uint_add_mono_less_equal to sum2, dn_le_dnnnn
-    have sum4: a * n * n * n * n + b * n * n * n + c * n * n + d * n + e
-             ≤ a * (n * n * n * n) + b * (n * n * n * n) + c * (n * n * n * n)
-               + d * (n * n * n * n) + e * (n * n * n * n)
-      by apply uint_add_mono_less_equal to sum3, e_le_ennnn
-    have expand_eq: (a + b + c + d + e) * (n * n * n * n)
-                  = a * (n * n * n * n) + b * (n * n * n * n) + c * (n * n * n * n)
-                    + d * (n * n * n * n) + e * (n * n * n * n) by {
-      have step1: (a + b + c + d + e) * (n * n * n * n)
-                = (a + b + c + d) * (n * n * n * n) + e * (n * n * n * n)
-        by uint_dist_mult_add_right[a + b + c + d, e, n * n * n * n]
-      have step2: (a + b + c + d) * (n * n * n * n)
-                = (a + b + c) * (n * n * n * n) + d * (n * n * n * n)
-        by uint_dist_mult_add_right[a + b + c, d, n * n * n * n]
-      have step3: (a + b + c) * (n * n * n * n)
-                = (a + b) * (n * n * n * n) + c * (n * n * n * n)
-        by uint_dist_mult_add_right[a + b, c, n * n * n * n]
-      have step4: (a + b) * (n * n * n * n)
-                = a * (n * n * n * n) + b * (n * n * n * n)
-        by uint_dist_mult_add_right[a, b, n * n * n * n]
-      replace step1 | step2 | step3 | step4.
-    }
-    replace expand_eq
-    sum4
+  induction List<UInt>
+  case empty {
+    arbitrary a:UInt, n:UInt
+    assume one_le_n: 1 ≤ n
+    expand operator++ | 2 * poly_eval | sum_coeffs | length.
   }
-  have lower: (fun n:UInt { n * n * n * n })
-            ≲ (fun n:UInt { a * n * n * n * n + b * n * n * n + c * n * n + d * n + e }) by {
+  case node(b, rest) suppose IH:
+      (all a:UInt, n:UInt. if 1 ≤ n
+       then poly_eval(rest ++ [a], n) ≤ (a + sum_coeffs(rest)) * n^(length(rest))) {
+    arbitrary a:UInt, n:UInt
+    assume one_le_n: 1 ≤ n
+    have ih: poly_eval(rest ++ [a], n) ≤ (a + sum_coeffs(rest)) * n^(length(rest))
+      by apply IH[a, n] to one_le_n
+    expand operator++ | poly_eval | sum_coeffs | length
+    show b + n * poly_eval(rest ++ [a], n)
+       ≤ (a + (b + sum_coeffs(rest))) * n^(1 + length(rest))
+    have pow_next: n^(1 + length(rest)) = n * n^(length(rest))
+      by uint_pow_add_r[n, 1, length(rest)]
+    have one_le_pow_next: 1 ≤ n^(1 + length(rest))
+      by apply uint_pow_le_mono_l[1 + length(rest), 1, n] to one_le_n
+    have step_mult: n * poly_eval(rest ++ [a], n)
+                  ≤ n * ((a + sum_coeffs(rest)) * n^(length(rest)))
+      by apply uint_mult_mono_le[n, poly_eval(rest ++ [a], n),
+                                 (a + sum_coeffs(rest)) * n^(length(rest))]
+         to ih
+    have rearrange: n * ((a + sum_coeffs(rest)) * n^(length(rest)))
+                  = (a + sum_coeffs(rest)) * n^(1 + length(rest)) by {
+      equations
+        n * ((a + sum_coeffs(rest)) * n^(length(rest)))
+            = (a + sum_coeffs(rest)) * (n * n^(length(rest)))
+              by replace uint_mult_commute[n, a + sum_coeffs(rest)].
+        ... = # (a + sum_coeffs(rest)) * n^(1 + length(rest)) #
+              by replace pow_next.
+    }
+    have step_mult2: n * poly_eval(rest ++ [a], n)
+                   ≤ (a + sum_coeffs(rest)) * n^(1 + length(rest))
+      by replace rearrange in step_mult
+    have b_le_b_pow: b ≤ b * n^(1 + length(rest))
+      by apply uint_mult_mono_le[b, 1, n^(1 + length(rest))] to one_le_pow_next
+    have sum_bound: b + n * poly_eval(rest ++ [a], n)
+                  ≤ b * n^(1 + length(rest))
+                  + (a + sum_coeffs(rest)) * n^(1 + length(rest))
+      by apply uint_add_mono_less_equal to b_le_b_pow, step_mult2
+    have factor: b * n^(1 + length(rest))
+               + (a + sum_coeffs(rest)) * n^(1 + length(rest))
+               = (a + (b + sum_coeffs(rest))) * n^(1 + length(rest)) by {
+      have d1: b * n^(1 + length(rest))
+             + (a + sum_coeffs(rest)) * n^(1 + length(rest))
+             = (b + (a + sum_coeffs(rest))) * n^(1 + length(rest))
+        by symmetric uint_dist_mult_add_right[b, a + sum_coeffs(rest),
+                                              n^(1 + length(rest))]
+      have rearr: b + a = a + b by uint_add_commute[b, a]
+      replace d1 | rearr.
+    }
+    replace factor in sum_bound
+  }
+end
+
+// Pointwise lower bound for `poly_eval` on a polynomial whose
+// coefficients have the form `pre ++ [a]` with leading coefficient
+// `a ≥ 1`: for every `n`, `n^(length(pre)) ≤ poly_eval(pre ++ [a], n)`.
+// Proof by induction on `pre`; the base case uses `1 ≤ a`, the step
+// multiplies the IH by `n` and absorbs the next coefficient via
+// `uint_less_equal_add`.
+lemma poly_eval_lower_bound:
+  all pre:List<UInt>. all a:UInt.
+  if 1 ≤ a then all n:UInt.
+  n^(length(pre)) ≤ poly_eval(pre ++ [a], n)
+proof
+  induction List<UInt>
+  case empty {
+    arbitrary a:UInt
+    assume one_le_a: 1 ≤ a
+    arbitrary n:UInt
+    expand operator++ | 2 * poly_eval | length
+    one_le_a
+  }
+  case node(b, rest) suppose IH:
+      (all a:UInt. if 1 ≤ a then all n:UInt.
+       n^(length(rest)) ≤ poly_eval(rest ++ [a], n)) {
+    arbitrary a:UInt
+    assume one_le_a: 1 ≤ a
+    arbitrary n:UInt
+    have ih: n^(length(rest)) ≤ poly_eval(rest ++ [a], n)
+      by apply IH[a] to one_le_a
+    expand operator++ | poly_eval | length
+    show n^(1 + length(rest)) ≤ b + n * poly_eval(rest ++ [a], n)
+    have pow_next: n^(1 + length(rest)) = n * n^(length(rest))
+      by uint_pow_add_r[n, 1, length(rest)]
+    have step_mult: n * n^(length(rest)) ≤ n * poly_eval(rest ++ [a], n)
+      by apply uint_mult_mono_le[n, n^(length(rest)),
+                                 poly_eval(rest ++ [a], n)] to ih
+    have absorb: n * poly_eval(rest ++ [a], n)
+               ≤ b + n * poly_eval(rest ++ [a], n) by uint_less_equal_add_left
+    have chain: n^(1 + length(rest))
+              ≤ b + n * poly_eval(rest ++ [a], n) by {
+      replace pow_next
+      apply uint_less_equal_trans to step_mult, absorb
+    }
+    chain
+  }
+end
+
+// Closure of polynomial expressions under `≈`. Any polynomial of the
+// form `a_0 + a_1*n + a_2*n^2 + ... + a_k*n^k` with positive leading
+// coefficient `a_k ≥ 1` is asymptotically equivalent to its leading
+// monomial `n^k`. Stated via `pre ++ [a]` so that the leading
+// coefficient is in evidence; `length(pre)` is the polynomial degree.
+// Specializes the fixed-degree closures `bigo_linear_closure`,
+// `bigo_quadratic_closure`, and `bigo_cubic_closure` to arbitrary
+// degree, and supersedes the need to add one theorem per degree.
+theorem bigo_poly_closure:
+  all pre:List<UInt>, a:UInt.
+  if 1 ≤ a
+  then (fun n:UInt { poly_eval(pre ++ [a], n) })
+     ≈ (fun n:UInt { n^(length(pre)) })
+proof
+  arbitrary pre:List<UInt>, a:UInt
+  assume one_le_a: 1 ≤ a
+  expand operator≈
+  have upper: (fun n:UInt { poly_eval(pre ++ [a], n) })
+            ≲ (fun n:UInt { n^(length(pre)) }) by {
+    expand operator≲
+    choose 1, a + sum_coeffs(pre)
+    arbitrary n:UInt
+    assume one_le_n: 1 ≤ n
+    show poly_eval(pre ++ [a], n) ≤ (a + sum_coeffs(pre)) * n^(length(pre))
+    apply poly_eval_upper_bound[pre][a, n] to one_le_n
+  }
+  have lower: (fun n:UInt { n^(length(pre)) })
+            ≲ (fun n:UInt { poly_eval(pre ++ [a], n) }) by {
     expand operator≲
     choose 0, 1
     arbitrary n:UInt
     assume _
-    show n * n * n * n ≤ 1 * (a * n * n * n * n + b * n * n * n + c * n * n + d * n + e)
-    have nnnn_le_nnnn: n * n * n * n ≤ n * n * n * n by .
-    have nnnn_le_annnn: n * n * n * n ≤ a * n * n * n * n
-      by apply uint_mult_mono_le2[1, n*n*n*n, a, n*n*n*n] to a_pos, nnnn_le_nnnn
-    have annnn_le_p1: a * n * n * n * n ≤ a * n * n * n * n + b * n * n * n
-      by uint_less_equal_add
-    have nnnn_le_p1: n * n * n * n ≤ a * n * n * n * n + b * n * n * n
-      by apply uint_less_equal_trans to nnnn_le_annnn, annnn_le_p1
-    have p1_le_p2: a * n * n * n * n + b * n * n * n
-                 ≤ a * n * n * n * n + b * n * n * n + c * n * n
-      by uint_less_equal_add
-    have nnnn_le_p2: n * n * n * n ≤ a * n * n * n * n + b * n * n * n + c * n * n
-      by apply uint_less_equal_trans to nnnn_le_p1, p1_le_p2
-    have p2_le_p3: a * n * n * n * n + b * n * n * n + c * n * n
-                 ≤ a * n * n * n * n + b * n * n * n + c * n * n + d * n
-      by uint_less_equal_add
-    have nnnn_le_p3: n * n * n * n ≤ a * n * n * n * n + b * n * n * n + c * n * n + d * n
-      by apply uint_less_equal_trans to nnnn_le_p2, p2_le_p3
-    have p3_le_p4: a * n * n * n * n + b * n * n * n + c * n * n + d * n
-                 ≤ a * n * n * n * n + b * n * n * n + c * n * n + d * n + e
-      by uint_less_equal_add
-    apply uint_less_equal_trans to nnnn_le_p3, p3_le_p4
+    show n^(length(pre)) ≤ 1 * poly_eval(pre ++ [a], n)
+    have lb: all m:UInt. m^(length(pre)) ≤ poly_eval(pre ++ [a], m)
+      by apply poly_eval_lower_bound[pre][a] to one_le_a
+    lb[n]
   }
   upper, lower
 end
