@@ -1,0 +1,22 @@
+// Issue #774: `switch` on a type with a custom-induction (public)
+// view should accept the public-view shape, not demand the union's
+// private constructors. For `UInt`, that means `case 0 { ... }` and
+// `case with m. 1 + m { ... }` desugar through the custom induction
+// theorem instead of asking the user to spell out `bzero`, `dub_inc`,
+// `inc_dub`.
+
+import UInt
+import List
+
+// Plain switch on UInt: each case body sees the goal with `n`
+// substituted by the case pattern (matching the existing `switch`
+// semantics on `Nat`).
+theorem take_drop_empty:
+  all n:UInt. take(@[]<UInt>, n) ++ drop(@[]<UInt>, n) = @[]<UInt>
+proof
+  arbitrary n:UInt
+  switch n {
+    case 0 { evaluate }
+    case with m. 1 + m { evaluate }
+  }
+end

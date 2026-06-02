@@ -1,9 +1,0 @@
-./test/should-error/switch_uint_public_view.pf:9.3-12.4: `switch` on `UInt` expects cases for the union's constructors (bzero, dub_inc, inc_dub), which are part of the type's private representation.
-
-`UInt` has a public induction theorem — for the public view, use `induction UInt` instead:
-	case 0  {
-		?
-	}
-	case with m. 1 + m assume IH0  {
-		?
-	}
