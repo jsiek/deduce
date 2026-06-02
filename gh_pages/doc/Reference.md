@@ -338,8 +338,8 @@ end
 
 ## Arbitrary (Forall Introduction)
 
-```
-proof_stmt ::= "arbitrary" variable_list
+```deduce-grammar
+proof_stmt ::= "arbitrary" type_annotation_list
 ```
 
 A proof of the form
@@ -612,8 +612,8 @@ assert (add1 ∘ add1)(3) = 5
 
 ## Conclude (Proof)
 
-```
-conclusion ::= "conclude" formula reason
+```deduce-grammar
+conclusion ::= "conclude" term reason
 ```
 
 This proof statement is useful when you wish to emphasize the end of a
@@ -694,11 +694,11 @@ end
 
 ## Contradict (Proof)
 
-```
-conclusion ::= "contradict" proof "," proof
+```deduce-grammar
+conclusion ::= "contradict" proof
 ```
 
-* The `contradict` proof expects a proof of some formula `P` and its negation, `not P`.
+* The `contradict` proof expects a proof of a contradiction, such as `P and not P`.
 * The result of `contradict` is a proof of `false`.
 
 ```{.deduce^#contradict_example}
@@ -790,8 +790,8 @@ assert 5 = (define x = 3; 2 + x)
 
 ## Define (Proof)
 
-```
-proof_stmt ::= "define" identifier "=" term  proof
+```deduce-grammar
+proof_stmt ::= "define" identifier "=" term
 ```
 
 This associates a name with a term for use in the following proof.
@@ -1490,8 +1490,8 @@ the expected case shape in the error message.
 
 ## Injective (Proof)
 
-```
-proof_stmt ::= "injective" term proof
+```deduce-grammar
+proof_stmt ::= "injective" term
 ```
 
 The `injective` proof rule allows you to conclude that the inputs to a
@@ -1517,9 +1517,9 @@ end
 
 ## Instantiation (Proof)
 
-```
-conclusion ::= proof '<' type_list '>'
-conclusion ::= proof '[' term_list ']'
+```deduce-grammar
+proof_hi ::= proof_hi "<" type_list ">"
+proof_hi ::= proof_hi "[" term_list "]"
 ```
 
 Use square brackets `[` and `]` to instantiate an `all` formula with 
@@ -1946,8 +1946,8 @@ or more identifiers (for the rest of the function parameters).
 
 ## Period (Proof of True)
 
-```
-conclusion ::= "."
+```deduce-grammar
+proof_hi ::= "."
 ```
 
 A period is a proof of the formula `true` in Deduce.
@@ -2109,8 +2109,8 @@ The output is `5`.
 
 ## Question Mark `?` (Proof)
 
-```
-conclusion ::= "?"
+```deduce-grammar
+proof_hi ::= "?"
 ```
 
 A proof can be left incomplete by placing a `?` in the part that you
@@ -2216,8 +2216,8 @@ the construct.
 
 ## Reflexive (Proof)
 
-```
-conclusion ::= reflexive
+```deduce-grammar
+conclusion ::= "reflexive"
 ```
 
 The proof `reflexive` proves that `a = a` for any term `a`.
@@ -2394,6 +2394,8 @@ analogous case body assumes `even(k) and even(k)`.
 ## Simplify (Proof)
 
 ```deduce-grammar
+proof_stmt ::= "simplify" optional_proof_list
+conclusion ::= "simplify" optional_proof_list "in" proof
 optional_proof_list ::= ε
 optional_proof_list ::= "with" proof_list
 ```
@@ -2459,8 +2461,8 @@ are proved in `Set.pf`.
 
 ## Show (Proof)
 
-```
-proof_stmt ::= "show" formula
+```deduce-grammar
+proof_stmt ::= "show" term
 ```
 
 Use `show` to document the current goal formula. Deduce checks to make
@@ -2483,8 +2485,8 @@ To use a `some` formula, see the entry for [Obtain](#obtain-exists-elimination)
 
 ## Sorry (Proof)
 
-```
-conclusion ::= "sorry"
+```deduce-grammar
+proof_hi ::= "sorry"
 ```
 
 `sorry` is the get-out-of-jail free card. It can prove anything.
@@ -2638,7 +2640,7 @@ assert not flip(true)
 
 ## Switch (Proof)
 
-```
+```deduce-grammar
 conclusion ::= "switch" term "{" switch_proof_case_list "}"
 conclusion ::= "switch" term "for" identifier_list "{" switch_proof_case_list "}"
 ```
