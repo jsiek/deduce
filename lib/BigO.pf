@@ -1532,3 +1532,128 @@ proof
   }
   upper, lower
 end
+
+// Polynomial closure, degree 4: a degree-4 polynomial with positive leading
+// coefficient is asymptotically equivalent to its leading monomial.
+// `a*n*n*n*n + b*n*n*n + c*n*n + d*n + e ≈ n*n*n*n` when `1 ≤ a`. Upper bound
+// at `n0 = 1`, `c0 = a + b + c + d + e`: each lower-order term is dominated by
+// a constant multiple of `n*n*n*n` since `n*n*n ≤ n*n*n*n`, `n*n ≤ n*n*n*n`,
+// `n ≤ n*n*n*n`, and `1 ≤ n*n*n*n` for `n ≥ 1`. Lower bound at `n0 = 0`,
+// `c0 = 1`: `1 ≤ a` gives
+// `n*n*n*n ≤ a*(n*n*n*n) ≤ a*n*n*n*n + b*n*n*n + c*n*n + d*n + e` pointwise.
+theorem bigo_quartic_closure: all a:UInt, b:UInt, c:UInt, d:UInt, e:UInt.
+  if 1 ≤ a then (fun n:UInt { a * n * n * n * n + b * n * n * n + c * n * n + d * n + e })
+              ≈ (fun n:UInt { n * n * n * n })
+proof
+  arbitrary a:UInt, b:UInt, c:UInt, d:UInt, e:UInt
+  assume a_pos: 1 ≤ a
+  expand operator≈
+  have upper: (fun n:UInt { a * n * n * n * n + b * n * n * n + c * n * n + d * n + e })
+            ≲ (fun n:UInt { n * n * n * n }) by {
+    expand operator≲
+    choose 1, a + b + c + d + e
+    arbitrary n:UInt
+    assume n_ge_1: 1 ≤ n
+    show a * n * n * n * n + b * n * n * n + c * n * n + d * n + e
+       ≤ (a + b + c + d + e) * (n * n * n * n)
+    have n_le_n: n ≤ n by .
+    have n_le_nn: n ≤ n * n
+      by apply uint_mult_mono_le2[1, n, n, n] to n_ge_1, n_le_n
+    have one_le_nn: 1 ≤ n * n
+      by apply uint_less_equal_trans to n_ge_1, n_le_nn
+    have nn_le_nn: n * n ≤ n * n by .
+    have nn_le_nnn: n * n ≤ n * n * n
+      by apply uint_mult_mono_le2[1, n*n, n, n*n] to n_ge_1, nn_le_nn
+    have n_le_nnn: n ≤ n * n * n
+      by apply uint_less_equal_trans to n_le_nn, nn_le_nnn
+    have one_le_nnn: 1 ≤ n * n * n
+      by apply uint_less_equal_trans to n_ge_1, n_le_nnn
+    have nnn_le_nnn: n * n * n ≤ n * n * n by .
+    have nnn_le_nnnn: n * n * n ≤ n * n * n * n
+      by apply uint_mult_mono_le2[1, n*n*n, n, n*n*n] to n_ge_1, nnn_le_nnn
+    have nn_le_nnnn: n * n ≤ n * n * n * n
+      by apply uint_less_equal_trans to nn_le_nnn, nnn_le_nnnn
+    have n_le_nnnn: n ≤ n * n * n * n
+      by apply uint_less_equal_trans to n_le_nnn, nnn_le_nnnn
+    have one_le_nnnn: 1 ≤ n * n * n * n
+      by apply uint_less_equal_trans to n_ge_1, n_le_nnnn
+    have annnn_le: a * n * n * n * n ≤ a * (n * n * n * n) by .
+    have bnnn_le_bnnn: b * n * n * n ≤ b * (n * n * n) by .
+    have bnnn_le_bnnnn_lifted: b * (n * n * n) ≤ b * (n * n * n * n)
+      by apply uint_mult_mono_le[b, n*n*n, n*n*n*n] to nnn_le_nnnn
+    have bnnn_le_bnnnn: b * n * n * n ≤ b * (n * n * n * n)
+      by apply uint_less_equal_trans to bnnn_le_bnnn, bnnn_le_bnnnn_lifted
+    have cnn_le_cnn: c * n * n ≤ c * (n * n) by .
+    have cnn_le_cnnnn_lifted: c * (n * n) ≤ c * (n * n * n * n)
+      by apply uint_mult_mono_le[c, n*n, n*n*n*n] to nn_le_nnnn
+    have cnn_le_cnnnn: c * n * n ≤ c * (n * n * n * n)
+      by apply uint_less_equal_trans to cnn_le_cnn, cnn_le_cnnnn_lifted
+    have dn_le_dnnnn: d * n ≤ d * (n * n * n * n)
+      by apply uint_mult_mono_le[d, n, n*n*n*n] to n_le_nnnn
+    have e_le_ennnn: e ≤ e * (n * n * n * n)
+      by apply uint_mult_mono_le[e, 1, n*n*n*n] to one_le_nnnn
+    have sum1: a * n * n * n * n + b * n * n * n
+             ≤ a * (n * n * n * n) + b * (n * n * n * n)
+      by apply uint_add_mono_less_equal to annnn_le, bnnn_le_bnnnn
+    have sum2: a * n * n * n * n + b * n * n * n + c * n * n
+             ≤ a * (n * n * n * n) + b * (n * n * n * n) + c * (n * n * n * n)
+      by apply uint_add_mono_less_equal to sum1, cnn_le_cnnnn
+    have sum3: a * n * n * n * n + b * n * n * n + c * n * n + d * n
+             ≤ a * (n * n * n * n) + b * (n * n * n * n) + c * (n * n * n * n)
+               + d * (n * n * n * n)
+      by apply uint_add_mono_less_equal to sum2, dn_le_dnnnn
+    have sum4: a * n * n * n * n + b * n * n * n + c * n * n + d * n + e
+             ≤ a * (n * n * n * n) + b * (n * n * n * n) + c * (n * n * n * n)
+               + d * (n * n * n * n) + e * (n * n * n * n)
+      by apply uint_add_mono_less_equal to sum3, e_le_ennnn
+    have expand_eq: (a + b + c + d + e) * (n * n * n * n)
+                  = a * (n * n * n * n) + b * (n * n * n * n) + c * (n * n * n * n)
+                    + d * (n * n * n * n) + e * (n * n * n * n) by {
+      have step1: (a + b + c + d + e) * (n * n * n * n)
+                = (a + b + c + d) * (n * n * n * n) + e * (n * n * n * n)
+        by uint_dist_mult_add_right[a + b + c + d, e, n * n * n * n]
+      have step2: (a + b + c + d) * (n * n * n * n)
+                = (a + b + c) * (n * n * n * n) + d * (n * n * n * n)
+        by uint_dist_mult_add_right[a + b + c, d, n * n * n * n]
+      have step3: (a + b + c) * (n * n * n * n)
+                = (a + b) * (n * n * n * n) + c * (n * n * n * n)
+        by uint_dist_mult_add_right[a + b, c, n * n * n * n]
+      have step4: (a + b) * (n * n * n * n)
+                = a * (n * n * n * n) + b * (n * n * n * n)
+        by uint_dist_mult_add_right[a, b, n * n * n * n]
+      replace step1 | step2 | step3 | step4.
+    }
+    replace expand_eq
+    sum4
+  }
+  have lower: (fun n:UInt { n * n * n * n })
+            ≲ (fun n:UInt { a * n * n * n * n + b * n * n * n + c * n * n + d * n + e }) by {
+    expand operator≲
+    choose 0, 1
+    arbitrary n:UInt
+    assume _
+    show n * n * n * n ≤ 1 * (a * n * n * n * n + b * n * n * n + c * n * n + d * n + e)
+    have nnnn_le_nnnn: n * n * n * n ≤ n * n * n * n by .
+    have nnnn_le_annnn: n * n * n * n ≤ a * n * n * n * n
+      by apply uint_mult_mono_le2[1, n*n*n*n, a, n*n*n*n] to a_pos, nnnn_le_nnnn
+    have annnn_le_p1: a * n * n * n * n ≤ a * n * n * n * n + b * n * n * n
+      by uint_less_equal_add
+    have nnnn_le_p1: n * n * n * n ≤ a * n * n * n * n + b * n * n * n
+      by apply uint_less_equal_trans to nnnn_le_annnn, annnn_le_p1
+    have p1_le_p2: a * n * n * n * n + b * n * n * n
+                 ≤ a * n * n * n * n + b * n * n * n + c * n * n
+      by uint_less_equal_add
+    have nnnn_le_p2: n * n * n * n ≤ a * n * n * n * n + b * n * n * n + c * n * n
+      by apply uint_less_equal_trans to nnnn_le_p1, p1_le_p2
+    have p2_le_p3: a * n * n * n * n + b * n * n * n + c * n * n
+                 ≤ a * n * n * n * n + b * n * n * n + c * n * n + d * n
+      by uint_less_equal_add
+    have nnnn_le_p3: n * n * n * n ≤ a * n * n * n * n + b * n * n * n + c * n * n + d * n
+      by apply uint_less_equal_trans to nnnn_le_p2, p2_le_p3
+    have p3_le_p4: a * n * n * n * n + b * n * n * n + c * n * n + d * n
+                 ≤ a * n * n * n * n + b * n * n * n + c * n * n + d * n + e
+      by uint_less_equal_add
+    apply uint_less_equal_trans to nnnn_le_p3, p3_le_p4
+  }
+  upper, lower
+end
