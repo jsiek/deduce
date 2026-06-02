@@ -1,7 +1,10 @@
 from enum import Enum
 import os
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import TYPE_CHECKING, Callable, Optional
+
+if TYPE_CHECKING:
+  from lsp.debugger import Debugger
 
 class VerboseLevel(Enum):
   NONE = 0
@@ -151,17 +154,16 @@ def set_target_hole_location(loc: Optional[tuple[int, int]]) -> None:
 # of one call (paired ``set_debugger(d)`` / ``set_debugger(None)`` in
 # a try/finally).
 #
-# Typed as `Any | None` to avoid an import cycle: flags.py sits at the
-# bottom of the import stack and lsp.debugger imports from it. The
-# stored object is an `lsp.debugger.Debugger` instance.
+# The Debugger import is type-only to avoid an import cycle: flags.py
+# sits at the bottom of the import stack and lsp.debugger imports from it.
 
-debugger: Optional[Any] = None
+debugger: Optional["Debugger"] = None
 
-def get_debugger() -> Optional[Any]:
+def get_debugger() -> Optional["Debugger"]:
   global debugger
   return debugger
 
-def set_debugger(d: Optional[Any]) -> None:
+def set_debugger(d: Optional["Debugger"]) -> None:
   global debugger
   debugger = d
 

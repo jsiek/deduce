@@ -46,7 +46,10 @@ import threading
 import traceback as _traceback
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, Sequence, cast
+from typing import TYPE_CHECKING, Any, Optional, Sequence, cast
+
+if TYPE_CHECKING:
+    from lsp.debugger import Debugger
 
 
 # Process-wide lock around ``check_file``.  The Deduce pipeline
@@ -143,7 +146,7 @@ def check_file(
     prelude: Sequence[str] = (),
     content: Optional[str] = None,
     collect_errors: bool = False,
-    debugger: Optional[Any] = None,
+    debugger: Optional["Debugger"] = None,
     prewarm_modules: Sequence[str] = (),
 ) -> CheckResult:
     """Run the Deduce pipeline on ``filename`` and return a CheckResult.
@@ -221,7 +224,7 @@ def _check_file_locked(
     prelude: Sequence[str],
     content: Optional[str],
     collect_errors: bool,
-    debugger: Optional[Any],
+    debugger: Optional["Debugger"],
     prewarm_modules: Sequence[str] = (),
 ) -> CheckResult:
     """Body of ``check_file``, run under the global pipeline lock."""
