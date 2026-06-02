@@ -1,0 +1,8 @@
+./test/should-error/advice_and_eq_disambig.pf:8.3-8.4: incomplete proof
+Goal:
+	((a = b) and c)
+Advice:
+	Prove this logical-and formula by proving each of its parts,
+	shown below, then combine the proofs with commas.
+		a = b
+		c

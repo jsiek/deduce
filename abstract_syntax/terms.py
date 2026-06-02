@@ -952,6 +952,27 @@ def op_arg_str(trm: Term, arg: Term) -> str:
   return str(arg)
 
 
+def _connective_arg_str(connective: str, arg: 'str | Formula') -> str:
+  # `connective` is 'and' or 'or'; `arg` is either a pre-rendered string
+  # (e.g. the synthetic `(P ⇔ Q)` produced by the iff-pair detection
+  # in `And.__str__`) or a Formula.
+  #
+  # An infix-operator Call -- e.g. `Call(=, [a, b])` -- renders as
+  # `a = b` with no outer parens, so embedding it inside an `and`/`or`
+  # would yield `(a = b and c)`, which a reader will misparse as
+  # `a = (b and c)` even though the grammar disambiguated it the other
+  # way. Wrap such a Call when its operator binds looser than the
+  # connective itself, so the goal printer never hides this trap.
+  if isinstance(arg, str):
+    return arg
+  conn_prec = infix_precedence.get(connective)
+  if isinstance(arg, Call) and conn_prec is not None:
+    arg_prec = precedence(arg)
+    if arg_prec is not None and arg_prec < conn_prec:
+      return '(' + str(arg) + ')'
+  return str(arg)
+
+
 
 def do_function_call(loc: Meta, name: str, type_params: list[str],
                      type_args: list[Type], params: list[str],
@@ -1688,7 +1709,8 @@ class And(Formula):
     if len(ret_args) == 1:
       return str(ret_args[0])
 
-    return '(' + ' and '.join([str(arg) for arg in ret_args]) + ')'
+    return '(' + ' and '.join([_connective_arg_str('and', arg)
+                               for arg in ret_args]) + ')'
 
   def __eq__(self, other: object) -> bool:
     if not isinstance(other, And):
@@ -1734,7 +1756,8 @@ class Or(Formula):
   args: list[Formula]
 
   def __str__(self) -> str:
-    return '(' + ' or '.join([str(arg) for arg in self.args]) + ')'
+    return '(' + ' or '.join([_connective_arg_str('or', arg)
+                              for arg in self.args]) + ')'
   
   def __eq__(self, other: object) -> bool:
     if not isinstance(other, Or):

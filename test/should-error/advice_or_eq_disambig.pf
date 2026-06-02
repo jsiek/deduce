@@ -1,0 +1,7 @@
+// Goal printer must wrap `=` inside `or` in parens for the same reason
+// as `and` (issue #786).
+theorem t: all a:bool, b:bool, c:bool. a = b or c
+proof
+  arbitrary a:bool, b:bool, c:bool
+  ?
+end
