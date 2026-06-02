@@ -20,7 +20,7 @@ from abstract_syntax import (
     All, AllElim, AllElimTypes, AllIntro, And, ApplyDefsFact,
     ApplyDefsGoal, Bool, BoolType, Call, Cases,
     Constructor, Env, EvaluateFact, EvaluateGoal, Formula,
-    FunctionType, Hole, IfThen, ImpIntro, Induction, Lambda,
+    FunctionType, Hole, IfThen, ImpIntro, IndCase, Induction, Lambda,
     ModusPonens, Omitted, Or, OverloadedVar, PAndElim, PAnnot,
     PExtensionality, PHelpUse, PHole, PInjective, PLet, PRecall,
     PReflexive, PSorry, PSymmetric, PTLetNew, PTransitive, PTrue,
@@ -670,6 +670,121 @@ def _custom_induction_expected_cases(conjuncts: list[Any]) -> str:
 def _custom_induction_case_hint(conjunct: Any) -> str:
   result: Any = gen_conjunct_advice(conjunct, [], [])
   return cast(str, result.replace('\t\t', '\t'))
+
+def _switch_pattern_could_match_alts(pat: Any, alts: list[Any]) -> bool:
+  """Heuristic: would ``pat`` plausibly match one of the union ``alts``?
+
+  Used to detect whether a ``switch`` case is targeting the union's
+  underlying constructors or the type's public (custom-induction) view.
+  Patterns that are not :class:`PatternCons` (e.g. ``with m. 1 + m`` /
+  numeric literal pseudo-patterns) never match constructors, and a
+  :class:`PatternCons` matches when any candidate name overlaps with an
+  alt name."""
+  if not isinstance(pat, PatternCons):
+    return False
+  constr = pat.constructor
+  if isinstance(constr, OverloadedVar):
+    candidates = constr.resolved_names
+  elif hasattr(constr, 'get_name'):
+    candidates = [constr.get_name()]
+  else:
+    return False
+  return any(alt.name in candidates for alt in alts)
+
+def _check_switch_via_custom_induction(loc: Meta, new_subject: Any,
+                                       formula: Any, cases: list[Any],
+                                       ty: Type, custom_ind: Any,
+                                       env: Env) -> None:
+  """Discharge ``switch <subject> { ... }`` on a type whose union
+  constructors are wrapped by a custom-induction (public) view, by
+  reducing it to one application of the custom induction theorem.
+
+  The motive is ``lambda x. formula[subject -> x]``, so each case body
+  is checked against the goal with the subject replaced by the case
+  pattern (matching the ``switch`` semantics for ``Var`` subjects).
+  The induction hypothesis is auto-suppressed (named ``_``); the user
+  doesn't write ``assume IH`` and doesn't get an IH in scope. The user
+  also doesn't get the equation ``subject = pattern`` -- for the
+  case-analysis-with-equation idiom, ``cases <T>_zero_or_*[<subject>]``
+  is the right tool. We refuse non-``Var`` subjects on this path
+  because the ``formula[subject -> x]`` substitution only works
+  reliably when the subject is a variable name."""
+  conjuncts = custom_ind["conjuncts"]
+  fun_name = custom_ind["fun"]
+  fun_ty = custom_ind['fun_ty']
+  type_vars = custom_ind['tys']
+  type_subst: dict[str, Any] = {}
+  types_elimmed = custom_ind["thm"]
+
+  if not isinstance(new_subject, VarRef):
+    add_diagnostic(loc, '`switch` on `' + str(ty) + '` with a non-variable'
+          + ' subject is not supported (would need a case-analysis lemma'
+          + ' to relate the subject to each case pattern). Bind the'
+          + ' subject first: `define n = ' + str(new_subject)
+          + '` and then `switch n`.'
+          + givens_str(env))
+    return
+
+  if len(cases) != len(conjuncts):
+    plural = '' if len(conjuncts) == 1 else 's'
+    add_diagnostic(loc, 'expected ' + str(len(conjuncts))
+          + ' case' + plural + ' in switch on `' + str(ty) + '`,'
+          + ' but have ' + str(len(cases))
+          + '\nExpected cases:\n' + _custom_induction_expected_cases(conjuncts)
+          + givens_str(env))
+    return
+
+  for scase in cases:
+    typed = [asm for asm in scase.assumptions if asm[1] is not None]
+    if typed:
+      add_diagnostic(scase.location, '`switch` on `' + str(ty) + '`'
+            + ' (custom-induction view) does not bind an equation'
+            + ' hypothesis. Use `cases <T>_zero_or_*[' + str(new_subject)
+            + ']` (e.g. `cases uint_zero_or_add_one[' + str(new_subject)
+            + ']` for `UInt`) when you need `' + str(new_subject)
+            + ' = <pattern>` as a labelled hypothesis, or `induction '
+            + str(ty) + '` when you also need the IH.'
+            + givens_str(env))
+      return
+
+  if type_vars != []:
+    match ty:
+      case TypeInst(_, _, params):
+        assert len(type_vars) == len(params)
+        for k, v in zip(type_vars, params):
+          type_subst[k] = v
+          types_elimmed = AllElimTypes(loc, types_elimmed, v, (0, 1))
+      case _:
+        internal_error(loc, "expected a TypeInst for generic custom induction")
+
+  fresh_x = generate_proof_name('x')
+  motive_var = ResolvedVar(loc, ty, fresh_x)
+  pfun_body = formula.substitute({new_subject.get_name(): motive_var})
+  pfun = Lambda(loc, fun_ty, [(fresh_x, ty)], pfun_body)
+  fun_var = ResolvedVar(loc, fun_ty, fun_name)
+
+  annots = []
+  for (conjunct, scase) in zip(conjuncts, cases):
+    conjunct = conjunct.substitute(type_subst)
+    ind_case = IndCase(scase.location, scase.pattern, [], scase.body)
+    new_body = generate_conjunct_body(loc, conjunct, ind_case, fun_var,
+                                      type_subst, env)
+    new_body = ApplyDefsGoal(loc, [fun_var], new_body)
+    annot = PAnnot(loc, conjunct, new_body)
+    annots.append(annot)
+
+  all_x_P = ModusPonens(loc,
+                        AllElim(loc, types_elimmed, fun_var, (0, 1)),
+                        PTuple(loc, annots))
+  specialized = ApplyDefsFact(loc, [fun_var],
+                              AllElim(loc, all_x_P, new_subject, (0, 1)))
+  new_pf = PTLetNew(loc, fun_name, pfun, specialized)
+
+  if get_verbose():
+    print("Generated custom-view switch:")
+    print(new_pf)
+
+  _try_check_proof_of(new_pf, formula, env)
 
 def proof_advice(formula: Any, env: Env) -> str:
     prefix = style.dark_green('Advice:') + '\n'
@@ -1581,6 +1696,21 @@ def _check_proof_of_switch(proof: Any, formula: Any, env: Env) -> None:
       tname = get_type_name(ty)
       match env.get_def_of_type_var(tname):
         case Union(_, _, typarams, alts):
+          # If the type has a custom induction theorem (e.g. UInt's 0 /
+          # 1+m view) and any case looks like the public view rather
+          # than a union constructor, dispatch to the custom-induction
+          # path so `case 0 { ... }` / `case with m. 1 + m { ... }`
+          # actually checks. Switches whose cases all use the union
+          # constructors continue through the existing handler below
+          # (this matters for the in-module switches in UIntAdd etc.,
+          # where `bzero` / `dub_inc` / `inc_dub` are still in scope).
+          custom_ind = env.get_inductive(ty)
+          if custom_ind is not None and any(
+              not _switch_pattern_could_match_alts(c.pattern, alts)
+              for c in cases):
+            _check_switch_via_custom_induction(loc, new_subject, formula,
+                                               cases, ty, custom_ind, env)
+            return
           if len(cases) != len(alts):
             alt_name_list = [base_name(c.name) for c in alts]
             def case_pattern_name(p: object) -> str:
