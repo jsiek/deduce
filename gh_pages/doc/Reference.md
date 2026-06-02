@@ -2961,7 +2961,9 @@ optionally be annotated with its type.
 ## View (Statement)
 
 ```deduce-grammar
-statement ::= visibility "view" IDENT type_params_opt "{" "source" type "target" type "into" identifier "out" identifier "roundtrip" identifier "}"
+statement ::= visibility "view" IDENT type_params_opt "{" "source" type "target" type "into" identifier "out" identifier "roundtrip" identifier view_inverse_opt "}"
+view_inverse_opt ::= ε
+view_inverse_opt ::= "inverse" identifier
 ```
 
 A `view` declaration describes how to pattern match on a value through
@@ -2985,10 +2987,19 @@ all T:type, v:Target<T>. into(out(v)) = v
 ```
 
 Deduce checks that the `into` and `out` functions have the expected
-types, and that the `roundtrip` theorem proves the expected formula.
-The opposite direction, `out(into(x)) = x`, is not required. This
-allows a view to forget representation details while still presenting
-a complete pattern-matching interface.
+types, that the `roundtrip` theorem proves the expected formula, and,
+when present, that the `inverse` theorem proves the reverse formula.
+The optional `inverse` name must refer to a theorem that proves the
+opposite direction:
+
+```
+all x:Source. out(into(x)) = x
+```
+
+For a generic view, the theorem must quantify the type parameters
+first. If the `inverse` line is omitted, the opposite direction is not
+required. This allows a view to forget representation details while
+still presenting a complete pattern-matching interface.
 
 The view name can be used wherever a type is expected. In ordinary type
 positions it stands for the view's source type. When it appears as the
@@ -3034,12 +3045,22 @@ proof
   }
 end
 
+theorem unary_inverse: all n:Unary. unary_out(unary_into(n)) = n
+proof
+  arbitrary n:Unary
+  switch n {
+    case UZero { evaluate }
+    case USucc(p) { evaluate }
+  }
+end
+
 view UnaryPred {
   source Unary
   target UnaryView
   into unary_into
   out unary_out
   roundtrip unary_roundtrip
+  inverse unary_inverse
 }
 
 recursive unary_length(UnaryPred) -> UInt {

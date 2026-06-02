@@ -198,12 +198,14 @@ def process_declaration_visibility(decl: Declaration, env: Env,
       return (decl, env.declare_term_var(loc, name, fun_type,
                                          visibility=decl.visibility))
 
-    case ViewDecl(loc, name, typarams, source, target, into, out, roundtrip):
+    case ViewDecl(loc, name, typarams, source, target, into, out, roundtrip,
+                  inverse):
       body_env = env.declare_type_vars(loc, typarams)
       checked_source = check_type(source, body_env)
       checked_target = check_type(target, body_env)
       checked_decl = ViewDecl(loc, name, typarams, checked_source,
                               checked_target, into, out, roundtrip,
+                              inverse,
                               visibility=decl.visibility)
       _check_view_function_type(loc, into,
                                 FunctionType(loc, typarams,
@@ -639,6 +641,19 @@ def _view_roundtrip_formula(loc: Meta, view: Any) -> Formula:
                   (i, len(view.type_params)), formula)
   return formula
 
+def _view_inverse_formula(loc: Meta, view: Any) -> Formula:
+  value_name = generate_proof_name("v")
+  value = ResolvedVar(loc, view.source, value_name)
+  formula = mkEqual(loc,
+                    _view_call(loc, view.out,
+                               _view_call(loc, view.into, value)),
+                    value)
+  formula = All(loc, None, (value_name, view.source), (0, 1), formula)
+  for i, tp in enumerate(reversed(view.type_params)):
+    formula = All(loc, None, (tp, TypeType(loc)),
+                  (i, len(view.type_params)), formula)
+  return formula
+
 def _check_view_roundtrip(loc: Meta, view: Any, env: Env) -> None:
   expected = type_check_formula(_view_roundtrip_formula(loc, view), env)
   actual = env.get_formula_of_proof_var(PVar(loc, view.roundtrip))
@@ -647,6 +662,19 @@ def _check_view_roundtrip(loc: Meta, view: Any, env: Env) -> None:
                + base_name(view.roundtrip))
   if not alpha_equiv(actual, expected):
     user_error(loc, "view roundtrip proof " + base_name(view.roundtrip)
+               + " proves\n\t" + str(actual)
+               + "\nbut expected\n\t" + str(expected))
+
+def _check_view_inverse(loc: Meta, view: Any, env: Env) -> None:
+  if view.inverse is None:
+    return
+  expected = type_check_formula(_view_inverse_formula(loc, view), env)
+  actual = env.get_formula_of_proof_var(PVar(loc, view.inverse))
+  if actual is None:
+    user_error(loc, "undefined inverse proof for view: "
+               + base_name(view.inverse))
+  if not alpha_equiv(actual, expected):
+    user_error(loc, "view inverse proof " + base_name(view.inverse)
                + " proves\n\t" + str(actual)
                + "\nbut expected\n\t" + str(expected))
 
@@ -918,8 +946,9 @@ def collect_env(stmt: Statement, env: Env) -> Env:
       return env.define_term_var(loc, name, fun_type, stmt,
                                  stmt.visibility)
 
-    case ViewDecl(loc, name, _, _, _, _, _, _):
+    case ViewDecl(loc, name, _, _, _, _, _, _, _):
       _check_view_roundtrip(loc, stmt, env)
+      _check_view_inverse(loc, stmt, env)
       return env.declare_view(loc, stmt, stmt.visibility)
       
     case Union(loc, name, typarams, _):

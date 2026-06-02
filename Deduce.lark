@@ -313,6 +313,9 @@ identifier: IDENT              -> identifier
        | visibility "import" IDENT "hiding" import_filter_list -> import_hiding
 ?import_filter_list: identifier ("|" identifier)*            -> import_filter_list
 
+?view_inverse_opt:                                 -> no_view_inverse
+    | "inverse" identifier                         -> view_inverse
+
 ?statement: visibility "union" IDENT type_params_opt "{" constructor_list "}" -> union
  | visibility "type" IDENT type_params_opt "=" type -> type_alias
  | visibility "predicate" identifier type_params_opt ":" type "{" predicate_rule_list "}" -> predicate_declaration
@@ -320,7 +323,7 @@ identifier: IDENT              -> identifier
  | visibility "recursive" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> recursive_function
  | visibility "fun" identifier type_params_opt "(" variable_list ")" "{" term "}" -> fun
  | visibility "recfun" identifier type_params_opt "(" variable_list ")" "->" type "measure" term "of" type "{" term "}" "terminates" proof -> general_recursive_function
- | visibility "view" IDENT type_params_opt "{" "source" type "target" type "into" identifier "out" identifier "roundtrip" identifier "}" -> view_declaration
+ | visibility "view" IDENT type_params_opt "{" "source" type "target" type "into" identifier "out" identifier "roundtrip" identifier view_inverse_opt "}" -> view_declaration
  | definition
  | "associative" identifier type_params_opt "in" type -> associative_declaration
  | "auto" proof_hi -> auto_declaration

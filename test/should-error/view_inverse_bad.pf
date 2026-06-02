@@ -1,0 +1,44 @@
+union NInv {
+  NInvZero
+  NInvSucc(NInv)
+}
+
+union NInvView {
+  NInvViewZero
+  NInvViewSucc(NInv)
+}
+
+fun n_inv_view(n:NInv) {
+  switch n {
+    case NInvZero { NInvViewZero }
+    case NInvSucc(p) { NInvViewSucc(p) }
+  }
+}
+
+fun n_inv_unview(v:NInvView) {
+  switch v {
+    case NInvViewZero { NInvZero }
+    case NInvViewSucc(p) { NInvSucc(p) }
+  }
+}
+
+theorem n_inv_roundtrip: all v:NInvView. n_inv_view(n_inv_unview(v)) = v
+proof
+  arbitrary v:NInvView
+  switch v {
+    case NInvViewZero { evaluate }
+    case NInvViewSucc(p) { evaluate }
+  }
+end
+
+postulate not_the_inverse_law:
+  all n:NInv. n_inv_unview(n_inv_view(n)) = n_inv_unview(n_inv_view(n))
+
+view NInvPred {
+  source NInv
+  target NInvView
+  into n_inv_view
+  out n_inv_unview
+  roundtrip n_inv_roundtrip
+  inverse not_the_inverse_law
+}
