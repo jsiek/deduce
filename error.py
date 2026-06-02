@@ -1,9 +1,17 @@
 import contextlib
-from typing import Any, List, NoReturn, Optional
+from typing import Iterator, List, NoReturn, Optional, TYPE_CHECKING
 
 from lark.tree import Meta
 
 import style
+
+# Type-only imports to avoid an import cycle: abstract_syntax.core
+# imports `internal_error` from this module, so error.py sits below
+# abstract_syntax in the import stack. The IncompleteProof refine
+# pipeline still wants the structured `formula` / `env` payloads
+# typed precisely, so we forward-reference them under TYPE_CHECKING.
+if TYPE_CHECKING:
+  from abstract_syntax import Env, Term
 
 class Diagnostic(Exception):
   """Base class for exceptions that represent user-facing diagnostics.
@@ -41,8 +49,8 @@ class IncompleteProof(Diagnostic):
   # structured fields for the LSP/MCP refine pipeline (the goal AST
   # and the type-checking env at the hole). ``None`` outside of
   # opted-in flows.
-  formula: Optional[Any]
-  env: Optional[Any]
+  formula: Optional['Term']
+  env: Optional['Env']
 
 def get_location_text_lines(location: Meta) -> List[str]:
   if not location.empty:
@@ -141,8 +149,8 @@ def internal_error(location: Meta, msg: str) -> NoReturn:
   raise InternalError(error_header(location) + msg)
 
 def incomplete_error(location: Meta, msg: str, *,
-                     formula: Optional[Any] = None,
-                     env: Optional[Any] = None) -> NoReturn:
+                     formula: Optional['Term'] = None,
+                     env: Optional['Env'] = None) -> NoReturn:
   exc = IncompleteProof(error_header(location) + msg)
   exc.depth = 0
   exc.location = location
@@ -219,7 +227,7 @@ _speculative_depth = 0
 
 
 @contextlib.contextmanager
-def speculative_probe() -> Any:
+def speculative_probe() -> Iterator[None]:
   """Make a speculative proof-checker probe well-behaved when an
   error sink is active.
 
@@ -281,8 +289,8 @@ def add_diagnostic(location: Meta, msg: str) -> None:
   _active_sink.add(exc)
 
 def add_incomplete(location: Meta, msg: str,
-                   formula: Optional[Any] = None,
-                   env: Optional[Any] = None) -> None:
+                   formula: Optional['Term'] = None,
+                   env: Optional['Env'] = None) -> None:
   """Record a user-visible diagnostic in the active sink and *return
   normally*, unlike :func:`user_error` which raises. Use at sites whose
   enclosing function can tolerate falling through.
