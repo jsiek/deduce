@@ -1,0 +1,7 @@
+./test/should-error/advice_or_eq_disambig.pf:6.3-6.4: incomplete proof
+Goal:
+	((a = b) or c)
+Advice:
+	Prove this logical-or formula by proving one of its parts:
+		a = b
+		c

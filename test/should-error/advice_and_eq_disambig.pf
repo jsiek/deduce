@@ -1,0 +1,9 @@
+// Goal printer must wrap `=` inside `and` in parens so the structure is
+// unambiguous to readers (issue #786). Without the disambiguating parens,
+// the goal renders as `(a = b and c)`, which reads as `a = (b and c)`
+// even though the grammar parses it the other way.
+theorem t: all a:bool, b:bool, c:bool. a = b and c
+proof
+  arbitrary a:bool, b:bool, c:bool
+  ?
+end
