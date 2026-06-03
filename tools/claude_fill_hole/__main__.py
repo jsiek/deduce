@@ -26,7 +26,7 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Any, IO, Optional
+from typing import IO, Optional
 
 from .agent import AgentResult, Backend
 from .prompt import build_system_prompt, build_user_message, slice_around_hole
@@ -343,10 +343,10 @@ def _build_backend(args: argparse.Namespace, api_key: str) -> Backend:
             ) from e
         from .openai_backend import OpenAICompatBackend
 
-        client_kwargs: dict[str, Any] = {"api_key": api_key}
         if args.base_url:
-            client_kwargs["base_url"] = args.base_url
-        openai_client = openai.OpenAI(**client_kwargs)
+            openai_client = openai.OpenAI(api_key=api_key, base_url=args.base_url)
+        else:
+            openai_client = openai.OpenAI(api_key=api_key)
         return OpenAICompatBackend(client=openai_client, model=args.model)
 
     raise _BackendBuildError(f"unknown backend: {args.backend!r}")
@@ -586,7 +586,7 @@ def _emit_response(stream: IO[str], response: HoleFillResponse) -> None:
     stream.flush()
 
 
-def _emit_progress(event: str, **fields: Any) -> None:
+def _emit_progress(event: str, **fields: object) -> None:
     sys.stderr.write(progress_event(event, **fields))
     sys.stderr.write("\n")
     sys.stderr.flush()
