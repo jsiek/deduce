@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Optional, cast
 
 
 @dataclass(frozen=True)
@@ -116,49 +116,108 @@ _REQUEST_FIELD_MAP = {
 
 
 def request_from_json(text: str) -> HoleFillRequest:
-    raw = json.loads(text)
-    return _request_from_dict(raw)
+    raw: object = json.loads(text)
+    return _request_from_dict(_expect_object(raw, "request"))
 
 
-def _request_from_dict(raw: dict[str, Any]) -> HoleFillRequest:
-    range_raw = raw["holeRange"]
+def _request_from_dict(raw: dict[str, object]) -> HoleFillRequest:
+    range_raw = _expect_object(raw["holeRange"], "holeRange")
+    start_raw = _expect_object(range_raw["start"], "holeRange.start")
+    end_raw = _expect_object(range_raw["end"], "holeRange.end")
     hole_range = LspRange(
         start=LspPosition(
-            line=int(range_raw["start"]["line"]),
-            character=int(range_raw["start"]["character"]),
+            line=_expect_int(start_raw["line"], "holeRange.start.line"),
+            character=_expect_int(
+                start_raw["character"], "holeRange.start.character"
+            ),
         ),
         end=LspPosition(
-            line=int(range_raw["end"]["line"]),
-            character=int(range_raw["end"]["character"]),
+            line=_expect_int(end_raw["line"], "holeRange.end.line"),
+            character=_expect_int(end_raw["character"], "holeRange.end.character"),
         ),
     )
     givens = tuple(
-        Given(label=g.get("label"), formula=g["formula"])
-        for g in raw.get("givens", [])
+        _given_from_object(given_raw, i)
+        for i, given_raw in enumerate(_expect_list(raw.get("givens", []), "givens"))
     )
     lemmas = tuple(
-        LemmaInfo(
-            name=lemma["name"],
-            kind=lemma.get("kind", "theorem"),
-            signature=lemma.get("signature", ""),
+        _lemma_from_object(lemma_raw, i)
+        for i, lemma_raw in enumerate(
+            _expect_list(raw.get("lemmasInScope", []), "lemmasInScope")
         )
-        for lemma in raw.get("lemmasInScope", [])
     )
     return HoleFillRequest(
-        file=raw["file"],
+        file=_expect_str(raw["file"], "file"),
         hole_range=hole_range,
-        goal=raw["goal"],
+        goal=_expect_str(raw["goal"], "goal"),
         givens=givens,
         lemmas_in_scope=lemmas,
-        fingerprint=raw.get("fingerprint", ""),
-        content=raw.get("content"),
-        surrounding_excerpt=raw.get("surroundingExcerpt"),
+        fingerprint=_expect_str(raw.get("fingerprint", ""), "fingerprint"),
+        content=_optional_str(raw.get("content"), "content"),
+        surrounding_excerpt=_optional_str(
+            raw.get("surroundingExcerpt"), "surroundingExcerpt"
+        ),
     )
+
+
+def _given_from_object(value: object, index: int) -> Given:
+    raw = _expect_object(value, f"givens[{index}]")
+    return Given(
+        label=_optional_str(raw.get("label"), f"givens[{index}].label"),
+        formula=_expect_str(raw["formula"], f"givens[{index}].formula"),
+    )
+
+
+def _lemma_from_object(value: object, index: int) -> LemmaInfo:
+    raw = _expect_object(value, f"lemmasInScope[{index}]")
+    return LemmaInfo(
+        name=_expect_str(raw["name"], f"lemmasInScope[{index}].name"),
+        kind=_expect_str(raw.get("kind", "theorem"), f"lemmasInScope[{index}].kind"),
+        signature=_expect_str(
+            raw.get("signature", ""), f"lemmasInScope[{index}].signature"
+        ),
+    )
+
+
+def _expect_object(value: object, field: str) -> dict[str, object]:
+    if not isinstance(value, dict):
+        raise TypeError(f"{field} must be an object")
+    raw = cast(dict[object, object], value)
+    out: dict[str, object] = {}
+    for key, item in raw.items():
+        if not isinstance(key, str):
+            raise TypeError(f"{field} keys must be strings")
+        out[key] = item
+    return out
+
+
+def _expect_list(value: object, field: str) -> list[object]:
+    if not isinstance(value, list):
+        raise TypeError(f"{field} must be a list")
+    return cast(list[object], value)
+
+
+def _expect_str(value: object, field: str) -> str:
+    if not isinstance(value, str):
+        raise TypeError(f"{field} must be a string")
+    return value
+
+
+def _optional_str(value: object, field: str) -> Optional[str]:
+    if value is None:
+        return None
+    return _expect_str(value, field)
+
+
+def _expect_int(value: object, field: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"{field} must be an integer")
+    return value
 
 
 def response_to_json(response: HoleFillResponse) -> str:
     """Serialise a HoleFillResponse to JSON with the wire-format keys."""
-    out: dict[str, Any] = {
+    out: dict[str, object] = {
         "ok": response.ok,
         "fingerprint": response.fingerprint,
         "attempts": response.attempts,
@@ -181,13 +240,13 @@ def response_to_json(response: HoleFillResponse) -> str:
     return json.dumps(out)
 
 
-def progress_event(event: str, **fields: Any) -> str:
+def progress_event(event: str, **fields: object) -> str:
     """One NDJSON line for the stderr progress channel.
 
     The sidecar emits events of kind ``start``, ``model_request``,
     ``tool_call``, ``tool_result``, ``finish`` -- emacs parses them
     line-by-line to drive its mode-line indicator.
     """
-    payload: dict[str, Any] = {"event": event}
+    payload: dict[str, object] = {"event": event}
     payload.update(fields)
     return json.dumps(payload)
