@@ -1,0 +1,25 @@
+import UInt
+
+union MyList<T> {
+  mt
+  cons(T, MyList<T>)
+}
+
+recursive my_length(MyList<UInt>) -> UInt {
+  my_length(mt) = 0
+  my_length(cons(n, next)) = 1 + my_length(next)
+}
+
+recursive my_length<E>(MyList<E>) -> UInt {
+  my_length(mt) = 0
+  my_length(cons(n, next)) = 1 + my_length(next)
+}
+
+fun choose_specific(xs : MyList<UInt>) { 7 }
+
+fun choose_specific<E>(xs : MyList<E>) { 3 }
+
+assert my_length(cons(1, mt)) = 1
+assert my_length(cons(true, mt)) = 1
+assert choose_specific(cons(1, mt)) = 7
+assert choose_specific(cons(true, mt)) = 3

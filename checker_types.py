@@ -231,13 +231,36 @@ def overload_mismatch_annotation(loc: Meta, overload_funty: Any, arg_types: list
     case _:
       return None
 
+def _function_type_covers(loc: Meta, general: Any, specific: Any) -> bool:
+  """Return true when every call accepted by ``specific`` also fits
+  ``general`` by instantiating ``general``'s type parameters."""
+  match (general, specific):
+    case (FunctionType(_, general_typarams, general_params, general_return),
+          FunctionType(_, _, specific_params, specific_return)) \
+        if len(general_params) == len(specific_params):
+      type_params = type_names(loc, general_typarams)
+      matching: dict[Any, Any] = {}
+      try:
+        for (general_param, specific_param) in zip(general_params, specific_params):
+          type_match(loc, type_params, general_param, specific_param, matching)
+        type_match(loc, type_params, general_return, specific_return, matching)
+        return True
+      except MatchFailed:
+        return False
+    case _:
+      return False
+
+def _is_strictly_more_specific(loc: Meta, lhs: Any, rhs: Any) -> bool:
+  return _function_type_covers(loc, rhs, lhs) \
+      and not _function_type_covers(loc, lhs, rhs)
+
 def type_check_call_helper(loc: Meta, new_rator: Any, args: list[Any], env: Env, recfun: Any, subterms: Any, ret_ty: Any, call: Any) -> Any:
   if get_verbose():
       print('tc_call_helper(' + str(call) + ') rator type: ' + str(new_rator.typeof))
   funty = new_rator.typeof
   match funty:
     case OverloadType(_, overloads):
-      num_matches = 0
+      matches = []
       for (x, funty) in overloads:
           match funty:
             case FunctionType(_, typarams, param_types, return_type):
@@ -254,10 +277,18 @@ def type_check_call_helper(loc: Meta, new_rator: Any, args: list[Any], env: Env,
                 new_call = type_check_call_funty(loc, ResolvedVar(new_rator.location, funty, x), args, env, recfun,
                                                  subterms, ret_ty, call,
                                                  typarams, param_types, return_type)
-                num_matches += 1
+                matches.append((x, funty, new_call))
               except (UserError, MatchFailed):
                 pass
-      if num_matches == 0:
+      if len(matches) > 1:
+          matches = [
+              candidate for candidate in matches
+              if not any(
+                  _is_strictly_more_specific(loc, other[1], candidate[1])
+                  for other in matches
+              )
+          ]
+      if len(matches) == 0:
           arg_types = [type_synth_term(arg, env, None, []).typeof for arg in args]
           msg = 'could not find a match for function call:\n\t' \
                 + str(call) + '\n' \
@@ -271,12 +302,12 @@ def type_check_call_helper(loc: Meta, new_rator: Any, args: list[Any], env: Env,
               if annotation is not None:
                   msg += '   <-- ' + annotation
           user_error(loc, msg)
-      elif num_matches > 1:
+      elif len(matches) > 1:
           user_error(loc, 'in call to ' + str(new_rator) + '\n'\
                 + 'ambiguous overloads:\n' \
-                + '\n'.join([error_header(ty.location) + str(ty) for (x,ty) in overloads]))
+                + '\n'.join([error_header(ty.location) + str(ty) for (x,ty,_) in matches]))
       else:
-          return new_call
+          return matches[0][2]
     case FunctionType(_, typarams, param_types, return_type):
       return type_check_call_funty(loc, new_rator, args, env, recfun, subterms, ret_ty, call,
                                    typarams, param_types, return_type)
