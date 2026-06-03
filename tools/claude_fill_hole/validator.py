@@ -22,7 +22,7 @@ import subprocess
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, Sequence
+from typing import Optional, Sequence
 
 
 @dataclass(frozen=True)
@@ -219,7 +219,7 @@ class LspValidator(Validator):
     the LSP daemon's ``deduce/validateProof`` becomes the cheap path.
     """
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, *args: object, **kwargs: object) -> None:
         raise NotImplementedError(
             "LspValidator is a follow-up; use SubprocessValidator for now"
         )
