@@ -18,7 +18,7 @@ To get started with Deduce, follow these steps:
 
 ### Install Prerequisites
 
-You will need [Python](https://www.python.org/) version 3.10 or later. Here are some [instructions](https://wiki.python.org/moin/BeginnersGuide/Download) and links to download Python for many computer systems.
+You will need [Python](https://www.python.org/) version 3.12 or later. Here are some [instructions](https://wiki.python.org/moin/BeginnersGuide/Download) and links to download Python for many computer systems.
 
 You will also need the [Lark](https://github.com/lark-parser/lark) parsing library, which you can install by running the following command in the same directory as `deduce.py`
 
