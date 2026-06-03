@@ -100,9 +100,9 @@ class AssociativeBinding(Binding):
                         for (type_params, t) in self.types)
 
 class Env:
-  def __init__(self, env: Optional[dict[str, Any]] = None) -> None:
+  def __init__(self, env: Optional[dict[str, object]] = None) -> None:
     if env:
-      self.dict = copy_dict(env)
+      self.dict: dict[str, object] = copy_dict(env)
     else:
       self.dict = {}
 
@@ -173,8 +173,9 @@ class Env:
     if typ == None:
       internal_error(loc, 'None not allowed as type of variable in declare_term_var')
     new_env = Env(self.dict)
-    new_env.dict[name] = TermBinding(loc, typ, module=self.get_current_module(), visibility=visibility)
-    new_env.dict[name].local = local
+    new_env.dict[name] = TermBinding(loc, typ, local=local,
+                                     module=self.get_current_module(),
+                                     visibility=visibility)
     return new_env
 
   def declare_assoc(self, loc: Meta, opname: str, typarams: List[str],
@@ -183,7 +184,7 @@ class Env:
     new_env = Env(self.dict)
     full_name = '__associative_' + opname
     if full_name in new_env:
-      old = new_env.dict[full_name]
+      old = cast(AssociativeBinding, new_env.dict[full_name])
       new_env.dict[full_name] = AssociativeBinding(loc, opname, [(typarams, typ)] + old.types,
                                                    module=self.get_current_module())
     else:
@@ -244,8 +245,8 @@ class Env:
       # Check for type, overwrite/ add to existing
       pass
     else:
-      new_env.dict[full_name] = {}
-      new_env.dict[full_name][type_name] = ind_dict
+      inductives = {type_name: ind_dict}
+      new_env.dict[full_name] = inductives
     
     return new_env
 
@@ -305,19 +306,24 @@ class Env:
     new_env = Env(self.dict)
     if 'tracing' not in new_env.dict:
       new_env.dict['tracing'] = set()
-    new_env.dict['tracing'].add(function_name)
+    tracing = cast(set[str], new_env.dict['tracing'])
+    tracing.add(function_name)
     return new_env
 
   def get_current_module(self) -> str:
       return cast(str, self.dict['__current_module__'])
   
-  def _def_of_type_var(self, curr: dict[str, Any],
+  def _def_of_type_var(self, curr: dict[str, object],
                        name: str) -> AST | None:
     if name in curr.keys():
       binding = curr[name]
       if isinstance(binding, ViewBinding):
         return binding.view.source
-      return cast(AST | None, binding.defn)
+      if isinstance(binding, TypeBinding):
+        return binding.defn
+      if isinstance(binding, TermBinding):
+        return binding.defn
+      raise Exception('expected a type variable, not ' + base_name(name))
     else:
       raise Exception('variable not in env: ' + name)
   
@@ -344,9 +350,14 @@ class Env:
         return True
     return False
 
-  def _value_of_term_var(self, curr: dict[str, Any], name: str) -> Term | RecFun | GenRecFun | None:
+  def _value_of_term_var(self, curr: dict[str, object], name: str) -> Term | RecFun | GenRecFun | None:
     if name in curr.keys(): # the name '=' is not in the env
-      return cast(Term | RecFun | GenRecFun | None, curr[name].defn)
+      binding = curr[name]
+      if isinstance(binding, TermBinding):
+        return cast(Term | RecFun | GenRecFun | None, binding.defn)
+      if isinstance(binding, TypeBinding):
+        return cast(Term | RecFun | GenRecFun | None, binding.defn)
+      return None
     else:
       return None
   
@@ -444,7 +455,9 @@ class Env:
     return self._value_of_term_var(self.dict, tvar.get_name())
       
   def get_tracing(self, function_name: str) -> bool:
-    return 'tracing' in self.dict and function_name in self.dict['tracing']
+    if 'tracing' not in self.dict:
+      return False
+    return function_name in cast(set[str], self.dict['tracing'])
 
   def local_proofs(self) -> list[Formula]:
     return [b.formula for (name, b) in self.dict.items() \

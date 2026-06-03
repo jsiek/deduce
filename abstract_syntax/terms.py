@@ -35,7 +35,7 @@ from .core import *
 
 if TYPE_CHECKING:
     from .declarations import FunCase, GenRecFun, RecFun, Union, overwrite
-    from .env import Env
+    from .env import Env, TermBinding
     from .literals import (
         _array_index_predecessor,
         _is_named,
@@ -579,7 +579,8 @@ class OverloadedVar(VarRef):
       chosen = self.resolved_names[0]
       if get_dont_reduce_opaque() and chosen in env.dict.keys():
         binding = env.dict[chosen]
-        if binding.visibility == 'opaque' \
+        if isinstance(binding, TermBinding) \
+           and binding.visibility == 'opaque' \
            and binding.module != env.get_current_module():
             return self if get_eval_all() else auto_rewrites(self, env)
 
@@ -678,7 +679,8 @@ class ResolvedVar(VarRef):
     if get_reduce_all() or (self in get_reduce_only()):
       if get_dont_reduce_opaque() and self.name in env.dict.keys():
         binding = env.dict[self.name]
-        if binding.visibility == 'opaque' \
+        if isinstance(binding, TermBinding) \
+           and binding.visibility == 'opaque' \
            and binding.module != env.get_current_module():
             return self if get_eval_all() else auto_rewrites(self, env)
 
