@@ -363,13 +363,13 @@ def select_definees(definees, imports, name):
 
 def call_deduce_lib():
     python_path = ""
-    for i in range(14, 10, -1):
+    for i in range(14, 11, -1):
         python_path = os.popen("command -v python3." + str(i)).read()[0: -1] # strip the newline character with the splicing
         if python_path != "" and os.system(python_path + " -m pip list | grep lark > /dev/null") == 0:
             break
     
     if python_path == "":
-        print("Could not find a python version at or above 3.11 with lark installed")
+        print("Could not find a python version at or above 3.12 with lark installed")
         exit(1)
     
     subprocess.run([python_path, './deduce.py', './lib'], capture_output=True)

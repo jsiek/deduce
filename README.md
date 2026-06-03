@@ -6,7 +6,7 @@ A proof checker and small functional language for teaching logic.
 
 ## Quick start
 
-Deduce needs Python 3.10+ and the [Lark](https://github.com/lark-parser/lark)
+Deduce needs Python 3.12+ and the [Lark](https://github.com/lark-parser/lark)
 parsing library. From a fresh clone:
 
 ```sh

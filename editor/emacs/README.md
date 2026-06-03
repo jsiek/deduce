@@ -28,7 +28,7 @@ Three layers, each independently usable:
 - **Emacs 29.1 or newer.** Install via `brew install emacs` or your
   distro package. Emacs 29 is the minimum because eglot ships in
   Emacs from version 29 onward; older Emacs is not supported.
-- **Python 3.11+ with `lark`.** Required to run `deduce.py` itself:
+- **Python 3.12+ with `lark`.** Required to run `deduce.py` itself:
   `pip install lark==1.2.2`.
 
 ### For LSP capabilities (`deduce-lsp`)

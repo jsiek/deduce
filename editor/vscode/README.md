@@ -112,7 +112,7 @@ lockstep with it.
 ## Prerequisites
 
 - VS Code 1.80 or newer.
-- Python 3.11+ with `lark==1.2.2` installed (the same prerequisites
+- Python 3.12+ with `lark==1.2.2` installed (the same prerequisites
   as `deduce.py` itself).  See *Settings* below if your default
   `python3` doesn't have `lark`.
 - For the LSP features (diagnostics, go-to-def, outline, code

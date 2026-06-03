@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Deduce is a proof checker and small functional language for teaching logic, written in Python. Source `.pf` files contain definitions, theorems, and proofs; running `deduce.py file.pf` either prints `... is valid` or fails with an error. The standard library lives in `lib/` and is auto-imported as a prelude unless `--no-stdlib` is passed.
 
-Single dependency: `lark==1.2.2` (Python 3.11+, CI uses 3.12, Makefile uses 3.13).
+Single dependency: `lark==1.2.2` (Python 3.12+, Makefile uses 3.13).
 
 ## Code style
 
@@ -49,7 +49,7 @@ python test-deduce.py --generate-error test/should-error/foo.pf
 python test-deduce.py --regenerate-errors      # all of them
 ```
 
-The test harness auto-discovers a python3.11–3.14 with `lark` installed. Both parsers must pass — when changing parsing or AST, run with `--lalr` and `--recursive-descent`.
+The test harness runs under the active Python interpreter, which must be Python 3.12+ with `lark` installed. Both parsers must pass — when changing parsing or AST, run with `--lalr` and `--recursive-descent`.
 
 Useful `deduce.py` flags while debugging: `--verbose` (or `--verbose full`), `--unique-names`, `--trace <function>`, `--traceback`, `--quiet`, `--suppress-theorems`, `-r` (recurse into directories).
 
