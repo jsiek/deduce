@@ -25,11 +25,36 @@ from __future__ import annotations
 import os
 import sys
 from dataclasses import dataclass, field
+from lark.tree import Meta
 from os.path import basename
-from typing import IO, Any, Callable, Optional, cast
+from typing import IO, TYPE_CHECKING, Callable, Optional, Protocol, TypeAlias, cast
+
+if TYPE_CHECKING:
+    from abstract_syntax.core import Statement, Term, Type
+    from abstract_syntax.env import Env
+
+DebuggerValue: TypeAlias = "Term | Type"
 
 
 DEFAULT_HISTORY_FILE = os.path.expanduser("~/.config/deduce/debug_history")
+
+
+class _ReadlineModule(Protocol):
+    def set_completer(
+        self, function: Callable[[str, int], Optional[str]]
+    ) -> object: ...
+
+    def parse_and_bind(self, string: str) -> object: ...
+
+    def set_completer_delims(self, string: str) -> object: ...
+
+    def read_history_file(self, filename: str) -> object: ...
+
+    def write_history_file(self, filename: str) -> object: ...
+
+    def get_line_buffer(self) -> str: ...
+
+    def get_begidx(self) -> int: ...
 
 
 class DebuggerQuit(Exception):
@@ -71,14 +96,14 @@ class _Frame:
     """
 
     name: str
-    location: object
-    env: object
-    params: dict[str, Any] = field(default_factory=dict)
+    location: Meta | None
+    env: Env
+    params: dict[str, DebuggerValue] = field(default_factory=dict)
     is_skipped: bool = False
     # The call's positional arguments, as the user wrote them.
     # Used by both the entry trap header and the matching return
     # trap so the unwinding view is self-describing.
-    display_args: list[Any] = field(default_factory=list)
+    display_args: list[Term] = field(default_factory=list)
 
 
 @dataclass
@@ -97,7 +122,9 @@ class _Breakpoint:
 
     # --- pause-decision helpers ---
 
-    def hits_at_statement(self, stmt: Any, env: Any, dbg: "Debugger") -> bool:
+    def hits_at_statement(
+        self, stmt: Statement, env: Env, dbg: "Debugger"
+    ) -> bool:
         if ":" not in self.spec:
             # function-name breakpoints fire in on_function, not here
             return False
@@ -106,7 +133,7 @@ class _Breakpoint:
         return self._condition_holds(env, dbg)
 
     def hits_at_function(
-        self, name: str, location: Any, env: Any, dbg: "Debugger"
+        self, name: str, location: Meta | None, env: Env | None, dbg: "Debugger"
     ) -> bool:
         if ":" in self.spec:
             # file:line breakpoint -- match against the function's
@@ -115,16 +142,20 @@ class _Breakpoint:
             # users don't have to know which.
             if not self._loc_matches(location):
                 return False
+            if env is None:
+                return False
             return self._condition_holds(env, dbg)
         # bare function name
         from abstract_syntax import base_name
         if name == self.spec or base_name(name) == self.spec:
+            if env is None:
+                return False
             return self._condition_holds(env, dbg)
         return False
 
     # --- internals ---
 
-    def _loc_matches(self, loc: Any) -> bool:
+    def _loc_matches(self, loc: Meta | None) -> bool:
         if loc is None:
             return False
         file_part, _, line_part = self.spec.rpartition(":")
@@ -141,7 +172,7 @@ class _Breakpoint:
             return True
         return False
 
-    def _condition_holds(self, env: Any, dbg: "Debugger") -> bool:
+    def _condition_holds(self, env: Env, dbg: "Debugger") -> bool:
         if self.condition is None:
             return True
         try:
@@ -177,13 +208,13 @@ class Debugger:
         # pass StringIO objects; for those we fall back to plain
         # ``readline()`` on the stream and skip the history file
         # entirely so unit tests don't poke the filesystem.
-        self._readline: Optional[Any] = None
+        self._readline: Optional[_ReadlineModule] = None
         self._history_file: Optional[str] = None
         if (self.input is sys.stdin and self.output is sys.stdout
                 and sys.stdin.isatty()):
             try:
                 import readline as _readline
-                self._readline = _readline
+                self._readline = cast(_ReadlineModule, _readline)
                 self._history_file = (
                     history_file if history_file is not None
                     else DEFAULT_HISTORY_FILE
@@ -211,9 +242,9 @@ class Debugger:
         self._frame_cursor = -1
         # Filled by ``on_statement`` and ``on_function``; the REPL
         # consumes them for ``print`` (env) and ``list`` (location).
-        self._current_stmt: Optional[Any] = None
-        self._current_env: Optional[Any] = None
-        self._current_loc: Optional[Any] = None
+        self._current_stmt: Optional[Statement] = None
+        self._current_env: Optional[Env] = None
+        self._current_loc: Optional[Meta] = None
         # Mirror of ``_current_stmt`` for use by ``list`` -- the very
         # first ``on_statement`` is the only place we learn the user's
         # source path.  Subsequent hooks (function calls) preserve
@@ -248,7 +279,7 @@ class Debugger:
     # Hook callbacks -- called from proof_checker / abstract_syntax.
     # ------------------------------------------------------------------
 
-    def on_statement(self, stmt: Any, env: Any) -> None:
+    def on_statement(self, stmt: Statement, env: Env) -> None:
         # gdb doesn't trap on ``#include``; the debugger doesn't trap
         # on ``import``.  Imports are pure declarations -- no
         # user-visible side effect to step through, no body for
@@ -270,19 +301,19 @@ class Debugger:
         self._print(f"-> statement at {self._format_loc(self._current_loc)}: {stmt}")
         self._repl()
 
-    def after_statement(self, stmt: Any, env: Any) -> None:
+    def after_statement(self, stmt: Statement, env: Env) -> None:
         return
 
     def on_function(
         self,
         name: str,
-        location: Any,
-        env: Any,
-        params: Optional[list[Any]] = None,
-        args: Optional[list[Any]] = None,
-        subst: Optional[dict[Any, Any]] = None,
-        defn_loc: Any = None,
-        display_args: Optional[list[Any]] = None,
+        location: Meta | None,
+        env: Env,
+        params: Optional[list[str]] = None,
+        args: Optional[list[Term]] = None,
+        subst: Optional[dict[str, DebuggerValue]] = None,
+        defn_loc: Meta | None = None,
+        display_args: Optional[list[Term]] = None,
     ) -> None:
         # ``defn_loc`` is the function's *defining* site (from its
         # body's ``Meta``).  ``location`` is the call site.  For
@@ -297,7 +328,7 @@ class Debugger:
             # depth-based step machinery honest (``next`` / ``finish``
             # measure visible frames only).
             return
-        params_dict: dict[str, Any] = {}
+        params_dict: dict[str, DebuggerValue] = {}
         from abstract_syntax import base_name
         if params is not None and args is not None:
             for p, a in zip(params, args):
@@ -332,7 +363,7 @@ class Debugger:
         self._repl()
 
     def after_function(
-        self, name: str, env: Any, return_value: Any = None
+        self, name: str, env: Env, return_value: Term | None = None
     ) -> None:
         # No matching frame iff ``on_function`` chose not to push
         # (invisible function).  Nothing to pop, nothing to trap.
@@ -407,7 +438,7 @@ class Debugger:
         bn = base_name(name) if isinstance(name, str) else ""
         return bn in self._invisible_function_names
 
-    def _is_skipped(self, defn_loc: Any) -> bool:
+    def _is_skipped(self, defn_loc: Meta | None) -> bool:
         """The gdb-style policy: ``step`` doesn't trap on entry, but
         the function still pushes a frame.  Keyed on the function's
         defining-file location (so generic calls don't slip past via
@@ -422,7 +453,7 @@ class Debugger:
     # Pause-decision logic.  Single source of truth for every hook.
     # ------------------------------------------------------------------
 
-    def _should_pause_at_statement(self, stmt: Any, env: Any) -> bool:
+    def _should_pause_at_statement(self, stmt: Statement, env: Env) -> bool:
         if self._step_mode in (_StepMode.STEP, _StepMode.STOP):
             return True
         if self._step_mode == _StepMode.NEXT:
@@ -436,7 +467,8 @@ class Debugger:
                    for bp in self.breakpoints)
 
     def _should_pause_at_function(
-        self, name: str, location: Any, env: Any, defn_loc: Any = None
+        self, name: str, location: Meta | None, env: Env,
+        defn_loc: Meta | None = None
     ) -> bool:
         # Breakpoints always fire, regardless of step mode and
         # regardless of whether the file is in the skip list -- the
@@ -942,7 +974,7 @@ class Debugger:
     # Helpers.
     # ------------------------------------------------------------------
 
-    def _focus_env(self) -> Optional[Any]:
+    def _focus_env(self) -> Optional[Env]:
         """Env to use for ``print`` / ``locals`` based on ``up``/``down``.
         Defaults to the most recent hook env (the focused / innermost
         frame), but the user can navigate."""
@@ -953,7 +985,7 @@ class Debugger:
             return self.stack[idx].env
         return self._current_env
 
-    def _focus_params(self) -> dict[str, Any]:
+    def _focus_params(self) -> dict[str, DebuggerValue]:
         if self._frame_cursor == -1:
             if not self.stack:
                 return {}
@@ -977,7 +1009,7 @@ class Debugger:
             return args.strip(), None
         return args[:idx].strip(), args[idx + len(marker):].strip()
 
-    def _eval_expr(self, expr_text: str, env: Any) -> Any:
+    def _eval_expr(self, expr_text: str, env: Optional[Env]) -> Term:
         """Parse ``expr_text`` as a term, uniquify it against the
         proof-checker env's bindings, and reduce.
 
@@ -992,6 +1024,8 @@ class Debugger:
         it here.  We also fold in the current frame's params, since
         they're what the user most often wants to print.
         """
+        if env is None:
+            raise ValueError("no active debugger environment")
         import rec_desc_parser as _p
         from abstract_syntax import UniquifyContext, base_name
 
@@ -1006,7 +1040,7 @@ class Debugger:
             _p.token_list = list(_p.lark_parser.lex(expr_text))
             _p.current_position = 0
             _p.check_closest_kwd = False
-            parse_term: Callable[[], Any] = getattr(_p, "parse_term")
+            parse_term = cast(Callable[[], Term], getattr(_p, "parse_term"))
             term = parse_term()
         finally:
             (_p.token_list, _p.current_position,
@@ -1074,7 +1108,7 @@ class Debugger:
         self.output.flush()
 
     @staticmethod
-    def _format_loc(loc: Any) -> str:
+    def _format_loc(loc: Meta | None) -> str:
         if loc is None:
             return "<unknown>"
         line = getattr(loc, "line", None)
