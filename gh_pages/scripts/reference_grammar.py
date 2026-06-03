@@ -31,12 +31,12 @@ TOKEN_ALIASES = {
     "number": "INT",
     "unsigned_integer": "INT",
 }
-PASSTHROUGH_RULES = {"type_hi"}
+PASSTHROUGH_RULES = {"atomic_type"}
 SUBSET_RULES = {
     "statement",
-    "term_hi",
+    "atomic_term",
     "proof_stmt",
-    "proof_hi",
+    "atomic_proof",
     "conclusion",
     "visibility",
 }
@@ -101,7 +101,7 @@ def parse_lark_rules(path: Path) -> dict[str, set[str]]:
 def expand_passthrough_alternatives(rules: dict[str, set[str]]) -> dict[str, set[str]]:
     """Inline alternatives that are exactly another rule name.
 
-    The public reference often presents helper rules such as ``type_hi`` as
+    The public reference often presents helper rules such as ``atomic_type`` as
     alternatives of the user-facing ``type`` nonterminal. Deduce.lark keeps
     those helper rules separate for precedence and AST construction.
     """

@@ -192,7 +192,7 @@ assert cnt(X)(7) = 0
 ## All (Universal Quantifier)
 
 ```deduce-grammar
-term_hi ::= "all" type_annotation_list "." term
+atomic_term ::= "all" type_annotation_list "." term
 ```
 
 A formula of the form `all x1:T1,...,xn:Tn. P` is true
@@ -435,7 +435,7 @@ See the entry for [Instantiation](#instantiation-term).
 ## Auto `auto` (Automatic Reduction)
 
 ```deduce-grammar
-statement ::= "auto" proof_hi
+statement ::= "auto" atomic_proof
 ```
 
 To tell Deduce to automatically apply an equation, left to right, use
@@ -507,7 +507,7 @@ A proof may be surrounded in curly braces.
 ## Call (Term)
 
 ```deduce-grammar
-term_hi ::= term_hi "(" term_list ")"
+atomic_term ::= atomic_term "(" term_list ")"
 ```
 
 A term of the form `t0(t1, ..., tn)` calls the function indicated by
@@ -779,7 +779,7 @@ colon.  In the above, `six` holds an unsigned integer, so its type is `UInt`.
 ## Define (Term)
 
 ```deduce-grammar
-term_hi ::= "define" identifier "=" term ";" term
+atomic_term ::= "define" identifier "=" term ";" term
 ```
 
 This associates a name with a term for use in the term after the semicolon.
@@ -945,8 +945,8 @@ conclusion ::= "equations" equation equation_list
 ```
 
 ```deduce-grammar
-equation ::= term_compare "=" term_add reason
-half_equation ::= "..." "=" term_add reason
+equation ::= comparison_term "=" additive_term reason
+half_equation ::= "..." "=" additive_term reason
 equation_list ::= half_equation
 equation_list ::= half_equation equation_list
 equation_list ::= "$" equation equation_list
@@ -1038,7 +1038,7 @@ end
 ## False
 
 ```deduce-grammar
-term_hi ::= "false"
+atomic_term ::= "false"
 ```
 
 One can prove `false` when there are assumptions that contradict
@@ -1062,8 +1062,8 @@ formula ::= term
 ## Function (Term)
 
 ```deduce-grammar
-term_hi ::= "fun" type_params_opt variable_list "{" term "}"
-term_hi ::= "λ" type_params_opt variable_list "{" term "}"
+atomic_term ::= "fun" type_params_opt variable_list "{" term "}"
+atomic_term ::= "λ" type_params_opt variable_list "{" term "}"
 ```
 
 Functions are created with a `fun` expression.  Their syntax starts with
@@ -1122,7 +1122,7 @@ enclosed in `<` and `>`.
 ## Generic (Formula)
 
 ```deduce-grammar
-term_hi ::= "<" identifier_list ">" term
+atomic_term ::= "<" identifier_list ">" term
 ```
 
 This parametrizes a formula by a list of type parameters.  For
@@ -1138,7 +1138,7 @@ this formula applies to lists with any element type.
 ## Generic (Term)
 
 ```deduce-grammar
-term_hi ::= "generic" identifier_list "{" term "}"
+atomic_term ::= "generic" identifier_list "{" term "}"
 ```
 
 A term of the form
@@ -1165,8 +1165,8 @@ statement (see [Recursive Function](#recursive-function-statement)).
 ## Generic Function (Term)
 
 ```deduce-grammar
-term_hi ::= "fun" type_params_opt variable_list "{" term "}"
-term_hi ::= "λ" type_params_opt variable_list "{" term "}"
+atomic_term ::= "fun" type_params_opt variable_list "{" term "}"
+atomic_term ::= "λ" type_params_opt variable_list "{" term "}"
 ```
 
 To make a [Function](#function-term) generic, add type parameters surrounded
@@ -1442,7 +1442,7 @@ union type), see [`rule induction`](#rule-induction-proof).
 
 ## Inductive (Statement)
 ```deduce-grammar
-statement ::= "inductive" type "by" proof_hi
+statement ::= "inductive" type "by" atomic_proof
 ```
 
 The `inductive` statement allows you to declare custom inductive structure
@@ -1518,8 +1518,8 @@ end
 ## Instantiation (Proof)
 
 ```deduce-grammar
-proof_hi ::= proof_hi "<" type_list ">"
-proof_hi ::= proof_hi "[" term_list "]"
+atomic_proof ::= atomic_proof "<" type_list ">"
+atomic_proof ::= atomic_proof "[" term_list "]"
 ```
 
 Use square brackets `[` and `]` to instantiate an `all` formula with 
@@ -1546,7 +1546,7 @@ end
 ## Instantiation (Term)
 
 ```deduce-grammar
-term_hi ::= "@" term_hi "<" type_list ">"
+atomic_term ::= "@" atomic_term "<" type_list ">"
 ```
 
 Instantiates a generic function or constructor, replaces its type
@@ -1617,7 +1617,7 @@ assert not (2 ≤ 1)
 ## List (Term)
 
 ```deduce-grammar
-term_hi ::= "[" term_list "]"
+atomic_term ::= "[" term_list "]"
 ```
 
 Deduce treats `[t1,t2,...,tn]` as syntactic sugar for
@@ -1646,7 +1646,7 @@ define list_example = node(3, node(8, node(4, empty)))
 ## Mark 
 
 ```deduce-grammar
-term_hi ::= "#" term "#"
+atomic_term ::= "#" term "#"
 ```
 
 Marking a subterm with hash symbols restricts a `replace` or `expand`
@@ -1739,7 +1739,7 @@ The operations on natural numbers and theorems about them are in `Nat.thm`.
 ## Not
 
 ```deduce-grammar
-term_hi ::= "not" term_hi
+atomic_term ::= "not" atomic_term
 ```
 
 The formula `not P` is true when `P` is false.
@@ -1802,24 +1802,29 @@ See [Visibility](#visibility).
 
 ## Operator Precedence
 
-When parentheses are omitted, Deduce's binary operators group according
-to the precedence levels below, listed from **tightest** (binds first)
-to **loosest** (binds last). Function application `f(x, ...)` and array
-indexing `a[i]` bind tighter than every binary operator in the table.
+When parentheses are omitted, Deduce's terms group according to the
+precedence levels below, listed from **tightest** (binds first) to
+**loosest** (binds last). The `Deduce.lark` rule column names the
+grammar rule that implements each level. The parser starts at the
+loosest rule, `iff_term`, and each rule falls through toward the
+tighter rule listed above it.
+
+| Level | `Deduce.lark` rule     | Operators or forms                                                                 | Meaning                                                            |
+|------:|------------------------|------------------------------------------------------------------------------------|--------------------------------------------------------------------|
+|     0 | `atomic_term`          | literals, identifiers, parentheses, `f(...)`, `a[i]`, `@f<T>`, `not P`, `-n`       | primary and prefix forms                                           |
+|     1 | `exponent_term`        | `^`                                                                                | exponent                                                           |
+|     2 | `multiplicative_term`  | `*`  `/`  `%`  `∘` (also `.o.`)                                                    | multiply, divide, modulo, function composition                     |
+|     3 | `additive_term`        | `+`  `-`  `∸` (also `.-.`)  `⊝`  `++`  `∪`  `∩`  `⨄` (also `.+.`)                  | add, subtract, monus, list append, set/multiset union/intersection |
+|     4 | `comparison_term`      | `<`  `>`  `≤` (also `<=`)  `≥` (also `>=`)  `⊆` (also `(=`)  `∈` (also `in`)  `≲`  `≈` | comparisons, subset, membership                                |
+|     5 | `equality_term`        | `=`  `≠` (also `/=`)                                                               | equality, inequality                                               |
+|     6 | `logical_term`         | `and`  `or`  `:`                                                                   | logical conjunction, disjunction, type annotation                  |
+|     7 | `iff_term`             | `iff` (also `<=>`, `⇔`)                                                            | biconditional                                                      |
+
 The unary prefix forms `not P` and `-n` apply only to the immediately
 following atom — for example, `not P and Q` means `(not P) and Q`, and
-`-x * y` means `(-x) * y`.
-
-| Level | Operators                                                                          | Meaning                                                            |
-|------:|------------------------------------------------------------------------------------|--------------------------------------------------------------------|
-|     1 | `^`                                                                                | exponent                                                           |
-|     2 | `*`  `/`  `%`  `∘` (also `.o.`)                                                    | multiply, divide, modulo, function composition                     |
-|     3 | `+`  `-`  `∸` (also `.-.`)  `⊝`  `++`  `∪`  `∩`  `⨄` (also `.+.`)                  | add, subtract, monus, list append, set/multiset union/intersection |
-|     4 | `<`  `>`  `≤` (also `<=`)  `≥` (also `>=`)  `⊆` (also `(=`)  `∈` (also `in`)  `≲`  `≈` | comparisons, subset, membership                                |
-|     5 | `=`  `≠` (also `/=`)                                                               | equality, inequality                                               |
-|     6 | `and`  `or`                                                                        | logical conjunction and disjunction                                |
-|     7 | `iff` (also `<=>`, `⇔`)                                                            | biconditional                                                      |
-|     8 | `:`                                                                                | type annotation                                                    |
+`-x * y` means `(-x) * y`. Type annotation `:` is part of
+`logical_term`, so it is grouped left-to-right with `and` and `or`;
+use parentheses when mixing annotations with logical connectives.
 
 The ASCII aliases for `∪` and `∩` (the single characters used as the
 table separator and HTML-attribute character) are documented at
@@ -1857,9 +1862,9 @@ chaining the same comparison (e.g. `a < b < c`) is unusual and is *not*
 interpreted as a mathematical chained comparison — write it as
 `a < b and b < c` instead.
 
-The authoritative source for the precedence is the grammar in
-`Deduce.lark` and `rec_desc_parser.py`; the table above summarizes what
-those files implement.
+The authoritative sources for precedence are `Deduce.lark` and
+`rec_desc_parser.py`; the table above summarizes what those files
+implement and names the corresponding public Lark rules.
 
 
 ## Or  (logical disjunction)
@@ -1947,7 +1952,7 @@ or more identifiers (for the rest of the function parameters).
 ## Period (Proof of True)
 
 ```deduce-grammar
-proof_hi ::= "."
+atomic_proof ::= "."
 ```
 
 A period is a proof of the formula `true` in Deduce.
@@ -2110,7 +2115,7 @@ The output is `5`.
 ## Question Mark `?` (Proof)
 
 ```deduce-grammar
-proof_hi ::= "?"
+atomic_proof ::= "?"
 ```
 
 A proof can be left incomplete by placing a `?` in the part that you
@@ -2472,7 +2477,7 @@ sure that the given formula matches the current goal.
 ## Some (Formula)
 
 ```deduce-grammar
-term_hi ::= "some" type_annotation_list "." term
+atomic_term ::= "some" type_annotation_list "." term
 ```
 
 The formula `some x1:T1,...,xn:Tn. P` is true when there exists
@@ -2486,7 +2491,7 @@ To use a `some` formula, see the entry for [Obtain](#obtain-exists-elimination)
 ## Sorry (Proof)
 
 ```deduce-grammar
-proof_hi ::= "sorry"
+atomic_proof ::= "sorry"
 ```
 
 `sorry` is the get-out-of-jail free card. It can prove anything.
@@ -2609,7 +2614,7 @@ See the entry for [Assume](#assume).
 ## Switch (Term)
 
 ```deduce-grammar
-term_hi ::= "switch" term "{" switch_list "}"
+atomic_term ::= "switch" term "{" switch_list "}"
 ```
 
 ```deduce-grammar
@@ -2809,7 +2814,7 @@ terms `a`, `b`, and `c`.
 ## True (Formula)
 
 ```deduce-grammar
-term_hi ::= "true"
+atomic_term ::= "true"
 ```
 
 There's not much to say about `true`. It's true!

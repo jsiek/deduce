@@ -11,60 +11,60 @@ LINECOMMENT: "//" /[^\n]*/
 COMMENT: /\/\*(\*(?!\/)|[^*])*\*\//
 ARROW: "->"
 
-?term:  term_iff
+?term:  iff_term
 
-?term_iff: term_iff "iff" term_log                     -> iff_formula
-    | term_iff "<=>" term_log                          -> iff_formula
-    | term_iff "⇔" term_log                            -> iff_formula
-    | term_log
+?iff_term: iff_term "iff" logical_term                     -> iff_formula
+    | iff_term "<=>" logical_term                          -> iff_formula
+    | iff_term "⇔" logical_term                            -> iff_formula
+    | logical_term
 
-?term_log: term_log "and" term_equal                    -> and_formula
-    | term_log "or" term_equal                      -> or_formula
-    | term_log ":" type                           -> annote_type
-    | term_equal
+?logical_term: logical_term "and" equality_term                    -> and_formula
+    | logical_term "or" equality_term                      -> or_formula
+    | logical_term ":" type                           -> annote_type
+    | equality_term
 
-?term_equal: term_equal "=" term_compare  -> equal
-    | term_equal "≠" term_compare                       -> not_equal
-    | term_equal "/=" term_compare                       -> not_equal
-    | term_compare
+?equality_term: equality_term "=" comparison_term  -> equal
+    | equality_term "≠" comparison_term                       -> not_equal
+    | equality_term "/=" comparison_term                       -> not_equal
+    | comparison_term
 
-?term_compare: term_compare "<" term_add                        -> less
-    | term_compare ">" term_add                        -> greater
-    | term_compare "≤" term_add                       -> less_equal
-    | term_compare "<=" term_add                       -> less_equal
-    | term_compare "≥" term_add                       -> greater_equal
-    | term_compare ">=" term_add                       -> greater_equal
-    | term_compare "⊆" term_add                       -> subset_equal
-    | term_compare "(=" term_add                       -> subset_equal
-    | term_compare "∈" term_add                       -> membership
-    | term_compare "≲" term_add                       -> approx_less_equal
-    | term_compare "≈" term_add                       -> approx_equal
-    | term_compare "in" term_add                       -> membership
-    | term_add
+?comparison_term: comparison_term "<" additive_term                        -> less
+    | comparison_term ">" additive_term                        -> greater
+    | comparison_term "≤" additive_term                       -> less_equal
+    | comparison_term "<=" additive_term                       -> less_equal
+    | comparison_term "≥" additive_term                       -> greater_equal
+    | comparison_term ">=" additive_term                       -> greater_equal
+    | comparison_term "⊆" additive_term                       -> subset_equal
+    | comparison_term "(=" additive_term                       -> subset_equal
+    | comparison_term "∈" additive_term                       -> membership
+    | comparison_term "≲" additive_term                       -> approx_less_equal
+    | comparison_term "≈" additive_term                       -> approx_equal
+    | comparison_term "in" additive_term                       -> membership
+    | additive_term
 
-?term_add: term_add "+" term_med                   -> add
-    | term_add "∪" term_med                        -> union_op
-    | term_add "|" term_med                        -> union_op
-    | term_add "∩" term_med                        -> intersect
-    | term_add "&" term_med                        -> intersect
-    | term_add "⨄" term_med                        -> multiset_sum
-    | term_add ".+." term_med                      -> multiset_sum
-    | term_add "++" term_med                       -> append
-    | term_add "-" term_med                        -> sub
-    | term_add "∸" term_med                        -> nat_sub
-    | term_add ".-." term_med                      -> nat_sub
-    | term_add "⊝" term_med                        -> o_sub
-    | term_med
+?additive_term: additive_term "+" multiplicative_term                   -> add
+    | additive_term "∪" multiplicative_term                        -> union_op
+    | additive_term "|" multiplicative_term                        -> union_op
+    | additive_term "∩" multiplicative_term                        -> intersect
+    | additive_term "&" multiplicative_term                        -> intersect
+    | additive_term "⨄" multiplicative_term                        -> multiset_sum
+    | additive_term ".+." multiplicative_term                      -> multiset_sum
+    | additive_term "++" multiplicative_term                       -> append
+    | additive_term "-" multiplicative_term                        -> sub
+    | additive_term "∸" multiplicative_term                        -> nat_sub
+    | additive_term ".-." multiplicative_term                      -> nat_sub
+    | additive_term "⊝" multiplicative_term                        -> o_sub
+    | multiplicative_term
 
-?term_med: term_med "/" term_exp                    -> div
-    | term_med "%" term_exp                         -> mod
-    | term_med "*" term_exp                         -> mul
-    | term_med "∘" term_exp                         -> circ
-    | term_med ".o." term_exp                       -> circ
-    | term_exp
+?multiplicative_term: multiplicative_term "/" exponent_term                    -> div
+    | multiplicative_term "%" exponent_term                         -> mod
+    | multiplicative_term "*" exponent_term                         -> mul
+    | multiplicative_term "∘" exponent_term                         -> circ
+    | multiplicative_term ".o." exponent_term                       -> circ
+    | exponent_term
 
-?term_exp : term_exp "^" term_hi                    -> pow
-    | term_hi
+?exponent_term : exponent_term "^" atomic_term                    -> pow
+    | atomic_term
 
 ?switch_case: "case" pattern "{" term "}"           -> switch_case
 
@@ -86,20 +86,20 @@ identifier: IDENT              -> identifier
     | "operator" ">="      -> identifier_greater_equal
     | "operator" "/="      -> identifier_not_equal
 
-?term_hi: INT                                      -> int
+?atomic_term: INT                                      -> int
     | NAT                                          -> nat
     | "+" INT                                      -> pos_int
-    | "-" term_hi                                  -> neg_int
+    | "-" atomic_term                                  -> neg_int
     | "true"                                       -> true_literal
     | "false"                                      -> false_literal
     | "∅"                                         -> emptyset_literal
     | ".0."                                        -> emptyset_literal
-    | "not" term_hi                                -> logical_not
+    | "not" atomic_term                                -> logical_not
     | IDENT                                        -> term_var
-    | "@" term_hi "<" type_list ">"                -> term_inst
+    | "@" atomic_term "<" type_list ">"                -> term_inst
     | "array" "(" term ")"                         -> make_array
-    | term_hi "(" term_list ")"                    -> call
-    | term_hi "[" term "]"                         -> array_get
+    | atomic_term "(" term_list ")"                    -> call
+    | atomic_term "[" term "]"                         -> array_get
     | "λ" type_params_opt variable_list "{" term "}"    -> lambda
     | "fun" type_params_opt variable_list "{" term "}"  -> lambda
     | "generic" identifier_list "{" term "}"            -> generic
@@ -168,9 +168,9 @@ identifier: IDENT              -> identifier
 ?switch_proof_case_list: switch_proof_case               -> single
     | switch_proof_case switch_proof_case_list           -> push
 
-?equation: term_compare "=" term_add reason    -> equation
+?equation: comparison_term "=" additive_term reason    -> equation
 
-?half_equation:  "..." "=" term_add reason     -> half_equation
+?half_equation:  "..." "=" additive_term reason     -> half_equation
 
 ?equation_list: half_equation                      -> single
     | half_equation equation_list                  -> push
@@ -208,14 +208,14 @@ identifier: IDENT              -> identifier
     | "symmetric" proof                                  -> sym_proof
     | "transitive" proof proof                           -> trans_proof
     | "help" proof                                       -> help_use_proof
-    | proof_hi
+    | atomic_proof
 
-?proof_hi: IDENT                                              -> proof_var
+?atomic_proof: IDENT                                              -> proof_var
     | "."                                                -> true_proof
     | "?"                                                -> hole_proof
     | "(" proof ")"                                      -> paren
-    | proof_hi "[" term_list "]"                         -> all_elim
-    | proof_hi "<" type_list ">"                         -> all_elim_types
+    | atomic_proof "[" term_list "]"                         -> all_elim
+    | atomic_proof "<" type_list ">"                         -> all_elim_types
     | "sorry"                                            -> sorry_proof
     | "{" proof "}"
 
@@ -257,9 +257,9 @@ identifier: IDENT              -> identifier
 
 ?type: "fn" type_params_opt type_list "->" type        -> function_type
  | IDENT "<" type_list ">"                             -> type_inst
- | type_hi
+ | atomic_type
 
-?type_hi: IDENT   -> type_name
+?atomic_type: IDENT   -> type_name
  | "bool"         -> bool_type
  | "type"         -> type_type
  | "(" type ")"   -> paren
@@ -326,7 +326,7 @@ identifier: IDENT              -> identifier
  | visibility "view" IDENT type_params_opt "{" "source" type "target" type "into" identifier "out" identifier "roundtrip" identifier view_inverse_opt "}" -> view_declaration
  | definition
  | "associative" identifier type_params_opt "in" type -> associative_declaration
- | "auto" proof_hi -> auto_declaration
+ | "auto" atomic_proof -> auto_declaration
  | import
  | "export" IDENT -> export
  | "assert" term -> assert
@@ -334,7 +334,7 @@ identifier: IDENT              -> identifier
  | theorem
  | "module" identifier -> module_declaration
  | "trace" identifier -> trace
- | "inductive" type "by" proof_hi -> inductive_decl
+ | "inductive" type "by" atomic_proof -> inductive_decl
 
 ?statement_list: statement                               -> single
     | statement statement_list                           -> push
