@@ -266,7 +266,7 @@ def uniquify_deduce(ast: Sequence[Statement], ctx: UniquifyContext) -> list[Stat
   -- without it, the structural hash of every downstream statement
   drifts on every edit and the cache is useless.
   """
-  env: dict[str, Any] = {}
+  env: dict[str, object] = {}
   env['≠'] = ['≠']
   env['='] = ['=']
   # Using a space in the name to not collide with deduce identifiers
