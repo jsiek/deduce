@@ -488,14 +488,16 @@ def try_fast_lit_nat_arith(loc: Meta, rator: Term, args: list[Term],
     lit_var = Var(loc, None, lit_name)
   return Call(loc, ty, lit_var, [inner])
 
-def _same_numeric_literal(t1: Any, t2: Any) -> bool:
+def _same_numeric_literal(t1: AST, t2: AST) -> bool:
+  if not isinstance(t1, Term) or not isinstance(t2, Term):
+    return False
   if isNat(t1) and isNat(t2):
     return natToInt(t1) == natToInt(t2)
   if isUInt(t1) and isUInt(t2):
     return uintToInt(t1) == uintToInt(t2)
   return False
 
-def formulas_equal_modulo_numeric_literals(frm1: Any, frm2: Any) -> bool:
+def formulas_equal_modulo_numeric_literals(frm1: AST, frm2: AST) -> bool:
   if frm1 == frm2 or _same_numeric_literal(frm1, frm2):
     return True
   match (frm1, frm2):
