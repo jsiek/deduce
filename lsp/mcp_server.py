@@ -39,7 +39,11 @@ import os
 import sys
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Optional, TypeAlias, cast
+
+
+JSONValue: TypeAlias = object
+JSONDict: TypeAlias = dict[str, JSONValue]
 
 
 # ---------------------------------------------------------------------------
@@ -132,7 +136,7 @@ from mcp.server.fastmcp import FastMCP  # noqa: E402
 mcp = FastMCP("deduce-lsp")
 
 
-def _to_serializable(obj: Any) -> Any:
+def _to_serializable(obj: object) -> JSONValue:
     """Convert frozen dataclasses (and tuples/enums of them) into
     plain dicts/lists for the MCP JSON wire format."""
     if obj is None:
@@ -143,27 +147,28 @@ def _to_serializable(obj: Any) -> Any:
         return [_to_serializable(x) for x in obj]
     if hasattr(obj, "value") and hasattr(obj, "name"):
         # Enum-ish: surface the .value (e.g. "error" for Severity).
-        return obj.value
+        value: object = getattr(obj, "value")
+        return value
     return obj
 
 
-def _to_dict_or_none(obj: Any) -> Optional[dict[str, Any]]:
+def _to_dict_or_none(obj: object) -> Optional[JSONDict]:
     """Typed wrapper: serialize an optional dataclass to a dict-or-None.
 
     The query helpers that feed the @mcp.tool functions return either
     a frozen dataclass or None; `_to_serializable` collapses that to
-    `dict[str, Any] | None`, but its declared return type is `Any`
-    (it has to cover the recursive list/scalar branches too). This
+    a JSON dict or None, but its declared return type has to cover
+    the recursive list/scalar branches too. This
     wrapper pins the type at the @mcp.tool boundary so the tool's
     declared return type narrows cleanly under --strict."""
-    return cast(Optional[dict[str, Any]], _to_serializable(obj))
+    return cast(Optional[JSONDict], _to_serializable(obj))
 
 
-def _to_list_of_dicts(items: Any) -> list[dict[str, Any]]:
+def _to_list_of_dicts(items: object) -> list[JSONDict]:
     """Typed wrapper: serialize an iterable of dataclasses to a list
     of dicts. Pairs with _to_dict_or_none for tools whose query helper
     returns a sequence."""
-    return cast(list[dict[str, Any]], _to_serializable(items))
+    return cast(list[JSONDict], _to_serializable(items))
 
 
 def _read_file(path: str) -> str:
@@ -173,7 +178,7 @@ def _read_file(path: str) -> str:
 
 
 @mcp.tool()
-def check_file(path: str) -> dict[str, Any]:
+def check_file(path: str) -> JSONDict:
     """Run the Deduce pipeline on ``path`` and return diagnostics.
 
     The standard library at ``lib/`` is auto-prepended unless the
@@ -189,7 +194,7 @@ def check_file(path: str) -> dict[str, Any]:
 
 
 @mcp.tool()
-def goal_at(path: str, line: int, column: int) -> Optional[dict[str, Any]]:
+def goal_at(path: str, line: int, column: int) -> Optional[JSONDict]:
     """Return the proof obligation visible at ``line``:``column``.
 
     Lines and columns are 1-indexed (matching the location text in
@@ -213,7 +218,7 @@ def goal_at(path: str, line: int, column: int) -> Optional[dict[str, Any]]:
 
 
 @mcp.tool()
-def definition_of(path: str, line: int, column: int) -> Optional[dict[str, Any]]:
+def definition_of(path: str, line: int, column: int) -> Optional[JSONDict]:
     """Return the source location of the symbol at ``line``:``column``.
 
     Returns ``None`` when the cursor isn't on a resolvable symbol or
@@ -227,7 +232,7 @@ def definition_of(path: str, line: int, column: int) -> Optional[dict[str, Any]]
 
 
 @mcp.tool()
-def refine_at(path: str, line: int, column: int) -> Optional[dict[str, Any]]:
+def refine_at(path: str, line: int, column: int) -> Optional[JSONDict]:
     """Propose a refinement template for the hole at ``line``:``column``.
 
     The cursor must sit on (or immediately adjacent to) a ``?`` token.
@@ -260,7 +265,7 @@ def refine_at(path: str, line: int, column: int) -> Optional[dict[str, Any]]:
 @mcp.tool()
 def case_split_at(
     path: str, line: int, column: int, variable: str
-) -> Optional[dict[str, Any]]:
+) -> Optional[JSONDict]:
     """Generate a case-split skeleton at the hole at ``line``:``column``,
     splitting on ``variable``.
 
@@ -313,7 +318,7 @@ def splittable_vars_at(path: str, line: int, column: int) -> list[str]:
 @mcp.tool()
 def induction_skeleton_at(
     path: str, line: int, column: int
-) -> Optional[dict[str, Any]]:
+) -> Optional[JSONDict]:
     """Generate an ``induction T`` skeleton for the goal at ``line``:``column``.
 
     The cursor must sit on (or immediately adjacent to) a ``?`` token
@@ -346,7 +351,7 @@ def induction_skeleton_at(
 @mcp.tool()
 def eliminate_at(
     path: str, line: int, column: int, label: str
-) -> Optional[dict[str, Any]]:
+) -> Optional[JSONDict]:
     """Generate a tactic that uses ``label`` to derive a fact (or
     discharge the goal) at the hole at ``line``:``column``.
 
@@ -403,7 +408,7 @@ def eliminable_vars_at(
 @mcp.tool()
 def fill_from_given_at(
     path: str, line: int, column: int, label: str
-) -> Optional[dict[str, Any]]:
+) -> Optional[JSONDict]:
     """Fill the hole at ``line``:``column`` with ``conclude <goal> by
     <label>``.
 
@@ -448,7 +453,7 @@ def matching_givens_at(
 @mcp.tool()
 def preview_conclude_at(
     path: str, line: int, column: int, label: str
-) -> Optional[dict[str, Any]]:
+) -> Optional[JSONDict]:
     """Preview ``conclude <goal> by <label>`` modulo auto-rule
     normalization at the hole at ``line``:``column``.
 
@@ -485,8 +490,10 @@ def preview_conclude_at(
     """
     content = _read_file(path)
     pos = query.Position(line=line, column=column)
-    return query.preview_conclude_at(
-        path, content, pos, label, prelude=_prelude_for(path)
+    return _to_dict_or_none(
+        query.preview_conclude_at(
+            path, content, pos, label, prelude=_prelude_for(path)
+        )
     )
 
 
@@ -495,7 +502,7 @@ def apply_at(
     path: str, line: int, column: int,
     theorem: str,
     args: Optional[list[str]] = None,
-) -> Optional[dict[str, Any]]:
+) -> Optional[JSONDict]:
     """Preview ``apply <theorem>[<args>] to ?`` at the hole at
     ``line``:``column``.
 
@@ -534,16 +541,18 @@ def apply_at(
     """
     content = _read_file(path)
     pos = query.Position(line=line, column=column)
-    return query.apply_at(
-        path, content, pos, theorem,
-        args=args, prelude=_prelude_for(path),
+    return _to_dict_or_none(
+        query.apply_at(
+            path, content, pos, theorem,
+            args=args, prelude=_prelude_for(path),
+        )
     )
 
 
 @mcp.tool()
 def preview_replace_at(
     path: str, line: int, column: int, equation: str
-) -> Optional[dict[str, Any]]:
+) -> Optional[JSONDict]:
     """Preview the result of ``replace <equation>`` at the hole at
     ``line``:``column``.
 
@@ -583,7 +592,7 @@ def preview_replace_at(
 @mcp.tool()
 def preview_expand_at(
     path: str, line: int, column: int, names: list[str]
-) -> Optional[dict[str, Any]]:
+) -> Optional[JSONDict]:
     """Preview the result of ``expand <names>`` at the hole at
     ``line``:``column``.
 
@@ -623,7 +632,7 @@ def available_lemmas_at(
     column: int,
     query: Optional[str] = None,
     limit: int = 50,
-) -> list[dict[str, Any]]:
+) -> list[JSONDict]:
     """Search for theorems/lemmas/postulates relevant at a position.
 
     The cursor at ``line``:``column`` is interpreted as follows:
@@ -670,7 +679,7 @@ def available_lemmas_at(
 
 
 @mcp.tool()
-def auto_rules_at(path: str, line: int, column: int) -> list[dict[str, Any]]:
+def auto_rules_at(path: str, line: int, column: int) -> list[JSONDict]:
     """Return ``auto`` rewrite rules in scope at ``line``:``column``.
 
     Lines and columns are 1-indexed.  Each entry has ``name`` (the
@@ -693,7 +702,7 @@ def auto_rules_at(path: str, line: int, column: int) -> list[dict[str, Any]]:
 
 
 @mcp.tool()
-def list_symbols(path: str) -> list[dict[str, Any]]:
+def list_symbols(path: str) -> list[JSONDict]:
     """Return all top-level declarations in ``path``.
 
     Includes theorems, lemmas, postulates, defines, recursive
