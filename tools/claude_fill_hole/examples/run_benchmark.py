@@ -33,7 +33,7 @@ import json
 import os
 import subprocess
 import sys
-from typing import Any
+from typing import NotRequired, TypedDict, cast
 import time
 from pathlib import Path
 
@@ -74,6 +74,23 @@ BASE_URL = "https://reallms.rescloud.iu.edu/direct/v1"
 API_KEY_ENV = "REALLMS_API_KEY"
 
 
+class BenchmarkValidation(TypedDict, total=False):
+    attempt: int
+    ok: bool
+    proofPreview: str
+    errorTail: str | None
+
+
+class BenchmarkResult(TypedDict):
+    ok: bool
+    attempts: int
+    elapsed_s: float
+    validations: list[BenchmarkValidation]
+    error: NotRequired[str]
+    stderr_tail: NotRequired[str]
+    proof: NotRequired[str]
+
+
 def find_first_question_mark(content: str) -> tuple[int, int]:
     """Return 0-indexed (line, character) of the first ``?`` in CONTENT."""
     for line_no, line in enumerate(content.splitlines()):
@@ -83,7 +100,7 @@ def find_first_question_mark(content: str) -> tuple[int, int]:
     raise ValueError("no `?` in fixture")
 
 
-def build_request(fixture: Path) -> dict[str, Any]:
+def build_request(fixture: Path) -> dict[str, object]:
     content = fixture.read_text()
     line0, char0 = find_first_question_mark(content)
     pos = Position(line=line0 + 1, column=char0 + 1)  # query is 1-indexed
@@ -119,7 +136,9 @@ def build_request(fixture: Path) -> dict[str, Any]:
     }
 
 
-def run_one(fixture: Path, model: str, max_attempts: int, timeout: int) -> dict[str, Any]:
+def run_one(
+    fixture: Path, model: str, max_attempts: int, timeout: int
+) -> BenchmarkResult:
     request = build_request(fixture)
     cmd = [
         sys.executable, "-m", "tools.claude_fill_hole",
@@ -163,7 +182,7 @@ def run_one(fixture: Path, model: str, max_attempts: int, timeout: int) -> dict[
             "validations": [],
         }
     try:
-        result: dict[str, Any] = json.loads(proc.stdout)
+        result = cast(BenchmarkResult, json.loads(proc.stdout))
     except json.JSONDecodeError as e:
         return {
             "ok": False,
@@ -195,7 +214,7 @@ def main(argv: list[str] | None = None) -> int:
         print("error: no fixtures found", file=sys.stderr)
         return 2
 
-    results: dict[tuple[str, str], dict[str, Any]] = {}
+    results: dict[tuple[str, str], BenchmarkResult] = {}
     for model in args.models:
         for fixture in fixtures:
             print(f"[{model}] {fixture.name} ...",
@@ -237,10 +256,11 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 print(f"  - **failed** after {r.get('attempts', 0)} "
                       f"attempt(s), {r['elapsed_s']}s")
-                if r.get("error"):
-                    err = r["error"][:200]
+                error = r.get("error")
+                if error:
+                    err = error[:200]
                     print(f"  - error: `{err}`")
-            for v in r.get("validations") or []:
+            for v in r["validations"]:
                 ok = "✓" if v.get("ok") else "✗"
                 preview = (v.get("proofPreview") or "").strip()
                 err_tail = (v.get("errorTail") or "").splitlines()
