@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Optional, Protocol
 
 from .validator import HoleQuerier, Validator, ValidationOutcome
 
@@ -112,10 +112,11 @@ class AgentResult:
     error: Optional[str] = None  # hard-failure top-level message
 
 
-# Type alias for the progress callback.  Matches what __main__.py uses
+# Protocol for the progress callback.  Matches what __main__.py uses
 # to write NDJSON events to stderr; backends call back through this so
 # they stay decoupled from the protocol layer.
-ProgressFn = Callable[..., None]
+class ProgressFn(Protocol):
+    def __call__(self, event: str, **fields: object) -> None: ...
 
 
 class Backend(ABC):

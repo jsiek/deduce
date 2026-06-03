@@ -125,7 +125,7 @@ class OpenAICompatBackend(Backend):
     ) -> AgentResult:
         started = time.monotonic()
 
-        def _progress(event: str, **fields: Any) -> None:
+        def _progress(event: str, **fields: object) -> None:
             if on_progress is not None:
                 on_progress(event, **fields)
 
@@ -134,7 +134,7 @@ class OpenAICompatBackend(Backend):
         # explicit cache breakpoints; servers that support implicit
         # prefix caching (real OpenAI, some LiteLLM deployments) get
         # it for free, others pay full price each attempt.
-        messages: list[dict[str, Any]] = [
+        messages: list[dict[str, object]] = [
             {"role": "system", "content": system_text},
             {"role": "user", "content": user_message},
         ]
@@ -414,7 +414,9 @@ class OpenAICompatBackend(Backend):
 # ---------------------------------------------------------------------------
 
 
-def _tool_message(tool_call_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+def _tool_message(
+    tool_call_id: str, payload: dict[str, object]
+) -> dict[str, object]:
     """Format a `role: tool' message carrying a JSON-encoded payload.
 
     Centralised here so the validate_proof and query_goal paths
@@ -427,7 +429,7 @@ def _tool_message(tool_call_id: str, payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _query_payload(outcome: QueryOutcome) -> dict[str, Any]:
+def _query_payload(outcome: QueryOutcome) -> dict[str, object]:
     """Convert a QueryOutcome into the JSON shape the model sees in
     the tool_result message: `{goal, givens}` on success, `{error}`
     on failure."""
@@ -502,7 +504,7 @@ def _extract_proof_text(args_raw: str) -> Optional[str]:
     return proof
 
 
-def _serialize_tool_calls(tool_calls: list[Any]) -> list[dict[str, Any]]:
+def _serialize_tool_calls(tool_calls: list[Any]) -> list[dict[str, object]]:
     """Re-serialise a list of tool_call objects (Pydantic models or dicts)
     into a plain list of dicts safe to round-trip through the request.
 
@@ -513,7 +515,7 @@ def _serialize_tool_calls(tool_calls: list[Any]) -> list[dict[str, Any]]:
     request and reject malformed bytes from a prior turn.  See
     https://github.com/jsiek/deduce/issues/376.
     """
-    out: list[dict[str, Any]] = []
+    out: list[dict[str, object]] = []
     for tc in tool_calls:
         name = _tool_call_function_name(tc)
         args_raw = _tool_call_function_arguments(tc)
@@ -559,7 +561,9 @@ def _is_recoverable_malformed_args_error(exc: BaseException) -> bool:
     return any(marker in msg for marker in _RECOVERABLE_BAD_REQUEST_MARKERS)
 
 
-def _strip_trailing_turn_with_synthetic_note(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _strip_trailing_turn_with_synthetic_note(
+    messages: list[dict[str, object]]
+) -> list[dict[str, object]]:
     """Walk back to the last ``role: assistant`` entry, drop it (and
     any tool messages that followed it), and replace it with a plain
     synthetic note pointing the model at what went wrong.
@@ -573,9 +577,11 @@ def _strip_trailing_turn_with_synthetic_note(messages: list[dict[str, Any]]) -> 
         if messages[i].get("role") == "assistant":
             cut = i
             break
-    return messages[:cut] + [
-        {"role": "assistant", "content": _MALFORMED_RETRY_NOTE}
-    ]
+    note: dict[str, object] = {
+        "role": "assistant",
+        "content": _MALFORMED_RETRY_NOTE,
+    }
+    return messages[:cut] + [note]
 
 
 def _attr(obj: Any, name: str, default: Any = None) -> Any:
