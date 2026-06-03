@@ -191,8 +191,8 @@ assert cnt(X)(7) = 0
 
 ## All (Universal Quantifier)
 
-```
-formula ::= "all" variable_list "." formula
+```deduce-grammar
+term_hi ::= "all" type_annotation_list "." term
 ```
 
 A formula of the form `all x1:T1,...,xn:Tn. P` is true
@@ -506,8 +506,8 @@ A proof may be surrounded in curly braces.
 
 ## Call (Term)
 
-```
-term ::= term "(" term_list ")"
+```deduce-grammar
+term_hi ::= term_hi "(" term_list ")"
 ```
 
 A term of the form `t0(t1, ..., tn)` calls the function indicated by
@@ -778,8 +778,8 @@ colon.  In the above, `six` holds an unsigned integer, so its type is `UInt`.
 
 ## Define (Term)
 
-```
-term ::= "define" identifier "=" term ";" term
+```deduce-grammar
+term_hi ::= "define" identifier "=" term ";" term
 ```
 
 This associates a name with a term for use in the term after the semicolon.
@@ -1037,8 +1037,8 @@ end
 
 ## False
 
-```
-formula ::= "false"
+```deduce-grammar
+term_hi ::= "false"
 ```
 
 One can prove `false` when there are assumptions that contradict
@@ -1061,9 +1061,9 @@ formula ::= term
 
 ## Function (Term)
 
-```
-term ::= "fun" variable_list "{" term "}"
-term ::= "λ" variable_list "{" term "}"
+```deduce-grammar
+term_hi ::= "fun" type_params_opt variable_list "{" term "}"
+term_hi ::= "λ" type_params_opt variable_list "{" term "}"
 ```
 
 Functions are created with a `fun` expression.  Their syntax starts with
@@ -1121,8 +1121,8 @@ enclosed in `<` and `>`.
 
 ## Generic (Formula)
 
-```
-formula ::= "<" identifier_list ">" formula
+```deduce-grammar
+term_hi ::= "<" identifier_list ">" term
 ```
 
 This parametrizes a formula by a list of type parameters.  For
@@ -1137,8 +1137,8 @@ this formula applies to lists with any element type.
 
 ## Generic (Term)
 
-```
-term ::= "generic" identifier_list "{" term "}"
+```deduce-grammar
+term_hi ::= "generic" identifier_list "{" term "}"
 ```
 
 A term of the form
@@ -1164,9 +1164,9 @@ statement (see [Recursive Function](#recursive-function-statement)).
 
 ## Generic Function (Term)
 
-```
-term ::= "fun" type_params_opt variable_list "{" term "}"
-term ::= "λ" type_params_opt variable_list "{" term "}"
+```deduce-grammar
+term_hi ::= "fun" type_params_opt variable_list "{" term "}"
+term_hi ::= "λ" type_params_opt variable_list "{" term "}"
 ```
 
 To make a [Function](#function-term) generic, add type parameters surrounded
@@ -1545,8 +1545,8 @@ end
 
 ## Instantiation (Term)
 
-```
-term ::= @ term '<' type_list '>'
+```deduce-grammar
+term_hi ::= "@" term_hi "<" type_list ">"
 ```
 
 Instantiates a generic function or constructor, replaces its type
@@ -1616,8 +1616,8 @@ assert not (2 ≤ 1)
 
 ## List (Term)
 
-```
-term ::= "[" term_list "]"
+```deduce-grammar
+term_hi ::= "[" term_list "]"
 ```
 
 Deduce treats `[t1,t2,...,tn]` as syntactic sugar for
@@ -1645,8 +1645,8 @@ define list_example = node(3, node(8, node(4, empty)))
 
 ## Mark 
 
-```
-term ::= "#" term "#"
+```deduce-grammar
+term_hi ::= "#" term "#"
 ```
 
 Marking a subterm with hash symbols restricts a `replace` or `expand`
@@ -1738,8 +1738,8 @@ The operations on natural numbers and theorems about them are in `Nat.thm`.
 
 ## Not
 
-```
-formula ::= "not" formula
+```deduce-grammar
+term_hi ::= "not" term_hi
 ```
 
 The formula `not P` is true when `P` is false.
@@ -2471,8 +2471,8 @@ sure that the given formula matches the current goal.
 
 ## Some (Formula)
 
-```
-formula ::= "some" variable_list "." formula
+```deduce-grammar
+term_hi ::= "some" type_annotation_list "." term
 ```
 
 The formula `some x1:T1,...,xn:Tn. P` is true when there exists
@@ -2608,8 +2608,8 @@ See the entry for [Assume](#assume).
 
 ## Switch (Term)
 
-```
-term ::= "switch" term "{" switch_list "}"
+```deduce-grammar
+term_hi ::= "switch" term "{" switch_list "}"
 ```
 
 ```deduce-grammar
@@ -2808,8 +2808,8 @@ terms `a`, `b`, and `c`.
 
 ## True (Formula)
 
-```
-formula ::= "true"
+```deduce-grammar
+term_hi ::= "true"
 ```
 
 There's not much to say about `true`. It's true!
