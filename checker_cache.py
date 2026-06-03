@@ -10,7 +10,7 @@ File charter:
   a Deduce program is valid except by reporting cache hits and misses.
 """
 
-from typing import Any
+from typing import cast
 
 from abstract_syntax import (
     Auto,
@@ -83,7 +83,7 @@ def _record_miss(loop_tag: str) -> None:
     _cache_stats["misses"][loop_tag] = _cache_stats["misses"].get(loop_tag, 0) + 1
 
 
-def _hash_ast(node: Any) -> int:
+def _hash_ast(node: object) -> int:
     """Stable structural hash of a (post-uniquify) AST.
 
     Skips the ``location`` (Meta) attribute, which carries source
@@ -100,23 +100,28 @@ def _hash_ast(node: Any) -> int:
     if isinstance(node, (str, int, bool, float)):
         return hash(node)
     if isinstance(node, (list, tuple)):
-        return hash(tuple(_hash_ast(x) for x in node))
+        seq = cast(list[object] | tuple[object, ...], node)
+        return hash(tuple(_hash_ast(x) for x in seq))
     if isinstance(node, dict):
+        mapping = cast(dict[object, object], node)
         return hash(
-            tuple(sorted((k, _hash_ast(v)) for k, v in node.items()))
+            tuple(
+                (k, _hash_ast(v))
+                for k, v in sorted(mapping.items(), key=lambda item: repr(item[0]))
+            )
         )
-    cached: int | None = getattr(node, "__hash_cache__", None)
-    if cached is not None:
+    cached = getattr(node, "__hash_cache__", None)
+    if isinstance(cached, int):
         return cached
     if hasattr(node, "__dict__"):
         items = []
-        for k, v in node.__dict__.items():
+        for k, v in cast(dict[str, object], vars(node)).items():
             if k == "location" or k == "__hash_cache__":
                 continue
             items.append((k, _hash_ast(v)))
         h = hash((type(node).__name__, tuple(items)))
         try:
-            node.__hash_cache__ = h
+            setattr(node, "__hash_cache__", h)
         except AttributeError:
             pass
         return h
@@ -124,7 +129,7 @@ def _hash_ast(node: Any) -> int:
 
 
 def _collect_referenced_names(
-    node: Any, out: set[str] | None = None
+    node: object, out: set[str] | None = None
 ) -> set[str]:
     """Walk a statement's post-uniquify AST and gather every uniquified
     name it references via ``VarRef`` (``Var`` / ``OverloadedVar`` /
@@ -144,11 +149,11 @@ def _collect_referenced_names(
     if node is None or isinstance(node, (str, int, bool, float)):
         return out
     if isinstance(node, (list, tuple)):
-        for x in node:
+        for x in cast(list[object] | tuple[object, ...], node):
             _collect_referenced_names(x, out)
         return out
     if isinstance(node, dict):
-        for v in node.values():
+        for v in cast(dict[object, object], node).values():
             _collect_referenced_names(v, out)
         return out
     if isinstance(node, VarRef):
@@ -168,7 +173,7 @@ def _collect_referenced_names(
     if isinstance(node, ViewRecFun):
         out.add(node.view_name)
     if hasattr(node, "__dict__"):
-        for k, v in node.__dict__.items():
+        for k, v in cast(dict[str, object], vars(node)).items():
             if k in ("location", "__hash_cache__"):
                 continue
             _collect_referenced_names(v, out)
