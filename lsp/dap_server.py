@@ -42,7 +42,9 @@ import sys
 import threading
 import traceback as _traceback
 from pathlib import Path
-from typing import IO, Any, Optional, TypeAlias, cast
+from typing import IO, Callable, Optional, TypeAlias, cast
+
+from lark.tree import Meta
 
 
 # ---------------------------------------------------------------------------
@@ -66,9 +68,12 @@ if str(_DEDUCE_ROOT) not in sys.path:
     sys.path.insert(0, str(_DEDUCE_ROOT))
 
 from abstract_syntax import (  # noqa: E402
+    Env,
     add_import_directory,
     base_name,
     init_import_directories,
+    Statement,
+    Term,
 )
 from flags import set_quiet_mode  # noqa: E402
 
@@ -77,6 +82,7 @@ init_import_directories()
 add_import_directory(str(_LIB_DIR))
 
 from lsp.debugger import (  # noqa: E402
+    DebuggerValue,
     Debugger,
     DebuggerQuit,
     _Breakpoint,
@@ -84,7 +90,20 @@ from lsp.debugger import (  # noqa: E402
 )
 from lsp.library import check_file  # noqa: E402
 
-JSONDict: TypeAlias = dict[str, Any]
+JSONValue: TypeAlias = object
+JSONDict: TypeAlias = dict[str, JSONValue]
+
+
+def _json_dict(value: object) -> JSONDict:
+    if isinstance(value, dict):
+        return cast(JSONDict, value)
+    return {}
+
+
+def _json_dict_list(value: object) -> list[JSONDict]:
+    if not isinstance(value, list):
+        return []
+    return [cast(JSONDict, entry) for entry in value if isinstance(entry, dict)]
 
 
 def _compute_default_prelude() -> tuple[str, ...]:
@@ -180,7 +199,7 @@ class _DAPDebugger(Debugger):
     # Override the trap entry points so we can label the stop reason
     # before delegating to the base-class pause machinery.
 
-    def on_statement(self, stmt: Any, env: Any) -> None:
+    def on_statement(self, stmt: Statement, env: Env) -> None:
         # If the upcoming pause is breakpoint-driven, the base class
         # decides that via ``_should_pause_at_statement``.  Pick the
         # reason here based on which decision will fire.
@@ -193,22 +212,24 @@ class _DAPDebugger(Debugger):
     def on_function(
         self,
         name: str,
-        location: Any,
-        env: Any,
-        params: Optional[list[Any]] = None,
-        args: Optional[list[Any]] = None,
-        subst: Optional[dict[Any, Any]] = None,
-        defn_loc: Any = None,
-        display_args: Optional[list[Any]] = None,
+        location: Meta | None,
+        env: Env,
+        params: Optional[list[str]] = None,
+        args: Optional[list[Term]] = None,
+        subst: Optional[dict[str, DebuggerValue]] = None,
+        defn_loc: Meta | None = None,
+        display_args: Optional[list[Term]] = None,
     ) -> None:
-        self._stop_reason = self._reason_for_function(name, location, defn_loc)
+        self._stop_reason = self._reason_for_function(name, location, env)
         super().on_function(
             name, location, env,
             params=params, args=args, subst=subst,
             defn_loc=defn_loc, display_args=display_args,
         )
 
-    def after_function(self, name: Any, env: Any, return_value: Any = None) -> None:
+    def after_function(
+        self, name: str, env: Env, return_value: Term | None = None
+    ) -> None:
         # The return-trap (Step 22) is always a step event from the
         # DAP point of view; no breakpoint fires on returns.
         self._stop_reason = "step"
@@ -225,13 +246,13 @@ class _DAPDebugger(Debugger):
             "output": text,
         })
 
-    def _reason_for_statement(self, stmt: Any, env: Any) -> str:
+    def _reason_for_statement(self, stmt: Statement, env: Env) -> str:
         if any(bp.hits_at_statement(stmt, env, self) for bp in self.breakpoints):
             return "breakpoint"
         return "step"
 
-    def _reason_for_function(self, name: str, location: Any, defn_loc: Any) -> str:
-        if any(bp.hits_at_function(name, location, None, self)
+    def _reason_for_function(self, name: str, location: Meta | None, env: Env) -> str:
+        if any(bp.hits_at_function(name, location, env, self)
                for bp in self.breakpoints):
             return "breakpoint"
         return "step"
@@ -358,11 +379,12 @@ class _DAPDebugger(Debugger):
         result: list[JSONDict] = []
         for entry in dap_bps:
             line = entry.get("line")
-            if line is None:
+            if not isinstance(line, int):
                 result.append({"verified": False})
                 continue
             spec = f"{path}:{line}"
-            condition = entry.get("condition") or None
+            condition_obj = entry.get("condition")
+            condition = condition_obj if isinstance(condition_obj, str) else None
             bp = _Breakpoint(id=self._next_bp_id, spec=spec, condition=condition)
             self._next_bp_id += 1
             self.breakpoints.append(bp)
@@ -381,10 +403,11 @@ class _DAPDebugger(Debugger):
         result: list[JSONDict] = []
         for entry in dap_bps:
             name = entry.get("name")
-            if not name:
+            if not isinstance(name, str) or not name:
                 result.append({"verified": False})
                 continue
-            condition = entry.get("condition") or None
+            condition_obj = entry.get("condition")
+            condition = condition_obj if isinstance(condition_obj, str) else None
             bp = _Breakpoint(id=self._next_bp_id, spec=name, condition=condition)
             self._next_bp_id += 1
             self.breakpoints.append(bp)
@@ -541,15 +564,16 @@ class DAPServer:
                 pass
 
     def _dispatch(self, req: JSONDict) -> None:
-        cmd = req.get("command", "")
+        cmd_obj = req.get("command", "")
+        cmd = cmd_obj if isinstance(cmd_obj, str) else ""
         handler = getattr(self, f"_h_{cmd}", None)
-        if handler is None:
+        if not callable(handler):
             self._send_response(
                 req, success=False, message=f"unknown DAP request: {cmd}",
             )
             return
         try:
-            handler(req)
+            cast(Callable[[JSONDict], None], handler)(req)
         except Exception as e:
             self._send_response(
                 req, success=False,
@@ -559,7 +583,7 @@ class DAPServer:
     # --- request handlers ---
 
     def _h_initialize(self, req: JSONDict) -> None:
-        body = {
+        body: JSONDict = {
             "supportsConditionalBreakpoints": True,
             "supportsFunctionBreakpoints": True,
             "supportsEvaluateForHovers": True,
@@ -571,9 +595,9 @@ class DAPServer:
         self._send_event("initialized")
 
     def _h_launch(self, req: JSONDict) -> None:
-        args = req.get("arguments", {}) or {}
+        args = _json_dict(req.get("arguments"))
         program = args.get("program")
-        if not program:
+        if not isinstance(program, str) or not program:
             self._send_response(
                 req, success=False, message="launch requires 'program'",
             )
@@ -587,10 +611,11 @@ class DAPServer:
         self._program_thread.start()
 
     def _h_setBreakpoints(self, req: JSONDict) -> None:
-        args = req.get("arguments", {}) or {}
-        source = args.get("source", {}) or {}
-        path = source.get("path", "")
-        bps = args.get("breakpoints", []) or []
+        args = _json_dict(req.get("arguments"))
+        source = _json_dict(args.get("source"))
+        path_obj = source.get("path", "")
+        path = path_obj if isinstance(path_obj, str) else ""
+        bps = _json_dict_list(args.get("breakpoints"))
         if self.debugger is None:
             self._send_response(req, success=False, message="not launched")
             return
@@ -598,8 +623,8 @@ class DAPServer:
         self._send_response(req, body={"breakpoints": result})
 
     def _h_setFunctionBreakpoints(self, req: JSONDict) -> None:
-        args = req.get("arguments", {}) or {}
-        bps = args.get("breakpoints", []) or []
+        args = _json_dict(req.get("arguments"))
+        bps = _json_dict_list(args.get("breakpoints"))
         if self.debugger is None:
             self._send_response(req, success=False, message="not launched")
             return
@@ -646,8 +671,9 @@ class DAPServer:
         # One "Locals" scope per frame.  ``variablesReference`` ==
         # ``frameId`` so the editor's follow-up ``variables`` request
         # arrives with enough info to look up the right frame.
-        args = req.get("arguments", {}) or {}
-        frame_id = args.get("frameId", 0)
+        args = _json_dict(req.get("arguments"))
+        frame_id_obj = args.get("frameId", 0)
+        frame_id = frame_id_obj if isinstance(frame_id_obj, int) else 0
         self._send_response(req, body={
             "scopes": [{
                 "name": "Locals",
@@ -657,8 +683,9 @@ class DAPServer:
         })
 
     def _h_variables(self, req: JSONDict) -> None:
-        args = req.get("arguments", {}) or {}
-        var_ref = args.get("variablesReference", 0)
+        args = _json_dict(req.get("arguments"))
+        var_ref_obj = args.get("variablesReference", 0)
+        var_ref = var_ref_obj if isinstance(var_ref_obj, int) else 0
         if self.debugger is None or var_ref == 0:
             self._send_response(req, body={"variables": []})
             return
@@ -667,8 +694,9 @@ class DAPServer:
         self._send_response(req, body={"variables": vars_})
 
     def _h_evaluate(self, req: JSONDict) -> None:
-        args = req.get("arguments", {}) or {}
-        expr = args.get("expression", "")
+        args = _json_dict(req.get("arguments"))
+        expr_obj = args.get("expression", "")
+        expr = expr_obj if isinstance(expr_obj, str) else ""
         if self.debugger is None:
             self._send_response(req, success=False, message="not launched")
             return
