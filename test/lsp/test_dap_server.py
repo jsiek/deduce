@@ -280,7 +280,8 @@ def test_stack_trace_inside_function(dap_session, tmp_path):
     client.wait_for_event("stopped", timeout=10.0)
     client.request("continue")
     # Second stop: the function breakpoint on ``double``.
-    client.wait_for_event("stopped", timeout=10.0)
+    stopped = client.wait_for_event("stopped", timeout=10.0)
+    assert stopped["body"]["reason"] == "breakpoint"
     resp = client.request("stackTrace", {"threadId": 1})
     assert resp["success"], resp
     frames = resp["body"]["stackFrames"]

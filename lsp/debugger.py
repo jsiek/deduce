@@ -1027,7 +1027,7 @@ class Debugger:
         if env is None:
             raise ValueError("no active debugger environment")
         import rec_desc_parser as _p
-        from abstract_syntax import UniquifyContext, base_name
+        from abstract_syntax.core import Term as TermClass, UniquifyContext, base_name
 
         saved = (
             _p.token_list, _p.current_position,
@@ -1040,7 +1040,7 @@ class Debugger:
             _p.token_list = list(_p.lark_parser.lex(expr_text))
             _p.current_position = 0
             _p.check_closest_kwd = False
-            parse_term = cast(Callable[[], Term], getattr(_p, "parse_term"))
+            parse_term = cast(Callable[[], TermClass], getattr(_p, "parse_term"))
             term = parse_term()
         finally:
             (_p.token_list, _p.current_position,
