@@ -35,6 +35,8 @@ from .literals import *
 if TYPE_CHECKING:
     from .ops import callable_name, flatten_assoc, flatten_assoc_list, is_associative
 
+_FormulaMatchNode = Term | Type | SwitchCase | RecFun | GenRecFun
+
 ############# Marks for controlling rewriting and definitions ##################
 
 default_mark_LHS = True
@@ -483,8 +485,8 @@ def premise_holds(premise: Formula, env: Env) -> bool:
 def formula_match(
     loc: Meta,
     vars: list[Term],
-    pattern_frm: Any,
-    frm: Any,
+    pattern_frm: _FormulaMatchNode,
+    frm: _FormulaMatchNode,
     matching: dict[str, Term],
     env: Env,
     numeric_literals: bool = False,
@@ -535,6 +537,9 @@ def formula_match(
         formula_match(loc, vars, matching[tyvar_name], frm, matching, env,
                       numeric_literals, outer_env=outer_env)
       else:
+        if not isinstance(frm, Term):
+          match_failed(loc, "formula: " + str(frm) + "\n" \
+                       + "does not match expected term: " + str(pattern_frm))
         if get_verbose():
             print("formula_match, " + base_name(tyvar_name) + ' := ' + str(frm))
         matching[tyvar_name] = frm
