@@ -1,0 +1,4 @@
+./test/should-error/view_inverse_bad.pf:37.1-44.2: view inverse proof not_the_inverse_law proves
+	(all n:NInvPred. n_inv_unview(n_inv_view(n)) = n_inv_unview(n_inv_view(n)))
+but expected
+	(all v:NInvPred. n_inv_unview(n_inv_view(v)) = v)

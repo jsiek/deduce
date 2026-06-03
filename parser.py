@@ -132,6 +132,13 @@ def parse_tree_to_case_list(e: Any) -> list[tuple[str, Any]]:
             + parse_tree_to_case_list(e.children[1])
     else:
         raise Exception('unrecognized as a type list ' + repr(e))
+
+def parse_tree_to_optional_identifier(e: Any) -> str | None:
+    if e.data == 'no_view_inverse':
+        return None
+    if e.data == 'view_inverse':
+        return cast(str, parse_tree_to_ast(e.children[0], e))
+    raise Exception('parse_tree_to_optional_identifier, unexpected ' + str(e))
     
 infix_ops = {'add', 'sub', 'nat_sub', 'o_sub', 'mul', 'div', 'mod', 'circ', 'pow',
              'and', 'or','equal', 'not_equal',
@@ -813,7 +820,8 @@ def parse_tree_to_ast(e: Any, parent: Any) -> Any:
                              parse_tree_to_ast(e.children[4], e),
                              parse_tree_to_ast(e.children[5], e),
                              parse_tree_to_ast(e.children[6], e),
-                             parse_tree_to_ast(e.children[7], e))
+                             parse_tree_to_ast(e.children[7], e),
+                             parse_tree_to_optional_identifier(e.children[8]))
         set_visibility(statement, visibility)
         return statement
         

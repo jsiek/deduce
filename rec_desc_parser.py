@@ -1534,7 +1534,7 @@ def parse_gen_rec_function(visibility):
 
 def parse_view_decl(visibility):
   while_parsing = 'while parsing\n' \
-      + '\tstatement ::= "view" identifier type_params_opt "{" "source" type "target" type "into" identifier "out" identifier "roundtrip" identifier "}"\n'
+      + '\tstatement ::= "view" identifier type_params_opt "{" "source" type "target" type "into" identifier "out" identifier "roundtrip" identifier [ "inverse" identifier ] "}"\n'
   try:
     start_token = current_token()
     advance()
@@ -1552,11 +1552,15 @@ def parse_view_decl(visibility):
     out = parse_identifier()
     consume_token('ROUNDTRIP', '"roundtrip"', context='inside view declaration')
     roundtrip = parse_identifier()
+    inverse = None
+    if current_token().type == 'INVERSE':
+      advance()
+      inverse = parse_identifier()
     consume_token('RBRACE', '"}"', context='after view declaration')
 
     meta = meta_from_tokens(start_token, previous_token())
     return ViewDecl(meta, name, typarams, source, target, into, out,
-                    roundtrip, visibility=visibility)
+                    roundtrip, inverse, visibility=visibility)
 
   except ParseError as e:
     raise e.extend(meta_from_tokens(start_token, previous_token()),

@@ -100,6 +100,7 @@ known_tokens = {
     'INTO': 'keyword',
     'OUT': 'keyword',
     'ROUNDTRIP': 'keyword',
+    'INVERSE': 'keyword',
     'INVERSION': 'keyword',
     'REFLEXIVE': 'keyword',
     'RELATION': 'keyword',

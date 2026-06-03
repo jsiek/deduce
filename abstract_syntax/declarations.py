@@ -780,6 +780,7 @@ class ViewDecl(Declaration):
   into: str
   out: str
   roundtrip: str
+  inverse: str | None = None
 
   def uniquify(self, env: object, ctx: object) -> ViewDecl:
     env = cast(dict[str, Any], env)
@@ -808,9 +809,11 @@ class ViewDecl(Declaration):
     new_into = resolve_name(self.into, "view function")
     new_out = resolve_name(self.out, "view function")
     new_roundtrip = resolve_name(self.roundtrip, "proof")
+    new_inverse = None if self.inverse is None \
+      else resolve_name(self.inverse, "proof")
     return ViewDecl(self.location, new_name, new_type_params,
                     new_source, new_target, new_into, new_out,
-                    new_roundtrip, visibility=self.visibility)
+                    new_roundtrip, new_inverse, visibility=self.visibility)
 
   def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
     if self.visibility == 'private' and (importing_module != get_current_module()):
@@ -839,6 +842,8 @@ class ViewDecl(Declaration):
       + '  into ' + base_name(self.into) + '\n' \
       + '  out ' + base_name(self.out) + '\n' \
       + '  roundtrip ' + base_name(self.roundtrip) + '\n' \
+      + ('' if self.inverse is None
+         else '  inverse ' + base_name(self.inverse) + '\n') \
       + '}\n'
     return indent*' ' + ret
 

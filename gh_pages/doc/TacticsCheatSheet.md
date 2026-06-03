@@ -18,7 +18,7 @@ If a name on this page is unfamiliar, follow the link in the Reference column fo
 | `postulate name: P` | Assume `P` without proof. |
 | `auto name` | Register an equation `name : LHS = RHS` as an automatic rewrite. Subsequent goals are simplified silently using it. |
 | `associative operator* in T` | Register `*` as associative for `T`; `replace` and `evaluate` will renormalize accordingly. |
-| `view V { source S target T into f out g roundtrip thm }` | Declare a checked pattern-matching view. `thm` must prove `f(g(v)) = v` for all viewed values. |
+| `view V { source S target T into f out g roundtrip thm inverse inv }` | Declare a checked pattern-matching view. `thm` must prove `f(g(v)) = v`; optional `inv` names `g(f(x)) = x`. |
 | `recursive f(V, A) -> R { f(C(args), y) = ... }` | If `V` is a view, define a terminating recursive function by matching on `V`'s target constructors. |
 
 ## Proof structure
@@ -107,7 +107,7 @@ Use these when `apply lemma to p` doesn't typecheck because `p` is a wider conju
 
 7. **Numeric literals don't always reduce eagerly.** `0:UInt` parses as `fromNat(lit(zero))`, so `toNat(0:UInt)` is not definitionally `ℕ0` — it requires `evaluate` or `expand` to bridge. A common pattern: stash `have toNat_zero: toNat((0:UInt)) = ℕ0 by evaluate` near the top of the proof.
 
-8. **Views need their law before use.** A `view` declaration checks the supplied `roundtrip` theorem exactly. For a target type `T`, prove `all v:T. into(out(v)) = v` before the `view` declaration; for generic views, quantify type parameters first.
+8. **Views need their law before use.** A `view` declaration checks the supplied `roundtrip` theorem exactly. For a target type `T`, prove `all v:T. into(out(v)) = v` before the `view` declaration; for generic views, quantify type parameters first. If the declaration includes `inverse inv`, `inv` names the reverse law `all x:Source. out(into(x)) = x`.
 
 9. **Inside `equations`, `expand`/`replace` only touch the LHS.** Each step's left-hand side is implicitly marked as the target; the right-hand side is invisible to `expand`/`replace`. The fix is to wrap the part of the RHS you want to transform in hash marks: `... = # f(x) + y # by expand f.`. The error message "could not find a place to expand definition of `f` in: ..." with the RHS shown is usually this — see [Equations](./Reference.md#equations) for the full rule.
 

@@ -327,12 +327,22 @@ proof
   }
 end
 
+theorem unary_inverse: all n:Unary. unary_out(unary_into(n)) = n
+proof
+  arbitrary n:Unary
+  switch n {
+    case UZero { evaluate }
+    case USucc(p) { evaluate }
+  }
+end
+
 view UnaryPred {
   source Unary
   target UnaryView
   into unary_into
   out unary_out
   roundtrip unary_roundtrip
+  inverse unary_inverse
 }
 
 recursive replicate<T>(UnaryPred, T) -> List<T> {
@@ -342,8 +352,10 @@ recursive replicate<T>(UnaryPred, T) -> List<T> {
 ```
 
 The theorem `unary_roundtrip` is part of the declaration: Deduce checks
-that it proves `unary_into(unary_out(v)) = v`. The reverse equation is
-not required, so a view may hide details of the source representation.
+that it proves `unary_into(unary_out(v)) = v`. The optional `inverse`
+line names and checks the reverse equation, such as
+`unary_out(unary_into(n)) = n`; omit it when a view intentionally hides
+details of the source representation.
 
 ## Generic Functions
 

@@ -1,0 +1,59 @@
+import UInt
+
+union UnaryInverse {
+  UInvZero
+  UInvSucc(UnaryInverse)
+}
+
+union UnaryInverseView {
+  UInvViewZero
+  UInvViewSucc(UnaryInverse)
+}
+
+fun unary_inverse_into(n:UnaryInverse) {
+  switch n {
+    case UInvZero { UInvViewZero }
+    case UInvSucc(p) { UInvViewSucc(p) }
+  }
+}
+
+fun unary_inverse_out(v:UnaryInverseView) {
+  switch v {
+    case UInvViewZero { UInvZero }
+    case UInvViewSucc(p) { UInvSucc(p) }
+  }
+}
+
+theorem unary_inverse_roundtrip:
+  all v:UnaryInverseView. unary_inverse_into(unary_inverse_out(v)) = v
+proof
+  arbitrary v:UnaryInverseView
+  switch v {
+    case UInvViewZero { evaluate }
+    case UInvViewSucc(p) { evaluate }
+  }
+end
+
+theorem unary_inverse_inverse:
+  all n:UnaryInverse. unary_inverse_out(unary_inverse_into(n)) = n
+proof
+  arbitrary n:UnaryInverse
+  switch n {
+    case UInvZero { evaluate }
+    case UInvSucc(p) { evaluate }
+  }
+end
+
+view UnaryInversePred {
+  source UnaryInverse
+  target UnaryInverseView
+  into unary_inverse_into
+  out unary_inverse_out
+  roundtrip unary_inverse_roundtrip
+  inverse unary_inverse_inverse
+}
+
+recursive unary_inverse_length(UnaryInversePred) -> UInt {
+  unary_inverse_length(UInvViewZero) = 0
+  unary_inverse_length(UInvViewSucc(p)) = 1 + unary_inverse_length(p)
+}
