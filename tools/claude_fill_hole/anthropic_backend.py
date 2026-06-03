@@ -92,7 +92,7 @@ class AnthropicBackend(Backend):
     ) -> AgentResult:
         started = time.monotonic()
 
-        def _progress(event: str, **fields: Any) -> None:
+        def _progress(event: str, **fields: object) -> None:
             if on_progress is not None:
                 on_progress(event, **fields)
 
@@ -108,7 +108,9 @@ class AnthropicBackend(Backend):
         if querier is not None:
             tools = [_VALIDATE_TOOL, _QUERY_GOAL_TOOL]
 
-        messages: list[dict[str, Any]] = [{"role": "user", "content": user_message}]
+        messages: list[dict[str, object]] = [
+            {"role": "user", "content": user_message}
+        ]
         history: list[AttemptRecord] = []
 
         _progress("start", maxAttempts=max_attempts)
@@ -176,7 +178,7 @@ class AnthropicBackend(Backend):
                 {"role": "assistant", "content": response.content}
             )
 
-            tool_results: list[dict[str, Any]] = []
+            tool_results: list[dict[str, object]] = []
             success_proof: Optional[str] = None
 
             for block in tool_uses:
@@ -400,7 +402,7 @@ def _extract_proof_text(block: Any) -> Optional[str]:
 
 def _tool_result_block(
     tool_use_id: str, *, ok: bool, error: Optional[str]
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Format a tool_result the API will accept, carrying our outcome."""
     if ok:
         content = "ok"
@@ -414,14 +416,16 @@ def _tool_result_block(
     }
 
 
-def _query_result_block(tool_use_id: str, outcome: QueryOutcome) -> dict[str, Any]:
+def _query_result_block(
+    tool_use_id: str, outcome: QueryOutcome
+) -> dict[str, object]:
     """Format a tool_result carrying a structured query response.
 
     JSON-encode the {goal, givens} (or {error}) payload so the model
     sees it as a parseable structure rather than a free-form string.
     """
     if outcome.ok:
-        payload = {
+        payload: dict[str, object] = {
             "goal": outcome.goal,
             "givens": [
                 {"label": g.label, "formula": g.formula}
