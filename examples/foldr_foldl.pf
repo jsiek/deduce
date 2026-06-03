@@ -1,0 +1,71 @@
+// foldr_foldl.pf
+//
+// A classic theorem from introductory functional programming (Bird &
+// Wadler's "first duality theorem of folds"): when the combining
+// operator `op` is associative and `e` is its (two-sided) identity,
+// the left fold and the right fold compute the same value:
+//
+//     foldl(xs, e, op) = foldr(xs, e, op)
+//
+// The proof goes through the usual generalization needed to make the
+// induction go through: for *any* accumulator `a`,
+//
+//     foldl(xs, a, op) = op(a, foldr(xs, e, op))
+//
+// which is `foldl_shift` below. The main theorem then specializes
+// `a := e` and uses the left-identity law.
+
+import List
+
+theorem foldl_shift: all T:type, op:fn T,T->T, e:T.
+  if (all x:T,y:T,z:T. op(op(x,y),z) = op(x,op(y,z)))
+     and (all x:T. op(e,x) = x)
+     and (all x:T. op(x,e) = x)
+  then all xs:List<T>, a:T. foldl(xs, a, op) = op(a, foldr(xs, e, op))
+proof
+  arbitrary T:type, op:fn T,T->T, e:T
+  assume prems
+  have assoc: all x:T,y:T,z:T. op(op(x,y),z) = op(x,op(y,z))
+    by conjunct 0 of prems
+  have idr: all x:T. op(x,e) = x by conjunct 2 of prems
+  induction List<T>
+  case empty {
+    arbitrary a:T
+    equations
+      foldl(@empty<T>, a, op) = a                      by expand foldl.
+      ... = op(a, e)                                   by symmetric idr[a]
+      ... = #op(a, foldr(@empty<T>, e, op))#           by expand foldr.
+  }
+  case node(x, xs') assume IH: (all a:T.
+      foldl(xs', a, op) = op(a, foldr(xs', e, op))) {
+    arbitrary a:T
+    equations
+      foldl(node(x,xs'), a, op)
+          = foldl(xs', op(a,x), op)                    by expand foldl.
+      ... = op(op(a,x), foldr(xs', e, op))             by IH[op(a,x)]
+      ... = op(a, op(x, foldr(xs', e, op)))            by assoc[a, x, foldr(xs', e, op)]
+      ... = #op(a, foldr(node(x,xs'), e, op))#         by expand foldr.
+  }
+end
+
+theorem foldr_foldl: all T:type, op:fn T,T->T, e:T.
+  if (all x:T,y:T,z:T. op(op(x,y),z) = op(x,op(y,z)))
+     and (all x:T. op(e,x) = x)
+     and (all x:T. op(x,e) = x)
+  then all xs:List<T>. foldl(xs, e, op) = foldr(xs, e, op)
+proof
+  arbitrary T:type, op:fn T,T->T, e:T
+  assume prems
+  have idl: all x:T. op(e,x) = x by conjunct 1 of prems
+  have gen: all xs:List<T>, a:T. foldl(xs, a, op) = op(a, foldr(xs, e, op))
+    by apply foldl_shift<T>[op, e] to prems
+  arbitrary xs:List<T>
+  equations
+    foldl(xs, e, op) = op(e, foldr(xs, e, op))         by gen[xs, e]
+    ... = foldr(xs, e, op)                             by idl[foldr(xs, e, op)]
+end
+
+// A concrete sanity check: addition on UInt is associative with
+// identity 0, so foldl and foldr agree on a sample list.
+define plus : fn UInt,UInt->UInt = λ a, b { a + b }
+assert foldl([1,2,3,4], 0, plus) = foldr([1,2,3,4], 0, plus)
