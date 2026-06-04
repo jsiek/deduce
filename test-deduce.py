@@ -59,7 +59,7 @@ from concurrent.futures import ProcessPoolExecutor
 from dataclasses import fields as dc_fields, is_dataclass
 from pathlib import Path
 from signal import signal, SIGINT
-from typing import Any
+from typing import Callable, Iterable, TypeVar, TypedDict, cast
 from lark import Token
 
 # Work around macOS sandbox profiles (notably Claude Code's seatbelt
@@ -147,6 +147,26 @@ PARSER_ROUND_TRIP_FILES = (
 )
 
 
+class ParsedFlags(TypedDict):
+    cli: bool
+    lib: bool
+    passable: bool
+    errors: bool
+    equiv: bool
+    site: bool
+    parser: bool
+    examples: bool
+    regen_all: bool
+    regen_files: list[str]
+    gen_parse: bool
+    workers: int
+
+
+T = TypeVar("T")
+R = TypeVar("R")
+S = TypeVar("S")
+
+
 # Module-level globals consumed by worker functions. The parent
 # populates these before forking the pool; workers inherit them via
 # copy-on-write. Avoids pickling a 32-entry tuple per task.
@@ -154,7 +174,7 @@ _WORKER_PREWARM: tuple[str, ...] = ()
 _WORKER_PRELUDE: tuple[str, ...] = ()
 
 
-def handle_sigint(signum, frame):
+def handle_sigint(signum: int, frame: object) -> None:
     print('SIGINT caught, exiting...')
     sys.exit(137)
 
@@ -264,7 +284,7 @@ def _check_against_err(f: str) -> tuple[str, bool, str]:
 # ---------------------------------------------------------------------------
 
 
-def _make_fork_pool(workers: int):
+def _make_fork_pool(workers: int) -> ProcessPoolExecutor:
     """Fork-based ``ProcessPoolExecutor``: children inherit the
     parent's populated AST cache via copy-on-write. macOS Python
     defaults to ``spawn``; we override.
@@ -291,7 +311,12 @@ def bootstrap_prelude(lib_modules: tuple[str, ...]) -> None:
     check_file("__warmup__.pf", content="", prelude=lib_modules)
 
 
-def _map_or_serial(workers: int, fn, tasks, chunksize: int = 4):
+def _map_or_serial(
+    workers: int,
+    fn: Callable[[T], R],
+    tasks: Iterable[T],
+    chunksize: int = 4,
+) -> list[R]:
     """Run ``fn(task)`` over ``tasks`` in a pool, or in-line when
     ``workers <= 1`` (handy for debugging and the ``--serial`` flag)."""
     if workers <= 1:
@@ -344,8 +369,12 @@ def run_err_diff_parallel(directory: Path, label: str,
     return failures
 
 
-def _canonical_ast(value, *, parent_class: str | None = None,
-                   field_name: str | None = None):
+def _canonical_ast(
+    value: object,
+    *,
+    parent_class: str | None = None,
+    field_name: str | None = None,
+) -> object:
     """Canonical structural form for comparing parser ASTs.
 
     Source locations are intentionally ignored. Lark ``Token`` values are
@@ -379,7 +408,9 @@ def _canonical_ast(value, *, parent_class: str | None = None,
     return value
 
 
-def _parse_for_equivalence(path: str, *, recursive_descent: bool):
+def _parse_for_equivalence(
+    path: str, *, recursive_descent: bool
+) -> list[object]:
     with open(path, encoding="utf-8") as f:
         return _parse_text_for_equivalence(
             path, f.read(), recursive_descent=recursive_descent
@@ -387,19 +418,23 @@ def _parse_for_equivalence(path: str, *, recursive_descent: bool):
 
 
 def _parse_text_for_equivalence(path: str, source: str, *,
-                                recursive_descent: bool):
+                                recursive_descent: bool) -> list[object]:
     parser_mod = _equiv_rd_parser if recursive_descent else _equiv_lark_parser
     parser_mod.set_deduce_directory(str(REPO_ROOT))
     parser_mod.set_filename(path)
     parser_mod.init_parser()
-    return parser_mod.parse(source)
+    return cast(list[object], parser_mod.parse(source))
 
 
-def _pretty_print_program(ast) -> str:
+def _pretty_print_program(ast: Iterable[object]) -> str:
     chunks = []
     for stmt in ast:
         printer = getattr(stmt, "pretty_print", None)
-        text = printer(0) if printer is not None else str(stmt)
+        text = (
+            cast(Callable[[int], str], printer)(0)
+            if callable(printer)
+            else str(stmt)
+        )
         chunks.append(text if text.endswith("\n") else text + "\n")
     return "".join(chunks)
 
@@ -543,7 +578,8 @@ def run_examples_parallel(workers: int) -> list[tuple[str, str, str]]:
 
 def run_site(workers: int) -> list[tuple[str, str, str]]:
     """Generate ``doc_*.pf`` from ``gh_pages/doc/`` and check them."""
-    from gh_pages.scripts.convert import convert_dir
+    from gh_pages.scripts.convert import convert_dir as convert_dir_raw
+    convert_dir = cast(Callable[[str, bool], None], convert_dir_raw)
     convert_dir("./gh_pages/doc/", False)
     files: list[str] = []
     for name in sorted(os.listdir(PASS_DIR)):
@@ -596,7 +632,7 @@ def regenerate_dir(directory: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def time_section(label: str, fn) -> tuple[float, list]:
+def time_section(label: str, fn: Callable[[], S]) -> tuple[float, S]:
     t0 = time.perf_counter()
     result = fn()
     dt = time.perf_counter() - t0
@@ -604,17 +640,15 @@ def time_section(label: str, fn) -> tuple[float, list]:
     return dt, result
 
 
-def parse_args(argv: list[str]) -> dict:
+def parse_args(argv: list[str]) -> ParsedFlags:
     """Return a dict of flag → value. Tolerates the legacy long-form
     arguments still in scripts / muscle memory."""
-    flags: dict[str, Any] = {
+    flags: ParsedFlags = {
         "cli": False, "lib": False, "passable": False, "errors": False,
         "equiv": False, "site": False, "parser": False, "examples": False,
         "regen_all": False, "regen_files": [], "gen_parse": False,
         "workers": max(1, (os.cpu_count() or 4)),
     }
-    standalone = {"site", "parser", "examples",
-                  "regen_all", "regen_files", "gen_parse"}
     i = 0
     while i < len(argv):
         a = argv[i]
@@ -641,18 +675,36 @@ def parse_args(argv: list[str]) -> dict:
         i += 1
 
     # If no flags at all, default to the per-PR regression sweep.
-    if not any(flags[k] for k in
-               ("cli", "lib", "passable", "errors", "site", "parser",
-                "examples", "equiv", "regen_all", "gen_parse")) and not flags["regen_files"]:
+    if not (
+        flags["cli"] or flags["lib"] or flags["passable"] or flags["errors"]
+        or flags["site"] or flags["parser"] or flags["examples"]
+        or flags["equiv"] or flags["regen_all"] or flags["gen_parse"]
+        or flags["regen_files"]
+    ):
         flags["cli"] = flags["lib"] = flags["passable"] = True
         flags["errors"] = flags["equiv"] = True
 
     # Standalone modes are mutually exclusive with everything else.
-    if any(flags[k] or flags["regen_files"] for k in standalone):
-        category_flags = ("cli", "lib", "passable", "errors", "equiv")
-        active_categories = [k for k in category_flags if flags[k]]
-        active_standalone = [k for k in standalone if flags[k] or
-                             (k == "regen_files" and flags["regen_files"])]
+    category_flags = (
+        ("cli", flags["cli"]),
+        ("lib", flags["lib"]),
+        ("passable", flags["passable"]),
+        ("errors", flags["errors"]),
+        ("equiv", flags["equiv"]),
+    )
+    standalone_flags = (
+        ("site", flags["site"]),
+        ("parser", flags["parser"]),
+        ("examples", flags["examples"]),
+        ("regen_all", flags["regen_all"]),
+        ("regen_files", bool(flags["regen_files"])),
+        ("gen_parse", flags["gen_parse"]),
+    )
+    if any(active for _, active in standalone_flags):
+        active_categories = [name for name, active in category_flags if active]
+        active_standalone = [
+            name for name, active in standalone_flags if active
+        ]
         if active_categories and active_standalone:
             print(
                 f"--{active_standalone[0]} is standalone; cannot combine with "
