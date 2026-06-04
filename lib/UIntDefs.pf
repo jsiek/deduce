@@ -90,6 +90,27 @@ private recursive inc(Binary) -> Binary {
   inc(inc_dub(x)) = dub_inc(x)
 }
 
+opaque recursive fromNat(Nat) -> Binary {
+  fromNat(0) = bzero
+  fromNat(suc(n)) = inc(fromNat(n))
+}
+
+opaque recursive operator+(Binary, Binary) -> Binary {
+  operator+(bzero, y) = y
+  operator+(dub_inc(x), y) =
+    switch y {
+      case bzero { dub_inc(x) }
+      case dub_inc(y') { dub_inc(inc(x + y')) }
+      case inc_dub(y') { inc(dub_inc(x + y')) }
+    }
+  operator+(inc_dub(x), y) =
+    switch y {
+      case bzero { inc_dub(x) }
+      case dub_inc(y') { inc(dub_inc(x + y')) }
+      case inc_dub(y') { inc(inc_dub(x + y')) }
+    }
+}
+
 private fun pred(x:Binary) {
   switch x {
     case bzero { bzero }
@@ -104,8 +125,8 @@ private fun uint_view(x:Binary) {
 
 private fun uint_unview(v:UIntView) {
   switch v {
-    case UIntZero { bzero }
-    case UIntSucc(p) { inc(p) }
+    case UIntZero { 0 }
+    case UIntSucc(p) { 1 + p }
   }
 }
 
@@ -142,6 +163,25 @@ proof
   }
 end
 
+lemma inc_add_one_raw: all x:Binary. inc(x) = 1 + x
+proof
+  induction Binary
+  case bzero {
+    evaluate
+  }
+  case dub_inc(x) assume IH {
+    have rhs: 1 + dub_inc(x) = inc_dub(inc(x)) by {
+      expand lit | 2*fromNat | inc | 2*operator+
+      expand inc.
+    }
+    replace rhs
+    expand inc.
+  }
+  case inc_dub(x) assume IH {
+    evaluate
+  }
+end
+
 lemma uint_view_unview: all v:UIntView. uint_view(uint_unview(v)) = v
 proof
   arbitrary v:UIntView
@@ -149,6 +189,7 @@ proof
     case UIntZero { evaluate }
     case UIntSucc(p) {
       expand uint_unview
+      replace symmetric inc_add_one_raw[p]
       uint_view_inc[p]
     }
   }
@@ -178,22 +219,6 @@ private recursive cnt_dubs(Binary) -> Binary {
 
 opaque fun log(b : UInt) {
   cnt_dubs(pred(b))
-}
-
-opaque recursive operator+(Binary, Binary) -> Binary {
-  operator+(bzero, y) = y
-  operator+(dub_inc(x), y) =
-    switch y {
-      case bzero { dub_inc(x) }
-      case dub_inc(y') { dub_inc(inc(x + y')) }
-      case inc_dub(y') { inc(dub_inc(x + y')) }
-    }
-  operator+(inc_dub(x), y) = 
-    switch y {
-      case bzero { inc_dub(x) }
-      case dub_inc(y') { inc(dub_inc(x + y')) }
-      case inc_dub(y') { inc(inc_dub(x + y')) }
-    }
 }
 
 opaque recursive operator ∸ (Binary, Binary) -> Binary {
@@ -264,11 +289,6 @@ private recursive expt(Binary, Binary) -> Binary {
 
 opaque fun operator ^(a : UInt, b : UInt)  {
   expt(b, a)
-}
-
-opaque recursive fromNat(Nat) -> UInt {
-  fromNat(0) = bzero
-  fromNat(suc(n)) = inc(fromNat(n))
 }
 
 fun max(x : UInt, y : UInt) {
