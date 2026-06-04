@@ -47,6 +47,10 @@ _STATE_ATTRS = {
 }
 
 
+# Any: the re-export surface is intentionally dynamic. These helpers copy the
+# heterogeneous public objects of the checker_* modules (functions, classes,
+# module-level state) across a shared namespace, so the values and the
+# __getattr__/__setattr__ that expose them are necessarily typed Any.
 def _public_items(module: ModuleType) -> dict[str, Any]:
     return {
         name: value

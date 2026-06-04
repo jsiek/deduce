@@ -70,7 +70,7 @@ class AnthropicBackend(Backend):
     def __init__(
         self,
         *,
-        client: Any,
+        client: Any,  # Any: the anthropic SDK client (optional dependency, untyped here)
         model: str = _DEFAULT_MODEL,
         max_tokens: int = _DEFAULT_MAX_TOKENS,
         effort: str = "high",
@@ -368,6 +368,10 @@ class AnthropicBackend(Backend):
 # ---------------------------------------------------------------------------
 
 
+# Any: SDK-response accessor boundary. `block` is an Anthropic content block,
+# either a Pydantic model from the optional `anthropic` package or a plain dict;
+# its concrete type isn't available here, so the duck-typed reads stay Any and
+# each helper's isinstance guards produce the typed result.
 def _is_tool_use(block: Any) -> bool:
     return _block_type(block) == "tool_use"
 
