@@ -86,6 +86,8 @@ def set_current_module(name: str) -> None:
     global current_module
     current_module = name
 
+UniquifyEnv = dict[str, Any]
+
 ############ AST Base Classes ###########
 
 @dataclass
@@ -114,8 +116,8 @@ class AST:
     # to `self` after construction. New post-hoc attributes are
     # discouraged — declare an `Optional[...]` field on the dataclass
     # instead (see issue #480) — but the loop is kept as a safety net.
-    cls = cast(Any, type(self))
-    non_struct = cls._NON_STRUCTURAL_FIELDS
+    cls = cast(Callable[..., Self], type(self))
+    non_struct = self._NON_STRUCTURAL_FIELDS
     new_args: dict[str, object] = {}
     field_names = set()
     for fld in dc_fields(self):
@@ -136,7 +138,7 @@ class AST:
   def copy(self) -> Self:
     return self._map_children(lambda x: x.copy())
 
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> Self:
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> Self:
     return self._map_children(lambda x: x.uniquify(env, ctx))
 
   def substitute(self, sub: Mapping[str, Term | Type | RecFun | GenRecFun]) -> AST:
@@ -167,7 +169,7 @@ class Type(AST):
   def free_vars(self) -> Set[str]:
     internal_error(self.location, 'free_vars not implemented')
 
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> Type:
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> Type:
     return super().uniquify(env, ctx)
 
   def substitute(self, sub: Mapping[str, Term | Type | RecFun | GenRecFun]) -> Type:
