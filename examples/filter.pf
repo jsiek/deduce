@@ -1,0 +1,89 @@
+// filter.pf
+//
+// A classic introductory-functional-programming function: `filter`,
+// which keeps only the elements of a list that satisfy a predicate.
+//
+//     filter :: (a -> Bool) -> [a] -> [a]
+//     filter p []                 = []
+//     filter p (x:xs) | p x       = x : filter p xs
+//                     | otherwise = filter p xs
+//
+// `filter` is part of the Deduce standard library (lib/List.pf). Here we
+// prove two of its classic correctness properties:
+//
+//   1. filter_append:  filter distributes over append (++),
+//        filter(xs ++ ys, p) = filter(xs, p) ++ filter(ys, p)
+//   2. filter_length:  filtering never lengthens a list,
+//        length(filter(xs, p)) ≤ length(xs)
+//
+// Both proofs go by induction on the list, with a `switch` on the value
+// of the predicate `p(x)` in the `node` case.
+
+// A quick test of the definition.
+assert filter([1, 2, 3, 4], λx{ x % 2 = 0 }) = [2, 4]
+
+theorem filter_append: all T:type, p:fn (T)->bool, xs:List<T>, ys:List<T>.
+  filter(xs ++ ys, p) = filter(xs, p) ++ filter(ys, p)
+proof
+  arbitrary T:type, p:fn (T)->bool
+  induction List<T>
+  case empty {
+    arbitrary ys:List<T>
+    expand operator++ | filter.
+  }
+  case node(x, xs') assume IH: all ys:List<T>.
+      filter(xs' ++ ys, p) = filter(xs', p) ++ filter(ys, p) {
+    arbitrary ys:List<T>
+    switch p(x) {
+      case true assume px_true {
+        equations
+          filter(node(x, xs') ++ ys, p)
+              = filter(node(x, xs' ++ ys), p)            by expand operator++.
+          ... = node(x, filter(xs' ++ ys, p))            by expand filter simplify with px_true.
+          ... = node(x, filter(xs', p) ++ filter(ys, p)) by replace IH[ys].
+          ... = #node(x, filter(xs', p)) ++ filter(ys, p)# by expand operator++.
+          ... = #filter(node(x, xs'), p)# ++ filter(ys, p)
+                                                         by expand filter simplify with px_true.
+      }
+      case false assume px_false {
+        equations
+          filter(node(x, xs') ++ ys, p)
+              = filter(node(x, xs' ++ ys), p)            by expand operator++.
+          ... = filter(xs' ++ ys, p)                     by expand filter simplify with px_false.
+          ... = filter(xs', p) ++ filter(ys, p)          by replace IH[ys].
+          ... = #filter(node(x, xs'), p)# ++ filter(ys, p)
+                                                         by expand filter simplify with px_false.
+      }
+    }
+  }
+end
+
+theorem filter_length: all T:type, p:fn (T)->bool, xs:List<T>.
+  length(filter(xs, p)) ≤ length(xs)
+proof
+  arbitrary T:type, p:fn (T)->bool
+  induction List<T>
+  case empty {
+    evaluate
+  }
+  case node(x, xs') assume IH: length(filter(xs', p)) ≤ length(xs') {
+    switch p(x) {
+      case true assume px_true {
+        have e: length(filter(node(x, xs'), p)) = 1 + length(filter(xs', p))
+          by expand filter simplify with px_true expand length.
+        replace e
+        expand length
+        IH
+      }
+      case false assume px_false {
+        have e: length(filter(node(x, xs'), p)) = length(filter(xs', p))
+          by expand filter simplify with px_false.
+        replace e
+        expand length
+        have h: length(xs') ≤ 1 + length(xs') by uint_less_equal_add_left[1, length(xs')]
+        apply uint_less_equal_trans[length(filter(xs', p)), length(xs'), 1 + length(xs')]
+          to (IH, h)
+      }
+    }
+  }
+end
