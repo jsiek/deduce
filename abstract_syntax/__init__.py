@@ -87,7 +87,7 @@ for _module in _MODULES:
 # Many migrated methods still resolve peer classes and helper functions as
 # module globals, matching their former single-file lookup behavior.  Populate
 # each submodule with the complete public surface after all modules import.
-_SHARED_GLOBALS: dict[str, Any] = {}
+_SHARED_GLOBALS: dict[str, object] = {}
 for _module in _MODULES:
     for _name in _shared_names(_module):
         _SHARED_GLOBALS[_name] = getattr(_module, _name)
@@ -115,6 +115,8 @@ _DYNAMIC_OWNERS = {
 }
 
 def __getattr__(name: str) -> Any:
+    # The compatibility facade exposes names injected after import; mypy needs
+    # module __getattr__ to stay dynamically typed for those re-exported classes.
     if name in _DYNAMIC_OWNERS:
         return getattr(_DYNAMIC_OWNERS[name], name)
     for module in reversed(_MODULES):
