@@ -1,1 +1,1 @@
-./lib/UIntDefs.pf:158.10-158.16: the result type of a predicate must be 'bool', not 'UInt'
+./lib/UIntDefs.pf:199.10-199.16: the result type of a predicate must be 'bool', not 'UInt'
