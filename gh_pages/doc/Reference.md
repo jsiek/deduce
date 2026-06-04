@@ -1275,13 +1275,16 @@ conclusion ::= identifier
 Identifiers are used in Deduce to give names to functions and values and
 to label theorems and facts.
 
-An identifier is a sequence of characters that starts with an upper or
-lower-case letter or an underscore, and is followed by letters,
-digits, or the special characters `!`, `?`, and `'`.  An identifier
-can also be an operator, which starts with the keyword
-`operator` and is then followed by one of the following operators:
-`+`, `-`, `*`, `/`, `%`, `=`, `≠`, `/=`, `<`, `≤`, `<=`, `≥`, `>=`
-`++`, `∩`, `&`, `∈`, `in`, `∪`, `|`, `⨄`, `.+.`, `⊆`, `(=`, `∘`, `.o.`.
+An identifier is a sequence of characters that starts with a Unicode
+letter or an underscore, and is followed by letters, digits, or the
+special characters `!`, `?`, and `'`. Subscript digits (`₀`–`₉`) are
+also allowed in continuation. The character `λ` is excluded because it
+introduces a lambda expression; `ℕ` followed by a digit sequence is a
+Nat literal rather than an identifier. An identifier can also be an
+operator, which starts with the keyword `operator` and is then
+followed by one of the following operators: `+`, `-`, `*`, `/`, `%`,
+`=`, `≠`, `/=`, `<`, `≤`, `<=`, `≥`, `>=` `++`, `∩`, `&`, `∈`, `in`,
+`∪`, `|`, `⨄`, `.+.`, `⊆`, `(=`, `∘`, `.o.`.
 
 
 ## Identifier List

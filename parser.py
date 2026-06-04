@@ -974,7 +974,7 @@ def parse(program_text: str,
           hint = ''
           if t.token.type == 'LESSTHAN':
               preceding = program_text[:t.token.start_pos]
-              m = re.search(r'\bdefine\s+([A-Za-z_]\w*)\s*\Z', preceding)
+              m = re.search(r'\bdefine\s+([^\W\d]\w*)\s*\Z', preceding)
               if m:
                   name = m.group(1)
                   hint = ('\n`define` does not take type parameters.'

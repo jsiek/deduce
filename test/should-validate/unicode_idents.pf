@@ -1,0 +1,32 @@
+import Nat
+
+// Unicode identifiers: Greek letters, accented Latin letters, and ℕ
+// can appear inside an identifier. ℕ followed by a digit is still a
+// Nat literal, but ℕ followed by a non-digit letter is part of the
+// identifier.
+
+theorem reflexivity_αβ : all αβ : bool. αβ = αβ
+proof
+  arbitrary αβ:bool
+  conclude αβ = αβ by .
+end
+
+theorem café_implies_itself : all café : bool. if café then café
+proof
+  arbitrary café:bool
+  assume h
+  conclude café by h
+end
+
+theorem reflexivity_ℕmax : all ℕmax : bool. ℕmax = ℕmax
+proof
+  arbitrary ℕmax:bool
+  conclude ℕmax = ℕmax by .
+end
+
+define ψ : bool = true
+define φ_max : bool = ψ
+assert φ_max
+
+// Nat literal still parses even though ℕ is now an identifier letter.
+assert ℕ0 = ℕ0
