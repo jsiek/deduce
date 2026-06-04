@@ -105,7 +105,7 @@ class OpenAICompatBackend(Backend):
     def __init__(
         self,
         *,
-        client: Any,
+        client: Any,  # Any: the openai SDK client (optional dependency, untyped here)
         model: str,
         max_tokens: int = _DEFAULT_MAX_TOKENS,
     ) -> None:
@@ -444,6 +444,11 @@ def _query_payload(outcome: QueryOutcome) -> dict[str, object]:
     return {"error": outcome.error or "unknown"}
 
 
+# Any: SDK-response accessor boundary. The helpers below read fields off
+# OpenAI response objects (Pydantic models, or plain dicts from OpenAI-compatible
+# servers); their concrete types live in the optional `openai` package and vary
+# by server, so the duck-typed reads stay Any and the typed results are produced
+# by the isinstance guards inside each helper.
 def _first_choice(response: Any) -> Any:
     choices = _attr(response, "choices", default=[]) or []
     if not choices:
@@ -504,6 +509,7 @@ def _extract_proof_text(args_raw: str) -> Optional[str]:
     return proof
 
 
+# Any: tool_call objects are SDK Pydantic models or plain dicts (see above).
 def _serialize_tool_calls(tool_calls: list[Any]) -> list[dict[str, object]]:
     """Re-serialise a list of tool_call objects (Pydantic models or dicts)
     into a plain list of dicts safe to round-trip through the request.
@@ -585,6 +591,7 @@ def _strip_trailing_turn_with_synthetic_note(
 
 
 def _attr(obj: Any, name: str, default: Any = None) -> Any:
+    # Any: the generic SDK-shape reader underlying the accessors above.
     """Read ``name`` off ``obj`` whether it's a dict or attribute object."""
     if obj is None:
         return default
