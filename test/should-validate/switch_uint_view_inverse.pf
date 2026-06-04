@@ -1,0 +1,12 @@
+import UInt
+
+// Proof-level switch can use the target constructors of a bijective view.
+theorem switch_uint_view_inverse:
+  all n:UInt. n = n
+proof
+  arbitrary n:UInt
+  switch n {
+    case UIntZero { evaluate }
+    case UIntSucc(m) { evaluate }
+  }
+end
