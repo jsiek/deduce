@@ -14,7 +14,7 @@ File charter:
 """
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Callable, Sequence, TypeAlias, cast
 
 from lark.tree import Meta
 
@@ -77,6 +77,15 @@ from checker_types import check_type
 from edit_distance import edit_distance
 from error import user_error, warning
 
+_NameTypePair: TypeAlias = tuple[str, Type]
+_ResolvedVarBuilder: TypeAlias = Callable[[Meta], ResolvedVar]
+_FormulaBuilder: TypeAlias = Callable[[Sequence[Term]], Formula]
+_FormulaWrapper: TypeAlias = Callable[[Formula, Sequence[_NameTypePair]], Formula]
+_ProofWrapper: TypeAlias = Callable[[Proof, Sequence[_NameTypePair]], Proof]
+
+def _as_formula(term: Term) -> Formula:
+  return cast(Formula, term)
+
 # Predicate / relation validation (phase 2: shape, arity, strict positivity)
 # ============================================================
 #
@@ -97,8 +106,10 @@ from error import user_error, warning
 # Error messages name the rule (`In rule 'NAME' of predicate 'FOO': ...`) so
 # the user can locate which rule misfired without re-reading the whole block.
 
-def _validate_predicate_signature(sig: Any, name: str, keyword: str, env: Env) -> tuple[int, list[Type], Any]:
-  checked_sig = check_type(sig, env)
+def _validate_predicate_signature(
+    sig: Type, name: str, keyword: str, env: Env
+) -> tuple[int, list[Type], Type]:
+  checked_sig = cast(Type, check_type(sig, env))
   if isinstance(checked_sig, BoolType):
     return 0, [], checked_sig
   if isinstance(checked_sig, FunctionType):
@@ -122,7 +133,7 @@ def _predicate_style_hint(loc: Meta, name: str, keyword: str, arity: int) -> Non
             "style hint: '" + base_name(name) + "' has arity 1; consider "
             "'predicate' instead of 'relation' for unary properties.")
 
-def _decompose_rule_body(formula: Any) -> tuple[Any, Any]:
+def _decompose_rule_body(formula: Term) -> tuple[Term | None, Term]:
   """Strip outer 'all' quantifiers, then split optional 'if prem then conc'.
   Returns (binders, premise_or_None, conclusion). The conclusion is whatever
   is left after stripping 'all's and an optional outermost implication."""
@@ -132,7 +143,9 @@ def _decompose_rule_body(formula: Any) -> tuple[Any, Any]:
     return formula.premise, formula.conclusion
   return None, formula
 
-def _validate_predicate_rule_shape(rule: Any, pred_name: str, keyword: str, arity: int, env: Env) -> None:
+def _validate_predicate_rule_shape(
+    rule: Rule, pred_name: str, keyword: str, arity: int, env: Env
+) -> None:
   _, concl = _decompose_rule_body(rule.formula)
   if not isinstance(concl, Call):
     user_error(concl.location,
@@ -160,13 +173,17 @@ def _validate_predicate_rule_shape(rule: Any, pred_name: str, keyword: str, arit
           + " argument" + plural + ", but rule '" + base_name(rule.name)
           + "' applies it to " + str(len(concl.args)))
 
-def _check_predicate_strict_positivity(rule: Any, pred_name: str, keyword: str, env: Env) -> None:
+def _check_predicate_strict_positivity(
+    rule: Rule, pred_name: str, keyword: str, env: Env
+) -> None:
   premise, _concl = _decompose_rule_body(rule.formula)
   if premise is None:
     return
   _walk_pred_premise(premise, pred_name, keyword, rule, forbidden=False)
 
-def _walk_pred_premise(formula: Any, pred_name: str, keyword: str, rule: Any, forbidden: bool) -> None:
+def _walk_pred_premise(
+    formula: Term, pred_name: str, keyword: str, rule: Rule, forbidden: bool
+) -> None:
   """Walk a premise looking for occurrences of the predicate. The
   `forbidden` flag flips on under 'not' / 'if/then' premises and stays on
   through subsequent nesting (sticky semantics, matching the union check)."""
@@ -242,21 +259,33 @@ def _walk_pred_premise(formula: Any, pred_name: str, keyword: str, rule: Any, fo
 
 @dataclass
 class _PremiseInfo:
-  atom: Any                     # the premise atom, copied
+  atom: Term                    # the premise atom, copied
   is_recursive: bool
   orig_idx: int                 # index in the original conjunction (for PAndElim)
-  sub_deriv_name: Any           # str if recursive (the obtain'd witness), else None
-  deriv_label: Any              # str if recursive (the obtain'd proof label), else None
-  rec_args: Any                 # list[Term] if recursive (atom.args), else None
+  sub_deriv_name: str | None    # str if recursive (the obtain'd witness), else None
+  deriv_label: str | None       # str if recursive (the obtain'd proof label), else None
+  rec_args: list[Term] | None   # list[Term] if recursive (atom.args), else None
+
+  def require_sub_deriv_name(self) -> str:
+    assert self.sub_deriv_name is not None
+    return self.sub_deriv_name
+
+  def require_deriv_label(self) -> str:
+    assert self.deriv_label is not None
+    return self.deriv_label
+
+  def require_rec_args(self) -> list[Term]:
+    assert self.rec_args is not None
+    return self.rec_args
 
 @dataclass
 class _RuleTranslation:
-  rule: Any                     # the original Rule
-  bound_vars: list[Any]         # [(name, type)] outer all-bound
-  premise_top: Any              # the original premise formula (or None)
+  rule: Rule                    # the original Rule
+  bound_vars: list[_NameTypePair]  # outer all-bound variables
+  premise_top: Term | None      # the original premise formula (or None)
   premises: list[_PremiseInfo]  # list of _PremiseInfo, in original order
-  conclusion_args: list[Any]    # the rule conclusion's args, copied
-  conclusion_loc: Any           # location of the conclusion (for proof spans)
+  conclusion_args: list[Term]   # the rule conclusion's args, copied
+  conclusion_loc: Meta          # location of the conclusion (for proof spans)
   validator_arg_names: list[str]  # fresh names for the validator's arity-many extra params
 
   @property
@@ -267,12 +296,12 @@ class _RuleTranslation:
   def non_recursive_premises(self) -> list[_PremiseInfo]:
     return [p for p in self.premises if not p.is_recursive]
 
-def _flatten_and(formula: Any) -> list[Any]:
+def _flatten_and(formula: Term) -> list[Term]:
   if isinstance(formula, And):
     return list(formula.args)
   return [formula]
 
-def _is_recursive_atom(atom: Any, pred_name: str) -> bool:
+def _is_recursive_atom(atom: Term, pred_name: str) -> bool:
   if not isinstance(atom, Call):
     return False
   rator = atom.rator
@@ -281,7 +310,7 @@ def _is_recursive_atom(atom: Any, pred_name: str) -> bool:
   rname = rator.get_name()
   return bool(rname == pred_name)
 
-def _premise_too_complex(prem: Any) -> bool:
+def _premise_too_complex(prem: Term) -> bool:
   # Anything whose top is something we don't peel away in `_flatten_and`
   # signals a premise shape we won't translate yet. Bare atoms, calls,
   # and conjunctions of those are fine.
@@ -291,9 +320,11 @@ def _premise_too_complex(prem: Any) -> bool:
     return any(_premise_too_complex(p) for p in prem.args)
   return False
 
-def _decompose_rule_for_translation(rule: Any, pred_name: str, keyword: str) -> _RuleTranslation:
+def _decompose_rule_for_translation(
+    rule: Rule, pred_name: str, keyword: str
+) -> _RuleTranslation:
   formula = rule.formula
-  bound_vars = []
+  bound_vars: list[_NameTypePair] = []
   while isinstance(formula, All):
     bound_vars.append(formula.var)
     formula = formula.body
@@ -304,7 +335,7 @@ def _decompose_rule_for_translation(rule: Any, pred_name: str, keyword: str) -> 
     premise = None
     conclusion = formula
 
-  premises = []
+  premises: list[_PremiseInfo] = []
   if premise is not None:
     if _premise_too_complex(premise):
       user_error(premise.location,
@@ -340,7 +371,9 @@ def _decompose_rule_for_translation(rule: Any, pred_name: str, keyword: str) -> 
                           conclusion_loc=conclusion.location,
                           validator_arg_names=validator_arg_names)
 
-def _build_predicate_translation(decl: Any, param_types: list[Any]) -> list[Any]:
+def _build_predicate_translation(
+    decl: Predicate, param_types: list[Type]
+) -> list[Declaration]:
   loc = decl.location
   pred_name = decl.name
   typarams = decl.type_params
@@ -361,14 +394,14 @@ def _build_predicate_translation(decl: Any, param_types: list[Any]) -> list[Any]
   # binder type below. For arity 0 type params, just a Var; otherwise a
   # TypeInst over the type-param vars.
   if typarams:
-    deriv_type_inst = TypeInst(
+    deriv_type_inst: Type = TypeInst(
       loc,
       ResolvedVar(loc, None, deriv_union_name),
       [ResolvedVar(loc, None, t) for t in typarams])
   else:
-    deriv_type_inst = ResolvedVar(loc, None, deriv_union_name)
+    deriv_type_inst = cast(Type, ResolvedVar(loc, None, deriv_union_name))
 
-  constructors = []
+  constructors: list[Constructor] = []
   for cname, rt in zip(constr_names, rule_translations):
     fields = [t.copy() for (_, t) in rt.bound_vars] + \
              [deriv_type_inst.copy() for _ in rt.recursive_premises]
@@ -378,10 +411,11 @@ def _build_predicate_translation(decl: Any, param_types: list[Any]) -> list[Any]
 
   # 2. Build the validator.
   is_deriv_name = generate_proof_name('is_' + base_pred + '_deriv')
-  fun_cases = []
+  fun_cases: list[FunCase] = []
   for cname, rt in zip(constr_names, rule_translations):
     pat_param_names = [v for (v, _) in rt.bound_vars] + \
-                      [p.sub_deriv_name for p in rt.recursive_premises]
+                      [p.require_sub_deriv_name()
+                       for p in rt.recursive_premises]
     pattern = PatternCons(
       rt.rule.location,
       ResolvedVar(rt.rule.location, None, cname),
@@ -399,8 +433,9 @@ def _build_predicate_translation(decl: Any, param_types: list[Any]) -> list[Any]
       clauses.append(p.atom.copy())
     # recursive premise validators
     for p in rt.recursive_premises:
-      args = [ResolvedVar(rt.rule.location, None, p.sub_deriv_name)] + \
-             [a.copy() for a in p.rec_args]
+      args = [ResolvedVar(rt.rule.location, None,
+                          p.require_sub_deriv_name())] + \
+             [a.copy() for a in p.require_rec_args()]
       clauses.append(
         Call(rt.rule.location, BoolType(rt.rule.location),
              ResolvedVar(rt.rule.location, None, is_deriv_name),
@@ -460,10 +495,9 @@ def _build_predicate_translation(decl: Any, param_types: list[Any]) -> list[Any]
   some_body = Some(loc, BoolType(loc),
                    [(d_name, deriv_type_inst.copy())], is_deriv_call)
   if arity > 0:
-    define_body = Lambda(loc, None,
-                         [(x, t.copy())
-                          for (x, t) in zip(arg_var_names, param_types)],
-                         some_body)
+    define_body: Term = Lambda(
+      loc, None, [(x, t.copy()) for (x, t) in zip(arg_var_names, param_types)],
+      some_body)
   else:
     define_body = some_body
   if typarams:
@@ -482,9 +516,10 @@ def _build_predicate_translation(decl: Any, param_types: list[Any]) -> list[Any]
   #     conjunction with reflexivity for argument equalities, hypothesis
   #     access for non-recursive premises, and the obtained labels for
   #     recursive premise validators.
-  pred_var = lambda l: ResolvedVar(l, None, pred_name)
-  is_deriv_var = lambda l: ResolvedVar(l, None, is_deriv_name)
-  intro_theorems = []
+  pred_var: _ResolvedVarBuilder = lambda l: ResolvedVar(l, None, pred_name)
+  is_deriv_var: _ResolvedVarBuilder = lambda l: ResolvedVar(l, None,
+                                                            is_deriv_name)
+  intro_theorems: list[Theorem] = []
   for cname, rt in zip(constr_names, rule_translations):
     intro_theorems.append(
       _build_intro_theorem(rt, pred_name, pred_var, is_deriv_var, cname))
@@ -500,16 +535,23 @@ def _build_predicate_translation(decl: Any, param_types: list[Any]) -> list[Any]
   return [deriv_union, validator, define_decl] + intro_theorems + \
          [rule_ind_theorem, rule_inv_theorem]
 
-def _build_intro_theorem(rt: _RuleTranslation, pred_name: str, pred_var: Any, is_deriv_var: Any, constr_name: str) -> Theorem:
+def _build_intro_theorem(
+    rt: _RuleTranslation,
+    pred_name: str,
+    pred_var: _ResolvedVarBuilder,
+    is_deriv_var: _ResolvedVarBuilder,
+    constr_name: str,
+) -> Theorem:
   """Build a `Theorem` for one rule's intro lemma."""
   loc = rt.rule.location
   hyp_label = generate_proof_name('hyp')
   n_premises = len(rt.premises)
 
   # Constructor witness: D_<rule>(<bound vars>, <obtained derivation labels>)
-  constr_args = [ResolvedVar(loc, None, name) for (name, _) in rt.bound_vars] \
-                + [ResolvedVar(loc, None, p.sub_deriv_name)
-                   for p in rt.recursive_premises]
+  constr_args: list[Term] = \
+    [ResolvedVar(loc, None, name) for (name, _) in rt.bound_vars] \
+    + [ResolvedVar(loc, None, p.require_sub_deriv_name())
+       for p in rt.recursive_premises]
   if constr_args:
     constr_witness = Call(loc, None,
                           ResolvedVar(loc, None, constr_name),
@@ -521,7 +563,7 @@ def _build_intro_theorem(rt: _RuleTranslation, pred_name: str, pred_var: Any, is
   # validator: m_i = c_i for each conclusion arg, then non-recursive
   # premises (in original order), then recursive validators (in original
   # order).
-  conjunct_proofs = []
+  conjunct_proofs: list[Proof] = []
   for _ in rt.conclusion_args:
     conjunct_proofs.append(PReflexive(loc))
   for p in rt.non_recursive_premises:
@@ -530,7 +572,7 @@ def _build_intro_theorem(rt: _RuleTranslation, pred_name: str, pred_var: Any, is
     else:
       conjunct_proofs.append(PAndElim(loc, p.orig_idx, PVar(loc, hyp_label)))
   for p in rt.recursive_premises:
-    conjunct_proofs.append(PVar(loc, p.deriv_label))
+    conjunct_proofs.append(PVar(loc, p.require_deriv_label()))
 
   if not conjunct_proofs:
     inner_proof = PTrue(loc)
@@ -550,20 +592,24 @@ def _build_intro_theorem(rt: _RuleTranslation, pred_name: str, pred_var: Any, is
   # binds the derivation. Walk in reverse so the first premise ends up as
   # the outermost obtain.
   for p in reversed(rt.recursive_premises):
-    is_deriv_call = Call(loc, BoolType(loc), is_deriv_var(loc),
-                         [ResolvedVar(loc, None, p.sub_deriv_name)]
-                         + [a.copy() for a in p.rec_args])
+    is_deriv_call = Call(
+      loc, BoolType(loc), is_deriv_var(loc),
+      [ResolvedVar(loc, None, p.require_sub_deriv_name())]
+      + [a.copy() for a in p.require_rec_args()])
     if n_premises == 1:
       atom_proof = PVar(loc, hyp_label)
     else:
       atom_proof = PAndElim(loc, p.orig_idx, PVar(loc, hyp_label))
     some_proof = ApplyDefsFact(loc, [pred_var(loc)], atom_proof)
-    inner_proof = SomeElim(loc, [p.sub_deriv_name], p.deriv_label,
-                           is_deriv_call, some_proof, inner_proof)
+    inner_proof = SomeElim(loc, [p.require_sub_deriv_name()],
+                           p.require_deriv_label(),
+                           _as_formula(is_deriv_call), some_proof,
+                           inner_proof)
 
   # If there's a premise, wrap in ImpIntro
   if rt.premise_top is not None:
-    inner_proof = ImpIntro(loc, hyp_label, rt.premise_top.copy(), inner_proof)
+    inner_proof = ImpIntro(loc, hyp_label,
+                           _as_formula(rt.premise_top.copy()), inner_proof)
 
   # Wrap with AllIntro for each bound var (innermost first)
   n_bound = len(rt.bound_vars)
@@ -582,9 +628,16 @@ def _build_intro_theorem(rt: _RuleTranslation, pred_name: str, pred_var: Any, is
 # the derivation `union`. Once `rule induction` proof-form sugar lands
 # in a follow-up commit, this theorem is the workhorse it desugars to.
 
-def _build_rule_induction_theorem(decl: Any, param_types: list[Any], rule_translations: list[_RuleTranslation],
-                                  constr_names: list[str], pred_var: Any, is_deriv_var: Any,
-                                  deriv_type_inst: Any, is_inversion: bool = False) -> Theorem:
+def _build_rule_induction_theorem(
+    decl: Predicate,
+    param_types: list[Type],
+    rule_translations: list[_RuleTranslation],
+    constr_names: list[str],
+    pred_var: _ResolvedVarBuilder,
+    is_deriv_var: _ResolvedVarBuilder,
+    deriv_type_inst: Type,
+    is_inversion: bool = False,
+) -> Theorem:
   """Build the `<pred>_rule_induction` (or `_rule_inversion`) theorem.
 
   When `is_inversion` is True, generate the strictly weaker inversion
@@ -613,24 +666,28 @@ def _build_rule_induction_theorem(decl: Any, param_types: list[Any], rule_transl
   def motive_var(l: Meta) -> ResolvedVar:
     return ResolvedVar(l, None, motive_name)
 
-  def apply_motive(args: list[Any], l: Meta = loc) -> Any:
+  def apply_motive(args: Sequence[Term], l: Meta = loc) -> Formula:
     if args:
-      return Call(l, BoolType(l), motive_var(l), args)
-    return motive_var(l)
+      return _as_formula(Call(l, BoolType(l), motive_var(l), list(args)))
+    return _as_formula(motive_var(l))
 
-  def apply_pred(args: list[Any], l: Meta = loc) -> Any:
+  def apply_pred(args: Sequence[Term], l: Meta = loc) -> Formula:
     if args:
-      return Call(l, BoolType(l), pred_var(l), args)
-    return pred_var(l)
+      return _as_formula(Call(l, BoolType(l), pred_var(l), list(args)))
+    return _as_formula(pred_var(l))
 
-  def wrap_alls(formula: Any, vars_with_types: list[Any]) -> Any:
+  def wrap_alls(
+      formula: Formula, vars_with_types: Sequence[_NameTypePair]
+  ) -> Formula:
     n = len(vars_with_types)
     out = formula
     for i, (vname, vty) in enumerate(reversed(vars_with_types)):
       out = All(loc, BoolType(loc), (vname, vty.copy()), (i, n), out)
     return out
 
-  def wrap_all_intros(proof: Any, vars_with_types: list[Any]) -> Any:
+  def wrap_all_intros(
+      proof: Proof, vars_with_types: Sequence[_NameTypePair]
+  ) -> Proof:
     n = len(vars_with_types)
     out = proof
     for i, (vname, vty) in enumerate(reversed(vars_with_types)):
@@ -638,17 +695,18 @@ def _build_rule_induction_theorem(decl: Any, param_types: list[Any], rule_transl
     return out
 
   # ---- statement ----------------------------------------------------------
-  rule_conjuncts = []
+  rule_conjuncts: list[Formula] = []
   for rt in rule_translations:
     if rt.premises:
-      augmented = []
+      augmented: list[Term] = []
       for p in rt.premises:
         augmented.append(p.atom.copy())
         if p.is_recursive and not is_inversion:
-          augmented.append(apply_motive([a.copy() for a in p.rec_args]))
+          augmented.append(apply_motive(
+            [a.copy() for a in p.require_rec_args()]))
       aug_premise = augmented[0] if len(augmented) == 1 \
                     else And(loc, BoolType(loc), augmented)
-      conj_inner = IfThen(loc, BoolType(loc), aug_premise,
+      conj_inner = IfThen(loc, BoolType(loc), _as_formula(aug_premise),
                           apply_motive([a.copy()
                                         for a in rt.conclusion_args]))
     else:
@@ -697,7 +755,7 @@ def _build_rule_induction_theorem(decl: Any, param_types: list[Any], rule_transl
                        helper_inner)
 
   # ---- per-case proofs ---------------------------------------------------
-  ind_cases = []
+  ind_cases: list[IndCase] = []
   for rule_idx, (cname, rt) in enumerate(zip(constr_names, rule_translations)):
     ind_cases.append(_build_rule_induction_case(
       cname, rt, rule_idx, len(rule_translations), pred_var, is_deriv_var,
@@ -727,9 +785,10 @@ def _build_rule_induction_theorem(decl: Any, param_types: list[Any], rule_transl
   pred_h_expanded = ApplyDefsFact(loc, [pred_var(loc)],
                                   PVar(loc, pred_h_label))
   obtain_proof = SomeElim(loc, [final_d_name], final_deriv_label,
-                          pred_h_validator, pred_h_expanded, use_helper)
+                          _as_formula(pred_h_validator), pred_h_expanded,
+                          use_helper)
 
-  imp_inner = ImpIntro(loc, pred_h_label, pred_call_outer.copy(),
+  imp_inner = ImpIntro(loc, pred_h_label, _as_formula(pred_call_outer.copy()),
                        obtain_proof)
   imp_inner = wrap_all_intros(imp_inner, outer_arg_types_pairs)
 
@@ -742,11 +801,22 @@ def _build_rule_induction_theorem(decl: Any, param_types: list[Any], rule_transl
 
   return Theorem(loc, thm_name, full_statement, proof_body, False)
 
-def _build_rule_induction_case(constr_name: str, rt: _RuleTranslation, rule_idx: int, n_rules: int,
-                               pred_var: Any, is_deriv_var: Any, apply_motive: Any,
-                               apply_pred: Any, rules_hyp_label: str, arity: int,
-                               param_types: list[Any], wrap_alls: Any, wrap_all_intros: Any,
-                               is_inversion: bool = False) -> IndCase:
+def _build_rule_induction_case(
+    constr_name: str,
+    rt: _RuleTranslation,
+    rule_idx: int,
+    n_rules: int,
+    pred_var: _ResolvedVarBuilder,
+    is_deriv_var: _ResolvedVarBuilder,
+    apply_motive: _FormulaBuilder,
+    apply_pred: _FormulaBuilder,
+    rules_hyp_label: str,
+    arity: int,
+    param_types: list[Type],
+    wrap_alls: _FormulaWrapper,
+    wrap_all_intros: _ProofWrapper,
+    is_inversion: bool = False,
+) -> IndCase:
   """Build one ind_case for the helper's `induction <Deriv>`.
 
   The case proves: all m1,...,mn. if is_<pred>_deriv(C(<bound>, <subs>), ms)
@@ -763,31 +833,33 @@ def _build_rule_induction_case(constr_name: str, rt: _RuleTranslation, rule_idx:
   """
   loc = rt.rule.location
   bound_var_names = [v for (v, _) in rt.bound_vars]
-  sub_deriv_names = [p.sub_deriv_name for p in rt.recursive_premises]
+  sub_deriv_names = [p.require_sub_deriv_name()
+                     for p in rt.recursive_premises]
 
   pat_param_names = list(bound_var_names) + list(sub_deriv_names)
   pattern = PatternCons(loc, ResolvedVar(loc, None, constr_name),
                         pat_param_names)
 
   case_ih_labels = [generate_proof_name('IH') for _ in rt.recursive_premises]
-  ind_hyps = []
+  ind_hyps: list[tuple[str, Formula]] = []
   for ih_label, p in zip(case_ih_labels, rt.recursive_premises):
     ih_m_names = [generate_proof_name('m') for _ in range(arity)]
-    ih_m_vars = [ResolvedVar(loc, None, m) for m in ih_m_names]
+    ih_m_vars: list[Term] = [ResolvedVar(loc, None, m) for m in ih_m_names]
     ih_validator = Call(
       loc, BoolType(loc), is_deriv_var(loc),
-      [ResolvedVar(loc, None, p.sub_deriv_name)] + ih_m_vars)
-    ih_inner = IfThen(loc, BoolType(loc), ih_validator,
+      [ResolvedVar(loc, None, p.require_sub_deriv_name())] + ih_m_vars)
+    ih_inner = IfThen(loc, BoolType(loc), _as_formula(ih_validator),
                       apply_motive(ih_m_vars))
     ih_inner = wrap_alls(ih_inner, list(zip(ih_m_names, param_types)))
     ind_hyps.append((ih_label, ih_inner))
 
   m_names = [generate_proof_name('m') for _ in range(arity)]
-  m_vars = [ResolvedVar(loc, None, m) for m in m_names]
+  m_vars: list[Term] = [ResolvedVar(loc, None, m) for m in m_names]
   m_pairs = list(zip(m_names, param_types))
 
-  constr_args = [ResolvedVar(loc, None, n) for n in bound_var_names] + \
-                [ResolvedVar(loc, None, n) for n in sub_deriv_names]
+  constr_args: list[Term] = \
+    [ResolvedVar(loc, None, n) for n in bound_var_names] \
+    + [ResolvedVar(loc, None, n) for n in sub_deriv_names]
   if constr_args:
     constr_term = Call(loc, None,
                        ResolvedVar(loc, None, constr_name),
@@ -807,7 +879,7 @@ def _build_rule_induction_case(constr_name: str, rt: _RuleTranslation, rule_idx:
   dh_unfolded_label = generate_proof_name('dh_u')
   # If total_conjuncts == 1 the validator body isn't a conjunction; we use
   # the unfolded fact directly and conjunct extraction is a no-op.
-  def conj_proof(idx: int) -> Any:
+  def conj_proof(idx: int) -> Proof:
     if total_conjuncts == 1:
       return PVar(loc, dh_unfolded_label)
     return PAndElim(loc, idx, PVar(loc, dh_unfolded_label))
@@ -820,13 +892,13 @@ def _build_rule_induction_case(constr_name: str, rt: _RuleTranslation, rule_idx:
                           for i in range(num_rec)]
 
   # Non-recursive premise atoms: indices [num_eq ... num_eq + num_nr)
-  nr_proofs_by_orig_idx = {}
+  nr_proofs_by_orig_idx: dict[int, Proof] = {}
   nr_iter = iter(rt.non_recursive_premises)
   for offset in range(num_nr):
     p = next(nr_iter)
     nr_proofs_by_orig_idx[p.orig_idx] = conj_proof(num_eq + offset)
 
-  rec_validator_by_orig_idx = {}
+  rec_validator_by_orig_idx: dict[int, tuple[Proof, _PremiseInfo]] = {}
   rec_iter_idx = 0
   for p in rt.premises:
     if p.is_recursive:
@@ -862,7 +934,7 @@ def _build_rule_induction_case(constr_name: str, rt: _RuleTranslation, rule_idx:
   #       - M(rec_args) via the IH:
   #           apply IH[rec_args]... to <validator hit>.
   if rt.premises:
-    augmented_proof_parts = []
+    augmented_proof_parts: list[Proof] = []
     for p in rt.premises:
       if p.is_recursive:
         validator_proof, p_info = rec_validator_by_orig_idx[p.orig_idx]
@@ -870,7 +942,8 @@ def _build_rule_induction_case(constr_name: str, rt: _RuleTranslation, rule_idx:
         atom_proof = ApplyDefsGoal(
           loc, [pred_var(loc)],
           SomeIntro(loc,
-                    [ResolvedVar(loc, None, p_info.sub_deriv_name)],
+                    [ResolvedVar(loc, None,
+                                 p_info.require_sub_deriv_name())],
                     validator_proof))
         augmented_proof_parts.append(atom_proof)
         if not is_inversion:
@@ -878,7 +951,7 @@ def _build_rule_induction_case(constr_name: str, rt: _RuleTranslation, rule_idx:
           ih_idx = list(rt.recursive_premises).index(p_info)
           ih_label = case_ih_labels[ih_idx]
           ih_applied = PVar(loc, ih_label)
-          for k, ra in enumerate(p_info.rec_args):
+          for k, ra in enumerate(p_info.require_rec_args()):
             ih_applied = AllElim(loc, ih_applied, ra.copy(), (k, arity))
           m_proof = ModusPonens(loc, ih_applied, validator_proof)
           augmented_proof_parts.append(m_proof)
@@ -903,37 +976,38 @@ def _build_rule_induction_case(constr_name: str, rt: _RuleTranslation, rule_idx:
     body = final_apply
 
   # Have dh_unfolded := expand validator in dh, with the right shape.
-  if total_conjuncts == 1:
-    dh_unfolded_formula = _build_validator_body_formula(
-      rt, m_vars, is_deriv_var, pred_var, loc)
-  else:
-    dh_unfolded_formula = _build_validator_body_formula(
-      rt, m_vars, is_deriv_var, pred_var, loc)
+  dh_unfolded_formula = _build_validator_body_formula(
+    rt, m_vars, is_deriv_var, loc)
 
   body = PLet(loc, dh_unfolded_label, dh_unfolded_formula,
               ApplyDefsFact(loc, [is_deriv_var(loc)], PVar(loc, dh_label)),
               body)
-  body = ImpIntro(loc, dh_label, dh_formula, body)
+  body = ImpIntro(loc, dh_label, _as_formula(dh_formula), body)
   body = wrap_all_intros(body, m_pairs)
 
   return IndCase(loc, pattern, ind_hyps, body)
 
-def _build_validator_body_formula(rt: _RuleTranslation, m_vars: list[Any], is_deriv_var: Any, pred_var: Any, loc: Meta) -> Any:
+def _build_validator_body_formula(
+    rt: _RuleTranslation,
+    m_vars: Sequence[Term],
+    is_deriv_var: _ResolvedVarBuilder,
+    loc: Meta,
+) -> Formula:
   """The conjunction the validator-body unfolds to for this rule."""
-  clauses = []
+  clauses: list[Term] = []
   for (m_var, c) in zip(m_vars, rt.conclusion_args):
     clauses.append(Call(loc, BoolType(loc),
                         ResolvedVar(loc, None, '='),
-                        [m_var, c.copy()]))
+                        [m_var.copy(), c.copy()]))
   for p in rt.non_recursive_premises:
     clauses.append(p.atom.copy())
   for p in rt.recursive_premises:
     clauses.append(Call(
       loc, BoolType(loc), is_deriv_var(loc),
-      [ResolvedVar(loc, None, p.sub_deriv_name)] +
-      [a.copy() for a in p.rec_args]))
+      [ResolvedVar(loc, None, p.require_sub_deriv_name())] +
+      [a.copy() for a in p.require_rec_args()]))
   if not clauses:
     return Bool(loc, BoolType(loc), True)
   if len(clauses) == 1:
-    return clauses[0]
+    return _as_formula(clauses[0])
   return And(loc, BoolType(loc), clauses)
