@@ -19,9 +19,9 @@ from abstract_syntax import (
     mkUIntLit, remove_mark,
 )
 import re
-from lark import Lark, Token, exceptions
+from lark import Lark, Token, Tree, exceptions
 from lark.tree import Meta
-from typing import Any, cast
+from typing import Any, TypeAlias as TypingTypeAlias, cast
 from flags import VerboseLevel
 from error import ParseError
 
@@ -63,18 +63,37 @@ def init_parser() -> None:
 # Parsing Concrete to Abstract Syntax
 ##################################################
 
-def parse_tree_to_str_list(e: Any) -> list[str]:
+ParseNode: TypingTypeAlias = Tree[Token] | Token
+ParseParent: TypingTypeAlias = Tree[Token] | None
+
+def _expect_tree(node: ParseNode) -> Tree[Token]:
+    if isinstance(node, Token):
+        raise Exception('expected parse tree, got token ' + repr(node))
+    return node
+
+def _token_child(tree: Tree[Token], index: int) -> Token:
+    child = tree.children[index]
+    if not isinstance(child, Token):
+        raise Exception('expected token child, got parse tree ' + repr(child))
+    return child
+
+def _token_text(tree: Tree[Token], index: int) -> str:
+    return str(_token_child(tree, index).value)
+
+def parse_tree_to_str_list(e: ParseNode) -> list[str]:
+    e = _expect_tree(e)
     if e.data == 'empty':
         return []
     elif e.data == 'single':
-        return [str(e.children[0].value)]
+        return [_token_text(e, 0)]
     elif e.data == 'push':
-        return [str(e.children[0].value)] \
+        return [_token_text(e, 0)] \
             + parse_tree_to_str_list(e.children[1])
     else:
         raise Exception('parse_tree_to_str_list, unexpected ' + str(e))
 
-def parse_tree_to_list(e: Any, parent: Any) -> list[Any]:
+def parse_tree_to_list(e: ParseNode, parent: ParseParent) -> list[Any]:
+    e = _expect_tree(e)
     # Returns a list to match the recursive-descent parser's convention.
     # The inner 2-tuples like (identifier, typ) are paired data, not collections,
     # and stay as tuples.
@@ -83,14 +102,14 @@ def parse_tree_to_list(e: Any, parent: Any) -> list[Any]:
     elif e.data == 'single':
         return [parse_tree_to_ast(e.children[0], parent)]
     elif e.data == 'repeat':
-        num = int(e.children[0])
+        num = int(_token_text(e, 0))
         item = parse_tree_to_ast(e.children[1], parent)
         return num * [item]
     elif e.data == 'push':
         return [parse_tree_to_ast(e.children[0], parent)] \
             + parse_tree_to_list(e.children[1], parent)
     elif e.data == 'push_repeat':
-        num = int(e.children[0])
+        num = int(_token_text(e, 0))
         item = parse_tree_to_ast(e.children[1], parent)
         rest = parse_tree_to_list(e.children[2], parent)
         return num * [item] + rest
@@ -119,12 +138,14 @@ def parse_tree_to_list(e: Any, parent: Any) -> list[Any]:
     else:
         raise Exception('parse_tree_to_str_list, unexpected ' + str(e))
 
-def parse_tree_to_case(e: Any) -> tuple[str, Any]:
-    tag = str(e.children[0].value)
+def parse_tree_to_case(e: ParseNode) -> tuple[str, Any]:
+    e = _expect_tree(e)
+    tag = _token_text(e, 0)
     body = parse_tree_to_ast(e.children[1], e)
     return (tag, body)
 
-def parse_tree_to_case_list(e: Any) -> list[tuple[str, Any]]:
+def parse_tree_to_case_list(e: ParseNode) -> list[tuple[str, Any]]:
+    e = _expect_tree(e)
     if e.data == 'single':
         return [parse_tree_to_case(e.children[0])]
     elif e.data == 'push':
@@ -133,7 +154,8 @@ def parse_tree_to_case_list(e: Any) -> list[tuple[str, Any]]:
     else:
         raise Exception('unrecognized as a type list ' + repr(e))
 
-def parse_tree_to_optional_identifier(e: Any) -> str | None:
+def parse_tree_to_optional_identifier(e: ParseNode) -> str | None:
+    e = _expect_tree(e)
     if e.data == 'no_view_inverse':
         return None
     if e.data == 'view_inverse':
@@ -197,11 +219,11 @@ def build_equations_proof(loc: Meta, eqs: list[Any]) -> Any:
             result = PTransitive(loc, eq_proof, result)
     return result
         
-def parse_tree_to_ast(e: Any, parent: Any) -> Any:
+def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
     if isinstance(e, Token):
         return e
     
-    e.meta.filename = filename
+    setattr(e.meta, 'filename', filename)
 
     if e.data == 'nothing':
         return None
@@ -249,7 +271,7 @@ def parse_tree_to_ast(e: Any, parent: Any) -> Any:
     
     # types
     elif e.data == 'type_name':
-      return Var(e.meta, None, str(e.children[0].value))
+      return Var(e.meta, None, _token_text(e, 0))
     elif e.data == 'int_type':
       return IntType(e.meta)
     elif e.data == 'bool_type':
@@ -265,11 +287,11 @@ def parse_tree_to_ast(e: Any, parent: Any) -> Any:
                           parse_tree_to_list(e.children[1], e),
                           parse_tree_to_ast(e.children[2], e))
     elif e.data == 'type_inst':
-      return TypeInst(e.meta, Var(e.meta, None, str(e.children[0].value)),
+      return TypeInst(e.meta, Var(e.meta, None, _token_text(e, 0)),
                       parse_tree_to_list(e.children[1], e))
     # terms
     elif e.data == 'define_term':
-        return TLet(e.meta, None, str(e.children[0].value),
+        return TLet(e.meta, None, _token_text(e, 0),
                     parse_tree_to_ast(e.children[1], e),
                     parse_tree_to_ast(e.children[2], e))
     elif e.data == 'annote_type':
@@ -299,13 +321,13 @@ def parse_tree_to_ast(e: Any, parent: Any) -> Any:
                            parse_tree_to_ast(e.children[1], e),
                            parse_tree_to_ast(e.children[2], e))
     elif e.data == 'int':
-        num = int(e.children[0])
+        num = int(_token_text(e, 0))
         return mkUIntLit(e.meta, num)
     elif e.data == 'nat':
         return Call(e.meta, None, Var(e.meta, None, 'lit'),
-                    [intToNat(e.meta, int(e.children[0][1:]))])
+                    [intToNat(e.meta, int(_token_text(e, 0)[1:]))])
     elif e.data == 'pos_int':
-        return mkIntLit(e.meta, int(e.children[0].value), 'PLUS')
+        return mkIntLit(e.meta, int(_token_text(e, 0)), 'PLUS')
     elif e.data == 'neg_int':
         arg = parse_tree_to_ast(e.children[0], e)
         return Call(e.meta, None, Var(e.meta, None, '-'), [arg])
@@ -314,7 +336,7 @@ def parse_tree_to_ast(e: Any, parent: Any) -> Any:
     elif e.data == 'omitted_term':
         return Omitted(e.meta, None)
     elif e.data == 'identifier':
-        return str(e.children[0].value)
+        return _token_text(e, 0)
     elif e.data == 'identifier_div':
         return '/'
     elif e.data == 'identifier_append':
@@ -387,7 +409,7 @@ def parse_tree_to_ast(e: Any, parent: Any) -> Any:
                       parse_tree_to_list(e2, e))
     # proofs
     if e.data == 'proof_var':
-        return PVar(e.meta, str(e.children[0].value))
+        return PVar(e.meta, _token_text(e, 0))
     elif e.data == 'single_proof':
         return parse_tree_to_ast(e.children[0], e)
     elif e.data == 'push_proof':
@@ -395,7 +417,7 @@ def parse_tree_to_ast(e: Any, parent: Any) -> Any:
         if len(e.children) == 1:
             meta: Any = Meta()  # type: ignore[no-untyped-call,unused-ignore]
             meta.empty = False
-            meta.filename = e.meta.filename
+            meta.filename = getattr(e.meta, 'filename', filename)
             meta.line = e.meta.end_line+1
             meta.column = 0
             meta.end_line = e.meta.end_line+1
@@ -445,7 +467,7 @@ def parse_tree_to_ast(e: Any, parent: Any) -> Any:
         return parse_tree_to_ast(e.children[0], e)
     elif e.data == 'let':
         return PLet(e.meta,
-                    str(e.children[0].value),
+                    _token_text(e, 0),
                     parse_tree_to_ast(e.children[1], e),
                     parse_tree_to_ast(e.children[2], e),
                     None)
@@ -457,7 +479,7 @@ def parse_tree_to_ast(e: Any, parent: Any) -> Any:
                     None)
     elif e.data == 'define_term_proof':
         return PTLetNew(e.meta,
-                        str(e.children[0].value),
+                        _token_text(e, 0),
                         parse_tree_to_ast(e.children[1], e),
                         None)
     elif e.data == 'annot':
@@ -483,12 +505,12 @@ def parse_tree_to_ast(e: Any, parent: Any) -> Any:
        return PTuple(e.meta, extract_tuple(left) + extract_tuple(right))
     elif e.data == 'conjunct':
        subject = parse_tree_to_ast(e.children[1], e)
-       return PAndElim(e.meta, int(e.children[0].value), subject)
+       return PAndElim(e.meta, int(_token_text(e, 0)), subject)
     elif e.data == 'imp_intro':
-        label = str(e.children[0].value)
+        label = _token_text(e, 0)
         return ImpIntro(e.meta, label, None, None)
     elif e.data == 'imp_intro_explicit':
-        label = str(e.children[0].value)
+        label = _token_text(e, 0)
         premise = parse_tree_to_ast(e.children[1], e)
         return ImpIntro(e.meta, label, premise, None)
     elif e.data == 'imp_intro_anon':
@@ -529,11 +551,11 @@ def parse_tree_to_ast(e: Any, parent: Any) -> Any:
         some = parse_tree_to_ast(e.children[3], e)
         return SomeElim(e.meta, witnesses, label, prop, some, None)
     elif e.data == 'case':
-        tag = str(e.children[0].value)
+        tag = _token_text(e, 0)
         body = parse_tree_to_ast(e.children[1], e)
         return (tag, None, body)
     elif e.data == 'case_annot':
-        tag = str(e.children[0].value)
+        tag = _token_text(e, 0)
         frm = parse_tree_to_ast(e.children[1], e)
         body = parse_tree_to_ast(e.children[2], e)
         return (tag, frm, body)
@@ -550,15 +572,15 @@ def parse_tree_to_ast(e: Any, parent: Any) -> Any:
         cases = parse_tree_to_list(e.children[1], e)
         return Induction(e.meta, typ, cases)
     elif e.data == 'rule_induction':
-        hyp = str(e.children[0].value)
+        hyp = _token_text(e, 0)
         cases = parse_tree_to_list(e.children[1], e)
         return RuleInduction(e.meta, hyp, cases)
     elif e.data == 'rule_inversion':
-        hyp = str(e.children[0].value)
+        hyp = _token_text(e, 0)
         cases = parse_tree_to_list(e.children[1], e)
         return RuleInversion(e.meta, hyp, cases)
     elif e.data == 'rule_induction_case':
-        rule_name = str(e.children[0].value)
+        rule_name = _token_text(e, 0)
         body = parse_tree_to_ast(e.children[1], e)
         return RuleInductionCase(e.meta, rule_name, body)
     elif e.data == 'switch_proof_case':
@@ -658,15 +680,15 @@ def parse_tree_to_ast(e: Any, parent: Any) -> Any:
         
     # constructor declaration
     elif e.data == 'constructor_id':
-        return Constructor(e.meta, str(e.children[0].value), [])
+        return Constructor(e.meta, _token_text(e, 0), [])
     elif e.data == 'constructor_apply':
         param_types = parse_tree_to_list(e.children[1], e)
-        return Constructor(e.meta, str(e.children[0].value), param_types)
+        return Constructor(e.meta, _token_text(e, 0), param_types)
     
     # union definitions
     elif e.data == 'union':
         visibility = parse_tree_to_ast(e.children[0], e)
-        statement = Union(e.meta, str(e.children[1].value),
+        statement = Union(e.meta, _token_text(e, 1),
                           parse_tree_to_list(e.children[2], e),
                           parse_tree_to_list(e.children[3], e))
         set_visibility(statement, visibility)
@@ -674,7 +696,7 @@ def parse_tree_to_ast(e: Any, parent: Any) -> Any:
 
     elif e.data == 'type_alias':
         visibility = parse_tree_to_ast(e.children[0], e)
-        statement = TypeAlias(e.meta, str(e.children[1].value),
+        statement = TypeAlias(e.meta, _token_text(e, 1),
                               parse_tree_to_list(e.children[2], e),
                               parse_tree_to_ast(e.children[3], e))
         set_visibility(statement, visibility)
@@ -692,14 +714,14 @@ def parse_tree_to_ast(e: Any, parent: Any) -> Any:
         set_visibility(statement, visibility)
         return statement
     elif e.data == 'predicate_rule':
-        return Rule(e.meta, str(e.children[0].value),
+        return Rule(e.meta, _token_text(e, 0),
                     parse_tree_to_ast(e.children[1], e))
     
     # theorem definitions
     elif e.data == 'theorem':
         visibility = parse_tree_to_ast(e.children[0], e)
         statement = Theorem(e.meta,
-                            str(e.children[1].value),
+                            _token_text(e, 1),
                             parse_tree_to_ast(e.children[2], e),
                             parse_tree_to_ast(e.children[3], e),
                             False)
@@ -708,7 +730,7 @@ def parse_tree_to_ast(e: Any, parent: Any) -> Any:
     elif e.data == 'lemma':
         visibility = parse_tree_to_ast(e.children[0], e)
         statement = Theorem(e.meta,
-                            str(e.children[1].value),
+                            _token_text(e, 1),
                             parse_tree_to_ast(e.children[2], e),
                             parse_tree_to_ast(e.children[3], e),
                             True)
@@ -717,7 +739,7 @@ def parse_tree_to_ast(e: Any, parent: Any) -> Any:
     elif e.data == 'postulate':
         visibility = parse_tree_to_ast(e.children[0], e)
         statement = Postulate(e.meta,
-                              str(e.children[1].value),
+                              _token_text(e, 1),
                               parse_tree_to_ast(e.children[2], e))
         set_visibility(statement, visibility)
         return statement
@@ -756,7 +778,7 @@ def parse_tree_to_ast(e: Any, parent: Any) -> Any:
     elif e.data == 'pattern_apply':
         params = parse_tree_to_list(e.children[1], e)
         return PatternCons(e.meta,
-                           Var(e.meta, None, str(e.children[0].value)),
+                           Var(e.meta, None, _token_text(e, 0)),
                            params)
     elif e.data == 'pattern_term':
         params = parse_tree_to_list(e.children[0], e)
@@ -845,7 +867,7 @@ def parse_tree_to_ast(e: Any, parent: Any) -> Any:
     # import module/file
     elif e.data == 'import':
         visibility = parse_tree_to_ast(e.children[0], e)
-        statement = Import(e.meta, str(e.children[1].value))
+        statement = Import(e.meta, _token_text(e, 1))
         vis = 'public' if visibility == 'public' else 'private'
         set_visibility(statement, vis)
         return statement
@@ -854,9 +876,9 @@ def parse_tree_to_ast(e: Any, parent: Any) -> Any:
         visibility = parse_tree_to_ast(e.children[0], e)
         names = parse_tree_to_ast(e.children[2], e)
         if e.data == 'import_using':
-            statement = Import(e.meta, str(e.children[1].value), using=names)
+            statement = Import(e.meta, _token_text(e, 1), using=names)
         else:
-            statement = Import(e.meta, str(e.children[1].value), hiding=names)
+            statement = Import(e.meta, _token_text(e, 1), hiding=names)
         vis = 'public' if visibility == 'public' else 'private'
         set_visibility(statement, vis)
         return statement
@@ -865,7 +887,7 @@ def parse_tree_to_ast(e: Any, parent: Any) -> Any:
         return [parse_tree_to_ast(c, e) for c in e.children]
 
     elif e.data == 'export':
-        return Export(e.meta, str(e.children[0].value))
+        return Export(e.meta, _token_text(e, 0))
         
     # assert formula
     elif e.data == 'assert':
@@ -902,7 +924,7 @@ def parse_tree_to_ast(e: Any, parent: Any) -> Any:
 def token_str(token: Token, program_text: str) -> str:
     return program_text[token.start_pos:token.end_pos]
 
-def parse_program_tree(parse_tree: Any) -> list[Statement]:
+def parse_program_tree(parse_tree: Tree[Token]) -> list[Statement]:
     return cast(list[Statement], parse_tree_to_ast(parse_tree, None))
 
 def parse(program_text: str,
