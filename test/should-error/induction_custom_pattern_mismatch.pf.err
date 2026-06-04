@@ -1,9 +1,8 @@
-./test/should-error/induction_custom_pattern_mismatch.pf:9.8-9.24: custom induction pattern did not match
-Expected a case shaped like:
-	case with m. 1 + m assume IH0  {
-		?
+./test/should-error/induction_custom_pattern_mismatch.pf:9.3-11.4: expected a constructor pattern for induction on `UInt` via view `UInt`
+Expected cases:
+	case zero {
+	  ?
 	}
-The pattern
-	x
-did not match
-	1 + m
+	case suc(B1) {
+	  ?
+	}

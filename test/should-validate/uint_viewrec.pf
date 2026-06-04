@@ -8,8 +8,8 @@ fun keep(n:UInt) {
 assert keep(2) = 2
 
 recursive replicate<T>(UInt, T) -> List<T> {
-  replicate(UIntZero, x) = []
-  replicate(UIntSucc(p), x) = node(x, replicate(p, x))
+  replicate(zero, x) = []
+  replicate(suc(p), x) = node(x, replicate(p, x))
 }
 
 print replicate(3, 42)

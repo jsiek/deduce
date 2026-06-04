@@ -201,12 +201,12 @@ def type_check_call_funty(
     param_types = [param_types[0]] * len(args)
 
   if len(typarams) == 0:
-    new_args: list[Term] = []
-    for (param_type, arg) in zip(param_types, args):
-      new_args.append(type_check_term(arg, param_type, env, recfun, subterms))
     if ret_ty != None and ret_ty != return_type:
       user_error(loc, 'expected ' + str(ret_ty) \
             + ' but the call returns ' + str(return_type))
+    new_args: list[Term] = []
+    for (param_type, arg) in zip(param_types, args):
+      new_args.append(type_check_term(arg, param_type, env, recfun, subterms))
     return Call(loc, return_type, new_rator, new_args)
   else:
     #print('type check call to generic: ' + str(call))
@@ -849,6 +849,12 @@ def type_synth_term(
       new_cond = type_check_term(cond, BoolType(loc), env, recfun, subterms)
       new_thn = type_synth_term(thn, env, recfun, subterms)
       new_els = type_synth_term(els, env, recfun, subterms)
+      if isinstance(new_thn.typeof, OverloadType) \
+          and not isinstance(new_els.typeof, OverloadType):
+        new_thn = type_check_term(thn, new_els.typeof, env, recfun, subterms)
+      elif isinstance(new_els.typeof, OverloadType) \
+          and not isinstance(new_thn.typeof, OverloadType):
+        new_els = type_check_term(els, new_thn.typeof, env, recfun, subterms)
       if new_thn.typeof != new_els.typeof:
         user_error(loc, 'conditional expects same type for the two branches'\
               + ' but ' + str(new_thn.typeof) + ' ≠ ' + str(new_els.typeof))

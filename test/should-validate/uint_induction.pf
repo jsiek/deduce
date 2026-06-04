@@ -4,10 +4,10 @@ theorem my_zero_add : all x : UInt.
   x + 1 = 1 + x
 proof
   induction UInt
-  case 0 {
+  case zero {
     .
   }
-  case with x. 1 + x assume IH{
+  case suc(x) assume IH {
       replace IH.
   }
 end
