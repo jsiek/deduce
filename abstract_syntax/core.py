@@ -86,6 +86,8 @@ def set_current_module(name: str) -> None:
     global current_module
     current_module = name
 
+# The name-resolution environment is intentionally heterogeneous while
+# uniquify spans parsed names, overload lists, and module sentinels.
 UniquifyEnv = dict[str, Any]
 
 ############ AST Base Classes ###########
@@ -223,6 +225,9 @@ class Statement(AST):
 
   def pretty_print(self, indent: int) -> str:
       return str(self)
+
+  def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
+    internal_error(self.location, 'collect_exports not implemented')
 
 class InductiveInfo(TypedDict):
   tys: list[str]
