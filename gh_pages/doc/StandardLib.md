@@ -7,7 +7,10 @@ Only the top-level module files (such as `UInt.pf`) are listed below. Each modul
 - ([`Base.thm`](../lib/Base.thm), [`Base.pf`](../lib/Base.pf)): Base proofs about propositional and predicate logic
 - ([`BigO.thm`](../lib/BigO.thm), [`BigO.pf`](../lib/BigO.pf)): Big-O asymptotic analysis on `fn UInt -> UInt`
 - ([`Int.thm`](../lib/Int.thm), [`Int.pf`](../lib/Int.pf)): Integers
-- ([`List.thm`](../lib/List.thm), [`List.pf`](../lib/List.pf)): Lists
+- ([`List.thm`](../lib/List.thm), [`List.pf`](../lib/List.pf)): Lists.
+  Higher-order list functions use collection-first order:
+  `map(xs, f)`, `filter(xs, P)`, `foldr(xs, u, c)`, and
+  `foldl(xs, u, c)`.
 - ([`Maps.thm`](../lib/Maps.thm), [`Maps.pf`](../lib/Maps.pf)): Functional maps
 - ([`MultiSet.thm`](../lib/MultiSet.thm), [`MultiSet.pf`](../lib/MultiSet.pf)): Multisets
 - ([`Nat.thm`](../lib/Nat.thm), [`Nat.pf`](../lib/Nat.pf)): Natural numbers
