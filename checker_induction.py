@@ -162,8 +162,8 @@ def generate_conjunct_body(
               user_error(case.pattern.location, "custom induction pattern did not match UInt literal " + str(i)
                     + "\nExpected a case shaped like:\n" + case_hint)
           else:
-            arg = type_synth_term(arg, env, False, [])
-            constructor = type_check_term(constructor,  arg.typeof, env, False, [])
+            arg = type_synth_term(arg, env, None, [])
+            constructor = type_check_term(constructor,  arg.typeof, env, None, [])
             if constructor != arg:
               print(type(constructor), constructor, type(arg), arg)
               print(case.pattern.parameters)
@@ -171,7 +171,7 @@ def generate_conjunct_body(
         case PatternCons(loc, constructor, args):
           match arg: # This is in the actual theorem conjunct
             case Call(loc, ty, rator, call_args):
-              constructor = type_check_term(constructor, rator.typeof, env, False, [])
+              constructor = type_check_term(constructor, rator.typeof, env, None, [])
               rator_eq = rator == constructor
               # Need to use subst into args, which are strings
               new_args = [subst[a] for a in args]
