@@ -143,6 +143,8 @@ def generate_conjunct_body(
                   + "\n" + str(e))
           new_case = case.pattern.term.copy()
           new_case = new_case.substitute(subst)
+          new_case = new_case.reduce(env)
+          arg = arg.reduce(env)
           if new_case != arg:
             user_error(case.pattern.location, "custom induction pattern did not match"
                   + "\nExpected a case shaped like:\n" + case_hint

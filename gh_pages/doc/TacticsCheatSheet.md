@@ -115,6 +115,8 @@ Use these when `apply lemma to p` doesn't typecheck because `p` is a wider conju
 
 11. **`switch n` on `UInt` accepts the public 0 / 1+m view.** Even though `UInt`'s underlying constructors (`bzero`, `dub_inc`, `inc_dub`) are private, `switch n { case 0 { ... } case with m. 1 + m { ... } }` is accepted directly and behaves like a `Nat`-style `switch`: each case body sees the goal with `n` substituted by the case pattern. Caveats: the subject must be a variable (use `define n = <expr>` first otherwise); the case-style equation hypothesis (`assume eq: n = 0`) is not bound on this path — use `cases uint_zero_or_add_one[n]` (`all x:UInt. x = 0 or (some x':UInt. x = 1 + x')`) when you need the equation as a labelled fact. The IH from the underlying induction theorem is auto-suppressed; use `induction UInt` if you actually want it.
 
+12. **`induction UInt` can use bijective-view constructors.** In addition to `case 0` / `case with m. 1 + m assume IH`, `induction UInt` accepts `case UIntZero { ... }` / `case UIntSucc(m) assume IH { ... }` when UInt's inverse-backed view is in scope.
+
 ## Working tips
 
 - **Read the failure message carefully.** It prints the *current* goal at the point of failure — which may have been transformed by `auto` rules or `suffices` and so differ from what you literally wrote.
