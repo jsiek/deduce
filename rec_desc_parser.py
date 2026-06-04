@@ -1,7 +1,7 @@
 # The motivation for this recursive-descent version of the parser
 # is to provide better error messages. -Jeremy
 
-from typing import Optional
+from typing import Optional, cast
 
 from abstract_syntax import (
     All, AllElim, AllElimTypes, AllIntro, And, ApplyDefsFact,
@@ -80,29 +80,29 @@ def init_parser() -> None:
 current_position = 0
 token_list: list[Token] = []
 
-def current_token():
+def current_token() -> Token:
   if end_of_file():
     raise ParseError(meta_from_tokens(token_list[-1], token_list[-1]),
           'Expected a token, got end of file')
   return token_list[current_position]
 
-def next_token():
+def next_token() -> Token:
   if current_position + 1 >= len(token_list):
     raise ParseError(meta_from_tokens(token_list[-1], token_list[-1]),
           'Expected a token, got end of file')
   return token_list[current_position + 1]
 
-def previous_token():
+def previous_token() -> Token:
     return token_list[current_position - 1]
 
-def advance():
+def advance() -> None:
     global current_position
     current_position = current_position + 1
 
-def end_of_file():
+def end_of_file() -> bool:
     return current_position >= len(token_list)
 
-def consume_token(expected, display, context = "", advice=""):
+def consume_token(expected: str, display: str, context: str = "", advice: str = "") -> None:
   if current_token().type != expected:
     expect_msg = display
     if advice:
@@ -128,7 +128,7 @@ def parse(program_text: str,
         print(repr(token))
       token_list.append(token)
 
-    stmts = []
+    stmts: list[Statement] = []
     while not end_of_file():
       try:
         stmt = parse_statement()
@@ -154,33 +154,37 @@ def parse(program_text: str,
     check_closest_kwd = False
 
 
-def parse_identifier():
+def parse_identifier() -> str:
   if end_of_file():
     raise ParseError(meta_from_tokens(previous_token(), previous_token()),
           'expected an identifier, not end of file')
   token = current_token()
   if token.type == 'IDENT':
     advance()
-    return token.value
+    return cast(str, token.value)
   elif current_token().value == 'operator':
     advance()
-    rator = current_token().value
+    rator = cast(str, current_token().value)
     advance()
     return to_unicode.get(rator, rator)
   else:
     raise ParseError(meta_from_tokens(token, token),
           'expected an identifier, not\n\t' + quote(token.value))
 
-def meta_from_tokens(start_token, end_token):
+def require_token_position(value: int | None, name: str) -> int:
+    assert value is not None, f"missing token {name}"
+    return value
+
+def meta_from_tokens(start_token: Token, end_token: Token) -> Meta:
     meta = Meta()
     meta.empty = False
-    meta.filename = get_filename()
-    meta.line = start_token.line
-    meta.column = start_token.column
-    meta.start_pos = start_token.start_pos
-    meta.end_line = end_token.end_line
-    meta.end_column = end_token.end_column
-    meta.end_pos = end_token.end_pos
+    setattr(meta, "filename", get_filename())
+    meta.line = require_token_position(start_token.line, "line")
+    meta.column = require_token_position(start_token.column, "column")
+    meta.start_pos = require_token_position(start_token.start_pos, "start_pos")
+    meta.end_line = require_token_position(end_token.end_line, "end_line")
+    meta.end_column = require_token_position(end_token.end_column, "end_column")
+    meta.end_pos = require_token_position(end_token.end_pos, "end_pos")
     return meta
 
 def parse_term_hi():
@@ -2094,8 +2098,8 @@ def parse_fun_case():
     raise ParseError(meta_from_tokens(start_token, previous_token()), "Unexpected error while parsing:\n\t" \
       + str(e))
 
-def quote(str):
-    return '"' + str + '"'
+def quote(text: str) -> str:
+    return '"' + text + '"'
 
 def parse_switch_case():
     while_parsing = 'while parsing\n' \
