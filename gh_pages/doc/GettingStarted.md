@@ -414,7 +414,7 @@ diagnostics, and respond. The full tool list:
 
 | Tool                       | What it does                                                  |
 | -------------------------- | ------------------------------------------------------------- |
-| `check_file`               | Type-check and proof-check a `.pf` file; returns diagnostics. |
+| `check_file`               | Type-check and proof-check a `.pf` file, optionally with inline `content`; returns diagnostics. |
 | `goal_at`                  | Return the proof goal + givens at a cursor position.          |
 | `definition_of`            | Jump from a symbol to its declaration.                        |
 | `list_symbols`             | Outline of top-level theorems / definitions in a file.        |
