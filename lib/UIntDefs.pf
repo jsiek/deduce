@@ -163,6 +163,23 @@ proof
   }
 end
 
+lemma inc_dub_is_inc_dub: all x:Binary. inc(dub(x)) = inc_dub(x)
+proof
+  induction Binary
+  case bzero {
+    evaluate
+  }
+  case dub_inc(x) assume IH {
+    evaluate
+  }
+  case inc_dub(x) assume IH {
+    expand dub
+    expand inc
+    replace IH
+    .
+  }
+end
+
 lemma inc_add_one_raw: all x:Binary. inc(x) = 1 + x
 proof
   induction Binary
@@ -195,12 +212,31 @@ proof
   }
 end
 
+lemma uint_unview_view: all x:Binary. uint_unview(uint_view(x)) = x
+proof
+  induction Binary
+  case bzero {
+    evaluate
+  }
+  case dub_inc(x) assume IH {
+    expand uint_view | pred | uint_unview
+    replace symmetric inc_add_one_raw[inc_dub(x)]
+    evaluate
+  }
+  case inc_dub(x) assume IH {
+    expand uint_view | pred | uint_unview
+    replace symmetric inc_add_one_raw[dub(x)]
+    inc_dub_is_inc_dub[x]
+  }
+end
+
 view UInt {
   source Binary
   target UIntView
   into uint_view
   out uint_unview
   roundtrip uint_view_unview
+  inverse uint_unview_view
 }
 
 opaque fun div2(b : UInt) {
