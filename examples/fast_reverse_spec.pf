@@ -1,0 +1,214 @@
+// fast_reverse_spec.pf
+//
+// `fast_reverse.pf` proves `fast_reverse(xs) = reverse(xs)`: the
+// accumulator-passing implementation computes the same list as the naive
+// `reverse`.  That IS a specification — an *extensional* one: "behaves
+// like reverse".  But it only counts as a *complete* specification if
+// `reverse` is itself pinned down by something implementation-independent.
+// Otherwise "= reverse" just defers the question to another definition.
+//
+// So this file asks: what is the complete, implementation-independent
+// specification of a reversal function?  The answer is algebraic.  A
+// function f reverses lists exactly when:
+//
+//   (E) f([])        = []                       -- empty maps to empty
+//   (S) f([x])       = [x]                       -- singletons are fixed
+//   (H) f(xs ++ ys)  = f(ys) ++ f(xs)            -- anti-homomorphism of ++
+//
+// These three laws never mention recursion, accumulators, or how f is
+// built — yet they determine f completely (`reverse_unique`).  We then:
+//   * show `reverse` satisfies the laws (`reverse_satisfies_spec`);
+//   * show `fast_reverse` satisfies them too (`fast_reverse_satisfies_spec`),
+//     and conclude `fast_reverse = reverse` *via the spec* rather than via
+//     the accumulator lemma (`fast_reverse_is_the_reverse`);
+//   * re-derive a property — length preservation — from the laws alone
+//     (`reverse_length_from_spec`), with no reference to any definition.
+
+recursive fast_reverse_helper<T>(List<T>, List<T>) -> List<T> {
+  fast_reverse_helper(empty, acc) = acc
+  fast_reverse_helper(node(x, xs), acc) = fast_reverse_helper(xs, node(x, acc))
+}
+
+fun fast_reverse<T>(xs : List<T>) {
+  fast_reverse_helper(xs, @empty<T>)
+}
+
+assert fast_reverse([1, 2, 3, 4]) = [4, 3, 2, 1]
+assert fast_reverse(@[]<UInt>) = []
+
+// The accumulator lemma and correctness theorem, as in fast_reverse.pf;
+// repeated here so this file stands alone.
+theorem fast_reverse_helper_correct: all T:type. all xs:List<T>. all acc:List<T>.
+  fast_reverse_helper(xs, acc) = reverse(xs) ++ acc
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary acc:List<T>
+    expand fast_reverse_helper | reverse | operator++.
+  }
+  case node(x, xs') assume IH: all acc:List<T>.
+      fast_reverse_helper(xs', acc) = reverse(xs') ++ acc {
+    arbitrary acc:List<T>
+    equations
+      fast_reverse_helper(node(x, xs'), acc)
+          = fast_reverse_helper(xs', node(x, acc))  by expand fast_reverse_helper.
+      ... = reverse(xs') ++ node(x, acc)            by IH[node(x, acc)]
+      ... = # reverse(xs') ++ ([x] ++ acc) #        by expand 2*operator++.
+      ... = (reverse(xs') ++ [x]) ++ acc
+                  by symmetric append_assoc<T>[reverse(xs'), [x], acc]
+      ... = # reverse(node(x, xs')) ++ acc #        by expand reverse.
+  }
+end
+
+theorem fast_reverse_correct: all T:type. all xs:List<T>.
+  fast_reverse(xs) = reverse(xs)
+proof
+  arbitrary T:type, xs:List<T>
+  equations
+    fast_reverse(xs)
+        = fast_reverse_helper(xs, @empty<T>)  by expand fast_reverse.
+    ... = reverse(xs) ++ @empty<T>            by fast_reverse_helper_correct<T>[xs][@empty<T>]
+    ... = reverse(xs)                         by append_empty<T>[reverse(xs)]
+end
+
+// ============================================================
+// COMPLETENESS, part 1: the algebraic spec determines reverse uniquely.
+//
+// Any f satisfying (E), (S), (H) equals reverse, pointwise.  The proof is
+// a one-line induction: node(x, xs') is [x] ++ xs', so (H) peels the head
+// to the right, (S) fixes it, and the IH handles the tail.  No definition
+// of f is ever unfolded.
+// ============================================================
+
+theorem reverse_unique: all T:type. all f : fn List<T> -> List<T>.
+  if f(@empty<T>) = @empty<T>                                            // (E)
+     and (all x:T. f([x]) = [x])                                         // (S)
+     and (all xs:List<T>, ys:List<T>. f(xs ++ ys) = f(ys) ++ f(xs))      // (H)
+  then all xs:List<T>. f(xs) = reverse(xs)
+proof
+  arbitrary T:type
+  arbitrary f : fn List<T> -> List<T>
+  suppose spec
+  have E: f(@empty<T>) = @empty<T>                  by conjunct 0 of spec
+  have S: all x:T. f([x]) = [x]                     by conjunct 1 of spec
+  have H: all xs:List<T>, ys:List<T>. f(xs ++ ys) = f(ys) ++ f(xs)
+                                                    by conjunct 2 of spec
+  induction List<T>
+  case empty {
+    suffices f(@empty<T>) = @empty<T>  by expand reverse.
+    E
+  }
+  case node(x, xs') assume IH: f(xs') = reverse(xs') {
+    have cons_app: node(x, xs') = [x] ++ xs'  by expand 2*operator++.
+    equations
+      f(node(x, xs'))
+          = f([x] ++ xs')          by replace cons_app.
+      ... = f(xs') ++ f([x])       by H[[x], xs']
+      ... = reverse(xs') ++ [x]    by replace IH | S[x].
+      ... = #reverse(node(x, xs'))#  by expand reverse.
+  }
+end
+
+// ============================================================
+// reverse satisfies the spec (using the standard library lemmas).
+// ============================================================
+
+theorem reverse_satisfies_spec: all T:type.
+  reverse(@empty<T>) = @empty<T>
+  and (all x:T. reverse([x]) = [x])
+  and (all xs:List<T>, ys:List<T>. reverse(xs ++ ys) = reverse(ys) ++ reverse(xs))
+proof
+  arbitrary T:type
+  have rev_empty: reverse(@empty<T>) = @empty<T>  by expand reverse.
+  have rev_single: all x:T. reverse([x]) = [x] by {
+    arbitrary x:T
+    expand 2*reverse | operator++.
+  }
+  have rev_app: all xs:List<T>, ys:List<T>.
+      reverse(xs ++ ys) = reverse(ys) ++ reverse(xs) by {
+    arbitrary xs:List<T>, ys:List<T>
+    reverse_append<T>[xs, ys]
+  }
+  (rev_empty, rev_single, rev_app)
+end
+
+// ============================================================
+// fast_reverse satisfies the spec too, by transporting each law across
+// fast_reverse_correct.  Then uniqueness re-derives correctness — a
+// second proof of fast_reverse = reverse that goes entirely through the
+// algebraic specification.
+// ============================================================
+
+theorem fast_reverse_satisfies_spec: all T:type.
+  fast_reverse(@empty<T>) = @empty<T>
+  and (all x:T. fast_reverse([x]) = [x])
+  and (all xs:List<T>, ys:List<T>.
+         fast_reverse(xs ++ ys) = fast_reverse(ys) ++ fast_reverse(xs))
+proof
+  arbitrary T:type
+  have fr: all xs:List<T>. fast_reverse(xs) = reverse(xs) by {
+    arbitrary xs:List<T>
+    fast_reverse_correct<T>[xs]
+  }
+  have c_empty: fast_reverse(@empty<T>) = @empty<T> by {
+    replace fr[@empty<T>]
+    expand reverse.
+  }
+  have c_single: all x:T. fast_reverse([x]) = [x] by {
+    arbitrary x:T
+    replace fr[[x]]
+    expand 2*reverse | operator++.
+  }
+  have c_app: all xs:List<T>, ys:List<T>.
+      fast_reverse(xs ++ ys) = fast_reverse(ys) ++ fast_reverse(xs) by {
+    arbitrary xs:List<T>, ys:List<T>
+    replace fr[xs ++ ys] | fr[xs] | fr[ys]
+    reverse_append<T>[xs, ys]
+  }
+  (c_empty, c_single, c_app)
+end
+
+theorem fast_reverse_is_the_reverse: all T:type. all xs:List<T>.
+  fast_reverse(xs) = reverse(xs)
+proof
+  arbitrary T:type
+  apply reverse_unique<T>[@fast_reverse<T>] to fast_reverse_satisfies_spec<T>
+end
+
+// ============================================================
+// COMPLETENESS, part 2: sufficiency.  Length preservation follows from
+// the spec alone — no recursion, no accumulator, just (S) and (H).
+// ============================================================
+
+theorem reverse_length_from_spec: all T:type. all f : fn List<T> -> List<T>.
+  if f(@empty<T>) = @empty<T>
+     and (all x:T. f([x]) = [x])
+     and (all xs:List<T>, ys:List<T>. f(xs ++ ys) = f(ys) ++ f(xs))
+  then all xs:List<T>. length(f(xs)) = length(xs)
+proof
+  arbitrary T:type
+  arbitrary f : fn List<T> -> List<T>
+  suppose spec
+  have S: all x:T. f([x]) = [x]                     by conjunct 1 of spec
+  have H: all xs:List<T>, ys:List<T>. f(xs ++ ys) = f(ys) ++ f(xs)
+                                                    by conjunct 2 of spec
+  induction List<T>
+  case empty {
+    have E: f(@empty<T>) = @empty<T>  by conjunct 0 of spec
+    suffices length(@empty<T>) = length(@empty<T>)  by replace E.
+    .
+  }
+  case node(x, xs') assume IH: length(f(xs')) = length(xs') {
+    have cons_app: node(x, xs') = [x] ++ xs'  by expand 2*operator++.
+    equations
+      length(f(node(x, xs')))
+          = length(f([x] ++ xs'))                 by replace cons_app.
+      ... = length(f(xs') ++ f([x]))              by replace H[[x], xs'].
+      ... = length(f(xs')) + length(f([x]))       by length_append<T>[f(xs'), f([x])]
+      ... = length(xs') + length([x])             by replace IH | S[x].
+      ... = length(xs') + 1                        by expand 2*length.
+      ... = 1 + length(xs')                        by uint_add_commute
+      ... = #length(node(x, xs'))#                 by expand length.
+  }
+end
