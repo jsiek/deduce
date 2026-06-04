@@ -197,7 +197,9 @@ def _check_sig(func, expected_params, expected_return):
 
 
 def test_check_signature():
-    _check_sig(check, ["path", "content", "prelude"], list[Diagnostic])
+    _check_sig(
+        check, ["path", "content", "prelude", "parser"], list[Diagnostic]
+    )
 
 
 def test_goal_at_signature():

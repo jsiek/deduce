@@ -178,7 +178,11 @@ def _read_file(path: str) -> str:
 
 
 @mcp.tool()
-def check_file(path: str, content: Optional[str] = None) -> JSONDict:
+def check_file(
+    path: str,
+    content: Optional[str] = None,
+    parser: str = "recursive-descent",
+) -> JSONDict:
     """Run the Deduce pipeline on ``path`` and return diagnostics.
 
     The standard library at ``lib/`` is auto-prepended unless the
@@ -189,9 +193,43 @@ def check_file(path: str, content: Optional[str] = None) -> JSONDict:
     ``code``. When ``content`` is given, validate that text as if it
     were the contents of ``path``; ``path`` is still used for imports,
     prelude selection, and diagnostic locations.
+
+    ``parser`` selects which parser validates the file:
+
+    - ``"recursive-descent"`` (default) -- the hand-written
+      recursive-descent parser, matching Deduce's default CLI mode.
+    - ``"lalr"`` -- the lark-based LALR parser, matching
+      ``deduce.py --lalr``.
+    - ``"both"`` -- run both parsers and merge their diagnostics.
+      Each entry in the result has an extra ``parser`` field
+      (``"recursive-descent"`` or ``"lalr"``) so the caller can tell
+      which parser produced which message. Use this to satisfy the
+      both-parsers-must-pass contributor rule in one call.
     """
     text = _read_file(path) if content is None else content
-    diagnostics = query.check(path, text, prelude=_prelude_for(path))
+    if parser == "both":
+        rd_diags = query.check(
+            path, text, prelude=_prelude_for(path),
+            parser="recursive-descent",
+        )
+        lalr_diags = query.check(
+            path, text, prelude=_prelude_for(path),
+            parser="lalr",
+        )
+        merged: list[JSONDict] = []
+        for d in _to_list_of_dicts(rd_diags):
+            merged.append({**d, "parser": "recursive-descent"})
+        for d in _to_list_of_dicts(lalr_diags):
+            merged.append({**d, "parser": "lalr"})
+        return {"diagnostics": merged}
+    if parser not in ("recursive-descent", "lalr"):
+        raise ValueError(
+            f"check_file: parser must be 'recursive-descent', 'lalr', "
+            f"or 'both'; got {parser!r}"
+        )
+    diagnostics = query.check(
+        path, text, prelude=_prelude_for(path), parser=parser,
+    )
     return {"diagnostics": _to_serializable(diagnostics)}
 
 
