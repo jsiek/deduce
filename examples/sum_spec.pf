@@ -1,0 +1,146 @@
+// sum_spec.pf
+//
+// `sum_correct.pf` defines `sum` over a list of UInts and proves two
+// properties directly from the definition: it distributes over append
+// (`sum_append`) and is invariant under reversal (`sum_reverse`).
+//
+// This file gives the *specification* of `sum` and shows it is complete.
+// The specification is algebraic: `sum` is the unique MONOID HOMOMORPHISM
+// from (List<UInt>, ++, []) to (UInt, +, 0) that sends each singleton to
+// its element.  A function f qualifies exactly when:
+//
+//   (E) f([])        = 0                          -- preserves the unit
+//   (S) f([x])       = x                          -- fixes singletons
+//   (H) f(xs ++ ys)  = f(xs) + f(ys)              -- homomorphism of ++/+
+//
+// As with the other *_spec files, "complete" means:
+//
+//   1. ADEQUACY (`sum_unique`): any f satisfying (E),(S),(H) equals sum.
+//      Generators ([x]) plus the homomorphism law leave no freedom.
+//   2. SUFFICIENCY (`sum_reverse_from_spec`): the reversal invariance
+//      proved in sum_correct.pf follows from the spec alone — it needs
+//      only (S), (H) and commutativity of +, never the recursion.
+
+recursive sum(List<UInt>) -> UInt {
+  sum(empty) = 0
+  sum(node(x, xs)) = x + sum(xs)
+}
+
+assert sum([1, 2, 3]) = 6
+assert sum(@[]<UInt>) = 0
+
+// The homomorphism law (clause H), proved directly — this is `sum_append`
+// from sum_correct.pf, repeated so the file stands alone.
+theorem sum_append: all xs:List<UInt>, ys:List<UInt>.
+  sum(xs ++ ys) = sum(xs) + sum(ys)
+proof
+  induction List<UInt>
+  case empty {
+    arbitrary ys:List<UInt>
+    expand sum | operator++.
+  }
+  case node(x, xs') assume IH: (all ys:List<UInt>. sum(xs' ++ ys) = sum(xs') + sum(ys)) {
+    arbitrary ys:List<UInt>
+    equations
+      sum(node(x, xs') ++ ys)
+          = x + sum(xs' ++ ys)              by expand operator++ | sum.
+      ... = x + (sum(xs') + sum(ys))        by replace IH[ys].
+      ... = #sum(node(x, xs'))# + sum(ys)   by expand sum.
+  }
+end
+
+// ============================================================
+// COMPLETENESS, part 1: adequacy / uniqueness.
+//
+// Any homomorphism f that fixes singletons equals sum.  node(x, xs') is
+// [x] ++ xs', so (H) splits off the head, (S) evaluates it, and the IH
+// handles the tail.  The definition of f is never unfolded.
+// ============================================================
+
+theorem sum_unique: all f : fn List<UInt> -> UInt.
+  if f(@empty<UInt>) = 0                                                  // (E)
+     and (all x:UInt. f([x]) = x)                                         // (S)
+     and (all xs:List<UInt>, ys:List<UInt>. f(xs ++ ys) = f(xs) + f(ys))  // (H)
+  then all xs:List<UInt>. f(xs) = sum(xs)
+proof
+  arbitrary f : fn List<UInt> -> UInt
+  suppose spec
+  have E: f(@empty<UInt>) = 0                       by conjunct 0 of spec
+  have S: all x:UInt. f([x]) = x                    by conjunct 1 of spec
+  have H: all xs:List<UInt>, ys:List<UInt>. f(xs ++ ys) = f(xs) + f(ys)
+                                                    by conjunct 2 of spec
+  induction List<UInt>
+  case empty {
+    suffices f(@empty<UInt>) = 0  by expand sum.
+    E
+  }
+  case node(x, xs') assume IH: f(xs') = sum(xs') {
+    have cons_app: node(x, xs') = [x] ++ xs'  by expand 2*operator++.
+    equations
+      f(node(x, xs'))
+          = f([x] ++ xs')        by replace cons_app.
+      ... = f([x]) + f(xs')      by H[[x], xs']
+      ... = x + sum(xs')         by replace S[x] | IH.
+      ... = #sum(node(x, xs'))#  by expand sum.
+  }
+end
+
+// ============================================================
+// sum satisfies the spec.
+// ============================================================
+
+theorem sum_satisfies_spec:
+  sum(@empty<UInt>) = 0
+  and (all x:UInt. sum([x]) = x)
+  and (all xs:List<UInt>, ys:List<UInt>. sum(xs ++ ys) = sum(xs) + sum(ys))
+proof
+  have e: sum(@empty<UInt>) = 0  by expand sum.
+  have s: all x:UInt. sum([x]) = x by {
+    arbitrary x:UInt
+    expand sum | sum.
+  }
+  have h: all xs:List<UInt>, ys:List<UInt>. sum(xs ++ ys) = sum(xs) + sum(ys) by {
+    arbitrary xs:List<UInt>, ys:List<UInt>
+    sum_append[xs, ys]
+  }
+  (e, s, h)
+end
+
+// ============================================================
+// COMPLETENESS, part 2: sufficiency.
+//
+// Reversal invariance, proved from the spec alone.  The head element x
+// that reverse moves to the far end contributes the same summand x in
+// either position — that is exactly commutativity of +.
+// ============================================================
+
+theorem sum_reverse_from_spec: all f : fn List<UInt> -> UInt.
+  if f(@empty<UInt>) = 0
+     and (all x:UInt. f([x]) = x)
+     and (all xs:List<UInt>, ys:List<UInt>. f(xs ++ ys) = f(xs) + f(ys))
+  then all xs:List<UInt>. f(reverse(xs)) = f(xs)
+proof
+  arbitrary f : fn List<UInt> -> UInt
+  suppose spec
+  have S: all x:UInt. f([x]) = x                    by conjunct 1 of spec
+  have H: all xs:List<UInt>, ys:List<UInt>. f(xs ++ ys) = f(xs) + f(ys)
+                                                    by conjunct 2 of spec
+  induction List<UInt>
+  case empty {
+    expand reverse.
+  }
+  case node(x, xs') assume IH: f(reverse(xs')) = f(xs') {
+    // f(node(x, xs')) = f([x] ++ xs') = f([x]) + f(xs') = x + f(xs').
+    have head_eq: f(node(x, xs')) = x + f(xs') by {
+      have cons_app: node(x, xs') = [x] ++ xs'  by expand 2*operator++.
+      replace cons_app | H[[x], xs'] | S[x].
+    }
+    equations
+      f(reverse(node(x, xs')))
+          = f(reverse(xs') ++ [x])    by expand reverse.
+      ... = f(reverse(xs')) + f([x])  by H[reverse(xs'), [x]]
+      ... = f(xs') + x                by replace IH | S[x].
+      ... = x + f(xs')                by uint_add_commute
+      ... = f(node(x, xs'))           by symmetric head_eq
+  }
+end

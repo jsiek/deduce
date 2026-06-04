@@ -13,6 +13,12 @@
 //
 // `maximum` returns 0 on the empty list, which makes it behave as a
 // fold of the commutative monoid (UInt, max, 0).
+//
+// The three theorems here are proved DIRECTLY from the recursive
+// definition. For the companion question -- what is the complete
+// *specification* of `maximum` (the property that characterizes it
+// without reference to how it is computed), and how do these properties
+// follow from that spec -- see `maximum_spec.pf`.
 
 recursive maximum(List<UInt>) -> UInt {
   maximum(empty) = 0

@@ -1,0 +1,247 @@
+// maximum_spec.pf
+//
+// In `maximum.pf` we defined `maximum` and proved a handful of properties
+// of it (distributes over ++, invariant under reverse, bounds every
+// element).  Each of those was proved DIRECTLY from the recursive
+// definition.  This file asks a different question:
+//
+//   What is the *specification* of `maximum` — the property that says
+//   "this function computes the largest element" without reference to
+//   how it is computed — and is that specification *complete*?
+//
+// "Complete" here means two things:
+//
+//   1. ADEQUACY / UNIQUENESS.  The spec pins the function down: any
+//      function whatsoever that satisfies the spec is equal to `maximum`.
+//      (`maximum_unique` below.)  A spec that admitted other functions
+//      would be too weak to be called "the" specification.
+//
+//   2. SUFFICIENCY.  Every property we proved from the definition can be
+//      re-derived from the spec alone.  We demonstrate this for
+//      `maximum_append`: its proof below never expands `maximum`, it uses
+//      only the two spec clauses.  So the spec is strong enough to stand
+//      in for the definition.
+//
+// The specification: maximum(xs) is the LEAST UPPER BOUND of the elements
+// of xs.  Two clauses:
+//
+//   (UB)  maximum(xs) is an upper bound:  every element is ≤ maximum(xs).
+//   (LUB) maximum(xs) is the *least* upper bound:  any u that bounds all
+//         the elements also bounds maximum(xs).
+//
+// This is uniform — it needs no special case for the empty list.  Because
+// every UInt is ≥ 0, the only upper bound of the empty list that (LUB)
+// can force maximum(empty) below is 0 itself, so the spec already entails
+// maximum(empty) = 0 with no extra clause.  (The textbook alternative —
+// "maximum(xs) is an element of xs that bounds every element" — is
+// equivalent for non-empty lists but needs a separate maximum(empty) = 0
+// clause, because the empty list has no element to point at.)
+
+recursive maximum(List<UInt>) -> UInt {
+  maximum(empty) = 0
+  maximum(node(x, xs)) = max(x, maximum(xs))
+}
+
+assert maximum([3, 1, 4, 1, 5, 9, 2, 6]) = 9
+assert maximum(@[]<UInt>) = 0
+
+// ============================================================
+// Small helpers.
+// ============================================================
+
+// Associativity of `or` (not in the prelude).
+theorem bool_or_assoc: all P:bool, Q:bool, R:bool.
+  (P or (Q or R)) = ((P or Q) or R)
+proof
+  arbitrary P:bool, Q:bool, R:bool
+  switch P {
+    case true { . }
+    case false { . }
+  }
+end
+
+// Membership distributes over append.
+theorem contains_append: all T:type. all xs:List<T>, ys:List<T>, e:T.
+  contains(xs ++ ys, e) = (contains(xs, e) or contains(ys, e))
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary ys:List<T>, e:T
+    expand operator++ | contains.
+  }
+  case node(x, xs') assume IH: all ys:List<T>, e:T.
+      contains(xs' ++ ys, e) = (contains(xs', e) or contains(ys, e)) {
+    arbitrary ys:List<T>, e:T
+    expand operator++ | contains
+    replace IH[ys, e]
+    bool_or_assoc[(x = e), contains(xs', e), contains(ys, e)]
+  }
+end
+
+// ============================================================
+// The specification, proved of `maximum`.
+// ============================================================
+
+// (UB) maximum is an upper bound of the elements.
+//   (This is the property `maximum_upper_bound` from maximum.pf.)
+theorem maximum_upper_bound: all xs:List<UInt>. all x:UInt.
+  if contains(xs, x) then x ≤ maximum(xs)
+proof
+  induction List<UInt>
+  case empty {
+    arbitrary x:UInt
+    suppose cf: contains(@empty<UInt>, x)
+    expand contains in cf
+  }
+  case node(y, xs') assume IH: all x:UInt. if contains(xs', x) then x ≤ maximum(xs') {
+    arbitrary x:UInt
+    suppose cn: contains(node(y, xs'), x)
+    have disj: y = x or contains(xs', x) by expand contains in cn
+    cases disj
+    case yx: y = x {
+      suffices x ≤ max(y, maximum(xs'))  by expand maximum.
+      replace yx
+      uint_max_greater_left[x, maximum(xs')]
+    }
+    case cxs: contains(xs', x) {
+      suffices x ≤ max(y, maximum(xs'))  by expand maximum.
+      apply uint_less_equal_trans[x, maximum(xs'), max(y, maximum(xs'))]
+        to (apply IH[x] to cxs), uint_max_greater_right[y, maximum(xs')]
+    }
+  }
+end
+
+// (LUB) maximum is the least upper bound: it sits below any other bound.
+theorem maximum_least: all xs:List<UInt>, u:UInt.
+  if (all x:UInt. if contains(xs, x) then x ≤ u)
+  then maximum(xs) ≤ u
+proof
+  induction List<UInt>
+  case empty {
+    arbitrary u:UInt
+    suppose _ub: all x:UInt. if contains(@empty<UInt>, x) then x ≤ u
+    // maximum(empty) = 0 ≤ u holds for every u.
+    expand maximum.
+  }
+  case node(y, xs') assume IH: all u:UInt.
+      (if (all x:UInt. if contains(xs', x) then x ≤ u) then maximum(xs') ≤ u) {
+    arbitrary u:UInt
+    suppose ub: all x:UInt. if contains(node(y, xs'), x) then x ≤ u
+    suffices max(y, maximum(xs')) ≤ u  by expand maximum.
+    // y is an element, so it is bounded by u.
+    have cy: contains(node(y, xs'), y)  by expand contains.
+    have y_le_u: y ≤ u  by apply ub[y] to cy
+    // every element of xs' is also an element of node(y, xs'), so u
+    // bounds them too; the IH then bounds maximum(xs').
+    have rest_ub: all x:UInt. if contains(xs', x) then x ≤ u by {
+      arbitrary x:UInt
+      suppose cx: contains(xs', x)
+      have cn: contains(node(y, xs'), x) by {
+        suffices (y = x) or contains(xs', x)  by expand contains.
+        cx
+      }
+      apply ub[x] to cn
+    }
+    have rest_le_u: maximum(xs') ≤ u  by apply IH[u] to rest_ub
+    apply uint_max_less_equal[y, maximum(xs'), u] to y_le_u, rest_le_u
+  }
+end
+
+// ============================================================
+// COMPLETENESS, part 1: adequacy / uniqueness.
+//
+// Any function f that satisfies the spec is equal to maximum, pointwise.
+// The argument is pure lattice reasoning: each of f and maximum is an
+// upper bound, each is least, so antisymmetry forces them equal.  Note
+// the proof never mentions the recursive definition of either function.
+// ============================================================
+
+theorem maximum_unique:
+  all f : fn List<UInt> -> UInt.
+  if (all xs:List<UInt>, x:UInt. if contains(xs, x) then x ≤ f(xs))           // f is (UB)
+     and (all xs:List<UInt>, u:UInt.                                          // f is (LUB)
+            if (all x:UInt. if contains(xs, x) then x ≤ u) then f(xs) ≤ u)
+  then all xs:List<UInt>. f(xs) = maximum(xs)
+proof
+  arbitrary f : fn List<UInt> -> UInt
+  suppose spec
+  have f_ub: all xs:List<UInt>, x:UInt. if contains(xs, x) then x ≤ f(xs)
+    by spec
+  have f_lub: all xs:List<UInt>, u:UInt.
+       if (all x:UInt. if contains(xs, x) then x ≤ u) then f(xs) ≤ u
+    by spec
+  arbitrary xs:List<UInt>
+  // maximum is least and f(xs) bounds every element, so maximum(xs) ≤ f(xs).
+  have max_le_f: maximum(xs) ≤ f(xs)
+    by apply maximum_least[xs, f(xs)] to f_ub[xs]
+  // f is least and maximum(xs) bounds every element, so f(xs) ≤ maximum(xs).
+  have f_le_max: f(xs) ≤ maximum(xs)
+    by apply f_lub[xs, maximum(xs)] to maximum_upper_bound[xs]
+  apply uint_less_equal_antisymmetric[f(xs), maximum(xs)] to f_le_max, max_le_f
+end
+
+// ============================================================
+// COMPLETENESS, part 2: sufficiency.
+//
+// We re-prove `maximum_append` from maximum.pf, but this time using ONLY
+// the spec clauses (maximum_upper_bound, maximum_least) and the lattice
+// lemmas — never `expand maximum`.  This shows the spec is strong enough
+// to entail the definition-derived properties.
+// ============================================================
+
+theorem maximum_append_from_spec: all xs:List<UInt>, ys:List<UInt>.
+  maximum(xs ++ ys) = max(maximum(xs), maximum(ys))
+proof
+  arbitrary xs:List<UInt>, ys:List<UInt>
+  // (≤) max(maximum(xs), maximum(ys)) is an upper bound of xs ++ ys,
+  //     so maximum(xs ++ ys), being least, is below it.
+  have left: maximum(xs ++ ys) ≤ max(maximum(xs), maximum(ys)) by {
+    apply maximum_least[xs ++ ys, max(maximum(xs), maximum(ys))] to {
+      arbitrary e:UInt
+      suppose ce: contains(xs ++ ys, e)
+      have e_in: contains(xs, e) or contains(ys, e)
+        by replace contains_append<UInt>[xs, ys, e] in ce
+      cases e_in
+      case in_xs: contains(xs, e) {
+        apply uint_less_equal_trans[e, maximum(xs), max(maximum(xs), maximum(ys))]
+          to (apply maximum_upper_bound[xs][e] to in_xs),
+             uint_max_greater_left[maximum(xs), maximum(ys)]
+      }
+      case in_ys: contains(ys, e) {
+        apply uint_less_equal_trans[e, maximum(ys), max(maximum(xs), maximum(ys))]
+          to (apply maximum_upper_bound[ys][e] to in_ys),
+             uint_max_greater_right[maximum(xs), maximum(ys)]
+      }
+    }
+  }
+  // (≥) maximum(xs ++ ys) bounds every element of xs and of ys, hence it
+  //     bounds maximum(xs) and maximum(ys), hence their max.
+  have max_xs_le: maximum(xs) ≤ maximum(xs ++ ys) by {
+    apply maximum_least[xs, maximum(xs ++ ys)] to {
+      arbitrary e:UInt
+      suppose ce: contains(xs, e)
+      have in_app: contains(xs ++ ys, e) by {
+        replace contains_append<UInt>[xs, ys, e]
+        ce
+      }
+      apply maximum_upper_bound[xs ++ ys][e] to in_app
+    }
+  }
+  have max_ys_le: maximum(ys) ≤ maximum(xs ++ ys) by {
+    apply maximum_least[ys, maximum(xs ++ ys)] to {
+      arbitrary e:UInt
+      suppose ce: contains(ys, e)
+      have in_app: contains(xs ++ ys, e) by {
+        replace contains_append<UInt>[xs, ys, e]
+        ce
+      }
+      apply maximum_upper_bound[xs ++ ys][e] to in_app
+    }
+  }
+  have right: max(maximum(xs), maximum(ys)) ≤ maximum(xs ++ ys)
+    by apply uint_max_less_equal[maximum(xs), maximum(ys), maximum(xs ++ ys)]
+       to max_xs_le, max_ys_le
+  apply uint_less_equal_antisymmetric[maximum(xs ++ ys), max(maximum(xs), maximum(ys))]
+    to left, right
+end
