@@ -46,10 +46,18 @@ import threading
 import traceback as _traceback
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, Sequence, cast
+from types import ModuleType
+from typing import TYPE_CHECKING, Optional, Sequence, cast
 
 if TYPE_CHECKING:
     from lsp.debugger import Debugger
+
+
+_TrackedAttr = tuple[ModuleType, str]
+_SnapshotKey = tuple[str, str]
+_TrackedContainer = dict[object, object] | set[object] | list[object]
+_ContainerSnapshot = dict[_SnapshotKey, _TrackedContainer]
+_ScalarSnapshot = dict[_SnapshotKey, object]
 
 
 # Process-wide lock around ``check_file``.  The Deduce pipeline
@@ -124,7 +132,7 @@ class CheckResult:
     error_traceback: Optional[str]
     exception: Optional[BaseException]
     module_name: str
-    ast: Optional[Any]
+    ast: Optional[list[Statement]]
     # In collect-errors mode every entry is a ``Diagnostic``; in
     # single-error fallback mode (see ``__post_init__``) the list
     # carries whatever was raised — including non-``Diagnostic``
@@ -291,7 +299,7 @@ def _check_file_impl(
     if get_verbose():
         print("Deducing file:", filename)
 
-    ast: Optional[Any] = None
+    ast: Optional[list[Statement]] = None
     try:
         cached = get_uniquified_modules()
         # The cache is keyed by module name and corresponds to a
@@ -351,7 +359,7 @@ def _check_file_impl(
                 ]
                 ast = imports + ast
 
-            ast = uniquify_deduce(cast(Sequence[Statement], ast), ctx)
+            ast = uniquify_deduce(ast, ctx)
             if use_cache:
                 add_uniquified_module(module_name, ast)
 
@@ -430,7 +438,7 @@ def _content_matches_file(filename: str, content: str) -> bool:
 # ``UniquifyContext`` (Step 12) managed via ``_post_prelude_ctx``
 # below.  ``proof_checker.name_id`` is *also* not in this list --
 # it's a scalar and lives in ``_TRACKED_SCALARS`` below.
-_TRACKED_CONTAINERS: tuple[tuple[Any, str], ...] = (
+_TRACKED_CONTAINERS: tuple[_TrackedAttr, ...] = (
     (_abstract_syntax, "uniquified_modules"),
     (_abstract_syntax, "_predicate_decls_by_unique_name"),
     (_abstract_syntax, "collected_imports"),
@@ -450,7 +458,7 @@ _TRACKED_CONTAINERS: tuple[tuple[Any, str], ...] = (
 # induction / switch fresh-label generation, and the rest of the
 # post-uniquify synthesis paths.  Snapshotting it keeps the
 # post-decl AST reproducible across calls (issue #368).
-_TRACKED_SCALARS: tuple[tuple[Any, str], ...] = (
+_TRACKED_SCALARS: tuple[_TrackedAttr, ...] = (
     (_proof_checker, "name_id"),
 )
 
@@ -464,12 +472,12 @@ _prelude_key: Optional[tuple[tuple[str, ...], tuple[str, ...]]] = None
 
 # Snapshot of ``_TRACKED_CONTAINERS`` taken right after the prelude
 # load. Each entry is a fresh shallow copy of the live container.
-_prelude_snapshot: Optional[dict[tuple[str, str], Any]] = None
+_prelude_snapshot: Optional[_ContainerSnapshot] = None
 
 # Snapshot of ``_TRACKED_SCALARS`` taken right after the prelude
 # load.  Each entry is the captured scalar value (an int for the
 # fresh-name counter).
-_prelude_scalars: Optional[dict[tuple[str, str], Any]] = None
+_prelude_scalars: Optional[_ScalarSnapshot] = None
 
 # Post-prelude ``UniquifyContext`` baseline. After the prelude has
 # been uniquified, its counter records the highest id allocated.
@@ -543,30 +551,41 @@ def _prepare_state(
     _post_prelude_ctx = bootstrap_ctx.snapshot()
 
 
-def _capture_containers() -> dict[tuple[str, str], Any]:
+def _capture_containers() -> _ContainerSnapshot:
     """Shallow-copy each tracked container into a fresh snapshot dict."""
-    snap: dict[tuple[str, str], Any] = {}
+    snap: _ContainerSnapshot = {}
     for module, attr in _TRACKED_CONTAINERS:
-        live = getattr(module, attr)
+        live: object = getattr(module, attr)
         snap[(module.__name__, attr)] = _shallow_copy(live)
     return snap
 
 
-def _restore_containers(snapshot: dict[tuple[str, str], Any]) -> None:
+def _restore_containers(snapshot: _ContainerSnapshot) -> None:
     """In-place restore: clear the live container and refill from
     ``snapshot``. We mutate in place rather than rebinding the module
     attribute because other modules in the pipeline hold direct
     references (e.g. ``from abstract_syntax import collected_imports``
     binds at import time, and rebinding would leave stale aliases)."""
     for module, attr in _TRACKED_CONTAINERS:
-        live = getattr(module, attr)
+        live: object = getattr(module, attr)
         saved = snapshot[(module.__name__, attr)]
-        live.clear()
         if isinstance(live, dict):
+            if not isinstance(saved, dict):  # pragma: no cover -- defensive
+                raise TypeError(f"snapshot for {module.__name__}.{attr} is not a dict")
+            live = cast(dict[object, object], live)
+            live.clear()
             live.update(saved)
         elif isinstance(live, set):
+            if not isinstance(saved, set):  # pragma: no cover -- defensive
+                raise TypeError(f"snapshot for {module.__name__}.{attr} is not a set")
+            live = cast(set[object], live)
+            live.clear()
             live.update(saved)
         elif isinstance(live, list):
+            if not isinstance(saved, list):  # pragma: no cover -- defensive
+                raise TypeError(f"snapshot for {module.__name__}.{attr} is not a list")
+            live = cast(list[object], live)
+            live.clear()
             live.extend(saved)
         else:  # pragma: no cover -- defensive
             raise TypeError(
@@ -575,15 +594,15 @@ def _restore_containers(snapshot: dict[tuple[str, str], Any]) -> None:
             )
 
 
-def _capture_scalars() -> dict[tuple[str, str], Any]:
+def _capture_scalars() -> _ScalarSnapshot:
     """Capture the current value of each tracked scalar."""
-    snap: dict[tuple[str, str], Any] = {}
+    snap: _ScalarSnapshot = {}
     for module, attr in _TRACKED_SCALARS:
         snap[(module.__name__, attr)] = getattr(module, attr)
     return snap
 
 
-def _restore_scalars(snapshot: Optional[dict[tuple[str, str], Any]]) -> None:
+def _restore_scalars(snapshot: Optional[_ScalarSnapshot]) -> None:
     """Re-bind each tracked scalar to its captured value."""
     if snapshot is None:
         return
@@ -601,7 +620,7 @@ def _clear_containers() -> None:
     _proof_checker.reset_stmt_cache()
 
 
-def _shallow_copy(obj: Any) -> Any:
+def _shallow_copy(obj: object) -> _TrackedContainer:
     """Shallow-copy a tracked container to a fresh instance.
 
     The values inside (AST nodes, mostly) are shared with the live
@@ -611,10 +630,13 @@ def _shallow_copy(obj: Any) -> Any:
     acceptance tests in ``test/lsp/test_state_isolation.py``.
     """
     if isinstance(obj, dict):
+        obj = cast(dict[object, object], obj)
         return dict(obj)
     if isinstance(obj, set):
+        obj = cast(set[object], obj)
         return set(obj)
     if isinstance(obj, list):
+        obj = cast(list[object], obj)
         return list(obj)
     raise TypeError(  # pragma: no cover -- defensive
         f"unsupported tracked container type: {type(obj).__name__}"
