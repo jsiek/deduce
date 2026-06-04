@@ -18,8 +18,6 @@
 //      with the negated predicate,
 //        second(partition(xs, p)) = filter(xs, fun y { not p(y) })
 
-import List
-
 recursive partition<T>(List<T>, fn (T)->bool) -> Pair< List<T>, List<T> > {
   partition(empty, p) = pair(@empty<T>, @empty<T>)
   partition(node(x, xs), p) =

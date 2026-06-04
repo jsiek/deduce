@@ -15,8 +15,6 @@
 //   2. fast_reverse_correct:
 //        fast_reverse(xs) = reverse(xs)
 
-import List
-
 // Tail-recursive reverse-helper: walks `xs` left-to-right, building
 // up the reversed list in the accumulator `acc`.
 recursive fast_reverse_helper<T>(List<T>, List<T>) -> List<T> {

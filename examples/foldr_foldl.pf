@@ -15,8 +15,6 @@
 // which is `foldl_shift` below. The main theorem then specializes
 // `a := e` and uses the left-identity law.
 
-import List
-
 theorem foldl_shift: all T:type, op:fn T,T->T, e:T.
   if (all x:T,y:T,z:T. op(op(x,y),z) = op(x,op(y,z)))
      and (all x:T. op(e,x) = x)

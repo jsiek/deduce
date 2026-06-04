@@ -9,8 +9,6 @@
 //     countIf :: (a -> Bool) -> [a] -> Int
 //     countIf p xs = length (filter p xs)
 
-import List
-
 recursive count_if<T>(List<T>, fn (T) -> bool) -> UInt {
   count_if(empty, p) = 0
   count_if(node(x, xs), p) =
