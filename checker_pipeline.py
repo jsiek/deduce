@@ -110,10 +110,16 @@ type_synth_term: Any = type_synth_term_raw
 imported_modules: set[str] = set()
 checked_modules: set[str] = set()
 
+Substitution = dict[str, Term | Type | RecFun | GenRecFun]
+TypeMatching = dict[str, Type | VarRef | None]
+ViewInfo = tuple[ViewDecl, Type, Type]
+PatternCoverage = dict[str, object]
+ParamTypes = list[tuple[str, Type]]
+
 def process_declaration_visibility(decl: Declaration, env: Env,
                                    module_chain: list[str],
                                    downstream_needs_checking: list[bool]
-                                   ) -> tuple[Any, Env]:
+                                   ) -> tuple[Statement, Env]:
   match decl:
     case Define(loc, name, ty, body):
       if ty == None:
@@ -423,7 +429,7 @@ def process_declaration_visibility(decl: Declaration, env: Env,
 def process_declaration(stmt: Statement, env: Env,
                         module_chain: list[str],
                         downstream_needs_checking: list[bool]
-                        ) -> tuple[Any, Env]:
+                        ) -> tuple[Statement, Env]:
   if get_verbose():
     print('process_declaration(' + str(stmt) + ')')
     
@@ -471,9 +477,9 @@ def process_declaration(stmt: Statement, env: Env,
     case _:
       internal_error(stmt.location, "in process_declaration, unrecognized statement:\n" + str(stmt))
 
-def type_check_fun_case(fun_case: Any, name: str, params: list[Type],
+def type_check_fun_case(fun_case: FunCase, name: str, params: list[Type],
                         returns: Type, body_env: Env,
-                        cases_present: dict[str, Any]) -> Any:
+                        cases_present: PatternCoverage) -> FunCase:
     body_env = check_pattern(fun_case.pattern, params[0], body_env, cases_present)
     fun_case.rator = type_synth_term(fun_case.rator, body_env, None, [])
     if len(fun_case.parameters) != len(params[1:]):
@@ -491,7 +497,8 @@ def type_check_fun_case(fun_case: Any, name: str, params: list[Type],
     return FunCase(fun_case.location, fun_case.rator,
                    fun_case.pattern, fun_case.parameters, new_body)
 
-def type_check_view_recursive_fun(stmt: Any, env: Env, view_info: Any) -> Any:
+def type_check_view_recursive_fun(stmt: RecFun, env: Env,
+                                  view_info: ViewInfo) -> GenRecFun:
   loc = stmt.location
   name = stmt.name
   typarams = stmt.type_params
@@ -520,8 +527,8 @@ def type_check_view_recursive_fun(stmt: Any, env: Env, view_info: Any) -> Any:
   checked_view = type_check_term(_view_call(loc, view_decl.into,
                                            checked_subject),
                                  view_ty, case_env, None, [])
-  cases_present: dict[str, Any] = {}
-  new_cases = []
+  cases_present: PatternCoverage = {}
+  new_cases: list[SwitchCase] = []
   reset_recursive_call_count()
   rec_ty = checked_params[0]
 
@@ -559,14 +566,16 @@ def type_check_view_recursive_fun(stmt: Any, env: Env, view_info: Any) -> Any:
                    visibility=stmt.visibility)
 
 def _viewrec_function_type(loc: Meta, typarams: list[str],
-                           params: list[Any], returns: Type) -> Any:
+                           params: ParamTypes, returns: Type) -> FunctionType:
   new_typarams = [generate_proof_name(t) for t in typarams]
-  sub = {x: ResolvedVar(loc, None, y) for (x,y) in zip(typarams, new_typarams)}
+  sub: Substitution = {
+      x: ResolvedVar(loc, None, y) for (x, y) in zip(typarams, new_typarams)
+  }
   return FunctionType(loc, new_typarams,
                       [t.substitute(sub) for (_, t) in params],
                       returns.substitute(sub))
 
-def _view_type_head_and_args(typ: Any) -> tuple[Any, list[Any]]:
+def _view_type_head_and_args(typ: Type | VarRef) -> tuple[VarRef | None, list[Type]]:
   if isinstance(typ, VarRef):
     return typ, []
   match typ:
@@ -575,7 +584,8 @@ def _view_type_head_and_args(typ: Any) -> tuple[Any, list[Any]]:
     case _:
       return None, []
 
-def _instantiate_view_type(loc: Meta, typ: Any, env: Env) -> Any:
+def _instantiate_view_type(loc: Meta, typ: Type | VarRef,
+                           env: Env) -> ViewInfo | None:
   head, args = _view_type_head_and_args(typ)
   if head is None:
     return None
@@ -587,8 +597,8 @@ def _instantiate_view_type(loc: Meta, typ: Any, env: Env) -> Any:
                + str(len(view.type_params)) + " type argument"
                + ("" if len(view.type_params) == 1 else "s")
                + ", not " + str(len(args)))
-  checked_args = [check_type(arg, env) for arg in args]
-  sub = {x: t for (x, t) in zip(view.type_params, checked_args)}
+  checked_args = [cast(Type, check_type(arg, env)) for arg in args]
+  sub: Substitution = {x: t for (x, t) in zip(view.type_params, checked_args)}
   source = view.source.substitute(sub)
   target = view.target.substitute(sub)
   return view, source, target
@@ -597,14 +607,15 @@ def _as_param_pairs(names: list[str], types: list[Type]) -> list[tuple[str, Type
   return [(x, t) for (x, t) in zip(names, types)]
 
 def _viewrec_placeholder(loc: Meta, name: str, typarams: list[str],
-                         params: list[Any], returns: Type,
-                         visibility: Any) -> Any:
+                         params: ParamTypes, returns: Type,
+                         visibility: str) -> GenRecFun:
   return GenRecFun(loc, name, typarams, params, returns,
                    ResolvedVar(loc, None, params[0][0]), params[0][1],
                    Hole(loc, None), PSorry(loc), True,
                    visibility=visibility)
 
-def _viewrec_recursive_binders(pattern: Any, rec_ty: Type, env: Env) -> list[str]:
+def _viewrec_recursive_binders(pattern: PatternBool | PatternCons,
+                               rec_ty: Type, env: Env) -> list[str]:
   binders = []
   match pattern:
     case PatternCons(_, _, params):
@@ -628,7 +639,7 @@ def _check_view_function_type(loc: Meta, name: str, expected: Type,
 def _view_call(loc: Meta, fun_name: str, arg: Term) -> Call:
   return Call(loc, None, ResolvedVar(loc, None, fun_name), [arg])
 
-def _view_roundtrip_formula(loc: Meta, view: Any) -> Formula:
+def _view_roundtrip_formula(loc: Meta, view: ViewDecl) -> Formula:
   value_name = generate_proof_name("v")
   value = ResolvedVar(loc, view.target, value_name)
   formula = mkEqual(loc,
@@ -641,7 +652,7 @@ def _view_roundtrip_formula(loc: Meta, view: Any) -> Formula:
                   (i, len(view.type_params)), formula)
   return formula
 
-def _view_inverse_formula(loc: Meta, view: Any) -> Formula:
+def _view_inverse_formula(loc: Meta, view: ViewDecl) -> Formula:
   value_name = generate_proof_name("v")
   value = ResolvedVar(loc, view.source, value_name)
   formula = mkEqual(loc,
@@ -654,7 +665,7 @@ def _view_inverse_formula(loc: Meta, view: Any) -> Formula:
                   (i, len(view.type_params)), formula)
   return formula
 
-def _check_view_roundtrip(loc: Meta, view: Any, env: Env) -> None:
+def _check_view_roundtrip(loc: Meta, view: ViewDecl, env: Env) -> None:
   expected = type_check_formula(_view_roundtrip_formula(loc, view), env)
   actual = env.get_formula_of_proof_var(PVar(loc, view.roundtrip))
   if actual is None:
@@ -665,7 +676,7 @@ def _check_view_roundtrip(loc: Meta, view: Any, env: Env) -> None:
                + " proves\n\t" + str(actual)
                + "\nbut expected\n\t" + str(expected))
 
-def _check_view_inverse(loc: Meta, view: Any, env: Env) -> None:
+def _check_view_inverse(loc: Meta, view: ViewDecl, env: Env) -> None:
   if view.inverse is None:
     return
   expected = type_check_formula(_view_inverse_formula(loc, view), env)
@@ -678,17 +689,18 @@ def _check_view_inverse(loc: Meta, view: Any, env: Env) -> None:
                + " proves\n\t" + str(actual)
                + "\nbut expected\n\t" + str(expected))
 
-def _instantiate_view_for_subject(loc: Meta, view: Any,
+def _instantiate_view_for_subject(loc: Meta, view: ViewDecl,
                                   subject_ty: Type
-                                  ) -> tuple[Type, Type, dict[Any, Any]]:
-  matching: dict[Any, Any] = {}
+                                  ) -> tuple[Type, Type, TypeMatching]:
+  matching: TypeMatching = {}
   type_match(loc, type_names(loc, view.type_params),
              view.source, subject_ty, matching)
-  return (view.source.substitute(matching),
-          view.target.substitute(matching),
+  sub = cast(Substitution, matching)
+  return (view.source.substitute(sub),
+          view.target.substitute(sub),
           matching)
 
-def type_check_viewrec(stmt: Any, env: Env) -> Any:
+def type_check_viewrec(stmt: ViewRecFun, env: Env) -> GenRecFun:
   loc = stmt.location
   name = stmt.name
   typarams = stmt.type_params
@@ -723,8 +735,8 @@ def type_check_viewrec(stmt: Any, env: Env) -> Any:
   checked_view = type_check_term(_view_call(loc, view_decl.into,
                                            checked_subject),
                                  view_ty, case_env, None, [])
-  cases_present: dict[str, Any] = {}
-  new_cases = []
+  cases_present: PatternCoverage = {}
+  new_cases: list[SwitchCase] = []
   reset_recursive_call_count()
   rec_ty = checked_params[0][1]
 
@@ -801,7 +813,7 @@ def type_check_stmt(stmt: Statement, env: Env,
 
       env = env.define_term_var(loc, name, fun_type, stmt.reduce(env),
                                 stmt.visibility)
-      cases_present: dict[str, Any] = {}
+      cases_present: PatternCoverage = {}
       reset_recursive_call_count()
       new_cases = [type_check_fun_case(c, name, checked_params, checked_returns,
                                        body_env, cases_present) \
@@ -988,7 +1000,7 @@ def collect_env(stmt: Statement, env: Env) -> Env:
     
     case Inductive(loc, typ, name):
       frm = env.get_formula_of_proof_var(name)
-      if not isinstance(cast(Any, typ), VarRef):
+      if not isinstance(cast(object, typ), VarRef):
         user_error(loc, "Only able to declare uninstantiated union types inductive")
       return env.declare_inductive(loc, match_induction(frm, typ), name)
 
@@ -1030,7 +1042,7 @@ def collect_env(stmt: Statement, env: Env) -> Env:
                   match funty:
                       case FunctionType(_, typarams2, param_types, _):
                           try:
-                              matching: dict[Any, Any] = {}
+                              matching: TypeMatching = {}
                               type_match(loc, typarams2, param_types[0], typ, matching)
                               resolved_op = x
                               break
@@ -1066,7 +1078,8 @@ def add_condition(cond: Term, call: "RecCall") -> "RecCall":
 def add_vars(vars: list[tuple[str, Type]], call: "RecCall") -> "RecCall":
     return RecCall(vars + call.vars, call.conditions, call.args)
 
-def find_rec_calls(name: str, term: Any, env: Env) -> list["RecCall"]:
+def find_rec_calls(name: str, term: Term | RecFun | GenRecFun,
+                   env: Env) -> list["RecCall"]:
   match term:
     case TermInst(loc2, _, subject, _, _):
       return find_rec_calls(name, subject, env)
@@ -1102,7 +1115,7 @@ def find_rec_calls(name: str, term: Any, env: Env) -> list["RecCall"]:
           case PatternCons(loc3, cons, params):
             cond = mkEqual(loc3, subject, pattern_to_term(c.pattern))
             new_c_body_calls = [add_condition(cond, call) for call in c_body_calls]
-            cases_present: dict[str, Any] = {}
+            cases_present: PatternCoverage = {}
             new_cons, params_types = check_constructor_pattern(
                 loc3, cons, params, subject.typeof, env, cases_present)
             c.pattern.constructor = new_cons
