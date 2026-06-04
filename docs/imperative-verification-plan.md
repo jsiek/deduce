@@ -27,8 +27,13 @@ ordinary Deduce terms silently effectful.
 - Do not require an SMT solver for the first implementation. Verification
   goals should be ordinary Deduce goals first; SMT automation can be a later
   acceleration path.
+- Do not add new proof automation in the first implementation. Use what Deduce
+  already has, such as `auto`, `simplify`, and `check_implies`.
 - Do not start with concurrency, IO, exceptions, pointer arithmetic, or manual
   memory management.
+- Do not support partial correctness in the first implementation. Checked
+  procedures must terminate and must prove absence of runtime errors, including
+  out-of-bounds array access.
 - Do not require separation logic for beginner array programs. Dynamic frames
   should be enough for the first tier.
 
@@ -54,7 +59,7 @@ A `proc` is an imperative procedure. It may read and update state, but it must
 declare its contract.
 
 ```deduce
-proc swap(a: MArray<UInt>, i: UInt, j: UInt)
+proc swap(a: [UInt]!, i: UInt, j: UInt)
   requires i < length(a)
   requires j < length(a)
   modifies a
@@ -67,9 +72,8 @@ proc swap(a: MArray<UInt>, i: UInt, j: UInt)
 }
 ```
 
-The proposed spelling `MArray<T>` avoids changing the meaning of Deduce's
-current pure array values. A future design pass may choose a different spelling,
-but the semantic distinction should remain:
+The mutable-array type `[T]!` avoids changing the meaning of Deduce's current
+pure array values:
 
 - pure arrays are ordinary values;
 - mutable arrays are heap objects handled by `proc`.
@@ -78,7 +82,7 @@ Procedures that return values use `-> T` and refer to the return value as
 `result` in postconditions.
 
 ```deduce
-proc linear_search(a: MArray<UInt>, target: UInt) -> Option<UInt>
+proc linear_search(a: [UInt]!, target: UInt) -> Option<UInt>
   reads a
   ensures result = none or
           some i:UInt. result = just(i) and i < length(a) and a[i] = target
@@ -183,8 +187,10 @@ The checker should reject writes outside the current modifies frame.
 
 ### Object and reference types
 
-Arrays are enough for Phase 1, but linked structures need heap-allocated nodes.
-This plan proposes an `object` declaration and a `Ref<T>` type.
+Arrays are enough for the first verifier slice. Linked structures need
+heap-allocated nodes, so object references are postponed to the next verifier
+slice. This plan proposes an `object` declaration and a `Ref<T>` type for that
+second slice.
 
 ```deduce
 object Node<T> {
@@ -220,7 +226,7 @@ Mutable structures should be specified by pure Deduce values.
 Examples:
 
 ```deduce
-observer array_model<T>(a: MArray<T>) -> List<T>
+observer array_model<T>(a: [T]!) -> List<T>
 observer stack_model<T>(s: Ref<Stack<T>>) -> List<T>
 observer set_model<T>(h: Ref<HashSet<T>>) -> Set<T>
 ```
@@ -255,7 +261,7 @@ State = heap + local variables + allocation set
 ```
 
 The allocation set is the set of heap identities that currently exist: object
-ids for `Ref<T>` values and array ids for `MArray<T>` values. Reads and writes
+ids for `Ref<T>` values and array ids for `[T]!` values. Reads and writes
 must target allocated identities; `new` chooses a fresh identity not already in
 the allocation set. In the first design, with no deallocation, the allocation
 set only grows.
@@ -329,7 +335,9 @@ The first implementation should make verification goals look and feel like
 ordinary Deduce proof goals, without inventing stable generated names for them.
 A goal is tied to the source annotation that needs proof.
 
-A procedure may omit explicit proof terms when `auto` can discharge the goals:
+A procedure may omit explicit proof terms when Deduce's existing automatic
+machinery, such as `auto`, `simplify`, or `check_implies`, can discharge the
+goals:
 
 ```deduce
 proc swap(...) ... {
@@ -361,7 +369,7 @@ definition of a local proof-slot name is the `by label` annotation, not the
 proof block entry.
 
 ```deduce
-proc fill_zero(a: MArray<UInt>)
+proc fill_zero(a: [UInt]!)
   modifies a
   ensures all k:UInt. k < length(a) -> a[k] = 0
 {
@@ -470,7 +478,7 @@ functions. They may read the heap, but they cannot mutate it and they cannot be
 called from runtime code.
 
 ```deduce
-observer sorted(a: MArray<UInt>) -> bool
+observer sorted(a: [UInt]!) -> bool
   reads a
 {
   all i:UInt, j:UInt.
@@ -482,7 +490,7 @@ If a procedure modifies `b` but not `a`, then facts about `sorted(a)` remain
 usable because `sorted` reads only `a`.
 
 ```deduce
-proc touch_other(a: MArray<UInt>, b: MArray<UInt>)
+proc touch_other(a: [UInt]!, b: [UInt]!)
   requires sorted(a)
   modifies b
   ensures sorted(a)
@@ -529,7 +537,11 @@ Separation logic is the advanced tier for alias-heavy structures and cycles.
 
 ### Resource assertions
 
-This plan uses `resource` for user-defined separation predicates and `**` for
+Resource assertions are ordinary formulas with resource connectives. They can
+appear in `requires`, `ensures`, `assert`, theorem statements, and other places
+that accept formulas.
+
+This plan uses `resource` for user-defined resource predicates and `**` for
 separating conjunction.
 
 ```deduce
@@ -557,6 +569,12 @@ array_cell(a, i) |-> v
 The first implementation can skip fractional permissions and support only full
 write ownership. Fractional permissions become useful when clients need
 read-only sharing.
+
+"Ordinary formulas" does not mean ownership facts are freely duplicable.
+Internally, the proof checker must distinguish unrestricted pure facts from
+resource facts. A proof may reuse pure facts freely, but a resource fact such as
+`p.value |-> x` cannot be copied into `p.value |-> x ** p.value |-> x`.
+The surface syntax stays uniform; the proof context is resource-aware.
 
 ### Doubly linked and cyclic lists
 
@@ -602,9 +620,9 @@ Insertion after a node is a small local rewrite:
 
 ```deduce
 proc insert_after<T>(p: Ref<DNode<T>>, x: T)
-  requires sep node_linked_in_dll(p)
+  requires node_linked_in_dll(p)
   modifies p.next, p.next.prev
-  ensures sep node_linked_in_dll(p)
+  ensures node_linked_in_dll(p)
 {
   var q := p.next
   var n := new DNode<T>(just(x), q, p)
@@ -638,7 +656,7 @@ observer footprint_of_dll<T>(s: Ref<DNode<T>>, xs: List<T>) -> Set<Loc>
 
 theorem dll_footprint:
   all T:type, s:Ref<DNode<T>>, xs:List<T>.
-    sep dll(s, xs) -> footprint(s) = footprint_of_dll(s, xs)
+    dll(s, xs) -> footprint(s) = footprint_of_dll(s, xs)
 ```
 
 Bridge lemmas let a module use separation logic internally and export dynamic
@@ -647,7 +665,7 @@ frame contracts externally.
 ```deduce
 theorem dll_valid_from_resource:
   all T:type, s:Ref<DNode<T>>, xs:List<T>.
-    sep dll(s, xs) -> DllValid(s) and dll_model(s) = xs
+    dll(s, xs) -> DllValid(s) and dll_model(s) = xs
 ```
 
 This keeps the beginner interface small while preserving enough power for
@@ -684,8 +702,8 @@ Good:
 module Stack
 
 opaque object Stack<T> {
-  private var data : MArray<T>
-  private ghost var Repr : Set<Loc>
+  var data : [T]!
+  ghost var Repr : Set<Loc>
 }
 
 opaque predicate StackValid<T>(s: Ref<Stack<T>>)
@@ -712,8 +730,8 @@ module Stack
 private resource stack_rep<T>(s: Ref<Stack<T>>, xs: List<T>)
 
 public proc push<T>(s: Ref<Stack<T>>, x: T)
-  requires sep stack_rep(s, xs)
-  ensures sep stack_rep(s, node(x, xs))
+  requires stack_rep(s, xs)
+  ensures stack_rep(s, node(x, xs))
 {
   ...
 }
@@ -727,6 +745,8 @@ Deduce should reject this as a visibility error.
 
 An `opaque object` exports the object type but hides its fields, constructor,
 and allocation syntax outside the module.
+Object fields do not have their own visibility modifiers; object-level
+visibility determines whether fields are visible across module boundaries.
 
 Inside the module:
 
@@ -768,9 +788,9 @@ Example internal proof structure:
 module Stack
 
 opaque object Stack<T> {
-  private var data : MArray<T>
-  private var size : UInt
-  private ghost var Repr : Set<Loc>
+  var data : [T]!
+  var size : UInt
+  ghost var Repr : Set<Loc>
 }
 
 opaque predicate StackValid<T>(s: Ref<Stack<T>>)
@@ -783,7 +803,7 @@ private resource stack_rep<T>(s: Ref<Stack<T>>, xs: List<T>)
 
 private theorem stack_rep_exposes_api:
   all T:type, s:Ref<Stack<T>>, xs:List<T>.
-    sep stack_rep(s, xs) -> StackValid(s) and stack_model(s) = xs
+    stack_rep(s, xs) -> StackValid(s) and stack_model(s) = xs
 proof
   ...
 end
@@ -892,7 +912,7 @@ object_decl ::=
 object_body ::= "{" object_field* "}"
 
 object_field ::=
-  visibility "ghost"? "var" id ":" type
+  "ghost"? "var" id ":" type
 
 params ::= param ("," param)*
 
@@ -902,9 +922,7 @@ return_type ::= "->" type
 
 spec_clause ::=
     "requires" spec_label? formula
-  | "requires" "sep" spec_label? resource_formula
   | "ensures" spec_label? formula
-  | "ensures" "sep" spec_label? resource_formula
   | "reads" frame_list
   | "modifies" frame_list
   | "decreases" term
@@ -932,6 +950,8 @@ call_label ::= "as" id
 
 type_args ::= "<" type_list ">"
 
+mutable_array_type ::= "[" type "]" "!"
+
 loop_spec ::=
     "invariant" formula
   | "established" "by" proof_ref
@@ -958,8 +978,12 @@ resource_decl ::=
   "resource" id type_params? "(" params? ")" resource_body?
 
 resource_body ::=
-  "{" resource_formula "}"
+  "{" formula "}"
 ```
+
+The formula grammar will need resource connectives such as `emp`, `**`, and
+`|->`. These are ordinary formulas syntactically, but they are checked with a
+resource-aware proof discipline.
 
 Allocation expressions such as `new Node<T>(...)` are effectful and should be
 accepted only in procedure statement right-hand sides, not in ordinary Deduce
@@ -990,7 +1014,7 @@ Acceptance:
 
 ### Phase 2: Mutable arrays and local variables
 
-- Add `MArray<T>` handles and operations: length, read, write, allocation from
+- Add `[T]!` handles and operations: length, read, write, allocation from
   a list.
 - Implement local variable assignment.
 - Implement `requires`, `ensures`, `modifies`, `old`, `while invariant`, and
@@ -1006,7 +1030,10 @@ Acceptance:
 - missing loop invariant produces a clear verification failure;
 - invalid array access requires a bound proof.
 
-### Phase 3: Dynamic-frame objects and ghost models
+### Phase 3: Object references and dynamic-frame objects
+
+Object references are postponed to this later verifier slice, after mutable
+arrays and local variables are working.
 
 - Add `object` and `Ref<T>`.
 - Add `new`, field read, and field write.
@@ -1026,8 +1053,8 @@ Acceptance:
 
 ### Phase 4: Separation logic resources
 
-- Add resource assertions: `emp`, `**`, `|->`, and user-defined `resource`
-  predicates.
+- Add resource assertions as ordinary formulas: `emp`, `**`, `|->`, and
+  user-defined `resource` predicates.
 - Add proof rules for frame, consequence, open/fold of resources, and local
   heap updates.
 - Keep full write permissions only at first.
@@ -1061,10 +1088,11 @@ Acceptance:
 ### Phase 6: Compilation and runtime
 
 - Extend the existing compiler pipeline to imperative procedures.
-- Map `MArray` and objects to runtime heap structures.
+- Map `[T]!` arrays and objects to runtime heap structures.
 - Erase ghost code and proofs.
-- Preserve runtime checks only for conditions that are not statically proved
-  in the executable fragment, if any.
+- The checker must prove absence of runtime errors before compilation. The
+  generated runtime may keep defensive traps, but verified programs should not
+  rely on exceptions or runtime checks for correctness.
 
 Acceptance:
 
@@ -1112,7 +1140,7 @@ Purpose: array reads/writes, `old`, and narrow modifies frame.
 import UInt
 import List
 
-proc swap(a: MArray<UInt>, i: UInt, j: UInt)
+proc swap(a: [UInt]!, i: UInt, j: UInt)
   requires i < length(a)
   requires j < length(a)
   modifies a[i], a[j]
@@ -1136,7 +1164,7 @@ Purpose: reject writes outside the declared frame.
 ```deduce
 import UInt
 
-proc bad_swap(a: MArray<UInt>, i: UInt, j: UInt)
+proc bad_swap(a: [UInt]!, i: UInt, j: UInt)
   requires i < length(a)
   requires j < length(a)
   modifies a[i]
@@ -1156,7 +1184,7 @@ Purpose: loop writes across an array with an invariant over prefix and suffix.
 ```deduce
 import UInt
 
-proc fill_zero(a: MArray<UInt>)
+proc fill_zero(a: [UInt]!)
   modifies a
   ensures all k:UInt. k < length(a) -> a[k] = 0
 {
@@ -1182,7 +1210,7 @@ Purpose: show that postconditions after loops need invariants.
 ```deduce
 import UInt
 
-proc fill_zero_bad(a: MArray<UInt>)
+proc fill_zero_bad(a: [UInt]!)
   modifies a
   ensures all k:UInt. k < length(a) -> a[k] = 0
 {
@@ -1207,7 +1235,7 @@ Purpose: return values, early return, existential postcondition.
 import UInt
 import Option
 
-proc linear_search(a: MArray<UInt>, target: UInt) -> Option<UInt>
+proc linear_search(a: [UInt]!, target: UInt) -> Option<UInt>
   reads a
   ensures result = none or
           some i:UInt. result = just(i) and i < length(a) and a[i] = target
@@ -1239,14 +1267,14 @@ Purpose: read frames preserve facts about untouched state.
 ```deduce
 import UInt
 
-observer sorted(a: MArray<UInt>) -> bool
+observer sorted(a: [UInt]!) -> bool
   reads a
 {
   all i:UInt, j:UInt.
     i < j and j < length(a) -> a[i] <= a[j]
 }
 
-proc modify_other(a: MArray<UInt>, b: MArray<UInt>)
+proc modify_other(a: [UInt]!, b: [UInt]!)
   requires sorted(a)
   modifies b
   ensures sorted(a)
@@ -1291,8 +1319,8 @@ object Cell<T> {
 
 proc cell_swap<T>(p: Ref<Cell<T>>, q: Ref<Cell<T>>,
                   ghost x: T, ghost y: T)
-  requires sep p.value |-> x ** q.value |-> y
-  ensures sep p.value |-> y ** q.value |-> x
+  requires p.value |-> x ** q.value |-> y
+  ensures p.value |-> y ** q.value |-> x
 {
   var tmp : T := p.value
   p.value := q.value
@@ -1313,8 +1341,8 @@ object Cell<T> {
 }
 
 proc duplicate_resource<T>(p: Ref<Cell<T>>, ghost x: T)
-  requires sep p.value |-> x
-  ensures sep p.value |-> x ** p.value |-> x
+  requires p.value |-> x
+  ensures p.value |-> x ** p.value |-> x
 {
 }
 ```
@@ -1330,7 +1358,7 @@ Purpose: dynamic-frame ADT proof with a pure list model.
 import List
 
 object Stack<T> {
-  var data : MArray<T>
+  var data : [T]!
   var size : UInt
   ghost var model : List<T>
   ghost var Repr : Set<Loc>
@@ -1412,9 +1440,9 @@ resource dll_segment<T>(first: Ref<DNode<T>>,
                         xs: List<T>)
 
 proc insert_after<T>(p: Ref<DNode<T>>, x: T)
-  requires sep local_dll_gap(p, q, xs_left, xs_right)
+  requires local_dll_gap(p, q, xs_left, xs_right)
   modifies p.next, q.prev
-  ensures sep local_dll_gap_with_inserted(p, x, q, xs_left, xs_right)
+  ensures local_dll_gap_with_inserted(p, x, q, xs_left, xs_right)
 {
   var q := p.next
   var n := new DNode<T>(just(x), q, p)
@@ -1466,9 +1494,9 @@ import UInt
 import List
 
 opaque object Stack<T> {
-  private var data : MArray<T>
-  private var size : UInt
-  private ghost var Repr : Set<Loc>
+  var data : [T]!
+  var size : UInt
+  ghost var Repr : Set<Loc>
 }
 
 opaque predicate StackValid<T>(s: Ref<Stack<T>>)
@@ -1481,7 +1509,7 @@ private resource stack_rep<T>(s: Ref<Stack<T>>, xs: List<T>)
 
 private theorem stack_rep_exposes_api:
   all T:type, s:Ref<Stack<T>>, xs:List<T>.
-    sep stack_rep(s, xs) -> StackValid(s) and stack_model(s) = xs
+    stack_rep(s, xs) -> StackValid(s) and stack_model(s) = xs
 proof
   ...
 end
@@ -1561,14 +1589,14 @@ Purpose: reject exported procedure specs that leak private representation names.
 module BadStack
 
 opaque object Stack<T> {
-  private var data : MArray<T>
+  var data : [T]!
 }
 
 private resource stack_rep<T>(s: Ref<Stack<T>>, xs: List<T>)
 
 public proc bad_push<T>(s: Ref<Stack<T>>, x: T, ghost xs: List<T>)
-  requires sep stack_rep(s, xs)
-  ensures sep stack_rep(s, node(x, xs))
+  requires stack_rep(s, xs)
+  ensures stack_rep(s, node(x, xs))
 {
   ...
 }
@@ -1613,33 +1641,38 @@ Good errors matter as much as soundness for this feature. Target diagnostics:
 - "unknown call label `hp`";
 - "procedure `push` has no labeled postcondition `model_post`".
 
-## Open design questions
+## Design Decisions
 
-- Should the top-level keyword be `proc`, `method`, or `imperative`?
-- Should mutable arrays be spelled `MArray<T>`, `Array<T>`, or reuse `[T]` in
-  procedure contexts?
-- Should the first implementation include object references, or should Phase 1
-  stay arrays-only until the proof-slot machinery is solid?
-- Should procedure proof slots accept arbitrary proof expressions inline, or
-  should the first implementation require bare labels plus `proof ... end`
-  entries?
-- Should separation formulas use `sep` clauses, a distinct formula type, or
-  ordinary formulas with resource connectives?
-- Should object fields have their own `public`/`private` visibility, or should
-  opaque objects always hide all fields outside the defining module?
-- Should `opaque proc` mean anything beyond the default rule that procedure
-  bodies are hidden across module boundaries?
-- How much automation should be built into `auto` before adding optional SMT
-  support?
-- Should partial correctness be available via `decreases *`, or should Deduce
-  require termination for all checked procedures at first?
+- Imperative procedures use the keyword `proc`.
+- Mutable arrays are written `[T]!`, distinct from pure arrays `[T]`.
+- Object references are postponed until the later object-reference verifier
+  slice, after mutable arrays and local variables.
+- Proof slots accept arbitrary proof expressions inline. The `proof ... end`
+  block is only an out-of-line convenience for longer proof terms.
+- Object fields do not have their own visibility modifiers. An `opaque object`
+  hides all fields outside the defining module; a non-opaque object exposes its
+  fields according to the object declaration's visibility.
+- The first implementation should not add new proof automation. Use existing
+  Deduce mechanisms such as `auto`, `simplify`, and `check_implies`.
+- Procedures must be totally correct: they terminate and do not raise runtime
+  errors. Array bounds, valid dereferences, and other safety conditions are
+  proof goals, not runtime exceptions.
+- Separation assertions are ordinary formulas with resource connectives such as
+  `emp`, `**`, and `|->`. They do not use a separate `requires sep` or
+  `ensures sep` clause form.
+
+## Remaining Open Questions
+
+- `opaque proc` needs more exploration. Procedure bodies are already hidden
+  across module boundaries, so it is not yet clear whether `opaque proc` should
+  have additional meaning.
 
 ## Recommended first slice
 
 The smallest useful implementation slice is:
 
 1. Add `proc` with local variables, `if`, `while`, and returns.
-2. Add `MArray<T>` reads/writes, `length`, and `new_array`.
+2. Add `[T]!` reads/writes, `length`, and `new_array`.
 3. Support `requires`, `ensures`, `modifies`, `old`, loop `invariant`, and
    loop `decreases`.
 4. Check `by` proof terms and proof-block entries as ordinary Deduce proofs.
