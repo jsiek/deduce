@@ -469,6 +469,13 @@ recursive all_elements<T>(List<T>, fn T->bool) -> bool {
 }
 ```
 
+The list higher-order functions in `List.pf` put the list before the
+function argument: `map(xs, f)`, `filter(xs, P)`, `foldr(xs, u, c)`,
+and `foldl(xs, u, c)`. This differs from the order used in languages
+such as Haskell, where examples are often written with the function
+first, such as `map f xs` or `foldr f z xs`. When translating those
+examples to Deduce, move the list to the first argument position.
+
 ## Pairs
 
 Pairs are defined as a `union` type:
