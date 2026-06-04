@@ -155,7 +155,7 @@ class FunctionType(Type):
       + [self.return_type.free_vars()]
     return set().union(*fvs) - set(self.type_params)
 
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> FunctionType:
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> FunctionType:
     body_env = {x:y for (x,y) in env.items()}
     new_type_params = [generate_name(t, ctx) for t in self.type_params]
     for (old,new) in zip(self.type_params, new_type_params):
@@ -332,7 +332,7 @@ class Generic(Term):
       new_body = self.body.substitute(ren)
       return new_body == other.body
 
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> Generic:
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> Generic:
     body_env = {x:y for (x,y) in env.items()}
     new_type_params = [generate_name(x, ctx) for x in self.type_params]
     for (old,new) in zip(self.type_params, new_type_params):
@@ -481,7 +481,7 @@ class Var(VarRef):
             return self
           return Var(self.location, new_typeof, self.name)
 
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> OverloadedVar:  # type: ignore[override]
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> OverloadedVar:  # type: ignore[override]
     if self.name not in env.keys():
       if get_verbose():
         env_str = '\nenvironment: ' + ', '.join(env.keys())
@@ -609,7 +609,7 @@ class OverloadedVar(VarRef):
         return self
       return OverloadedVar(self.location, new_typeof, list(self.resolved_names))
 
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> OverloadedVar:
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> OverloadedVar:
     # Already uniquified — re-uniquify is a no-op (we'd hit this if
     # uniquify_deduce were ever called twice on the same AST).
     return self
@@ -708,7 +708,7 @@ class ResolvedVar(VarRef):
         return self
       return ResolvedVar(self.location, new_typeof, self.name)
 
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> ResolvedVar:
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> ResolvedVar:
     # Already uniquified.
     return self
 
@@ -767,7 +767,7 @@ class Lambda(Term):
       return Lambda(self.location, self.typeof, self.vars,
                     self.body.reduce(env))
 
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> Lambda:
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> Lambda:
     body_env = {x:y for (x,y) in env.items()}
     new_var_types = [t.uniquify(env, ctx) if t else None
                      for (x,t) in self.vars]
@@ -1378,7 +1378,7 @@ class SwitchCase(AST):
           + (indent+2)*' ' + str(self.body) + '\n'\
           + indent*' ' + '}'
 
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> SwitchCase:
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> SwitchCase:
     new_pat = self.pattern.uniquify(env, ctx)
     body_env = {x:y for (x,y) in env.items()}
     match new_pat:
@@ -1613,7 +1613,7 @@ class TLet(Term):
     else:
       return cast(Term, new_body)
 
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> TLet:
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> TLet:
     new_rhs = self.rhs.uniquify(env, ctx)
     body_env = {x:y for (x,y) in env.items()}
     new_var = generate_name(self.var, ctx)
@@ -1888,7 +1888,7 @@ class All(Formula):
       return False
     return _alpha_equiv_all(self, other, {}, {})
 
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> All:
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> All:
     body_env = {x:y for (x,y) in env.items()}
     (x, ty) = self.var
     new_t = ty.uniquify(body_env, ctx)
@@ -1922,7 +1922,7 @@ class Some(Formula):
                     [(x, ty.reduce(env)) for (x,ty) in self.vars],
                     new_body)
 
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> Some:
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> Some:
     body_env = {x:y for (x,y) in env.items()}
     new_vars = []
     for (x, ty) in self.vars:

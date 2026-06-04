@@ -56,7 +56,7 @@ class Declaration(Statement):
 ################ Statements ######################################
 
 ## Updates the environment with a name, creating overloads
-def extend(env: dict[str, Any], name: str, new_name: str, loc: Meta) -> None:
+def extend(env: UniquifyEnv, name: str, new_name: str, loc: Meta) -> None:
   if name in env['no overload']:
     ty = env['no overload'][name]
     user_error(loc, f"Cannot overload {ty} names. {name} is already defined as a {ty}")
@@ -68,7 +68,7 @@ def extend(env: dict[str, Any], name: str, new_name: str, loc: Meta) -> None:
     env[name] = [new_name]
 
 ## Overwrites a value in the environment, with a warning
-def overwrite(env: dict[str, Any], name: str, new_name: str, loc: Meta) -> None:
+def overwrite(env: UniquifyEnv, name: str, new_name: str, loc: Meta) -> None:
   if name in env['no overload']:
     ty = env['no overload'][name]
     user_error(loc, f"Cannot overload {ty} names. {name} is already defined as a {ty}")
@@ -91,7 +91,7 @@ class Postulate(Declaration):
     return 'postulate ' + self.name + ': ' + str(self.what) + '\n\n'
 
   def uniquify(self, env: object, ctx: object) -> Postulate:
-    env_map = cast(dict[str, Any], env)
+    env_map = cast(UniquifyEnv, env)
     uniq_ctx = cast(UniquifyContext, ctx)
     if self.name in env_map.keys():
       user_error(self.location, "theorem names may not be overloaded")
@@ -102,7 +102,7 @@ class Postulate(Declaration):
     return Postulate(self.location, new_name, new_what,
                      visibility=self.visibility)
 
-  def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
+  def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
     export_env[base_name(self.name)] = [self.name]
 
 @dataclass
@@ -123,7 +123,7 @@ class Theorem(Declaration):
       + '\nproof\n' + self.proof.pretty_print(2) + '\nend\n'
 
   def uniquify(self, env: object, ctx: object) -> Theorem:
-    env_map = cast(dict[str, Any], env)
+    env_map = cast(UniquifyEnv, env)
     uniq_ctx = cast(UniquifyContext, ctx)
     if self.name in env_map.keys():
       user_error(self.location, "theorem names may not be overloaded: " + base_name(self.name))
@@ -135,7 +135,7 @@ class Theorem(Declaration):
     return Theorem(self.location, new_name, new_what, new_proof, self.isLemma,
                    visibility=self.visibility)
 
-  def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
+  def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
     if importing_module == get_current_module() or not self.isLemma:
       export_env[base_name(self.name)] = [self.name]
     
@@ -153,8 +153,8 @@ class Constructor(AST):
       body_env: object,
       ctx: object,
   ) -> Constructor:
-    env_map = cast(dict[str, Any], env)
-    body_env_map = cast(dict[str, Any], body_env)
+    env_map = cast(UniquifyEnv, env)
+    body_env_map = cast(UniquifyEnv, body_env)
     uniq_ctx = cast(UniquifyContext, ctx)
     new_params = [ty.uniquify(body_env_map, uniq_ctx) for ty in self.parameters]
     new_name = generate_name(self.name, uniq_ctx)
@@ -188,8 +188,8 @@ class Rule(AST):
       body_env: object,
       ctx: object,
   ) -> Rule:
-    env_map = cast(dict[str, Any], env)
-    body_env_map = cast(dict[str, Any], body_env)
+    env_map = cast(UniquifyEnv, env)
+    body_env_map = cast(UniquifyEnv, body_env)
     uniq_ctx = cast(UniquifyContext, ctx)
     new_formula = self.formula.uniquify(body_env_map, uniq_ctx)
     if self.name in env_map.keys():
@@ -235,7 +235,7 @@ class Predicate(Declaration):
     return self
 
   def uniquify(self, env: object, ctx: object) -> Predicate:
-    env_map = cast(dict[str, Any], env)
+    env_map = cast(UniquifyEnv, env)
     uniq_ctx = cast(UniquifyContext, ctx)
     if self.name in env_map.keys():
       user_error(self.location,
@@ -293,7 +293,7 @@ class Predicate(Declaration):
 
   def collect_exports(
       self,
-      export_env: dict[str, Any],
+      export_env: UniquifyEnv,
       importing_module: str,
   ) -> None:
     if self.visibility == 'private' and importing_module != get_current_module():
@@ -330,7 +330,7 @@ class Union(Declaration):
     return self
   
   def uniquify(self, env: object, ctx: object) -> Union:
-    env_map = cast(dict[str, Any], env)
+    env_map = cast(UniquifyEnv, env)
     uniq_ctx = cast(UniquifyContext, ctx)
     if self.name in env_map.keys():
       user_error(self.location, "union names may not be overloaded")
@@ -350,7 +350,7 @@ class Union(Declaration):
 
   def collect_exports(
       self,
-      export_env: dict[str, Any],
+      export_env: UniquifyEnv,
       importing_module: str,
   ) -> None:
     if self.visibility == 'private' and importing_module != get_current_module():
@@ -394,7 +394,7 @@ class TypeAlias(Declaration):
     return self
 
   def uniquify(self, env: object, ctx: object) -> TypeAlias:
-    env_map = cast(dict[str, Any], env)
+    env_map = cast(UniquifyEnv, env)
     uniq_ctx = cast(UniquifyContext, ctx)
     if self.name in env_map.keys():
       user_error(self.location, "type names may not be overloaded")
@@ -413,7 +413,7 @@ class TypeAlias(Declaration):
 
   def collect_exports(
       self,
-      export_env: dict[str, Any],
+      export_env: UniquifyEnv,
       importing_module: str,
   ) -> None:
     if self.visibility == 'private' and importing_module != get_current_module():
@@ -458,7 +458,7 @@ class FunCase(AST):
       fun_name: str,
       ctx: object,
   ) -> FunCase:
-    env_map = cast(dict[str, Any], env)
+    env_map = cast(UniquifyEnv, env)
     uniq_ctx = cast(UniquifyContext, ctx)
     rator = cast(Var, self.rator)
     if rator.name != fun_name:
@@ -493,7 +493,7 @@ class RecFun(Declaration):
   cases: List[FunCase]
 
   def uniquify(self, env: object, ctx: object) -> RecFun:
-    env_map = cast(dict[str, Any], env)
+    env_map = cast(UniquifyEnv, env)
     uniq_ctx = cast(UniquifyContext, ctx)
     old_name = self.name
     new_name = generate_name(self.name, uniq_ctx)
@@ -514,7 +514,7 @@ class RecFun(Declaration):
       
   def collect_exports(
       self,
-      export_env: dict[str, Any],
+      export_env: UniquifyEnv,
       importing_module: str,
   ) -> None:
     if self.visibility == 'private' and importing_module != get_current_module():
@@ -605,7 +605,7 @@ class GenRecFun(Declaration):
   trusted_terminates: bool = False
 
   def uniquify(self, env: object, ctx: object) -> GenRecFun:
-    env_map = cast(dict[str, Any], env)
+    env_map = cast(UniquifyEnv, env)
     uniq_ctx = cast(UniquifyContext, ctx)
     new_name = generate_name(self.name, uniq_ctx)
     extend(env_map, self.name, new_name, self.location)
@@ -641,7 +641,7 @@ class GenRecFun(Declaration):
     
   def collect_exports(
       self,
-      export_env: dict[str, Any],
+      export_env: UniquifyEnv,
       importing_module: str,
   ) -> None:
     if self.visibility == 'private' and (importing_module != get_current_module()):
@@ -709,7 +709,7 @@ class ViewRecFun(Declaration):
   cases: List[SwitchCase]
 
   def uniquify(self, env: object, ctx: object) -> ViewRecFun:
-    env = cast(dict[str, Any], env)
+    env = cast(UniquifyEnv, env)
     ctx = cast(UniquifyContext, ctx)
     new_name = generate_name(self.name, ctx)
     extend(env, self.name, new_name, self.location)
@@ -752,7 +752,7 @@ class ViewRecFun(Declaration):
                       new_view_subject, new_cases,
                       visibility=self.visibility)
 
-  def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
+  def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
     if self.visibility == 'private' and (importing_module != get_current_module()):
       return
     extend(export_env, base_name(self.name), self.name, self.location)
@@ -783,7 +783,7 @@ class ViewDecl(Declaration):
   inverse: str | None = None
 
   def uniquify(self, env: object, ctx: object) -> ViewDecl:
-    env = cast(dict[str, Any], env)
+    env = cast(UniquifyEnv, env)
     ctx = cast(UniquifyContext, ctx)
     if self.name in env.keys():
       user_error(self.location, "view names may not be overloaded")
@@ -815,7 +815,7 @@ class ViewDecl(Declaration):
                     new_source, new_target, new_into, new_out,
                     new_roundtrip, new_inverse, visibility=self.visibility)
 
-  def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
+  def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
     if self.visibility == 'private' and (importing_module != get_current_module()):
       return
     extend(export_env, base_name(self.name), self.name, self.location)
@@ -887,7 +887,7 @@ class Define(Declaration):
           return str(self)
     
   def uniquify(self, env: object, ctx: object) -> Define:
-    env = cast(dict[str, Any], env)
+    env = cast(UniquifyEnv, env)
     ctx = cast(UniquifyContext, ctx)
     new_typ = self.typ.uniquify(env, ctx) if self.typ else None
     new_body = self.body.uniquify(env, ctx)
@@ -897,7 +897,7 @@ class Define(Declaration):
     return Define(self.location, new_name, new_typ, new_body,
                   visibility=self.visibility)
 
-  def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
+  def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
     if self.visibility == 'private' and (importing_module != get_current_module()):
       return
     extend(export_env, base_name(self.name), self.name, self.location)
@@ -955,7 +955,7 @@ class Assert(Statement):
   def __str__(self) -> str:
     return 'assert ' + str(self.formula)
 
-  def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
+  def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
     pass
 
 @dataclass
@@ -965,7 +965,7 @@ class Print(Statement):
   def __str__(self) -> str:
     return 'print ' + str(self.term)
 
-  def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
+  def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
     pass
 
 
@@ -1041,7 +1041,7 @@ class Import(Declaration):
                    + "' is not exported by module '" + self.name + "'")
 
   def uniquify(self, env: object, ctx: object) -> Import:
-    env = cast(dict[str, Any], env)
+    env = cast(UniquifyEnv, env)
     ctx = cast(UniquifyContext, ctx)
     importing_module = get_current_module()
     set_current_module(self.name)
@@ -1076,7 +1076,7 @@ class Import(Declaration):
     self._validate_filter(new_ast)
     for stmt in new_ast:
       if self._filter_admits(stmt):
-        cast(Any, stmt).collect_exports(env, importing_module)
+        stmt.collect_exports(env, importing_module)
     set_verbose(old_verbose)
     if get_verbose():
       print('\tuniquify finished import ' + self.name)
@@ -1085,14 +1085,14 @@ class Import(Declaration):
                   visibility=self.visibility,
                   using=self.using, hiding=self.hiding)
 
-  def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
+  def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
     module_name = '__module__' + self.name
     if self.visibility == 'public' and not (module_name in export_env.keys()):
       set_current_module(self.name)
       export_env[module_name] = None
       for stmt in cast(List[Statement], self.ast):
         if self._filter_admits(stmt):
-          cast(Any, stmt).collect_exports(export_env, importing_module)
+          stmt.collect_exports(export_env, importing_module)
       set_current_module(importing_module)
 
 @dataclass
@@ -1108,7 +1108,7 @@ class Auto(Statement):
   def __str__(self) -> str:
     return 'auto ' + str(self.name)
 
-  def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
+  def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
     pass
 
 @dataclass
@@ -1119,7 +1119,7 @@ class Inductive(Statement):
   def __str__(self) -> str:
     return 'inductive ' + str(self.typ) + ' by ' + str(self.thm_name)
 
-  def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
+  def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
     pass
 
 
@@ -1130,11 +1130,11 @@ class Module(Statement):
   def pretty_print(self, indent: int) -> str:
       return indent*' ' + 'module ' + self.name + '\n'
   
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> Module:
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> Module:
       set_current_module(self.name)
       return Module(self.location, self.name)
 
-  def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
+  def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
       set_current_module(self.name)
 
 @dataclass
@@ -1145,10 +1145,10 @@ class Export(Statement):
   def pretty_print(self, indent: int) -> str:
       return indent*' ' + 'export ' + self.name + '\n'
   
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> Export:
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> Export:
       return Export(self.location, self.name, env[self.name])
 
-  def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
+  def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
       for x in self.resolved_names:
           extend(export_env, base_name(x), x, self.location)
       
@@ -1163,7 +1163,7 @@ class Associative(Statement):
       + ('<' + ','.join(self.type_params) + '>' if len(self.type_params) > 0 else '') \
       + ' ' + str(self.typeof)
 
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> Associative:
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> Associative:
     new_op = self.op.uniquify(env, ctx)
     body_env = {x:y for (x,y) in env.items()}
     new_type_params = [generate_name(x, ctx) for x in self.type_params]
@@ -1172,7 +1172,7 @@ class Associative(Statement):
     new_typeof = self.typeof.uniquify(body_env, ctx)
     return Associative(self.location, new_type_params, new_op, new_typeof)
 
-  def collect_exports(self, export_env: dict[str, Any], importing_module: str) -> None:
+  def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
     opname = cast(VarRef, self.op).get_name()
     full_name = '__associative_' + opname
     base = base_name(opname)

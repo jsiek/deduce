@@ -50,7 +50,7 @@ class PVar(Proof):
   def __str__(self) -> str:
       return base_name(self.name)
 
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> PVar:
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> PVar:
     if self.name not in env.keys():
       hits = find_private_lemma_definers(self.name)
       if hits:
@@ -95,7 +95,7 @@ class PLet(Proof):
       return 'have ' + base_name(self.label) + ': ' + str(self.proved) \
         + ' by ' + str(self.because) + (' ' + str(self.body) if self.body else '')
 
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> PLet:
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> PLet:
     new_proved = self.proved.uniquify(env, ctx)
     new_because = self.because.uniquify(env, ctx)
     body_env = {x:y for (x,y) in env.items()}
@@ -118,7 +118,7 @@ class PTLetNew(Proof):
       return 'define ' + base_name(self.var) + ' = ' + str(self.rhs) + '\n' \
          + str(self.body)
 
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> PTLetNew:
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> PTLetNew:
     new_rhs = self.rhs.uniquify(env, ctx)
     body_env = {x:y for (x,y) in env.items()}
     new_var = generate_name(self.var, ctx)
@@ -178,7 +178,7 @@ class Cases(Proof):
               + indent*' ' + '}'
       return '\n'.join(cases_str) + '\n'
       
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> Cases:
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> Cases:
     new_subject = self.subject.uniquify(env, ctx)
     new_cases = []
     for (label, formula, proof) in self.cases:
@@ -217,7 +217,7 @@ class ImpIntro(Proof):
       (': ' + str(self.premise) if self.premise else '') + \
       ('{' + str(self.body) + '}' if self.body else '')
 
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> ImpIntro:
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> ImpIntro:
     new_premise = self.premise.uniquify(env, ctx) if self.premise else None
     body_env = copy_dict(env)
     new_label = generate_name(self.label, ctx)
@@ -254,7 +254,7 @@ class AllIntro(Proof):
   def __str__(self) -> str:
     return self.arbitrary_str() + maybe_str(self.body)
 
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> AllIntro:
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> AllIntro:
     body_env = copy_dict(env)
     x, ty = self.var
     new_t = ty.uniquify(body_env, ctx)
@@ -354,7 +354,7 @@ class SomeElim(Proof):
       + ' from ' + str(self.some) \
       + '; ' + maybe_str(self.body)
   
-  def uniquify(self, env: dict[str, Any], ctx: UniquifyContext) -> SomeElim:
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> SomeElim:
     new_some = self.some.uniquify(env, ctx)
     body_env = copy_dict(env)
     new_witnesses = []
@@ -506,7 +506,7 @@ class IndCase(AST):
       + '{' + str(self.body) + '}'
 
   def uniquify(self, env: object, ctx: object) -> IndCase:
-    env_map = cast(dict[str, Any], env)
+    env_map = cast(UniquifyEnv, env)
     uniq_ctx = cast(UniquifyContext, ctx)
     body_env = copy_dict(env_map)
     pattern = cast(Any, self.pattern)
@@ -559,7 +559,7 @@ class RuleInductionCase(AST):
         + str(self.body) + ' }'
 
   def uniquify(self, env: object, ctx: object) -> RuleInductionCase:
-    env_map = cast(dict[str, Any], env)
+    env_map = cast(UniquifyEnv, env)
     uniq_ctx = cast(UniquifyContext, ctx)
     # Resolve the rule name against the env so we can match against the
     # uniquified rule names later. Wrong names are reported with a
@@ -598,7 +598,7 @@ class RuleInduction(Proof):
         + ' '.join([str(c) for c in self.cases])
 
   def uniquify(self, env: object, ctx: object) -> RuleInduction:
-    env_map = cast(dict[str, Any], env)
+    env_map = cast(UniquifyEnv, env)
     uniq_ctx = cast(UniquifyContext, ctx)
     if self.hyp_name not in env_map.keys():
       from edit_distance import edit_distance
@@ -635,7 +635,7 @@ class RuleInversion(Proof):
         + ' '.join([str(c) for c in self.cases])
 
   def uniquify(self, env: object, ctx: object) -> RuleInversion:
-    env_map = cast(dict[str, Any], env)
+    env_map = cast(UniquifyEnv, env)
     uniq_ctx = cast(UniquifyContext, ctx)
     if self.hyp_name not in env_map.keys():
       from edit_distance import edit_distance
@@ -669,7 +669,7 @@ class SwitchProofCase(AST):
     return 'case ' + str(self.pattern) + '{' + str(self.body) + '}'
 
   def uniquify(self, env: object, ctx: object) -> SwitchProofCase:
-    env_map = cast(dict[str, Any], env)
+    env_map = cast(UniquifyEnv, env)
     uniq_ctx = cast(UniquifyContext, ctx)
     body_env = copy_dict(env_map)
     pattern = cast(Any, self.pattern)
