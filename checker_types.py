@@ -14,7 +14,8 @@ File charter:
 """
 
 from pathlib import Path
-from typing import Any
+from collections.abc import Sequence
+from typing import TypeAlias as TypingTypeAlias, cast
 
 from lark.tree import Meta
 
@@ -45,6 +46,7 @@ from abstract_syntax import (
     Or,
     OverloadType,
     OverloadedVar,
+    Pattern,
     PatternBool,
     PatternCons,
     RecFun,
@@ -73,17 +75,26 @@ from checker_common import *
 from error import MatchFailed, UserError, internal_error, user_error, wrap_user_error, error_header
 from flags import get_verbose
 
+TypeExpr: TypingTypeAlias = Type | VarRef
+TypeMatching: TypingTypeAlias = dict[str, TypeExpr | None]
+ViewInstantiation: TypingTypeAlias = tuple[object, TypeExpr, TypeExpr]
+PatternCoverage: TypingTypeAlias = dict[str, bool]
+RecursiveName: TypingTypeAlias = str | None
+SubtermNames: TypingTypeAlias = Sequence[str]
+ParamBindings: TypingTypeAlias = list[tuple[str, Type]]
+
 # Lazy adapter for checker_pipeline._instantiate_view_type: a module-level
 # import would close the cycle
 # checker_types -> checker_pipeline -> checker_induction -> checker_proofs
-# -> checker_types and crash at import time. The Any return tag also keeps
-# strict callers off ``disallow_untyped_calls`` while checker_pipeline is
-# still on ``# mypy: ignore-errors``.
-def _instantiate_view_type(loc: Any, typ: Any, env: Any) -> Any:
+# -> checker_types and crash at import time.
+def _instantiate_view_type(
+    loc: Meta, typ: TypeExpr, env: Env
+) -> ViewInstantiation | None:
   import checker_pipeline
-  return checker_pipeline._instantiate_view_type(loc, typ, env)
+  return cast(ViewInstantiation | None,
+              checker_pipeline._instantiate_view_type(loc, typ, env))
 
-def _is_generic_unknown_argument(arg: Any, env: Env) -> bool:
+def _is_generic_unknown_argument(arg: Term, env: Env) -> bool:
   match arg:
     case Mark(_, _, subject):
       return _is_generic_unknown_argument(subject, env)
@@ -92,8 +103,19 @@ def _is_generic_unknown_argument(arg: Any, env: Env) -> bool:
     case _:
       return False
 
-def type_check_call_funty(loc: Meta, new_rator: Any, args: list[Any], env: Env, recfun: Any, subterms: Any, ret_ty: Any,
-                          call: Any, typarams: list[Any], param_types: list[Any], return_type: Any) -> Any:
+def type_check_call_funty(
+    loc: Meta,
+    new_rator: Term,
+    args: list[Term],
+    env: Env,
+    recfun: RecursiveName,
+    subterms: SubtermNames,
+    ret_ty: TypeExpr | None,
+    call: Call,
+    typarams: list[str],
+    param_types: list[Type],
+    return_type: Type,
+) -> Call:
   assoc_name = callable_name(new_rator)
   is_assoc = assoc_name is not None and is_associative(loc, assoc_name,
                                                        return_type, env)
@@ -110,7 +132,7 @@ def type_check_call_funty(loc: Meta, new_rator: Any, args: list[Any], env: Env, 
     param_types = [param_types[0]] * len(args)
 
   if len(typarams) == 0:
-    new_args = []
+    new_args: list[Term] = []
     for (param_type, arg) in zip(param_types, args):
       new_args.append(type_check_term(arg, param_type, env, recfun, subterms))
     if ret_ty != None and ret_ty != return_type:
@@ -119,7 +141,7 @@ def type_check_call_funty(loc: Meta, new_rator: Any, args: list[Any], env: Env, 
     return Call(loc, return_type, new_rator, new_args)
   else:
     #print('type check call to generic: ' + str(call))
-    matching: dict[Any, Any] = {}
+    matching: TypeMatching = {}
     # If there is an expected return type, match that first.
     type_params = type_names(loc, typarams)
     if ret_ty:
@@ -138,8 +160,8 @@ def type_check_call_funty(loc: Meta, new_rator: Any, args: list[Any], env: Env, 
     # then we can check the term. Otherwise, we synthesize the term's type
     # and match it against the parameter type.
     try:
-      checked_args: list[Any] = [None] * len(args)
-      delayed_args = []
+      checked_args: list[Term | None] = [None] * len(args)
+      delayed_args: list[tuple[int, Term, Type]] = []
       for index, (arg, param_ty) in enumerate(zip(args, param_types)):
           param_type = param_ty.substitute(matching)
           fvs = param_type.free_vars()\
@@ -184,12 +206,19 @@ def type_check_call_funty(loc: Meta, new_rator: Any, args: list[Any], env: Env, 
                   + base_name(x) + ' to instantiate ' + str(call.rator) \
                   + '\n\twhose type is: ' + str(new_rator.typeof))
 
-    type_args = [matching[x] for x in typarams]
+    missing_args = [
+        str(index) for index, arg in enumerate(checked_args) if arg is None
+    ]
+    if missing_args:
+      internal_error(loc, 'internal error in generic call: unchecked arguments for '
+                     + ', '.join(missing_args))
+    new_checked_args = [arg for arg in checked_args if arg is not None]
+    type_args = [cast(Type, matching[x]) for x in typarams]
     inst_params = [p.substitute(matching) for p in param_types]
     inst_return_type = return_type.substitute(matching)
     inst_funty = FunctionType(loc, [], inst_params, inst_return_type)
     inst_rator = TermInst(loc, inst_funty, new_rator, type_args, True)
-    ret = Call(loc, inst_return_type, inst_rator, checked_args)
+    ret = Call(loc, inst_return_type, inst_rator, new_checked_args)
     # print('{{{ type deduction for call: ' + str(ret))
     # print('arg_types: ' + ', '.join([str(arg.typeof) for arg in new_args]))
     # print(', '.join([x + ' = ' + str(t) for (x,t) in matching.items()]))
@@ -198,7 +227,12 @@ def type_check_call_funty(loc: Meta, new_rator: Any, args: list[Any], env: Env, 
     # print('}}}')
     return ret
 
-def overload_mismatch_annotation(loc: Meta, overload_funty: Any, arg_types: list[Any], ret_ty: Any) -> Any:
+def overload_mismatch_annotation(
+    loc: Meta,
+    overload_funty: Type,
+    arg_types: list[TypeExpr | None],
+    ret_ty: TypeExpr | None,
+) -> str | None:
   """Return a short annotation explaining why this overload doesn't fit, or
   ``None`` if neither side matches (in which case the bare overload type is
   already informative on its own). The annotation distinguishes the two
@@ -209,7 +243,7 @@ def overload_mismatch_annotation(loc: Meta, overload_funty: Any, arg_types: list
       type_params = type_names(loc, typarams)
       args_match = (len(param_types) == len(arg_types))
       if args_match:
-        m: dict[Any, Any] = {}
+        m: TypeMatching = {}
         try:
           for (pt, at) in zip(param_types, arg_types):
             type_match(loc, type_params, pt, at, m)
@@ -231,7 +265,7 @@ def overload_mismatch_annotation(loc: Meta, overload_funty: Any, arg_types: list
     case _:
       return None
 
-def _function_type_covers(loc: Meta, general: Any, specific: Any) -> bool:
+def _function_type_covers(loc: Meta, general: Type, specific: Type) -> bool:
   """Return true when every call accepted by ``specific`` also fits
   ``general`` by instantiating ``general``'s type parameters."""
   match (general, specific):
@@ -239,7 +273,7 @@ def _function_type_covers(loc: Meta, general: Any, specific: Any) -> bool:
           FunctionType(_, _, specific_params, specific_return)) \
         if len(general_params) == len(specific_params):
       type_params = type_names(loc, general_typarams)
-      matching: dict[Any, Any] = {}
+      matching: TypeMatching = {}
       try:
         for (general_param, specific_param) in zip(general_params, specific_params):
           type_match(loc, type_params, general_param, specific_param, matching)
@@ -250,11 +284,20 @@ def _function_type_covers(loc: Meta, general: Any, specific: Any) -> bool:
     case _:
       return False
 
-def _is_strictly_more_specific(loc: Meta, lhs: Any, rhs: Any) -> bool:
+def _is_strictly_more_specific(loc: Meta, lhs: Type, rhs: Type) -> bool:
   return _function_type_covers(loc, rhs, lhs) \
       and not _function_type_covers(loc, lhs, rhs)
 
-def type_check_call_helper(loc: Meta, new_rator: Any, args: list[Any], env: Env, recfun: Any, subterms: Any, ret_ty: Any, call: Any) -> Any:
+def type_check_call_helper(
+    loc: Meta,
+    new_rator: Term,
+    args: list[Term],
+    env: Env,
+    recfun: RecursiveName,
+    subterms: SubtermNames,
+    ret_ty: TypeExpr | None,
+    call: Call,
+) -> Call:
   if get_verbose():
       print('tc_call_helper(' + str(call) + ') rator type: ' + str(new_rator.typeof))
   funty = new_rator.typeof
@@ -314,7 +357,16 @@ def type_check_call_helper(loc: Meta, new_rator: Any, args: list[Any], env: Env,
     case _:
       user_error(loc, 'expected operator to have function type, not ' + str(funty))
       
-def type_check_call(loc: Meta, rator: Any, args: list[Any], env: Env, recfun: Any, subterms: Any, ret_ty: Any, call: Any) -> Any:
+def type_check_call(
+    loc: Meta,
+    rator: Term,
+    args: list[Term],
+    env: Env,
+    recfun: RecursiveName,
+    subterms: SubtermNames,
+    ret_ty: TypeExpr | None,
+    call: Call,
+) -> Call:
   if get_verbose():
       print('tc_check_call(' + str(call) + ')')
       print('rator: ' + str(rator))
@@ -335,7 +387,9 @@ def reset_recursive_call_count() -> None:
     global recursive_call_count
     recursive_call_count = 0
 
-def check_recursive_call(call: Any, recfun: Any, subterms: Any) -> None:
+def check_recursive_call(
+    call: Call, recfun: RecursiveName, subterms: SubtermNames
+) -> None:
   # print('check_recursive_call(' + repr(call) + ') in ' + str(recfun))
   # print('callable_name = ' + str(callable_name(call.rator)))
   if recfun is None or callable_name(call.rator) != recfun:
@@ -354,7 +408,7 @@ def check_recursive_call(call: Any, recfun: Any, subterms: Any) -> None:
           + " or ".join([base_name(x) for x in subterms]) \
           + ", not " + str(call.args[0]))
 
-def _is_recfun_ref(node: Any, recfun: Any) -> bool:
+def _is_recfun_ref(node: Term, recfun: str) -> bool:
   if isinstance(node, ResolvedVar):
     return bool(node.name == recfun)
   if isinstance(node, OverloadedVar):
@@ -363,13 +417,13 @@ def _is_recfun_ref(node: Any, recfun: Any) -> bool:
     return bool(node.name == recfun)
   return False
 
-def _escape_error(loc: Meta, recfun: Any) -> None:
+def _escape_error(loc: Meta, recfun: str) -> None:
   user_error(loc,
         "the name '" + base_name(recfun) + "'"
         + " of a recursive function may only appear as the operator"
         + " of a function call within its own body")
 
-def check_no_recfun_escape(term: Any, recfun: Any) -> None:
+def check_no_recfun_escape(term: Term | None, recfun: str) -> None:
   # Walk ``term`` and raise an error if ``recfun`` (the uniquified
   # name of the enclosing recursive function) appears anywhere other
   # than as the (optionally type-instantiated) operator of a Call.
@@ -439,7 +493,7 @@ def check_no_recfun_escape(term: Any, recfun: Any) -> None:
       if _is_recfun_ref(term, recfun):
         _escape_error(term.location, recfun)
 
-def _check_rator_no_escape(rator: Any, recfun: Any) -> None:
+def _check_rator_no_escape(rator: Term, recfun: str) -> None:
   # At a Call rator position, a direct VarRef to ``recfun`` is the
   # only place the name is legal; TermInst wrapping such a VarRef
   # (the ``@foo<T>(...)`` syntax) is the same shape. Anything else
@@ -458,7 +512,7 @@ def _check_rator_no_escape(rator: Any, recfun: Any) -> None:
 # (issue #257); folding it into `check_type` makes every site that accepts a
 # user-written type — postulate/define/recursive/theorem signatures, etc. —
 # reject `Foo` when it should be `Foo<...>`.
-def _check_union_arity(head: Any, given: int, env: Env) -> None:
+def _check_union_arity(head: VarRef, given: int, env: Env) -> None:
   if not env.type_var_is_defined(head):
     return
   type_def = env.get_def_of_type_var(head)
@@ -467,7 +521,7 @@ def _check_union_arity(head: Any, given: int, env: Env) -> None:
           f"Expected union type '{head}' to have "
           f"{len(type_def.type_params)} type arguments, not {given}")
 
-def _lookup_type_alias(loc: Meta, typ: Any, env: Env) -> TypeAlias | None:
+def _lookup_type_alias(loc: Meta, typ: TypeExpr, env: Env) -> TypeAlias | None:
   match typ:
     case OverloadedVar(_, _, resolved_names):
       if not env.type_var_is_defined(typ):
@@ -500,7 +554,7 @@ def _type_alias_arity_error(loc: Meta, name: str, expected: int, got: int) -> No
 # head (TypeInst, GenericUnknownInst) and certain declaration sites (e.g.
 # ``inductive Foo by ...``, which legitimately names a union by its bare
 # name) pass False to suppress the zero-arity error.
-def check_type(typ: Any, env: Env, arity_required: bool = True) -> Any:
+def check_type(typ: TypeExpr, env: Env, arity_required: bool = True) -> TypeExpr:
   match typ:
     case OverloadedVar(loc, tyof, rs):
       if not env.type_var_is_defined(typ):
@@ -576,7 +630,7 @@ def check_type(typ: Any, env: Env, arity_required: bool = True) -> Any:
     case _:
       internal_error(typ.location, 'error in check_type: unhandled type ' + repr(typ) + ' ' + str(type(typ)))
 
-def type_first_letter(typ: Any) -> str:
+def type_first_letter(typ: TypeExpr) -> str:
   if isinstance(typ, VarRef):
     return str(typ.get_name()[0])
   match typ:
@@ -596,7 +650,15 @@ def type_first_letter(typ: Any) -> str:
       print('error in type_first_letter: unhandled type ' + repr(typ))
       exit(-1)
 
-def type_check_term_inst(loc: Meta, subject: Any, tyargs: list[Any], inferred: bool, recfun: Any, subterms: Any, env: Env) -> Any:
+def type_check_term_inst(
+    loc: Meta,
+    subject: Term,
+    tyargs: list[Type],
+    inferred: bool,
+    recfun: RecursiveName,
+    subterms: SubtermNames,
+    env: Env,
+) -> TermInst:
   tyargs = [check_type(ty, env) for ty in tyargs]
   new_subject = type_synth_term(subject, env, recfun, subterms)
   ty = new_subject.typeof
@@ -615,7 +677,9 @@ def type_check_term_inst(loc: Meta, subject: Any, tyargs: list[Any], inferred: b
         user_error(loc, 'expected a type name, not ' + str(ty))
   return TermInst(loc, retty, new_subject, tyargs, inferred)
 
-def type_check_term_inst_var(loc: Meta, subject_var: Any, tyargs: list[Any], inferred: bool, env: Env) -> Any:
+def type_check_term_inst_var(
+    loc: Meta, subject_var: VarRef, tyargs: list[Type], inferred: bool, env: Env
+) -> TermInst:
   if isinstance(subject_var, VarRef):
       tyargs = [check_type(ty, env) for ty in tyargs]
       ty = env.get_type_of_term_var(subject_var)
@@ -639,7 +703,9 @@ def type_check_term_inst_var(loc: Meta, subject_var: Any, tyargs: list[Any], inf
                       tyargs, inferred)
   internal_error(loc, 'internal error, expected variable, not ' + str(subject_var))
 
-def type_synth_term(term: Term, env: Env, recfun: Any, subterms: Any) -> Term:
+def type_synth_term(
+    term: Term, env: Env, recfun: RecursiveName, subterms: SubtermNames
+) -> Term:
   if get_verbose():
     print('type_synth_term: ' + str(term) + '\n' \
           + '\tin ' + str(recfun))
@@ -798,10 +864,14 @@ def type_synth_term(term: Term, env: Env, recfun: Any, subterms: Any) -> Term:
       new_subject = type_synth_term(subject, env, recfun, subterms)
       ty = new_subject.typeof
 
-      cases_present: dict[Any, Any] = {}
-      result_type: list[Any] = [None] # boxed to allow mutable update in process_case
+      cases_present: PatternCoverage = {}
+      result_type: list[TypeExpr | None] = [None] # boxed to allow mutable update in process_case
 
-      def process_case(c: Any, result_type: list[Any], cases_present: dict[Any, Any]) -> Any:
+      def process_case(
+          c: SwitchCase,
+          result_type: list[TypeExpr | None],
+          cases_present: PatternCoverage,
+      ) -> SwitchCase:
         new_env = check_pattern(c.pattern, ty, env, cases_present)
         new_body = type_synth_term(c.body, new_env, recfun, subterms)
         case_type = new_body.typeof
@@ -879,7 +949,9 @@ def type_synth_term(term: Term, env: Env, recfun: Any, subterms: Any) -> Term:
 def type_check_formula(term: Term, env: Env) -> Term:
   return type_check_term(term, BoolType(term.location), env, None, [])
 
-def type_check_term(term: Term, typ: Type, env: Env, recfun: Any, subterms: Any) -> Term:
+def type_check_term(
+    term: Term, typ: TypeExpr, env: Env, recfun: RecursiveName, subterms: SubtermNames
+) -> Term:
   if get_verbose():
     print('\ntype_check_term: ' + str(term) + ' : ' + str(typ) + '?\n')
   match term:
@@ -916,14 +988,14 @@ def type_check_term(term: Term, typ: Type, env: Env, recfun: Any, subterms: Any)
         case (FunctionType(_, typarams, param_types1, ret_type1),
               FunctionType(loc2, [], param_types2, ret_type2)):
           if len(typarams) > 0:
-            matching: dict[Any, Any] = {}
+            resolved_matching: TypeMatching = {}
             type_params = type_names(loc, typarams)
             try:
-              type_match(loc, type_params, ret_type1, ret_type2, matching)
+              type_match(loc, type_params, ret_type1, ret_type2, resolved_matching)
               for (p1, p2) in zip(param_types1, param_types2):
-                  type_match(loc, type_params, p1, p2, matching)
-              type_args = [matching[x] for x in type_params]
-              return TermInst(ResolvedVar(loc, var_typ, name),
+                  type_match(loc, type_params, p1, p2, resolved_matching)
+              type_args = [cast(Type, resolved_matching[x]) for x in typarams]
+              return TermInst(loc, typ, ResolvedVar(loc, var_typ, name),
                               type_args, True)
             except UserError:
               pass
@@ -956,14 +1028,14 @@ def type_check_term(term: Term, typ: Type, env: Env, recfun: Any, subterms: Any)
         case (FunctionType(_, typarams, param_types1, ret_type1),
               FunctionType(loc2, [], param_types2, ret_type2)):
           if len(typarams) > 0:
-            matching = {}
+            overloaded_matching: TypeMatching = {}
             type_params = type_names(loc, typarams)
             try:
-              type_match(loc, type_params, ret_type1, ret_type2, matching)
+              type_match(loc, type_params, ret_type1, ret_type2, overloaded_matching)
               for (p1, p2) in zip(param_types1, param_types2):
-                  type_match(loc, type_params, p1, p2, matching)
-              type_args = [matching[x] for x in type_params]
-              return TermInst(ResolvedVar(loc, var_typ, rs[0]),
+                  type_match(loc, type_params, p1, p2, overloaded_matching)
+              type_args = [cast(Type, overloaded_matching[x]) for x in typarams]
+              return TermInst(loc, typ, ResolvedVar(loc, var_typ, rs[0]),
                               type_args, True)
             except UserError:
               pass
@@ -1016,10 +1088,14 @@ def type_check_term(term: Term, typ: Type, env: Env, recfun: Any, subterms: Any)
     case Switch(loc, _, subject, cases):
       new_subject = type_synth_term(subject, env, recfun, subterms)
       ty = new_subject.typeof
-      cases_present: dict[Any, Any] = {}
-      result_type: list[Any] = [None] # boxed to allow mutable update in process_case
+      cases_present: PatternCoverage = {}
+      result_type: list[TypeExpr | None] = [None] # boxed to allow mutable update in process_case
 
-      def process_case(c: Any, result_type: list[Any], cases_present: dict[Any, Any]) -> Any:
+      def process_case(
+          c: SwitchCase,
+          result_type: list[TypeExpr | None],
+          cases_present: PatternCoverage,
+      ) -> SwitchCase:
         new_env = check_pattern(c.pattern, ty, env, cases_present)
         #print('\n$\n' + str(c) + '\nnew env:\n' + str(new_env))
         new_body = type_check_term(c.body, typ, new_env, recfun, subterms)
@@ -1075,16 +1151,27 @@ def type_check_term(term: Term, typ: Type, env: Env, recfun: Any, subterms: Any)
               + ' but got ' + str(ty))
       return new_term
   
-def lookup_union(loc: Meta, typ: Any, env: Env) -> Any:
+def lookup_union(loc: Meta, typ: TypeExpr, env: Env) -> Union:
   if isinstance(typ, VarRef):
-    return env.get_def_of_type_var(typ)
-  match typ:
-    case TypeInst(_, inst_typ, _):
-      return env.get_def_of_type_var(inst_typ)
-    case _:
-      user_error(loc, 'expected a union type but instead got ' + str(typ))
+    defn = env.get_def_of_type_var(typ)
+  else:
+    match typ:
+      case TypeInst(_, inst_typ, _) if isinstance(inst_typ, VarRef):
+        defn = env.get_def_of_type_var(inst_typ)
+      case _:
+        user_error(loc, 'expected a union type but instead got ' + str(typ))
+  if isinstance(defn, Union):
+    return defn
+  user_error(loc, 'expected a union type but instead got ' + str(typ))
 
-def check_constructor_pattern(loc: Meta, pat_constr: Any, params: list[Any], typ: Any, env: Env, cases_present: dict[Any, Any]) -> Any:
+def check_constructor_pattern(
+    loc: Meta,
+    pat_constr: VarRef,
+    params: list[str],
+    typ: TypeExpr,
+    env: Env,
+    cases_present: PatternCoverage,
+) -> tuple[ResolvedVar, ParamBindings]:
   if get_verbose():
     print('check_constructor_pattern: ' + str(pat_constr))
   defn = lookup_union(loc, typ, env)
@@ -1113,7 +1200,7 @@ def check_constructor_pattern(loc: Meta, pat_constr: Any, params: list[Any], typ
           # the parameter types so the caller can swap it in. (We don't
           # have the PatternCons here, so the caller does the mutation.)
           if len(typarams) > 0:
-            if not hasattr(typ, 'arg_types'):
+            if not isinstance(typ, TypeInst):
                 internal_error(loc, 'problem in check_constr_pattern with: ' + str(typ))
             sub = { T: ty for (T,ty) in zip(typarams, typ.arg_types)}
             parameter_types = [p.substitute(sub) for p in constr.parameters]
@@ -1129,7 +1216,9 @@ def check_constructor_pattern(loc: Meta, pat_constr: Any, params: list[Any], typ
     case _:
       user_error(loc, str(typ) + ' is not a union type')
         
-def check_pattern(pattern: Any, typ: Any, env: Env, cases_present: dict[Any, Any]) -> Env:
+def check_pattern(
+    pattern: Pattern, typ: TypeExpr, env: Env, cases_present: PatternCoverage
+) -> Env:
   if get_verbose():
     print('check pattern: ' + str(pattern))
     print('against type: ' + str(typ))
@@ -1145,6 +1234,9 @@ def check_pattern(pattern: Any, typ: Any, env: Env, cases_present: dict[Any, Any
           user_error(pattern.location, 'expected a pattern of type\n\t' \
                 + str(typ) + '\nbut got\n\t' + str(pattern))
     case PatternCons(loc, constr, params):
+      if not isinstance(constr, VarRef):
+        user_error(loc, 'expected a constructor name in pattern, not\n\t'
+                   + str(constr))
       new_constr, param_types = check_constructor_pattern(
           loc, constr, params, typ, env, cases_present)
       pattern.constructor = new_constr
@@ -1153,12 +1245,17 @@ def check_pattern(pattern: Any, typ: Any, env: Env, cases_present: dict[Any, Any
       user_error(pattern.location, 'expected a pattern, not\n\t' \
             + str(pattern))
 
-def check_formula(frm: Term, env: Env, recfun: Any = None, subterms: Any = []) -> Term:
+def check_formula(
+    frm: Term,
+    env: Env,
+    recfun: RecursiveName = None,
+    subterms: SubtermNames = (),
+) -> Term:
   return type_check_term(frm, BoolType(frm.location), env, recfun, subterms)
 
-modules: set[Any] = set()
+modules: set[str] = set()
 
-dirty_files: set[Any] = set()
+dirty_files: set[str] = set()
 
 def is_modified(filename: str) -> bool:
     path = Path(filename)
@@ -1191,7 +1288,7 @@ def is_modified(filename: str) -> bool:
 def _flip_polarity(pol: str) -> str:
   return '-' if pol == '+' else '+'
 
-def _lookup_param_polarities(head: Any, env: Env) -> Any:
+def _lookup_param_polarities(head: TypeExpr, env: Env) -> list[str] | None:
   """If `head` resolves to a Union, return its inferred per-parameter polarities
   (or None if not yet inferred)."""
   if not isinstance(head, VarRef):
@@ -1204,7 +1301,9 @@ def _lookup_param_polarities(head: Any, env: Env) -> Any:
     return getattr(head_def, 'param_polarities', None)
   return None
 
-def check_strict_positivity(ty: Any, union_name: Any, env: Env, forbidden: bool = False) -> None:
+def check_strict_positivity(
+    ty: TypeExpr, union_name: str, env: Env, forbidden: bool = False
+) -> None:
   if isinstance(ty, VarRef):
     ref_name = ty.get_name()
     if forbidden and ref_name == union_name:
@@ -1240,7 +1339,7 @@ def check_strict_positivity(ty: Any, union_name: Any, env: Env, forbidden: bool 
 # fixpoint iteration so self-references read the in-progress polarities. This
 # converges in at most |type_params| iterations because polarity is monotone
 # (only goes '+' -> '-').
-def infer_param_polarities(union_decl: Any, env: Env) -> None:
+def infer_param_polarities(union_decl: Union, env: Env) -> None:
   if not union_decl.type_params:
     union_decl.param_polarities = []
     return
@@ -1250,7 +1349,7 @@ def infer_param_polarities(union_decl: Any, env: Env) -> None:
 
   type_param_names = set(union_decl.type_params)
 
-  def walk(ty: Any, current: str) -> None:
+  def walk(ty: TypeExpr, current: str) -> None:
     if isinstance(ty, VarRef):
       ref_name = ty.get_name()
       if ref_name in type_param_names:

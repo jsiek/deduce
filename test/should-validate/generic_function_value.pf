@@ -1,0 +1,6 @@
+import UInt
+
+define id = fun<T> x:T { x }
+define id_uint : fn UInt -> UInt = id
+
+assert id_uint(42) = 42
