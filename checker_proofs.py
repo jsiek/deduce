@@ -30,10 +30,10 @@ from abstract_syntax import (
     RewriteFact, RewriteGoal, RuleInduction, RuleInversion,
     SimplifyFact, SimplifyGoal, Some, SomeElim, SomeIntro, Suffices,
     SwitchProof, SwitchProofCase, TLet, Term, TermInst, Type, TypeInst, TypeType,
-    Union, Var, VarRef, base_name, callable_name, formula_match,
+    Union, Var, VarRef, ViewBinding, ViewDecl, base_name, callable_name, formula_match,
     get_predicate_decl, get_type_name, is_constructor, is_equation,
     mkEqual, remove_mark, set_dont_reduce_opaque, set_reduce_all,
-    split_equation, type_match,
+    split_equation, type_match, type_names,
 )
 from checker_common import *
 from checker_logic import (
@@ -43,7 +43,7 @@ from checker_logic import (
 )
 from checker_types import (
     check_formula, check_pattern, check_type, type_check_term,
-    type_first_letter, type_synth_term,
+    lookup_union, type_first_letter, type_synth_term,
 )
 from error import (
     Diagnostic, IncompleteProof, InternalError, MatchFailed, UserError,
@@ -66,6 +66,7 @@ if TYPE_CHECKING:
 CheckedFormula: TypeAlias = Term
 Substitution: TypeAlias = dict[str, Term | Type]
 TypeSubstitution: TypeAlias = dict[str, Type]
+ViewMatch: TypeAlias = tuple[ViewDecl, Type, Type, list[Type]]
 
 name_id = 0
 
@@ -695,6 +696,124 @@ def _switch_pattern_could_match_alts(pat: Pattern, alts: list[Constructor]) -> b
   else:
     return False
   return any(alt.name in candidates for alt in alts)
+
+def _proof_view_callable(loc: Meta, name: str, type_args: list[Type]) -> Term:
+  rator: Term = ResolvedVar(loc, None, name)
+  if type_args:
+    rator = TermInst(loc, None, rator, type_args)
+  return rator
+
+def _proof_view_call(loc: Meta, name: str, arg: Term,
+                     type_args: list[Type]) -> Call:
+  return Call(loc, None, _proof_view_callable(loc, name, type_args), [arg])
+
+def _bijective_view_for_source_type(loc: Meta, ty: Type, env: Env
+                                    ) -> ViewMatch | None:
+  for binding in env.dict.values():
+    if not isinstance(binding, ViewBinding):
+      continue
+    view = binding.view
+    if view.inverse is None:
+      continue
+    matching: dict[str, Type | VarRef | None] = {}
+    try:
+      type_match(loc, type_names(loc, view.type_params),
+                 view.source, ty, matching)
+    except MatchFailed:
+      continue
+    sub: Substitution = {
+        name: value for name, value in matching.items()
+        if value is not None
+    }
+    type_args = [cast(Type, sub[name]) for name in view.type_params]
+    source_ty = cast(Type, view.source.substitute(sub))
+    target_ty = cast(Type, view.target.substitute(sub))
+    return view, source_ty, target_ty, type_args
+  return None
+
+def _view_switch_expected_cases(alts: list[Constructor], env: Env) -> str:
+  lines = []
+  for alt in alts:
+    params = [make_unique(type_first_letter(ty) + str(i + 1), env)
+              for i, ty in enumerate(alt.parameters)]
+    line = '\tcase ' + base_name(alt.name)
+    if params:
+      line += '(' + ', '.join(params) + ')'
+    line += ' {\n\t  ?\n\t}'
+    lines.append(line)
+  return '\n'.join(lines)
+
+def _check_switch_via_view(loc: Meta, new_subject: Term,
+                           formula: CheckedFormula,
+                           cases: list[SwitchProofCase],
+                           ty: Type, view: ViewDecl,
+                           target_ty: Type, type_args: list[Type],
+                           env: Env) -> None:
+  if not isinstance(new_subject, VarRef):
+    add_diagnostic(loc, '`switch` on `' + str(ty) + '` through view '
+          + '`' + base_name(view.name) + '` with a non-variable subject '
+          + 'is not supported. Bind the subject first: `define n = '
+          + str(new_subject) + '` and then `switch n`.'
+          + givens_str(env))
+    return
+
+  target_union = lookup_union(loc, target_ty, env)
+  alts = target_union.alternatives
+  if len(cases) != len(alts):
+    plural = '' if len(alts) == 1 else 's'
+    add_diagnostic(loc, 'expected ' + str(len(alts)) + ' view case'
+          + plural + ' in switch on `' + str(ty) + '` via view `'
+          + base_name(view.name) + '`, but have ' + str(len(cases))
+          + '\nExpected cases:\n' + _view_switch_expected_cases(alts, env)
+          + givens_str(env))
+    return
+
+  for scase in cases:
+    if scase.assumptions:
+      add_diagnostic(scase.location, '`switch` on `' + str(ty)
+            + '` via view `' + base_name(view.name) + '` does not bind '
+            + 'case assumptions. The case goal is checked with `'
+            + str(new_subject) + '` replaced by the view out-pattern.'
+            + givens_str(env))
+      return
+
+  view_value_name = generate_proof_name('v')
+  view_value = ResolvedVar(loc, target_ty, view_value_name)
+  out_value = _proof_view_call(loc, view.out, view_value, type_args)
+  view_formula_body = cast(
+      CheckedFormula,
+      formula.substitute({new_subject.get_name(): out_value}),
+  )
+  view_formula = All(loc, None, (view_value_name, target_ty), (0, 1),
+                     view_formula_body)
+
+  ind_cases = [
+      IndCase(scase.location, scase.pattern, [], scase.body)
+      for scase in cases
+  ]
+  prove_view_formula = PAnnot(loc, view_formula,
+                              Induction(loc, target_ty, ind_cases))
+  into_subject = _proof_view_call(loc, view.into, new_subject, type_args)
+  prove_out_into = AllElim(loc, prove_view_formula, into_subject, (0, 1))
+
+  try:
+    with speculative_probe():
+      check_proof_of(prove_out_into, formula, env)
+      return
+  except UserError:
+    pass
+
+  inverse: Proof = PVar(loc, cast(str, view.inverse))
+  for type_arg in type_args:
+    inverse = AllElimTypes(loc, inverse, type_arg, (0, 1))
+  inverse_eq = AllElim(loc, inverse, new_subject, (0, 1))
+  new_pf = RewriteGoal(loc, [PSymmetric(loc, inverse_eq)], prove_out_into)
+
+  if get_verbose():
+    print("Generated view switch:")
+    print(new_pf)
+
+  _try_check_proof_of(new_pf, formula, env)
 
 def _check_switch_via_custom_induction(loc: Meta, new_subject: Term,
                                        formula: CheckedFormula,
@@ -1707,6 +1826,22 @@ def _check_proof_of_switch(proof: SwitchProof, formula: CheckedFormula, env: Env
       tname = get_type_name(ty)
       match env.get_def_of_type_var(tname):
         case Union(_, _, typarams, alts):
+          # Prefer a bijective view when the cases are written against
+          # the view target constructors. Until UInt's target
+          # constructors are renamed, the older `case 0` / `case with
+          # m. 1 + m` syntax still falls through to the custom
+          # induction path below.
+          view_match = _bijective_view_for_source_type(loc, ty, env)
+          if view_match is not None:
+            view, _, view_target_ty, view_type_args = view_match
+            view_alts = lookup_union(loc, view_target_ty, env).alternatives
+            if any(_switch_pattern_could_match_alts(c.pattern, view_alts)
+                   for c in cases):
+              _check_switch_via_view(loc, new_subject, formula, cases, ty,
+                                     view, view_target_ty, view_type_args,
+                                     env)
+              return
+
           # If the type has a custom induction theorem (e.g. UInt's 0 /
           # 1+m view) and any case looks like the public view rather
           # than a union constructor, dispatch to the custom-induction
