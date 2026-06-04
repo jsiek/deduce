@@ -730,7 +730,7 @@ class ViewRecFun(Declaration):
 
     def uniquify_case(c: SwitchCase) -> SwitchCase:
       case_env = copy_dict(body_env)
-      pattern = cast(Any, c.pattern)
+      pattern = c.pattern
       params = pattern.bindings()
       new_params = [generate_name(x, ctx) for x in params]
       for (old, new) in zip(params, new_params):
@@ -768,7 +768,7 @@ class ViewRecFun(Declaration):
       + ') -> ' + str(self.returns)
     ret = 'viewrec ' + header + '\nview ' + base_name(self.view_name) \
       + '(' + str(self.view_subject) + ')\n' \
-      + '\n'.join([cast(str, cast(Any, c).pretty_print(indent+2))
+      + '\n'.join([c.pretty_print(indent+2)
                    for c in self.cases]) + '\n'
     return indent*' ' + ret
 

@@ -1170,7 +1170,7 @@ class Call(Term):
       if fast is not None:
         return auto_rewrites(fast, env)
     ret: Term | None = None
-    match cast(Any, fun):
+    match fun:
       case Var(loc, _, '=') | OverloadedVar(loc, _, ['=']) | ResolvedVar(loc, _, '='):
         if args[0] == args[1]:
           ret = Bool(loc, BoolType(loc), True)
@@ -1193,8 +1193,7 @@ class Call(Term):
         # name (e.g. a ``define f = λ ...``) rather than a generic
         # ``anonymous``; literal lambdas with no name fall back to
         # ``<lambda>``.
-        lambda_fun = cast(Lambda, fun)
-        call_env = lambda_fun.env if lambda_fun.env is not None else env
+        call_env = fun.env if fun.env is not None else env
         display_name = callable_name(self.rator) or '<lambda>'
         ret = self.do_call(loc, vars, body, args, call_env, name=display_name)
     
@@ -1210,7 +1209,7 @@ class Call(Term):
                                body, subst, env, None,
                                display_args=args)
 
-      case TermInst(loc, _, subject, type_args) if isinstance(cast(Any, subject), GenRecFun):
+      case TermInst(loc, _, subject, type_args) if isinstance(subject, GenRecFun):
         gen_fun = cast(GenRecFun, subject)
         name = gen_fun.name
         typarams = gen_fun.type_params
@@ -1224,7 +1223,7 @@ class Call(Term):
       case RecFun(loc, name, [], params, returns, cases):
         ret = self.do_recursive_call(loc, name, cast(Term | RecFun, fun), [], [], params, args,
                                      returns, cases, is_assoc, env)
-      case TermInst(loc, _, subject, type_args) if isinstance(cast(Any, subject), RecFun):
+      case TermInst(loc, _, subject, type_args) if isinstance(subject, RecFun):
         rec_fun = cast(RecFun, subject)
         name = rec_fun.name
         typarams = rec_fun.type_params
