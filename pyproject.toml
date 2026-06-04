@@ -44,16 +44,10 @@ select = ["F401", "F403", "F405", "F541", "F601", "F811", "F821", "F841"]
 "checker_*.py" = ["F401", "F403", "F405"]
 
 [tool.mypy]
-# Starter config (#479) + first tightening pass toward --strict. The
-# proof-checker core (~11k LOC) is largely untyped, so the heavyweight
-# --strict flags (--check-untyped-defs, --disallow-untyped-defs,
-# --disallow-untyped-calls, --disallow-any-generics, --warn-return-any)
-# still produce hundreds to thousands of errors and remain off
-# globally; they are enabled per-module via [[tool.mypy.overrides]]
-# below as individual modules are cleaned up.
-#
-# The cheap --strict-equivalent flags are on globally: every flag in
-# the `[tool.mypy]` block below is one of the bits --strict turns on.
+# The whole source tree now passes `mypy --strict` (#681), so `strict`
+# is enabled globally rather than ratcheted per module. `warn_unreachable`
+# and `ignore_missing_imports` are not part of `--strict`, so they stay
+# explicit.
 #
 # The `exclude` list below skips paths that would otherwise produce
 # module-name collisions or live outside the source tree:
@@ -66,21 +60,9 @@ select = ["F401", "F403", "F405", "F541", "F601", "F811", "F821", "F841"]
 #   - tmp/, lark/, editor/, live_code_vercel_api/, autograder_docker/,
 #     .claude/, gh_pages/    match the ruff `exclude` list above.
 python_version = "3.12"
+strict = true
 ignore_missing_imports = true
-warn_unused_ignores = true
-warn_redundant_casts = true
 warn_unreachable = true
-no_implicit_optional = true
-strict_equality = true
-disallow_subclassing_any = true
-# disallow_untyped_decorators is enabled globally now that the CI
-# workflow installs requirements-lsp.txt (`pygls` and `mcp`). Both
-# ship inline type annotations, so the LSP/MCP decorators resolve to
-# real types in the normal `mypy .` pass. The local `--no-site-packages`
-# pass intentionally hides those packages; the LSP/MCP module override
-# below suppresses only that decorator-boundary noise.
-disallow_untyped_decorators = true
-no_implicit_reexport = true
 exclude = [
     '^test/',
     '^test-deduce\\.py$',
@@ -92,68 +74,6 @@ exclude = [
     '^\\.claude/',
     '^gh_pages/',
 ]
-
-# Per-module strict: modules that pass --strict get listed here so the
-# heavyweight bits (check_untyped_defs, disallow_untyped_defs,
-# disallow_untyped_calls, disallow_any_generics, warn_return_any,
-# disallow_incomplete_defs) are enforced going forward and any
-# regression is caught in CI. Add a module here once `mypy --strict
-# <module> --follow-imports=silent` is clean.
-#
-# rec_desc_parser.py is the last large module that still fails strict
-# (see #681); once it lands, `strict = true` can move into the global
-# `[tool.mypy]` block and this override list can be deleted.
-#
-# NOTE: mypy does not honor `strict = true` inside per-module overrides
-# (the meta-flag is global-only). The bits it would turn on are set
-# individually below — the full --strict expansion minus the ones
-# already enabled globally above.
-[[tool.mypy.overrides]]
-module = [
-    "deduce",
-    "error",
-    "parser",
-    "abstract_syntax",
-    "checker_cache",
-    "checker_common",
-    "checker_induction",
-    "checker_logic",
-    "checker_pipeline",
-    "checker_predicates",
-    "checker_proofs",
-    "checker_types",
-    "compiler.closure",
-    "compiler.compile_prelude",
-    "compiler.emit_c",
-    "compiler.ir",
-    "compiler.lower",
-    "compiler.prune",
-    "edit_distance",
-    "flags",
-    "style",
-    "lsp.benchmark",
-    "lsp.debugger",
-    "lsp.dap_server",
-    "lsp.library",
-    "lsp.lsp_server",
-    "lsp.mcp_server",
-    "lsp.query",
-    "claude_fill_hole.__main__",
-    "claude_fill_hole.agent",
-    "claude_fill_hole.anthropic_backend",
-    "claude_fill_hole.openai_backend",
-    "claude_fill_hole.prompt",
-    "claude_fill_hole.schema",
-    "claude_fill_hole.validator",
-    "claude_fill_hole.examples.run_benchmark",
-]
-disallow_any_generics = true
-disallow_untyped_calls = true
-disallow_untyped_defs = true
-disallow_untyped_decorators = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-warn_return_any = true
 
 # Keep the no-dependencies mypy pass useful without weakening the rest
 # of strict checking for the LSP/MCP adapters. When `--no-site-packages`
@@ -170,3 +90,13 @@ disable_error_code = ["untyped-decorator"]
 [[tool.mypy.overrides]]
 module = ["abstract_syntax.*"]
 implicit_reexport = true
+
+# gh_pages/ holds documentation-build tooling that is out of scope for
+# the type checker (it matches the `exclude` list above and #681). The
+# `exclude` regex only stops directory discovery, not import-following:
+# test-deduce.py imports `gh_pages.scripts.convert`, which would
+# otherwise pull the package into the build graph under global strict.
+# Skip following imports into it so it stays genuinely unchecked.
+[[tool.mypy.overrides]]
+module = ["gh_pages.*"]
+follow_imports = "skip"
