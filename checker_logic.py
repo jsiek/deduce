@@ -11,13 +11,16 @@ File charter:
   ``checker_types.py``.
 """
 
-from typing import TYPE_CHECKING, Any, cast
+from collections.abc import Iterable, Mapping, Sequence
+from typing import TYPE_CHECKING, TypeAlias, cast
 
 from lark.tree import Meta
 
 from abstract_syntax import (
     All,
     And,
+    AST,
+    AutoRewriteRule,
     Bool,
     Call,
     Env,
@@ -37,6 +40,7 @@ from abstract_syntax import (
     TermBinding,
     TLet,
     Term,
+    Type,
     VarRef,
     ViewRecFun,
     base_name,
@@ -65,6 +69,10 @@ if TYPE_CHECKING:
 from checker_types import check_formula
 from error import MatchFailed, UserError, internal_error, user_error, wrap_user_error
 from flags import get_verbose, print_verbose
+
+SubstitutionValue: TypeAlias = Term | Type | RecFun | GenRecFun
+Difference: TypeAlias = tuple[AST, AST]
+ImplicationPremise: TypeAlias = tuple[Formula, Formula]
 
 def commute_diff_hint(frm: Formula) -> str:
   """If ``frm`` is an equation ``s = t`` whose two sides are calls of
@@ -243,18 +251,18 @@ def check_implies(loc: Meta, frm1: Formula, frm2: Formula) -> None:
             internal_error(loc, 'internal error, could not isolate difference for\n\t' \
                            + str(frm1) + '\nand\n\t' + str(frm2))
                     
-def instantiate(loc: Meta, allfrm: Any, arg: Any) -> Any:
+def instantiate(loc: Meta, allfrm: Formula, arg: SubstitutionValue) -> Formula:
   match allfrm:
     case All(_, _, (var, _), (s, _), frm):
       sub = { var : arg }
-      ret = frm.substitute(sub)
+      ret = cast(Formula, frm.substitute(sub))
       if s != 0:
         ret = update_all_head(ret)
       return ret
     case _:
       internal_error(loc, 'expected all formula to instantiate, not ' + str(allfrm))
   
-def str_of_env(env: Any) -> str:
+def str_of_env(env: Mapping[str, object]) -> str:
   return '{' + ', '.join([k + ": " + str(e) for (k,e) in env.items()]) + '}'
 
 def pattern_to_term(pat: Pattern) -> Term:
@@ -269,7 +277,8 @@ def pattern_to_term(pat: Pattern) -> Term:
     case _:
       internal_error(pat.location, "expected a pattern, not " + str(pat))
 
-def rewrite(loc: Meta, formula: Any, equation: Any, env: Env) -> Any:
+def rewrite(loc: Meta, formula: Formula, equation: Formula | AutoRewriteRule,
+            env: Env) -> Formula:
     num_marks = count_marks(formula)
     if num_marks == 0:
         ret = rewrite_aux(loc, formula, equation, env)
@@ -286,21 +295,26 @@ def rewrite(loc: Meta, formula: Any, equation: Any, env: Env) -> Any:
     else:
         internal_error(loc, 'in replace, formula contains more than one mark:\n\t' + str(formula))
 
-def facts_to_str(env: Any) -> str:
+def facts_to_str(env: Mapping[str, object]) -> str:
   result = ''
   for (x,p) in env.items():
     if isinstance(p, Formula) or isinstance(p, Term):
       result += x + ': ' + str(p) + '\n'
   return result
 
-def isolate_difference_list(list1: Any, list2: Any) -> Any:
+def isolate_difference_list(list1: Iterable[AST],
+                            list2: Iterable[AST]) -> Difference | None:
   for (t1, t2) in zip(list1, list2):
-    diff = isolate_difference(t1, t2)
+    diff = _isolate_difference(t1, t2)
     if diff:
       return diff
   return None
   
-def isolate_difference(term1: Any, term2: Any) -> Any:
+def isolate_difference(term1: AST, term2: AST) -> Difference:
+  diff = _isolate_difference(term1, term2)
+  return diff if diff is not None else (term1, term2)
+
+def _isolate_difference(term1: AST, term2: AST) -> Difference | None:
   if get_verbose():
     print('isolate_difference(' + str(term1) + ',' + str(term2) + ')')
   if term1 == term2:
@@ -309,7 +323,7 @@ def isolate_difference(term1: Any, term2: Any) -> Any:
     match (term1, term2):
       case (Lambda(l1, _, vs1, body1), Lambda(_, _, vs2, body2)):
         ren = {x: ResolvedVar(l1, t2, y) for ((x,t1),(y,t2)) in zip(vs1, vs2)}
-        return isolate_difference(body1.substitute(ren), body2)
+        return _isolate_difference(body1.substitute(ren), body2)
       case (Call(l1, _, fun1, args1), Call(_, _, fun2, args2)):
         if fun1 == fun2:
           if len(args1) == len(args2):
@@ -317,10 +331,10 @@ def isolate_difference(term1: Any, term2: Any) -> Any:
           else:
               return (term1, term2)
         else:
-          return isolate_difference(fun1, fun2)
+          return _isolate_difference(fun1, fun2)
       case (SwitchCase(l1, p1, body1), SwitchCase(_, p2, body2)):
         if p1 == p2:
-          return isolate_difference(body1, body2)
+          return _isolate_difference(body1, body2)
         else:
           return (p1, p2)
       case (Switch(l1, _, s1, cs1), Switch(_, _, s2, cs2)):
@@ -335,11 +349,12 @@ def isolate_difference(term1: Any, term2: Any) -> Any:
       case _:
         return (term1, term2)
 
-def collect_all_if_then(loc: Meta, frm: Any, env: Env) -> tuple[list[Any], list[Any]]:
+def collect_all_if_then(loc: Meta, frm: Formula,
+                        env: Env) -> tuple[list[Term], list[ImplicationPremise]]:
     """Returns a list of all variables that need be instantiated, and anythings that need applied"""
 
     if isinstance(frm, TLet):
-      frm = frm.reduceLets(env)
+      frm = cast(Formula, frm.reduceLets(env))
 
     match frm:
       case All(loc2, _, var, _, frm):
@@ -349,7 +364,7 @@ def collect_all_if_then(loc: Meta, frm: Any, env: Env) -> tuple[list[Any], list[
       case IfThen(loc2, _, prem, conc):
         return ([], [(prem, conc)])
       case And(loc2, _, args):
-        mps1 = []
+        mps1: list[ImplicationPremise] = []
         for arg in args:
           try:
             (rest_vars, mps) = collect_all_if_then(loc, arg, env)
@@ -382,12 +397,12 @@ def auto_simplified_hint(new_formula: Formula) -> str:
   return ''
 
 
-def _ast_mentions_any(node: Any, target_names: set[str]) -> bool:
+def _ast_mentions_any(node: AST, target_names: set[str]) -> bool:
   # AST traversal: does `node` reference any name in `target_names`?
   # No general `free_vars` is defined across all Term subclasses, so we
   # walk the dataclass fields directly.
-  seen = set()
-  stack = [node]
+  seen: set[int] = set()
+  stack: list[object] = [node]
   while stack:
     n = stack.pop()
     nid = id(n)
@@ -413,7 +428,8 @@ def _ast_mentions_any(node: Any, target_names: set[str]) -> bool:
   return False
 
 
-def _expand_would_progress(residual: Any, defs: Any, env: Any) -> bool:
+def _expand_would_progress(residual: Formula | Term, defs: Sequence[Term],
+                           env: Env) -> bool:
   # Would running `expand_definitions` on `residual` with the same `defs`
   # actually change the formula? Used to gate the "unfold further" hint
   # so it doesn't fire when more expand wouldn't help -- e.g. when the
@@ -457,7 +473,7 @@ def _expand_would_progress(residual: Any, defs: Any, env: Any) -> bool:
   return False
 
 
-def _equation_marked_side(formula: Any) -> str | None:
+def _equation_marked_side(formula: Formula | None) -> str | None:
   # Return 'lhs' / 'rhs' if `formula` is an equation `L = R` whose single
   # mark sits on exactly one side (explicit, or implicit from `equations`).
   # Otherwise None.
@@ -477,7 +493,7 @@ def _equation_marked_side(formula: Any) -> str | None:
       return None
 
 
-def _defs_mentioned_in(node: Any, defs: Any) -> list[str]:
+def _defs_mentioned_in(node: AST, defs: Sequence[Term]) -> list[str]:
   # Display names of `defs` (VarRefs) that appear anywhere in `node`.
   result: list[str] = []
   for d in defs:
@@ -494,8 +510,8 @@ def _defs_mentioned_in(node: Any, defs: Any) -> list[str]:
   return result
 
 
-def expand_residual_hint(residual: Any, defs: Any, env: Env,
-                         original: Any = None) -> str:
+def expand_residual_hint(residual: Formula, defs: Sequence[Term], env: Env,
+                         original: Formula | None = None) -> str:
   # When `expand f.` fails and `f` still appears in the residual goal,
   # tell the user the unfolding depth was too shallow. The common case
   # is a recursive function whose body re-introduces its own name; one
@@ -563,7 +579,7 @@ def _chain_expand_msg(names: list[str]) -> str:
           'Chain another expand with `|` (e.g. `expand f | f.`) or use `N*f` to unfold further.')
 
 
-def _collect_unfoldable_recfun_names(formula: Any, env: Any) -> list[str]:
+def _collect_unfoldable_recfun_names(formula: Formula, env: Env) -> list[str]:
   # Walk `formula`; return display names of any `VarRef` whose binding is
   # a non-opaque recursive function (`recursive`, `generic recursive`,
   # `view recursive`). Used to name concrete `expand` targets in the
@@ -574,7 +590,7 @@ def _collect_unfoldable_recfun_names(formula: Any, env: Any) -> list[str]:
   names: list[str] = []
   seen_ids: set[int] = set()
   seen_names: set[str] = set()
-  stack: list[Any] = [formula]
+  stack: list[object] = [formula]
   while stack:
     n = stack.pop()
     nid = id(n)
@@ -613,7 +629,8 @@ def _collect_unfoldable_recfun_names(formula: Any, env: Any) -> list[str]:
   return names
 
 
-def ground_goal_evaluate_hint(form_red: Any, formula_red: Any, env: Any) -> str:
+def ground_goal_evaluate_hint(form_red: Formula, formula_red: Formula,
+                              env: Env) -> str:
   # Fires when the user supplies `.` (proof of `true`) for a non-`true`
   # goal and that goal would actually evaluate to `true` once recursive
   # definitions are unfolded. Points the beginner at `evaluate` (and
@@ -646,7 +663,7 @@ def ground_goal_evaluate_hint(form_red: Any, formula_red: Any, env: Any) -> str:
               + '` to unfold the definitions.'
 
 
-def expand_backward_mark_hint(formula: Any, var: Any, env: Any) -> str:
+def expand_backward_mark_hint(formula: Formula, var: Term, env: Env) -> str:
   # When `expand X` fails inside a marked equation `# L # = R` (or the
   # mirrored form), expand only saw the marked side. If unfolding X on
   # the *other* side would succeed, suggest wrapping that side in
@@ -683,7 +700,8 @@ def expand_backward_mark_hint(formula: Any, var: Any, env: Any) -> str:
       return ''
 
 
-def replace_backward_mark_hint(formula: Any, eq: Any, env: Any) -> str:
+def replace_backward_mark_hint(formula: Formula, eq: Formula | AutoRewriteRule,
+                               env: Env) -> str:
   # Mirror of `expand_backward_mark_hint` for the `replace` tactic: when
   # `replace eq` fails inside a marked equation `# L # = R` because the
   # eq's LHS doesn't appear on the marked side, but it *would* match on
@@ -719,7 +737,8 @@ def replace_backward_mark_hint(formula: Any, eq: Any, env: Any) -> str:
       return ''
 
 
-def expand_definitions(loc: Meta, formula: Any, defs: Any, env: Env) -> Any:
+def expand_definitions(loc: Meta, formula: Formula, defs: Sequence[Term],
+                       env: Env) -> Formula:
   num_marks = count_marks(formula)
   if num_marks == 0:
       new_formula = formula
@@ -775,7 +794,7 @@ def expand_definitions(loc: Meta, formula: Any, defs: Any, env: Env) -> Any:
               reset_reduced_defs()
               if get_verbose():
                   print('definition subst ' + rvar.name + ' => ' + str(rhs))
-              new_formula = new_formula.substitute({rvar.name: rhs})
+              new_formula = cast(Formula, new_formula.substitute({rvar.name: rhs}))
               new_formula = new_formula.reduce(env)
               if rvar.name in get_reduced_defs():
                   reduced_one = True
@@ -795,7 +814,9 @@ def expand_definitions(loc: Meta, formula: Any, defs: Any, env: Env) -> Any:
   else:
       return check_formula(replace_mark(formula, new_formula).reduce(env), env)
 
-def apply_rewrites(loc: Meta, formula: Any, eqns: Any, env: Env, *, display_formula: Any = None) -> Any:
+def apply_rewrites(loc: Meta, formula: Formula,
+                   eqns: Sequence[Formula | AutoRewriteRule], env: Env,
+                   *, display_formula: Formula | None = None) -> Formula:
   # `formula` is the value rewrites operate over (may be auto-normalized).
   # `display_formula`, if provided, is the pre-normalized form shown in
   # error messages so users see the goal they actually wrote.
