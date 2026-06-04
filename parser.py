@@ -295,6 +295,13 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
                           parse_tree_to_list(e.children[0], e),
                           parse_tree_to_list(e.children[1], e),
                           parse_tree_to_ast(e.children[2], e))
+    elif e.data == 'function_type_paren':
+      first_param = parse_tree_to_ast(e.children[1], e)
+      rest_params = parse_tree_to_list(e.children[2], e)
+      return FunctionType(e.meta,
+                          parse_tree_to_list(e.children[0], e),
+                          [first_param] + rest_params,
+                          parse_tree_to_ast(e.children[3], e))
     elif e.data == 'type_inst':
       return TypeInst(e.meta, Var(e.meta, None, _token_text(e, 0)),
                       parse_tree_to_list(e.children[1], e))

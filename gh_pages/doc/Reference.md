@@ -1112,12 +1112,21 @@ assert interchange(pair(1,2)) = pair(2,1)
 
 ```
 type ::= "fn" type_params_opt type_list "->" type
+type ::= "fn" type_params_opt "(" type "," type_list ")" "->" type
 ```
 
 A function type classifies a function. This includes both recursive
 functions (`recursive`) and non-recursive functions (`fun` or `λ`).
 If the function is generic, its function type includes type parameters
 enclosed in `<` and `>`.
+
+Multi-argument parameter lists may be written bare (`fn A, B -> C`) or
+wrapped in parentheses (`fn (A, B) -> C`); both forms are equivalent.
+The parenthesized spelling matches the parameter syntax used in
+function declarations such as `recursive partition<T>(List<T>, fn (T)->bool) -> ...`.
+A single-argument paren type (`fn (A) -> B`) was already accepted via
+the existing parenthesized atomic type and continues to mean a unary
+function from `A` to `B`.
 
 ## Generic (Formula)
 
@@ -2847,6 +2856,7 @@ type ::= identifier                                    // type of a union or typ
 type ::= identifier "<" type_list ">"                  // type of a generic union or type alias
 type ::= "[" type "]"                                  // type of an array
 type ::= "fn" type_params_opt type_list "->" type      // type of a function 
+type ::= "fn" type_params_opt "(" type "," type_list ")" "->" type   // parenthesized multi-arg form
 type ::= "(" type ")"
 ```
 
