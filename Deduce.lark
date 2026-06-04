@@ -263,6 +263,7 @@ identifier: IDENT              -> identifier
  | visibility "postulate" IDENT ":" term               -> postulate
 
 ?type: "fn" type_params_opt type_list "->" type        -> function_type
+ | "fn" type_params_opt "(" type "," type_list ")" "->" type   -> function_type_paren
  | IDENT "<" type_list ">"                             -> type_inst
  | atomic_type
 

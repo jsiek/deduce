@@ -1869,12 +1869,26 @@ def parse_type() -> Type:
 
 def parse_function_type() -> Type:
   while_parsing = 'while parsing\n' \
-      + '\ttype ::= "fn" type_params_opt type_list "->" type\n'
+      + '\ttype ::= "fn" type_params_opt type_list "->" type\n' \
+      + '\t       | "fn" type_params_opt "(" type "," type_list ")" "->" type\n'
   try:
     start_token = current_token()
     advance()
     type_params = parse_type_parameters()
-    param_types = parse_type_list()
+    if current_token().type == 'LPAR':
+      advance()
+      first_type = parse_type()
+      if current_token().type == 'COMMA':
+        advance()
+        rest_types = parse_type_list()
+        param_types = [first_type] + rest_types
+        consume_token('RPAR', 'closing ")"',
+                      context='after parenthesized parameter types')
+      else:
+        consume_token('RPAR', 'closing ")"')
+        param_types = [first_type]
+    else:
+      param_types = parse_type_list()
     consume_token('ARROW', '"->"', context='after parameter types')
     return_type = parse_type()
     return FunctionType(meta_from_tokens(start_token, previous_token()),

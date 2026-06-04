@@ -1,0 +1,44 @@
+import UInt
+
+theorem fn_paren_two_args: all g : fn (UInt, UInt) -> UInt. g = g
+proof
+  arbitrary g : fn (UInt, UInt) -> UInt
+  .
+end
+
+theorem fn_bare_two_args: all g : fn UInt, UInt -> UInt. g = g
+proof
+  arbitrary g : fn UInt, UInt -> UInt
+  .
+end
+
+theorem fn_paren_single: all g : fn (UInt) -> UInt. g = g
+proof
+  arbitrary g : fn (UInt) -> UInt
+  .
+end
+
+theorem fn_paren_three_args: all g : fn (UInt, UInt, UInt) -> UInt. g = g
+proof
+  arbitrary g : fn (UInt, UInt, UInt) -> UInt
+  .
+end
+
+theorem fn_paren_nested:
+  all g : fn (fn (UInt, UInt) -> UInt, UInt) -> UInt. g = g
+proof
+  arbitrary g : fn (fn (UInt, UInt) -> UInt, UInt) -> UInt
+  .
+end
+
+theorem fn_paren_generic:
+  <T> all g : fn (T, T) -> T. g = g
+proof
+  arbitrary T:type
+  arbitrary g : fn (T, T) -> T
+  .
+end
+
+fun apply_swap<T>(g : fn (T, T) -> T, x : T, y : T) {
+  g(y, x)
+}
