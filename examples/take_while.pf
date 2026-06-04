@@ -15,8 +15,6 @@
 //                                 = length(xs)
 //   3. take_while_all:         every element of take_while(xs, p) satisfies p
 
-import List
-
 recursive take_while<T>(List<T>, fn (T)->bool) -> List<T> {
   take_while(empty, p) = empty
   take_while(node(x, xs), p) =

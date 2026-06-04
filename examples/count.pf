@@ -11,8 +11,6 @@
 //   3. count_le_length: number of occurrences cannot exceed length,
 //        count(xs, x) ≤ length(xs)
 
-import List
-
 recursive count<T>(List<T>, T) -> UInt {
   count(empty, x) = 0
   count(node(y, ys), x) = (if y = x then 1 + count(ys, x) else count(ys, x))
@@ -119,4 +117,3 @@ proof
     }
   }
 end
-

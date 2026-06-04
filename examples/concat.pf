@@ -11,8 +11,6 @@
 //
 //   concat(xss ++ yss) = concat(xss) ++ concat(yss)
 
-import List
-
 recursive concat<T>(List< List<T> >) -> List<T> {
   concat(empty) = empty
   concat(node(xs, xss)) = xs ++ concat(xss)

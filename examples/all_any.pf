@@ -19,8 +19,6 @@
 //   3. list_all_any_de_morgan:  the De Morgan duality between them,
 //        not list_all(xs, p) = list_any(xs, fun x { not p(x) })
 
-import List
-
 recursive list_all<T>(List<T>, fn T->bool) -> bool {
   list_all(empty, p) = true
   list_all(node(x, xs), p) = p(x) and list_all(xs, p)
