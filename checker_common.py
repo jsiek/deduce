@@ -35,7 +35,7 @@ File charter:
 #    reduce some formulas and terms automatically.
 
 from dataclasses import dataclass
-from typing import Any, List, Optional, Tuple, cast
+from typing import List, Optional, Tuple, cast
 from lark.tree import Meta
 
 from abstract_syntax import (
