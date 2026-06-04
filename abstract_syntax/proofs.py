@@ -509,7 +509,7 @@ class IndCase(AST):
     env_map = cast(UniquifyEnv, env)
     uniq_ctx = cast(UniquifyContext, ctx)
     body_env = copy_dict(env_map)
-    pattern = cast(Any, self.pattern)
+    pattern = cast(PatternCons, self.pattern)
 
     new_params = [generate_name(x, uniq_ctx) for x in pattern.parameters]
     for (old, new) in zip(pattern.parameters, new_params):
@@ -672,7 +672,7 @@ class SwitchProofCase(AST):
     env_map = cast(UniquifyEnv, env)
     uniq_ctx = cast(UniquifyContext, ctx)
     body_env = copy_dict(env_map)
-    pattern = cast(Any, self.pattern)
+    pattern = self.pattern
 
     new_params = [generate_name(x, uniq_ctx) for x in pattern.bindings()]
     for (old, new) in zip(pattern.bindings(), new_params):

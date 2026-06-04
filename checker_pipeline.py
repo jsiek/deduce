@@ -14,7 +14,7 @@ File charter:
 """
 
 from dataclasses import dataclass
-from typing import Any, List, Optional, Tuple, cast
+from typing import List, Optional, Tuple, cast
 
 from lark.tree import Meta
 
@@ -36,39 +36,20 @@ from checker_cache import (
     _is_global_barrier, _record_hit, _record_miss, _stmt_cache,
 )
 from checker_common import *
-# The remaining checker_* modules still carry ``# mypy: ignore-errors`` and
-# their functions are untyped from mypy's perspective. Importing them through
-# an ``Any``-typed indirection keeps cross-module calls compatible with
-# ``disallow_untyped_calls`` until those files are strictified in turn.
 from checker_predicates import (
-    _build_predicate_translation as _build_predicate_translation_raw,
-    _check_predicate_strict_positivity as _check_predicate_strict_positivity_raw,
-    _predicate_style_hint as _predicate_style_hint_raw,
-    _validate_predicate_rule_shape as _validate_predicate_rule_shape_raw,
-    _validate_predicate_signature as _validate_predicate_signature_raw,
+    _build_predicate_translation, _check_predicate_strict_positivity,
+    _predicate_style_hint, _validate_predicate_rule_shape,
+    _validate_predicate_signature,
 )
-from checker_induction import match_induction as match_induction_raw
-from checker_logic import pattern_to_term as pattern_to_term_raw
-from checker_proofs import (
-    _try_check_proof_of as _try_check_proof_of_raw,
-    generate_proof_name as generate_proof_name_raw,
-)
+from checker_induction import match_induction
+from checker_logic import pattern_to_term
+from checker_proofs import _try_check_proof_of, generate_proof_name
 from checker_types import (
-    check_constructor_pattern as check_constructor_pattern_raw,
-    check_formula as check_formula_raw,
-    check_no_recfun_escape as check_no_recfun_escape_raw,
-    check_pattern as check_pattern_raw,
-    check_strict_positivity as check_strict_positivity_raw,
-    check_type as check_type_raw,
-    dirty_files,
-    get_recursive_call_count as get_recursive_call_count_raw,
-    infer_param_polarities as infer_param_polarities_raw,
-    is_modified as is_modified_raw,
-    lookup_union as lookup_union_raw,
-    reset_recursive_call_count as reset_recursive_call_count_raw,
-    type_check_formula as type_check_formula_raw,
-    type_check_term as type_check_term_raw,
-    type_synth_term as type_synth_term_raw,
+    check_constructor_pattern, check_formula, check_no_recfun_escape,
+    check_pattern, check_strict_positivity, check_type, dirty_files,
+    get_recursive_call_count, infer_param_polarities, is_modified,
+    lookup_union, reset_recursive_call_count, type_check_formula,
+    type_check_term, type_synth_term,
 )
 from error import (
     Diagnostic, ErrorSink, MatchFailed, error_header, get_active_sink,
@@ -79,41 +60,13 @@ from flags import (
     get_target_hole_location, get_verbose, set_verbose,
 )
 
-# Any-typed re-exports so the cross-checker calls below pass
-# ``disallow_untyped_calls`` without adding signatures to the still-ratcheting
-# modules (those files are being strictified in parallel and any signature
-# added here would risk a merge conflict).
-_build_predicate_translation: Any = _build_predicate_translation_raw
-_check_predicate_strict_positivity: Any = _check_predicate_strict_positivity_raw
-_predicate_style_hint: Any = _predicate_style_hint_raw
-_validate_predicate_rule_shape: Any = _validate_predicate_rule_shape_raw
-_validate_predicate_signature: Any = _validate_predicate_signature_raw
-match_induction: Any = match_induction_raw
-pattern_to_term: Any = pattern_to_term_raw
-_try_check_proof_of: Any = _try_check_proof_of_raw
-generate_proof_name: Any = generate_proof_name_raw
-check_constructor_pattern: Any = check_constructor_pattern_raw
-check_formula: Any = check_formula_raw
-check_no_recfun_escape: Any = check_no_recfun_escape_raw
-check_pattern: Any = check_pattern_raw
-check_strict_positivity: Any = check_strict_positivity_raw
-check_type: Any = check_type_raw
-get_recursive_call_count: Any = get_recursive_call_count_raw
-infer_param_polarities: Any = infer_param_polarities_raw
-is_modified: Any = is_modified_raw
-lookup_union: Any = lookup_union_raw
-reset_recursive_call_count: Any = reset_recursive_call_count_raw
-type_check_formula: Any = type_check_formula_raw
-type_check_term: Any = type_check_term_raw
-type_synth_term: Any = type_synth_term_raw
-
 imported_modules: set[str] = set()
 checked_modules: set[str] = set()
 
 Substitution = dict[str, Term | Type | RecFun | GenRecFun]
 TypeMatching = dict[str, Type | VarRef | None]
 ViewInfo = tuple[ViewDecl, Type, Type]
-PatternCoverage = dict[str, object]
+PatternCoverage = dict[str, bool]
 ParamTypes = list[tuple[str, Type]]
 
 def process_declaration_visibility(decl: Declaration, env: Env,

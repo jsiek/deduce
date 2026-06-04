@@ -45,7 +45,21 @@ import traceback as _traceback
 from dataclasses import dataclass
 from enum import Enum
 from lark.tree import Meta
-from typing import Any, Callable, Iterator, Optional, Sequence, Union, cast
+from typing import (
+    TYPE_CHECKING, Any, Callable, Iterator, Optional, Sequence, Union, cast,
+)
+
+if TYPE_CHECKING:
+    # Type-only imports.  The runtime body keeps its lazy ``from
+    # abstract_syntax import ...`` pattern so this module stays free of
+    # any pipeline import at module-load time (the protocol-neutral
+    # boundary the docstring guarantees); these names exist only for
+    # annotations and never execute.
+    from abstract_syntax import (
+        AST, All, And, Auto, Env, Formula, IfThen, Import, Or,
+        ResolvedVar, Some, Statement, Term, Type,
+    )
+    from abstract_syntax import Union as UnionDecl
 
 
 __all__ = [
@@ -97,7 +111,11 @@ __all__ = [
 
 # TODO: remove the _call_untyped function.
 def _call_untyped(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
-    """Typed boundary for calls into not-yet-strict Deduce core modules."""
+    # Any: dynamic-dispatch boundary into lazily-imported pipeline
+    # helpers (set_reduce_all, instantiate, collect_all_if_then,
+    # formula_match, split_equation, apply_rewrites, expand_definitions,
+    # ...). The call site casts the result to the concrete type it
+    # expects; the variadic signature can't express that per-callee.
     return fn(*args, **kwargs)
 
 
@@ -659,7 +677,7 @@ def _format_unstructured_exception(
     return f"internal error in Deduce: {msg}"
 
 
-def _format_incomplete_proof_message(formula: Any) -> str:
+def _format_incomplete_proof_message(formula: "Formula") -> str:
     """Render an ``IncompleteProof`` as a one-line diagnostic.
 
     LSP diagnostic messages land in space-constrained UI: the echo
@@ -904,7 +922,9 @@ def _goal_from_exception(
     )
 
 
-def _normalize_formula(formula_ast: Any, env: Any, rendered: str) -> Optional[str]:
+def _normalize_formula(
+    formula_ast: Optional["Formula"], env: Optional["Env"], rendered: str
+) -> Optional[str]:
     """Render the auto-reduced form of ``formula_ast`` under ``env``.
 
     Returns ``None`` when reduction is unavailable (missing AST or env)
@@ -924,7 +944,7 @@ def _normalize_formula(formula_ast: Any, env: Any, rendered: str) -> Optional[st
 
 
 def _attach_normalized_givens(
-    givens: tuple[Given, ...], env: Any
+    givens: tuple[Given, ...], env: Optional["Env"]
 ) -> tuple[Given, ...]:
     """Add ``formula_normalized`` to each given when env exposes its AST.
 
@@ -941,7 +961,7 @@ def _attach_normalized_givens(
     except Exception:
         return givens
 
-    by_label: dict[str, Any] = {}
+    by_label: dict[str, "Formula"] = {}
     for unique, binding in env.dict.items():
         if not isinstance(binding, ProofBinding):
             continue
@@ -1215,7 +1235,7 @@ def completions_at(
 
 def _completion_env_and_goal(
     path: str, content: str, pos: Position, prelude: Sequence[str],
-) -> tuple[Any, Any]:
+) -> tuple[Optional["Env"], Optional["Formula"]]:
     """Return ``(env, goal)`` visible at ``pos``, or ``(None, None)``.
 
     Two paths:
@@ -1305,7 +1325,7 @@ def _strip_partial_word(
 
 
 def _local_completion_candidates(
-    env: Any, seen: set[str]
+    env: "Env", seen: set[str]
 ) -> Iterator[CompletionCandidate]:
     """Yield :class:`CompletionCandidate` items for in-scope bindings
     in ``env`` whose base name isn't already in ``seen``.
@@ -1362,9 +1382,9 @@ def _bump_priority(cand: CompletionCandidate, priority: int) -> CompletionCandid
 
 
 def _collect_completion_names_from_ast(
-    ast_nodes: Any,
-    _seen: Optional[set[Any]] = None,
-) -> Any:
+    ast_nodes: Sequence["Statement"],
+    _seen: Optional[set[str]] = None,
+) -> Iterator[CompletionCandidate]:
     """Yield a :class:`CompletionCandidate` per named top-level decl.
 
     Walks the user file's top-level statements plus ``Import.ast``
@@ -1464,7 +1484,7 @@ def _meta_contains(meta: Meta, pos: Position) -> bool:
 
 
 def _find_reference_at(
-    ast_nodes: Sequence[Any], pos: Position, path: str
+    ast_nodes: Sequence["Statement"], pos: Position, path: str
 ) -> Optional[str]:
     """Locate the smallest reference node whose range contains ``pos``.
 
@@ -1493,7 +1513,7 @@ def _find_reference_at(
     best: list[Optional[str]] = [None]
     best_span: list[Optional[int]] = [None]
 
-    def visit(node: Any) -> None:
+    def visit(node: "AST") -> None:
         if isinstance(node, VarRef):
             resolved = node.get_name()
         elif isinstance(node, PVar):
@@ -1559,7 +1579,8 @@ def _meta_span(meta: Meta) -> int:
 
 
 def _find_declaration(
-    ast_nodes: Sequence[Any], target_name: str, _seen: Optional[set[str]] = None
+    ast_nodes: Sequence["Statement"], target_name: str,
+    _seen: Optional[set[str]] = None,
 ) -> Optional[Meta]:
     """Find a declaration whose uniquified ``name`` field equals
     ``target_name``.  Returns its ``Meta`` location, or ``None``.
@@ -1630,9 +1651,9 @@ def _find_declaration(
 
 
 def _walk_ast(
-    node: Any,
-    visit: Callable[[Any], None],
-    ast_class: type[Any],
+    node: "AST",
+    visit: Callable[["AST"], None],
+    ast_class: type["AST"],
     seen: Optional[set[int]] = None,
 ) -> None:
     """Recursively visit every AST descendant of ``node``.
@@ -1663,7 +1684,7 @@ def _walk_ast(
                     _walk_ast(item, visit, ast_class, seen)
 
 
-def _symbol_info_for(stmt: Any, path: str) -> Optional[SymbolInfo]:
+def _symbol_info_for(stmt: "Statement", path: str) -> Optional[SymbolInfo]:
     """Build a ``SymbolInfo`` for a top-level statement, or ``None``
     if the node isn't a kind we surface (e.g. ``Auto``)."""
     from abstract_syntax import (
@@ -1891,7 +1912,7 @@ def _offset_to_line_col(content: str, offset: int) -> tuple[int, int]:
     return (line, offset - line_start + 1)
 
 
-def _refine_template(formula: Any, env: Any) -> Optional[str]:
+def _refine_template(formula: "Formula", env: Optional["Env"]) -> Optional[str]:
     """Select a refinement template based on the goal AST.
 
     Imports the AST node classes lazily so this module's import-time
@@ -1937,7 +1958,7 @@ def _refine_template(formula: Any, env: Any) -> Optional[str]:
     return None
 
 
-def _fresh_assume_label(env: Any) -> str:
+def _fresh_assume_label(env: Optional["Env"]) -> str:
     """Return the lowest ``H<N>`` (N >= 1) not already bound in ``env``.
 
     Successive ``assume H1: ...``, ``assume H2: ...`` invocations
@@ -2075,7 +2096,7 @@ def splittable_vars_at(
     return _splittable_vars(env)
 
 
-def _splittable_vars(env: Any) -> tuple[str, ...]:
+def _splittable_vars(env: "Env") -> tuple[str, ...]:
     """Names of bindings whose ``case_split`` would succeed.
 
     Excludes constructor names: the env stores each union's
@@ -2132,7 +2153,7 @@ def _splittable_vars(env: Any) -> tuple[str, ...]:
     return tuple(sorted(seen))
 
 
-def _case_split_template(name: str, env: Any) -> Optional[str]:
+def _case_split_template(name: str, env: "Env") -> Optional[str]:
     """Render a switch/cases skeleton for the variable named ``name``.
 
     Looks up ``name`` in ``env`` by base name (the dict is keyed by
@@ -2186,7 +2207,7 @@ def _case_split_template(name: str, env: Any) -> Optional[str]:
     return None
 
 
-def _cases_template(var_name: str, formula: Any, env: Any) -> str:
+def _cases_template(var_name: str, formula: "Or", env: "Env") -> str:
     """Render a ``cases <var> ...`` block for an ``Or`` formula.
 
     Each disjunct gets a fresh per-branch label so successive
@@ -2210,7 +2231,7 @@ def _cases_template(var_name: str, formula: Any, env: Any) -> str:
     return f"cases {var_name}\n" + "\n".join(case_lines)
 
 
-def _switch_template(var_name: str, union_def: Any, env: Any) -> str:
+def _switch_template(var_name: str, union_def: "UnionDecl", env: "Env") -> str:
     """Render a ``switch <var> { ... }`` block for a ``Union`` type.
 
     Each constructor's parameters get fresh names against the
@@ -2251,7 +2272,7 @@ def _switch_template(var_name: str, union_def: Any, env: Any) -> str:
     return f"switch {var_name} {{\n" + "\n".join(case_lines) + "\n}"
 
 
-def _type_first_letter(ty: Any) -> str:
+def _type_first_letter(ty: "Type") -> str:
     """First letter of a type's printed form, lowercased.
 
     Mirrors the naming convention in ``proof_advice``: a parameter of
@@ -2334,7 +2355,7 @@ def induction_skeleton_at(
     return WorkspaceEdit(path=path, range=hole_range, new_text=template)
 
 
-def _induction_template(formula: Any, env: Any) -> Optional[str]:
+def _induction_template(formula: "Formula", env: "Env") -> Optional[str]:
     """Render an ``induction T`` skeleton if ``formula`` is
     ``all x:T. P(x)`` with T a multi-alternative union."""
     from abstract_syntax import (
@@ -2367,7 +2388,7 @@ def _induction_template(formula: Any, env: Any) -> Optional[str]:
 
 
 def _render_induction(
-    var_x: str, var_ty: Any, body: Any, union_def: Any, env: Any
+    var_x: str, var_ty: "Type", body: "Formula", union_def: "UnionDecl", env: "Env"
 ) -> str:
     """Build the ``induction T\\n  case ... { ? }\\n  ...`` text."""
     from abstract_syntax import ResolvedVar, base_name
@@ -2384,7 +2405,7 @@ def _render_induction(
     for alt in union_def.alternatives:
         cons_name = base_name(alt.name)
         used = set(env_used)
-        params: list[tuple[str, Any]] = []  # (name, type) pairs for this case
+        params: list[tuple[str, Type]] = []  # (name, type) pairs for this case
         for i, p_ty in enumerate(alt.parameters):
             stem = _type_first_letter(p_ty)
             candidate = f"{stem}{i + 1}"
@@ -2541,7 +2562,7 @@ def eliminable_vars_at(
     return _eliminable_vars(env)
 
 
-def _eliminable_vars(env: Any) -> tuple[str, ...]:
+def _eliminable_vars(env: "Env") -> tuple[str, ...]:
     """Names of local proof bindings whose ``eliminate'' would
     produce a meaningful edit."""
     from abstract_syntax import (
@@ -2572,7 +2593,7 @@ def _eliminable_vars(env: Any) -> tuple[str, ...]:
     return tuple(sorted(seen))
 
 
-def _eliminate_template(label: str, env: Any) -> Optional[str]:
+def _eliminate_template(label: str, env: "Env") -> Optional[str]:
     """Look up ``label'' in ``env'' and dispatch to the appropriate
     template.
 
@@ -2593,7 +2614,7 @@ def _eliminate_template(label: str, env: Any) -> Optional[str]:
 
 
 def _eliminate_template_for_formula(
-    formula: Any, binding_name: str, env: Any, dry_run: bool
+    formula: "Formula", binding_name: str, env: "Env", dry_run: bool
 ) -> Optional[str]:
     """Pick a template for ``formula''.
 
@@ -2651,7 +2672,7 @@ def _eliminate_template_for_formula(
     return None
 
 
-def _fresh_h_labels(env: Any, count: int) -> list[str]:
+def _fresh_h_labels(env: "Env", count: int) -> list[str]:
     """Generate ``count`` fresh ``H<N>``-style labels not in env."""
     from abstract_syntax import base_name
     used = {base_name(k) for k in env.dict.keys()}
@@ -2666,7 +2687,7 @@ def _fresh_h_labels(env: Any, count: int) -> list[str]:
     return out
 
 
-def _eliminate_and(label: str, formula: Any, env: Any) -> str:
+def _eliminate_and(label: str, formula: "And", env: "Env") -> str:
     """``have h1: P by conjunct 1 of H\\nhave h2: Q by conjunct 2
     of H\\n?''"""
     labels = _fresh_h_labels(env, len(formula.args))
@@ -2678,7 +2699,7 @@ def _eliminate_and(label: str, formula: Any, env: Any) -> str:
     return "\n".join(lines)
 
 
-def _eliminate_or(label: str, formula: Any, env: Any) -> str:
+def _eliminate_or(label: str, formula: "Or", env: "Env") -> str:
     """``cases H\\n  case h1: P { ? }\\n  case h2: Q { ? } ...''"""
     from abstract_syntax import base_name
 
@@ -2697,13 +2718,13 @@ def _eliminate_or(label: str, formula: Any, env: Any) -> str:
     return f"cases {label}\n" + "\n".join(case_lines)
 
 
-def _eliminate_ifthen(label: str, formula: Any, env: Any) -> str:
+def _eliminate_ifthen(label: str, formula: "IfThen", env: "Env") -> str:
     """``have h: Q by apply H to ?\\n?''"""
     h = _fresh_h_labels(env, 1)[0]
     return f"have {h}: {formula.conclusion} by apply {label} to ?\n?"
 
 
-def _eliminate_all(label: str, formula: Any, env: Any) -> str:
+def _eliminate_all(label: str, formula: "All", env: "Env") -> str:
     """``H[?, ?, ...]'' (term args) or ``H<?, ?, ...>'' (type args).
 
     Handles a single all-block: ``all x:T1, y:T2. P'' yields
@@ -2712,8 +2733,8 @@ def _eliminate_all(label: str, formula: Any, env: Any) -> str:
     """
     from abstract_syntax import All, TypeType
 
-    vars_in_block: list[tuple[str, Any]] = []
-    cur = formula
+    vars_in_block: list[tuple[str, Type]] = []
+    cur: "Formula" = formula
     while isinstance(cur, All):
         x, ty = cur.var
         vars_in_block.append((x, ty))
@@ -2733,13 +2754,13 @@ def _eliminate_all(label: str, formula: Any, env: Any) -> str:
     return f"{label}{open_b}{placeholders}{close_b}"
 
 
-def _eliminate_some(label: str, formula: Any, env: Any) -> str:
+def _eliminate_some(label: str, formula: "Some", env: "Env") -> str:
     """``obtain x1, ... where h: <body[subst]> from H\\n?''"""
     from abstract_syntax import ResolvedVar, base_name
 
     used = {base_name(k) for k in env.dict.keys()}
     fresh_witnesses: list[str] = []
-    sub: dict[str, Any] = {}
+    sub: dict[str, "Term"] = {}
     for (x, ty) in formula.vars:
         stem = _type_first_letter(ty)
         n = 1
@@ -2877,7 +2898,7 @@ def matching_givens_at(
     return _matching_given_names(goal, env)
 
 
-def _implies(frm1: Any, frm2: Any) -> bool:
+def _implies(frm1: "Formula", frm2: "Formula") -> bool:
     """Side-effect-free wrapper around ``proof_checker.check_implies``.
 
     ``check_implies`` raises ``UserError`` (or ``MatchFailed``) on failure
@@ -2899,7 +2920,7 @@ def _implies(frm1: Any, frm2: Any) -> bool:
         flags.verbose = saved
 
 
-def _matching_given_names(goal: Any, env: Any) -> tuple[str, ...]:
+def _matching_given_names(goal: "Formula", env: "Env") -> tuple[str, ...]:
     """Names of local proof bindings that discharge ``goal``.
 
     Exact equality matches come first (alphabetical), followed by
@@ -2929,7 +2950,7 @@ def _matching_given_names(goal: Any, env: Any) -> tuple[str, ...]:
     return tuple(sorted(exact)) + tuple(sorted(implies))
 
 
-def _fill_from_given_template(label: str, goal: Any, env: Any) -> Optional[str]:
+def _fill_from_given_template(label: str, goal: "Formula", env: "Env") -> Optional[str]:
     """Return a proof of ``goal`` using ``label`` when ``label`` names
     a local proof binding in ``env`` whose formula equals or implies
     ``goal``.
@@ -3004,6 +3025,9 @@ def preview_conclude_at(
     path: str, content: str, pos: Position,
     label: str,
     prelude: Sequence[str] = (),
+    # Any: MCP tool-result payload -- a discriminated dict whose value
+    # types vary by ``outcome`` (str fields, ``label``, etc.); the
+    # adapter serializes it straight to JSON.
 ) -> Optional[dict[str, Any]]:
     """Preview ``conclude <goal> by <label>`` modulo auto-rule
     normalization.
@@ -3120,6 +3144,9 @@ def apply_at(
     theorem: str,
     args: Optional[Sequence[str]] = None,
     prelude: Sequence[str] = (),
+    # Any: MCP tool-result payload -- a discriminated dict keyed on
+    # ``outcome`` with heterogeneous values (rendered formulas, the
+    # ``remaining_premises`` list, int counts); serialized to JSON.
 ) -> Optional[dict[str, Any]]:
     """Preview ``apply <theorem>[<args>] to ?`` at the cursor's hole.
 
@@ -3287,7 +3314,8 @@ def _splice_apply_args(
 
 
 def _apply_match_manual(
-    formula: Any, goal: Any, env: Any, goal_str: str
+    formula: "Formula", goal: "Formula", env: "Env", goal_str: str
+    # Any: MCP tool-result payload -- discriminated dict (see apply_at).
 ) -> dict[str, Any]:
     """Compute the result of ``apply <formula> to ?`` against ``goal``.
 
@@ -3346,7 +3374,7 @@ def _apply_match_manual(
                 }
             reasons = []
             for prem, conc in imps:
-                matching: dict[str, Any] = {}
+                matching: dict[str, "Term"] = {}
                 try:
                     _call_untyped(
                         formula_match,
@@ -3391,7 +3419,7 @@ def _apply_match_manual(
         _call_untyped(set_reduce_all, False)
 
 
-def _split_premise_on_and(formula: Any) -> list[str]:
+def _split_premise_on_and(formula: "Formula") -> list[str]:
     """If ``formula`` is a top-level conjunction, render each conjunct
     separately so the result maps to what the user would put after
     ``to`` (Deduce desugars ``to A, B`` into a tuple proof of an
@@ -3483,7 +3511,7 @@ def hole_context_at(
 
 
 def _collect_lemmas_in_scope(
-    ast_nodes: Any, prelude: Sequence[str]
+    ast_nodes: Optional[Sequence["Statement"]], prelude: Sequence[str]
 ) -> tuple[LemmaInfo, ...]:
     """Build the ``lemmas_in_scope`` tuple for :class:`HoleContext`.
 
@@ -3541,7 +3569,7 @@ def _collect_lemmas_in_scope(
     return tuple(out)
 
 
-def _lemma_info_for(stmt: Any, public_only: bool = False) -> Optional[LemmaInfo]:
+def _lemma_info_for(stmt: "Statement", public_only: bool = False) -> Optional[LemmaInfo]:
     """Build a :class:`LemmaInfo` from a top-level statement, or
     ``None`` if the node isn't surfaced (``Import``, etc.).
 
@@ -3662,8 +3690,8 @@ def available_lemmas_at(
 
     hole_range = _find_hole_at(content, pos)
     goal_text: Optional[str] = None
-    goal_ast: Any = None
-    env: Any = None
+    goal_ast: Optional["Formula"] = None
+    env: Optional["Env"] = None
     if hole_range is not None:
         target = (hole_range.start.line, hole_range.start.column)
         with _target_hole(target):
@@ -3756,8 +3784,8 @@ def insert_lemma_at(
 
     hole_range = _find_hole_at(content, pos)
     goal_text: Optional[str] = None
-    goal_ast: Any = None
-    env: Any = None
+    goal_ast: Optional["Formula"] = None
+    env: Optional["Env"] = None
 
     if hole_range is not None:
         target = (hole_range.start.line, hole_range.start.column)
@@ -3776,7 +3804,7 @@ def insert_lemma_at(
         ast_nodes = result.ast
 
     candidates = _collect_lemma_candidates(path, ast_nodes, prelude)
-    target_formula: Any = None
+    target_formula: Optional["Formula"] = None
     for info, formula, _module in candidates:
         if info.name == name:
             target_formula = formula
@@ -3809,7 +3837,7 @@ def insert_lemma_at(
 
 def _insert_lemma_template(
     name: str,
-    formula: Any,
+    formula: "Formula",
     tier: Optional[str],
     discharged: tuple[tuple[str, str], ...],
     goal_text: Optional[str],
@@ -3852,7 +3880,9 @@ def _module_for_path(path: str) -> str:
     return Path(path).stem
 
 
-def _enclosing_theorem_name(ast_nodes: Any, pos: Position) -> Optional[str]:
+def _enclosing_theorem_name(
+    ast_nodes: Optional[Sequence["Statement"]], pos: Position
+) -> Optional[str]:
     """Return the base name of the user-file ``Theorem`` whose body
     encloses ``pos``, or ``None`` when ``pos`` isn't inside one.
 
@@ -3888,10 +3918,10 @@ def _enclosing_theorem_name(ast_nodes: Any, pos: Position) -> Optional[str]:
 
 def _collect_lemma_candidates(
     path: str,
-    ast_nodes: Any,
+    ast_nodes: Optional[Sequence["Statement"]],
     prelude: Sequence[str],
     exclude_name: Optional[str] = None,
-) -> tuple[tuple[LemmaInfo, Any, str], ...]:
+) -> tuple[tuple[LemmaInfo, "Formula", str], ...]:
     """Build the ranking input: theorems/lemmas/postulates with their
     formula AST and module of origin.
 
@@ -3928,7 +3958,8 @@ def _collect_lemma_candidates(
     seen_modules: set[str] = set()
 
     def _collect_from_module(
-        module_ast: Optional[Sequence[Any]], module_name: str, importer: Any
+        module_ast: Optional[Sequence["Statement"]], module_name: str,
+        importer: Optional["Import"],
     ) -> None:
         if module_ast is None:
             return
@@ -4139,7 +4170,7 @@ def _goal_tokens(text: Optional[str]) -> frozenset[str]:
     return frozenset(tokens)
 
 
-def _formula_head_symbol(formula: Any) -> Optional[str]:
+def _formula_head_symbol(formula: "Formula") -> Optional[str]:
     """Head operator of a lemma's formula (peeling outer ``All`` and
     ``IfThen``).  Returns the rator's base name for a ``Call``, or a
     string token for non-Call shapes (``and``/``or``/``not``/etc.).
@@ -4175,7 +4206,7 @@ def _formula_head_symbol(formula: Any) -> Optional[str]:
     return None
 
 
-def _formula_symbols(formula: Any) -> frozenset[str]:
+def _formula_symbols(formula: "Formula") -> frozenset[str]:
     """Set of all rator names appearing in ``formula`` (recursively).
 
     Drives the symbol-overlap signal in lemma ranking.  Bound
@@ -4189,7 +4220,7 @@ def _formula_symbols(formula: Any) -> frozenset[str]:
 
     out: set[str] = set()
 
-    def visit(node: Any) -> None:
+    def visit(node: "AST") -> None:
         if isinstance(node, Call):
             rator = node.rator
             if isinstance(rator, TermInst):
@@ -4251,7 +4282,7 @@ _UNIFY_TIER_SCORE: dict[str, float] = {
 }
 
 
-def _collect_local_givens(env: Any) -> tuple[tuple[str, Any], ...]:
+def _collect_local_givens(env: Optional["Env"]) -> tuple[tuple[str, "Formula"], ...]:
     """``(label, formula_ast)`` for local proof bindings in ``env``.
 
     Mirrors how :func:`_matching_given_names` walks ``env.dict``, but
@@ -4265,7 +4296,7 @@ def _collect_local_givens(env: Any) -> tuple[tuple[str, Any], ...]:
     from abstract_syntax import ProofBinding, base_name
 
     seen: set[str] = set()
-    out: list[tuple[str, Any]] = []
+    out: list[tuple[str, Formula]] = []
     try:
         items = env.dict.items()
     except AttributeError:
@@ -4284,8 +4315,8 @@ def _collect_local_givens(env: Any) -> tuple[tuple[str, Any], ...]:
 
 
 def _peel_quantified_implication(
-    formula: Any,
-) -> Optional[tuple[list[Any], list[Any], Any]]:
+    formula: Optional["Formula"],
+) -> Optional[tuple[list["ResolvedVar"], list["Formula"], "Formula"]]:
     """Peel outer ``All`` and ``IfThen`` to ``(vars, premises, conc)``.
 
     Returns the list of all-bound variables (as :class:`VarRef`), the
@@ -4300,13 +4331,13 @@ def _peel_quantified_implication(
     if f is None:
         return None
 
-    vars: list[Any] = []
+    vars: list["ResolvedVar"] = []
     while isinstance(f, All):
         name, ty = f.var
         vars.append(ResolvedVar(f.location, ty, name))
         f = f.body
 
-    premises: list[Any] = []
+    premises: list["Formula"] = []
     while isinstance(f, IfThen):
         prem = f.premise
         if isinstance(prem, And):
@@ -4318,7 +4349,9 @@ def _peel_quantified_implication(
     return vars, premises, f
 
 
-def _formulas_match_modulo_env(frm1: Any, frm2: Any, env: Any) -> bool:
+def _formulas_match_modulo_env(
+    frm1: "Formula", frm2: "Formula", env: Optional["Env"]
+) -> bool:
     """Best-effort equality of two formulas under ``env`` reduction.
 
     Used to ask "does this substituted premise match a given?".
@@ -4341,7 +4374,7 @@ def _formulas_match_modulo_env(frm1: Any, frm2: Any, env: Any) -> bool:
         return False
 
 
-def _iter_subterms(node: Any) -> Any:
+def _iter_subterms(node: "AST") -> list["AST"]:
     """Yield ``node`` and every AST descendant (depth-first).
 
     Used by the ``rewrite_subterm`` tier: walk the goal's subterms
@@ -4350,12 +4383,12 @@ def _iter_subterms(node: Any) -> Any:
     """
     from abstract_syntax import AST
 
-    out: list[Any] = []
+    out: list[AST] = []
     _walk_ast(node, out.append, ast_class=AST)
     return out
 
 
-def _typed_formula_index(env: Any) -> dict[str, Any]:
+def _typed_formula_index(env: Optional["Env"]) -> dict[str, "Formula"]:
     """Build a one-shot ``base_name -> typed_formula`` index over the
     proof bindings in ``env``.
 
@@ -4391,7 +4424,7 @@ def _typed_formula_index(env: Any) -> dict[str, Any]:
         return {}
     from abstract_syntax import ProofBinding, base_name
 
-    out: dict[str, Any] = {}
+    out: dict[str, "Formula"] = {}
     for key, binding in env.dict.items():
         if not isinstance(binding, ProofBinding):
             continue
@@ -4403,7 +4436,7 @@ def _typed_formula_index(env: Any) -> dict[str, Any]:
 
 
 def _render_instantiations(
-    vars: Sequence[Any], matching: dict[str, Any]
+    vars: Sequence["ResolvedVar"], matching: dict[str, "Term"]
 ) -> tuple[str, ...]:
     """Render ``matching[v.name]`` for each ``v`` in ``vars``.
 
@@ -4424,10 +4457,10 @@ def _render_instantiations(
 
 
 def _unify_score(
-    formula: Any,
-    goal_ast: Any,
-    env: Any,
-    given_pairs: tuple[tuple[str, Any], ...],
+    formula: Optional["Formula"],
+    goal_ast: Optional["Formula"],
+    env: Optional["Env"],
+    given_pairs: tuple[tuple[str, "Formula"], ...],
 ) -> tuple[
     float,
     Optional[str],
@@ -4476,7 +4509,7 @@ def _unify_score(
     location = getattr(formula, "location", None)
 
     # Tier 1/2: try to unify the conclusion against the goal.
-    matching: dict[str, Any] = {}
+    matching: dict[str, "Term"] = {}
     conc_matched = False
     try:
         formula_match(location, vars, conc, goal_ast, matching, env)
@@ -4541,7 +4574,7 @@ def _unify_score(
                     # goal as before.
                     side_is_bare_var = isinstance(side, VarRef) and side in vars
                     for sub in subterms:
-                        sub_matching: dict[str, Any] = {}
+                        sub_matching: dict[str, "Term"] = {}
                         try:
                             formula_match(
                                 location, vars, side, sub, sub_matching, env
@@ -4573,14 +4606,14 @@ def _unify_score(
 
 
 def _rank_lemmas(
-    candidates: tuple[tuple[LemmaInfo, Any, str], ...],
+    candidates: tuple[tuple[LemmaInfo, "Formula", str], ...],
     goal_text: Optional[str],
     query: Optional[str],
     user_module: str,
-    goal_ast: Any = None,
-    env: Any = None,
-    given_pairs: tuple[tuple[str, Any], ...] = (),
-    typed_formula_by_name: Optional[dict[str, Any]] = None,
+    goal_ast: Optional["Formula"] = None,
+    env: Optional["Env"] = None,
+    given_pairs: tuple[tuple[str, "Formula"], ...] = (),
+    typed_formula_by_name: Optional[dict[str, "Formula"]] = None,
 ) -> list[LemmaMatch]:
     """Score and sort candidate lemmas.
 
@@ -4637,7 +4670,7 @@ def _rank_lemmas(
     # that actually unify (which always share head/operator tokens
     # with the goal) in the considered set.
     prelim: list[
-        tuple[float, LemmaInfo, Any, str, float]
+        tuple[float, LemmaInfo, "Formula", str, float]
     ] = []  # (cheap_raw, info, formula, module, proximity-marker)
     for info, formula, module in candidates:
         proximity = 1.0 if module == user_module else 0.0
@@ -4932,9 +4965,9 @@ def _preview_replace(
     name: str,
     is_symmetric: bool,
     original_input: str,
-    formula: Any,
-    env: Any,
-    loc: Any,
+    formula: "Formula",
+    env: "Env",
+    loc: Optional[Meta],
 ) -> RewritePreview:
     """Look up ``name`` and apply the rewrite (or report a structured
     failure). ``loc`` is the hole's source location, used for the
@@ -5057,7 +5090,7 @@ def preview_expand_at(
 
 
 def _preview_expand(
-    names: list[str], formula: Any, env: Any, loc: Any
+    names: list[str], formula: "Formula", env: "Env", loc: Optional[Meta]
 ) -> ExpandPreview:
     """Resolve each name then call ``expand_definitions`` with the
     constructed var list. Pre-checks unknown / all-opaque names so the
@@ -5174,7 +5207,7 @@ def auto_rules_at(
     # know about, then the user file's own AST (which overrides any
     # cached entry that happens to share a unique name -- shouldn't
     # happen in practice, but the cache could be slightly stale).
-    formula_by_name: dict[str, Any] = {}
+    formula_by_name: dict[str, "Formula"] = {}
     for module_name, module_ast in cached_modules.items():
         if module_name == user_module:
             continue
@@ -5220,7 +5253,7 @@ def _meta_at_or_before(meta: Meta, pos: Position) -> bool:
 
 
 def _auto_rule_from_stmt(
-    stmt: Any, module_name: str, formula_by_name: dict[str, Any]
+    stmt: "Auto", module_name: str, formula_by_name: dict[str, "Formula"]
 ) -> "AutoRule":
     """Render an ``Auto`` AST node into an :class:`AutoRule`.
 
