@@ -1,0 +1,17 @@
+import UInt
+
+// Term-level switch can use the target constructors of a bijective view.
+fun uint_view_pred(n:UInt) {
+  switch n {
+    case UIntZero { 0 }
+    case UIntSucc(m) { m }
+  }
+}
+
+define uint_view_pred_typed : fn UInt -> UInt =
+  fun n:UInt {
+    switch n {
+      case UIntZero { 0 }
+      case UIntSucc(m) { m }
+    }
+  }
