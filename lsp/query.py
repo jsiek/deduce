@@ -563,7 +563,8 @@ class AutoRule:
 
 
 def check(
-    path: str, content: str, prelude: Sequence[str] = ()
+    path: str, content: str, prelude: Sequence[str] = (),
+    parser: Optional[str] = None,
 ) -> list[Diagnostic]:
     """Run the full Deduce pipeline on ``content`` (treated as if it
     were the contents of ``path``) and return all diagnostics found.
@@ -588,13 +589,23 @@ def check(
     ``prelude`` is the list of module names auto-imported in front of
     the file (matching ``deduce.py``'s ``--no-stdlib`` flag: empty by
     default; the MCP / LSP server passes the standard library here).
+
+    ``parser`` selects which parser checks the user file: ``None``
+    (default) uses whatever ``flags.recursive_descent`` selects --
+    matches CLI behaviour. ``"recursive-descent"`` and ``"lalr"``
+    force that specific parser, bypassing the AST cache so the
+    requested parser actually runs. The prelude is served from its
+    existing snapshot regardless (parser-equivalent by CI).
     """
     # Imported here, not at module top, so this module stays free of
     # any pipeline import while it is just a stub at module-load time.
     # That keeps the protocol-neutral boundary cheap to enforce.
     from lsp.library import check_file
 
-    result = check_file(path, content=content, prelude=prelude, collect_errors=True)
+    result = check_file(
+        path, content=content, prelude=prelude,
+        collect_errors=True, parser=parser,
+    )
     if result.ok:
         return []
 

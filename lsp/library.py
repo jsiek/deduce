@@ -156,6 +156,7 @@ def check_file(
     collect_errors: bool = False,
     debugger: Optional["Debugger"] = None,
     prewarm_modules: Sequence[str] = (),
+    parser: Optional[str] = None,
 ) -> CheckResult:
     """Run the Deduce pipeline on ``filename`` and return a CheckResult.
 
@@ -189,6 +190,21 @@ def check_file(
                             ``lsp.query.check`` opts in to this so
                             every error in the buffer becomes its own
                             editor diagnostic.
+        parser:             Optional parser override. ``None`` (default)
+                            uses whichever parser ``flags.recursive_descent``
+                            currently selects -- matches the CLI behaviour
+                            and is what every existing caller wants.
+                            ``"recursive-descent"`` and ``"lalr"`` force the
+                            user file to be parsed with that specific
+                            parser, regardless of the global flag.
+                            When an explicit parser is given, the
+                            user-file AST cache is bypassed (a cached
+                            entry could have been produced by the other
+                            parser; the whole point of asking for a
+                            specific parser is to actually run it).
+                            The prelude is still served from its
+                            existing snapshot -- prelude AST equivalence
+                            across parsers is verified by CI.
         prewarm_modules:    Module names to pre-load into the
                             ``uniquified_modules`` cache during prelude
                             bootstrap, but **not** prepended as imports
@@ -218,11 +234,17 @@ def check_file(
     machinery here assumes a single caller at a time. Callers that
     want to fan out should serialize.
     """
+    if parser is not None and parser not in ("recursive-descent", "lalr"):
+        raise ValueError(
+            f"check_file: parser must be None, 'recursive-descent', or "
+            f"'lalr'; got {parser!r}"
+        )
     with _check_file_lock:
         return _check_file_locked(
             filename, tracing_functions, prelude, content,
             collect_errors=collect_errors, debugger=debugger,
             prewarm_modules=prewarm_modules,
+            parser=parser,
         )
 
 
@@ -234,6 +256,7 @@ def _check_file_locked(
     collect_errors: bool,
     debugger: Optional["Debugger"],
     prewarm_modules: Sequence[str] = (),
+    parser: Optional[str] = None,
 ) -> CheckResult:
     """Body of ``check_file``, run under the global pipeline lock."""
     # Prelude bootstrap runs without a debugger attached -- the user
@@ -254,6 +277,7 @@ def _check_file_locked(
         return _check_file_impl(
             filename, tracing_functions, prelude, content, ctx,
             collect_errors=collect_errors,
+            parser=parser,
         )
     # Attach the debugger only for the user-file check; detach in a
     # ``finally`` so a quit/crash mid-session leaves the next check_file
@@ -267,6 +291,7 @@ def _check_file_locked(
         return _check_file_impl(
             filename, tracing_functions, prelude, content, ctx,
             collect_errors=collect_errors,
+            parser=parser,
         )
     except DebuggerQuit as e:
         module_name = Path(filename).stem
@@ -289,6 +314,7 @@ def _check_file_impl(
     content: Optional[str],
     ctx: UniquifyContext,
     collect_errors: bool = False,
+    parser: Optional[str] = None,
 ) -> CheckResult:
     """The original ``check_file`` body.
 
@@ -308,7 +334,14 @@ def _check_file_impl(
         # may be stale. MCP tools, however, read the file from disk and
         # pass that exact text through this same API; those calls are
         # cacheable because they match the cache's on-disk contract.
-        use_cache = content is None or _content_matches_file(filename, content)
+        # When an explicit ``parser`` is requested, skip the cache: a
+        # cached entry may have been produced by the *other* parser,
+        # and the whole point of the explicit choice is to actually
+        # run that parser on this file.
+        use_cache = (
+            parser is None
+            and (content is None or _content_matches_file(filename, content))
+        )
         if use_cache and module_name in cached:
             ast = cached[module_name]
         else:
@@ -318,8 +351,13 @@ def _check_file_impl(
             else:
                 program_text = content
 
+            if parser is None:
+                use_rd = get_recursive_descent()
+            else:
+                use_rd = parser == "recursive-descent"
+
             deduce_dir = os.path.dirname(sys.argv[0])
-            if get_recursive_descent():
+            if use_rd:
                 _rd_parser.set_deduce_directory(deduce_dir)
                 _rd_parser.set_filename(filename)
                 _rd_parser.init_parser()

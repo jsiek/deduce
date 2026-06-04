@@ -131,6 +131,26 @@ def test_unsaved_content_bypasses_module_cache(tmp_path: Path) -> None:
     assert path.stem not in get_uniquified_modules()
 
 
+@pytest.mark.parametrize("parser", ["recursive-descent", "lalr"])
+def test_parser_argument_validates_with_each(parser: str) -> None:
+    """``check_file(parser=...)`` runs the requested parser on the user
+    file. Either parser should accept a simple valid file."""
+    path = PASS_DIR / "empty_file.pf"
+    result = check_file(str(path), prelude=(), parser=parser)
+    assert result.ok, (
+        f"{path.name} should validate under {parser} but check_file "
+        f"reported: {result.error_message}"
+    )
+
+
+def test_parser_argument_rejects_unknown_value() -> None:
+    """An unknown parser name is a programming error and must fail
+    loudly rather than silently falling back to the default."""
+    path = PASS_DIR / "empty_file.pf"
+    with pytest.raises(ValueError, match="parser"):
+        check_file(str(path), prelude=(), parser="bogus")
+
+
 def test_collect_errors_includes_expand_residual_hint() -> None:
     """Regression test for issue #745: the ``expand_residual_hint``
     appended by ``_check_proof_of_apply_defs_goal`` must reach the

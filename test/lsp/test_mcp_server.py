@@ -171,6 +171,59 @@ async def test_check_file_accepts_inline_content(server, tmp_path):
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("parser", ["recursive-descent", "lalr"])
+async def test_check_file_accepts_parser_argument(server, parser):
+    """The MCP wrapper plumbs ``parser`` through to ``query.check`` and
+    each parser accepts a known-valid file."""
+    payload = await _call(
+        server, "check_file", {"path": str(VALID_FILE), "parser": parser}
+    )
+    assert payload == {"diagnostics": []}
+
+
+@pytest.mark.anyio
+async def test_check_file_parser_both_labels_each_diagnostic(server):
+    """With ``parser="both"`` the wrapper runs RD and LALR and tags
+    every returned diagnostic with which parser produced it. For a
+    valid file the merged list is empty but the call still succeeds."""
+    payload = await _call(
+        server, "check_file", {"path": str(VALID_FILE), "parser": "both"}
+    )
+    assert payload == {"diagnostics": []}
+
+
+@pytest.mark.anyio
+async def test_check_file_parser_both_merges_error_diagnostics(server):
+    """``parser="both"`` returns one entry per parser per problem, each
+    tagged with the parser that produced it."""
+    payload = await _call(
+        server, "check_file", {"path": str(ERROR_FILE), "parser": "both"}
+    )
+    diags = payload["diagnostics"]
+    parsers_seen = sorted({d["parser"] for d in diags})
+    assert parsers_seen == ["lalr", "recursive-descent"]
+    # Both parsers agree on the same incomplete-proof hole.
+    rd = next(d for d in diags if d["parser"] == "recursive-descent")
+    lalr = next(d for d in diags if d["parser"] == "lalr")
+    assert "incomplete proof" in rd["message"]
+    assert "incomplete proof" in lalr["message"]
+
+
+@pytest.mark.anyio
+async def test_check_file_rejects_unknown_parser(server):
+    """An unknown ``parser`` value must surface as a tool error rather
+    than silently defaulting."""
+    async with create_connected_server_and_client_session(
+        server._mcp_server
+    ) as session:
+        await session.initialize()
+        result = await session.call_tool(
+            "check_file", {"path": str(VALID_FILE), "parser": "bogus"}
+        )
+        assert result.isError
+
+
+@pytest.mark.anyio
 async def test_check_file_on_stdlib_file_does_not_prepend_stdlib(
     server, monkeypatch
 ):
