@@ -3021,9 +3021,9 @@ positions it stands for the view's source type. When it appears as the
 first parameter type of a `recursive` function, Deduce checks the cases
 against the view's target constructors instead of the source
 representation's constructors. If a view includes an `inverse` theorem,
-proof-level `switch` and `induction` can also use the view's target
-constructors when the type's proof machinery supports that public case
-shape.
+ordinary term-level `switch` can also use the view's target constructors.
+Proof-level `switch` and `induction` can use the same case shape when the
+type's proof machinery supports it.
 
 The following example defines a simple predecessor view for a unary
 number type, then uses the normal `recursive` syntax to recurse

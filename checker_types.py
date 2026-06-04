@@ -62,9 +62,12 @@ from abstract_syntax import (
     TypeAlias,
     TypeInst,
     TypeType,
+    Constructor,
     Union,
     Var,
     VarRef,
+    ViewBinding,
+    ViewDecl,
     base_name,
     callable_name,
     is_associative,
@@ -78,10 +81,12 @@ from flags import get_verbose
 TypeExpr: TypingTypeAlias = Type | VarRef
 TypeMatching: TypingTypeAlias = dict[str, TypeExpr | None]
 ViewInstantiation: TypingTypeAlias = tuple[object, TypeExpr, TypeExpr]
+ViewMatch: TypingTypeAlias = tuple[ViewDecl, TypeExpr, TypeExpr]
 PatternCoverage: TypingTypeAlias = dict[str, bool]
 RecursiveName: TypingTypeAlias = str | None
 SubtermNames: TypingTypeAlias = Sequence[str]
 ParamBindings: TypingTypeAlias = list[tuple[str, Type]]
+Substitution: TypingTypeAlias = dict[str, Term | Type | RecFun | GenRecFun]
 
 # Lazy adapter for checker_pipeline._instantiate_view_type: a module-level
 # import would close the cycle
@@ -93,6 +98,70 @@ def _instantiate_view_type(
   import checker_pipeline
   return cast(ViewInstantiation | None,
               checker_pipeline._instantiate_view_type(loc, typ, env))
+
+def _view_call(loc: Meta, fun_name: str, arg: Term) -> Call:
+  return Call(loc, None, ResolvedVar(loc, None, fun_name), [arg])
+
+def _term_bijective_view_for_source_type(
+    loc: Meta, typ: TypeExpr, env: Env
+) -> ViewMatch | None:
+  for binding in env.dict.values():
+    if not isinstance(binding, ViewBinding):
+      continue
+    view = binding.view
+    if view.inverse is None:
+      continue
+    matching: TypeMatching = {}
+    try:
+      type_match(loc, type_names(loc, view.type_params),
+                 view.source, typ, matching)
+    except MatchFailed:
+      continue
+    sub = cast(Substitution, {
+        name: value for name, value in matching.items()
+        if value is not None
+    })
+    source_ty = cast(TypeExpr, view.source.substitute(sub))
+    target_ty = cast(TypeExpr, view.target.substitute(sub))
+    return view, source_ty, target_ty
+  return None
+
+def _switch_pattern_could_match_alts(
+    pat: Pattern, alts: list[Constructor]
+) -> bool:
+  if not isinstance(pat, PatternCons):
+    return False
+  constr = pat.constructor
+  if isinstance(constr, OverloadedVar):
+    candidates = constr.resolved_names
+  elif isinstance(constr, VarRef):
+    candidates = [constr.get_name()]
+  else:
+    return False
+  return any(alt.name in candidates for alt in alts)
+
+def _switch_subject_via_bijective_view(
+    loc: Meta,
+    new_subject: Term,
+    source_ty: TypeExpr,
+    cases: list[SwitchCase],
+    env: Env,
+    recfun: RecursiveName,
+    subterms: SubtermNames,
+) -> tuple[Term, TypeExpr] | None:
+  view_match = _term_bijective_view_for_source_type(loc, source_ty, env)
+  if view_match is None:
+    return None
+  view, _, target_ty = view_match
+  target_union = lookup_union(loc, target_ty, env)
+  if not any(_switch_pattern_could_match_alts(c.pattern,
+                                              target_union.alternatives)
+             for c in cases):
+    return None
+  checked_view = type_check_term(
+      _view_call(loc, view.into, new_subject), target_ty, env, recfun,
+      subterms)
+  return checked_view, target_ty
 
 def _is_generic_unknown_argument(arg: Term, env: Env) -> bool:
   match arg:
@@ -863,6 +932,10 @@ def type_synth_term(
     case Switch(loc, _, subject, cases):
       new_subject = type_synth_term(subject, env, recfun, subterms)
       ty = new_subject.typeof
+      view_subject = _switch_subject_via_bijective_view(
+          loc, new_subject, ty, cases, env, recfun, subterms)
+      if view_subject is not None:
+        new_subject, ty = view_subject
 
       cases_present: PatternCoverage = {}
       result_type: list[TypeExpr | None] = [None] # boxed to allow mutable update in process_case
@@ -1088,6 +1161,11 @@ def type_check_term(
     case Switch(loc, _, subject, cases):
       new_subject = type_synth_term(subject, env, recfun, subterms)
       ty = new_subject.typeof
+      view_subject = _switch_subject_via_bijective_view(
+          loc, new_subject, ty, cases, env, recfun, subterms)
+      if view_subject is not None:
+        new_subject, ty = view_subject
+
       cases_present: PatternCoverage = {}
       result_type: list[TypeExpr | None] = [None] # boxed to allow mutable update in process_case
 
