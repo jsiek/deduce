@@ -17,6 +17,7 @@ File charter:
 """
 
 from types import ModuleType
+from typing import Any
 import sys
 
 import checker_cache as _checker_cache
@@ -46,7 +47,7 @@ _STATE_ATTRS = {
 }
 
 
-def _public_items(module):
+def _public_items(module: ModuleType) -> dict[str, Any]:
     return {
         name: value
         for name, value in vars(module).items()
@@ -54,9 +55,9 @@ def _public_items(module):
     }
 
 
-def _link_modules():
-    namespace = {}
-    owners = {}
+def _link_modules() -> tuple[dict[str, Any], dict[str, ModuleType]]:
+    namespace: dict[str, Any] = {}
+    owners: dict[str, ModuleType] = {}
     for module in _CHECKER_MODULES:
         for name, value in _public_items(module).items():
             namespace[name] = value
@@ -77,7 +78,7 @@ __all__ = sorted(
 )
 
 
-def __getattr__(name):
+def __getattr__(name: str) -> Any:
     module = _STATE_ATTRS.get(name)
     if module is not None:
         return getattr(module, name)
@@ -88,7 +89,7 @@ def __getattr__(name):
 
 
 class _ProofCheckerFacade(ModuleType):
-    def __setattr__(self, name, value):
+    def __setattr__(self, name: str, value: Any) -> None:
         module = _STATE_ATTRS.get(name)
         if module is not None:
             setattr(module, name, value)
