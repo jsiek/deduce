@@ -1484,6 +1484,14 @@ case 0 { ... }
 case with n. 1 + n assume IH { ... }
 ```
 
+If `UInt`'s bijective `view` is available, the same induction may also
+be written with the view target constructors:
+
+```
+case UIntZero { ... }
+case UIntSucc(n) assume IH { ... }
+```
+
 If a custom induction proof has the wrong number of cases, or if a
 `with` pattern does not match the custom induction theorem, Deduce reports
 the expected case shape in the error message.
@@ -3012,7 +3020,10 @@ The view name can be used wherever a type is expected. In ordinary type
 positions it stands for the view's source type. When it appears as the
 first parameter type of a `recursive` function, Deduce checks the cases
 against the view's target constructors instead of the source
-representation's constructors.
+representation's constructors. If a view includes an `inverse` theorem,
+proof-level `switch` and `induction` can also use the view's target
+constructors when the type's proof machinery supports that public case
+shape.
 
 The following example defines a simple predecessor view for a unary
 number type, then uses the normal `recursive` syntax to recurse

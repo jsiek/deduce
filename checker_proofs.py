@@ -24,7 +24,7 @@ from abstract_syntax import (
     InductiveInfo, Lambda,
     ModusPonens, Omitted, Or, OverloadedVar, PAndElim, PAnnot,
     PExtensionality, PHelpUse, PHole, PInjective, PLet, PRecall,
-    Pattern, PReflexive, Proof, PSorry, PSymmetric, PTLetNew,
+    Pattern, PatternTerm, PReflexive, Proof, PSorry, PSymmetric, PTLetNew,
     PTransitive, PTrue,
     PTuple, PVar, PatternBool, PatternCons, ProofBinding, ResolvedVar,
     RewriteFact, RewriteGoal, RuleInduction, RuleInversion,
@@ -33,7 +33,7 @@ from abstract_syntax import (
     Union, Var, VarRef, ViewBinding, ViewDecl, base_name, callable_name, formula_match,
     get_predicate_decl, get_type_name, is_constructor, is_equation,
     mkEqual, remove_mark, set_dont_reduce_opaque, set_reduce_all,
-    split_equation, type_match, type_names,
+    get_reduce_only, set_reduce_only, split_equation, type_match, type_names,
 )
 from checker_common import *
 from checker_logic import (
@@ -742,6 +742,138 @@ def _view_switch_expected_cases(alts: list[Constructor], env: Env) -> str:
     line += ' {\n\t  ?\n\t}'
     lines.append(line)
   return '\n'.join(lines)
+
+def _check_induction_via_custom_induction(
+    loc: Meta,
+    typ: Type,
+    formula: All,
+    cases: list[IndCase],
+    custom_ind: InductiveInfo,
+    env: Env,
+    expected_cases: str | None = None,
+) -> None:
+  conjuncts = custom_ind["conjuncts"]
+  fun_name = custom_ind["fun"]
+  fun_ty = custom_ind['fun_ty']
+  type_vars = custom_ind['tys']
+  type_subst = {}
+
+  types_elimmed = custom_ind["thm"]
+
+  if len(cases) != len(conjuncts):
+    plural = '' if len(conjuncts) == 1 else 's'
+    if expected_cases is None:
+      expected_cases = _custom_induction_expected_cases(conjuncts)
+    add_diagnostic(loc, 'expected ' + str(len(conjuncts)) \
+          + ' case' + plural + ' for custom induction on ' + str(typ) \
+          + ', but have ' + str(len(cases)) \
+          + '\nExpected cases:\n' + expected_cases \
+          + givens_str(env))
+    return
+
+  if type_vars != []:
+    match typ:
+      case TypeInst(loc, _, params):
+        assert len(type_vars) == len(params) # Enforced by match_induction_fun
+        for k, v in zip(type_vars, params):
+          type_subst[k] = v
+          types_elimmed = AllElimTypes(loc, types_elimmed, v, (0, 1))
+      case _:
+        internal_error(loc, "Expected a type inst")
+
+  pfun = Lambda(loc, fun_ty, [formula.var], formula.body)
+  fun_var = ResolvedVar(loc, fun_ty, fun_name)
+
+  annots = []
+
+  for (conjunct, case) in zip(conjuncts, cases):
+    conjunct = conjunct.substitute(type_subst)
+    new_body = generate_conjunct_body(loc, conjunct, case, fun_var, type_subst, env)
+    new_body = ApplyDefsGoal(loc, [fun_var], new_body)
+
+    annot = PAnnot(loc, conjunct, new_body)
+    annots.append(annot)
+
+  new_pf = PTLetNew(loc, fun_name, pfun,
+                    ApplyDefsFact(loc, [fun_var],
+                                  ModusPonens(loc,
+                                              AllElim(loc, types_elimmed,
+                                                      fun_var,  (0, 1)),
+                                              PTuple(loc, annots))))
+
+  if get_verbose():
+    print("Generated custom induction:")
+    print(new_pf)
+
+  _try_check_proof_of(new_pf, formula, env)
+
+def _check_induction_via_view(loc: Meta, typ: Type,
+                              formula: All,
+                              cases: list[IndCase],
+                              view: ViewDecl,
+                              source_ty: Type,
+                              target_ty: Type,
+                              type_args: list[Type],
+                              custom_ind: InductiveInfo | None,
+                              env: Env) -> None:
+  if custom_ind is None:
+    add_diagnostic(loc, 'induction on `' + str(typ) + '` via view `'
+          + base_name(view.name) + '` needs an induction theorem for `'
+          + str(typ) + '` until view induction can prove recursive view '
+          + 'cases directly.' + givens_str(env))
+    return
+
+  target_union = lookup_union(loc, target_ty, env)
+  alts = target_union.alternatives
+  if len(cases) != len(alts):
+    plural = '' if len(alts) == 1 else 's'
+    add_diagnostic(loc, 'expected ' + str(len(alts)) + ' view case'
+          + plural + ' for induction on `' + str(typ) + '` via view `'
+          + base_name(view.name) + '`, but have ' + str(len(cases))
+          + '\nExpected cases:\n' + _view_switch_expected_cases(alts, env)
+          + givens_str(env))
+    return
+
+  translated_cases = []
+  cases_present: dict[str, bool] = {}
+  for alt, indcase in zip(alts, cases):
+    match indcase.pattern:
+      case PatternCons(_, _, _):
+        body_env = check_pattern(indcase.pattern, target_ty, env, cases_present)
+        if indcase.pattern.constructor.name != alt.name:
+          add_diagnostic(indcase.location, "expected a view case for "
+                + str(base_name(alt.name)) + " not "
+                + str(base_name(indcase.pattern.constructor.name))
+                + givens_str(env))
+          return
+        pattern_term = pattern_to_term(indcase.pattern)
+        checked_pattern = type_check_term(pattern_term, target_ty, body_env, None, [])
+        out_term = type_check_term(
+            _proof_view_call(loc, view.out, checked_pattern, type_args),
+            source_ty, body_env, None, [])
+        old_reduce_only = get_reduce_only()
+        set_reduce_only(old_reduce_only + [ResolvedVar(loc, None, view.out)])
+        try:
+          out_term = cast(Term, out_term.reduce(body_env))
+        finally:
+          set_reduce_only(old_reduce_only)
+        translated_cases.append(
+            IndCase(indcase.location,
+                    PatternTerm(indcase.pattern.location, out_term,
+                                indcase.pattern.bindings()),
+                    indcase.induction_hypotheses,
+                    indcase.body))
+      case _:
+        add_diagnostic(indcase.location, 'expected a constructor pattern for '
+              + 'induction on `' + str(typ) + '` via view `'
+              + base_name(view.name) + '`'
+              + '\nExpected cases:\n' + _view_switch_expected_cases(alts, env)
+              + givens_str(env))
+        return
+
+  _check_induction_via_custom_induction(
+      loc, typ, formula, translated_cases, custom_ind, env,
+      expected_cases=_view_switch_expected_cases(alts, env))
 
 def _check_switch_via_view(loc: Meta, new_subject: Term,
                            formula: CheckedFormula,
@@ -1635,60 +1767,22 @@ def _check_proof_of_induction(proof: Induction, formula: CheckedFormula, env: En
   # TODO: Allow for specification of what type to use
   custom_ind = env.get_inductive(typ)
 
+  view_match = _bijective_view_for_source_type(loc, typ, env)
+  if view_match is not None:
+    view, source_ty, view_target_ty, view_type_args = view_match
+    view_alts = lookup_union(loc, view_target_ty, env).alternatives
+    if any(_switch_pattern_could_match_alts(c.pattern, view_alts)
+           for c in cases):
+      _check_induction_via_view(loc, typ, cast(All, formula), cases, view,
+                                source_ty, view_target_ty, view_type_args,
+                                custom_ind, env)
+      return
+
   if custom_ind:
     if get_verbose():
       print(f"Using custom induction for type {typ}")
-    conjuncts = custom_ind["conjuncts"]
-    fun_name = custom_ind["fun"]
-    fun_ty = custom_ind['fun_ty']
-    type_vars = custom_ind['tys']
-    type_subst = {}
-
-    types_elimmed = custom_ind["thm"]
-
-    if len(cases) != len(conjuncts):
-      plural = '' if len(conjuncts) == 1 else 's'
-      add_diagnostic(loc, 'expected ' + str(len(conjuncts)) \
-            + ' case' + plural + ' for custom induction on ' + str(typ) \
-            + ', but have ' + str(len(cases)) \
-            + '\nExpected cases:\n' + _custom_induction_expected_cases(conjuncts) \
-            + givens_str(env))
-      return
-
-    if type_vars != []:
-      match typ:
-        case TypeInst(loc, _, params):
-          assert len(type_vars) == len(params) # Enforced by match_induction_fun
-          for k, v in zip(type_vars, params):
-            type_subst[k] = v
-            types_elimmed = AllElimTypes(loc, types_elimmed, v, (0, 1))
-        case _:
-          internal_error(loc, "Expected a type inst")
-
-    pfun = Lambda(loc, fun_ty, [formula.var], formula.body)
-    fun_var = ResolvedVar(loc, fun_ty, fun_name)
-
-    annots = []
-
-    for (conjunct, case) in zip(conjuncts, cases):
-      conjunct = conjunct.substitute(type_subst)
-      new_body = generate_conjunct_body(loc, conjunct, case, fun_var, type_subst, env)
-      new_body = ApplyDefsGoal(loc, [fun_var], new_body)
-
-      annot = PAnnot(loc, conjunct, new_body)
-      annots.append(annot)
-
-    new_pf = PTLetNew(loc, fun_name, pfun,
-                      ApplyDefsFact(loc, [fun_var],
-                                    ModusPonens(loc,
-                                                AllElim(loc, types_elimmed, fun_var,  (0, 1)),
-                                                PTuple(loc, annots))))
-
-    if get_verbose():
-      print("Generated custom induction:")
-      print(new_pf)
-
-    _try_check_proof_of(new_pf, formula, env)
+    _check_induction_via_custom_induction(loc, typ, cast(All, formula),
+                                          cases, custom_ind, env)
   else:
     match env.get_def_of_type_var(get_type_name(typ)):
       case Union(_, name, typarams, alts):

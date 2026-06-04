@@ -1,0 +1,14 @@
+import UInt
+
+// Induction can use the target constructors of a bijective view.
+theorem induction_uint_view_inverse:
+  all n:UInt. n + 1 = 1 + n
+proof
+  induction UInt
+  case UIntZero {
+    .
+  }
+  case UIntSucc(m) assume IH {
+    replace IH.
+  }
+end
