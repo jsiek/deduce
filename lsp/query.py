@@ -44,6 +44,7 @@ import re
 import traceback as _traceback
 from dataclasses import dataclass
 from enum import Enum
+from lark.tree import Meta
 from typing import Any, Callable, Iterator, Optional, Sequence, Union, cast
 
 
@@ -1441,7 +1442,7 @@ def _collect_completion_names_from_ast(
 # ---------------------------------------------------------------------------
 
 
-def _range_from_meta(meta: Any) -> Range:
+def _range_from_meta(meta: Meta) -> Range:
     """Convert a lark ``Meta`` (or compatible duck) to a ``Range``."""
     return Range(
         start=Position(line=meta.line, column=meta.column),
@@ -1449,7 +1450,7 @@ def _range_from_meta(meta: Any) -> Range:
     )
 
 
-def _meta_contains(meta: Any, pos: Position) -> bool:
+def _meta_contains(meta: Meta, pos: Position) -> bool:
     """Test whether 1-indexed ``pos`` falls inside the ``meta`` range.
 
     The range is inclusive-start, exclusive-end (matches lark's
@@ -1515,7 +1516,7 @@ def _find_reference_at(
     return best[0]
 
 
-def _meta_in_file(meta: Any, path: str) -> bool:
+def _meta_in_file(meta: Meta, path: str) -> bool:
     """True iff ``meta``'s source file is ``path``.
 
     Compares the ``filename`` attribute the parsers stash on each
@@ -1542,7 +1543,7 @@ def _meta_in_file(meta: Any, path: str) -> bool:
         return False
 
 
-def _meta_span(meta: Any) -> int:
+def _meta_span(meta: Meta) -> int:
     """Crude size measure for a ``Meta``; smaller wins ties in tree
     descent so inner nodes outrank enclosing ones."""
     line = int(meta.line)
@@ -1559,7 +1560,7 @@ def _meta_span(meta: Any) -> int:
 
 def _find_declaration(
     ast_nodes: Sequence[Any], target_name: str, _seen: Optional[set[str]] = None
-) -> Any:
+) -> Optional[Meta]:
     """Find a declaration whose uniquified ``name`` field equals
     ``target_name``.  Returns its ``Meta`` location, or ``None``.
 
@@ -1609,15 +1610,15 @@ def _find_declaration(
     decl_types = (Theorem, Postulate, Define, RecFun, GenRecFun, Union, Predicate)
     for stmt in ast_nodes:
         if isinstance(stmt, decl_types) and getattr(stmt, "name", None) == target_name:
-            return stmt.location
+            return cast(Meta, stmt.location)
         if isinstance(stmt, Union):
             for cons in stmt.alternatives:
                 if getattr(cons, "name", None) == target_name:
-                    return cons.location
+                    return cast(Meta, cons.location)
         elif isinstance(stmt, Predicate):
             for rule in stmt.rules:
                 if getattr(rule, "name", None) == target_name:
-                    return rule.location
+                    return cast(Meta, rule.location)
         elif isinstance(stmt, Import) and stmt.ast:
             if stmt.name in _seen:
                 continue
@@ -5203,7 +5204,7 @@ def auto_rules_at(
     return tuple(rules)
 
 
-def _meta_at_or_before(meta: Any, pos: Position) -> bool:
+def _meta_at_or_before(meta: Meta, pos: Position) -> bool:
     """True iff ``meta`` starts at or before 1-indexed ``pos``.
 
     Empty/missing meta counts as "before" so we don't drop a rule
