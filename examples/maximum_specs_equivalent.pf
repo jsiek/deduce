@@ -1,0 +1,189 @@
+// maximum_specs_equivalent.pf
+//
+// maximum_spec.pf characterizes `maximum` as the LEAST UPPER BOUND of the
+// elements.  The textbook characterization is different on its face: the
+// maximum is a GREATEST MEMBER -- an element of the list that bounds every
+// element.  This file proves the two characterizations coincide for
+// non-empty lists:
+//
+//   is_lub(m, xs)  :=  (m bounds every element)
+//                       and (m is below any other bound)
+//
+//   is_greatest(m, xs)  :=  (m is an element of xs)
+//                            and (m bounds every element)
+//
+//   for non-empty xs:   is_lub(m, xs)  <=>  is_greatest(m, xs)
+//
+// The bridge is `maximum` itself: each side forces m = maximum(xs) (by
+// antisymmetry, since `maximum` is provably both the lub and a greatest
+// member), so the two sets of solutions coincide.
+
+recursive maximum(List<UInt>) -> UInt {
+  maximum(empty) = 0
+  maximum(node(x, xs)) = max(x, maximum(xs))
+}
+
+// --- the lub characterization, reproved here so the file stands alone ---
+
+theorem maximum_upper_bound: all xs:List<UInt>. all x:UInt.
+  if contains(xs, x) then x ≤ maximum(xs)
+proof
+  induction List<UInt>
+  case empty {
+    arbitrary x:UInt
+    suppose cf: contains(@empty<UInt>, x)
+    expand contains in cf
+  }
+  case node(y, xs') assume IH: all x:UInt. if contains(xs', x) then x ≤ maximum(xs') {
+    arbitrary x:UInt
+    suppose cn: contains(node(y, xs'), x)
+    have disj: y = x or contains(xs', x) by expand contains in cn
+    cases disj
+    case yx: y = x {
+      suffices x ≤ max(y, maximum(xs'))  by expand maximum.
+      replace yx
+      uint_max_greater_left[x, maximum(xs')]
+    }
+    case cxs: contains(xs', x) {
+      suffices x ≤ max(y, maximum(xs'))  by expand maximum.
+      apply uint_less_equal_trans[x, maximum(xs'), max(y, maximum(xs'))]
+        to (apply IH[x] to cxs), uint_max_greater_right[y, maximum(xs')]
+    }
+  }
+end
+
+theorem maximum_least: all xs:List<UInt>, u:UInt.
+  if (all x:UInt. if contains(xs, x) then x ≤ u)
+  then maximum(xs) ≤ u
+proof
+  induction List<UInt>
+  case empty {
+    arbitrary u:UInt
+    suppose _ub: all x:UInt. if contains(@empty<UInt>, x) then x ≤ u
+    expand maximum.
+  }
+  case node(y, xs') assume IH: all u:UInt.
+      (if (all x:UInt. if contains(xs', x) then x ≤ u) then maximum(xs') ≤ u) {
+    arbitrary u:UInt
+    suppose ub: all x:UInt. if contains(node(y, xs'), x) then x ≤ u
+    suffices max(y, maximum(xs')) ≤ u  by expand maximum.
+    have cy: contains(node(y, xs'), y)  by expand contains.
+    have y_le_u: y ≤ u  by apply ub[y] to cy
+    have rest_ub: all x:UInt. if contains(xs', x) then x ≤ u by {
+      arbitrary x:UInt
+      suppose cx: contains(xs', x)
+      have cn: contains(node(y, xs'), x) by {
+        suffices (y = x) or contains(xs', x)  by expand contains.
+        cx
+      }
+      apply ub[x] to cn
+    }
+    have rest_le_u: maximum(xs') ≤ u  by apply IH[u] to rest_ub
+    apply uint_max_less_equal[y, maximum(xs'), u] to y_le_u, rest_le_u
+  }
+end
+
+// --- NEW: maximum is achieved (a member) on any non-empty list ---
+// Stated on the node form so there is no empty case and no side condition.
+
+theorem maximum_member: all xs:List<UInt>. all x:UInt.
+  contains(node(x, xs), maximum(node(x, xs)))
+proof
+  induction List<UInt>
+  case empty {
+    arbitrary x:UInt
+    have mx: maximum([x]) = x  by { expand 2*maximum  uint_max_zero[x] }
+    replace mx
+    expand contains.
+  }
+  case node(y, xs') assume IH: all x:UInt.
+      contains(node(x, xs'), maximum(node(x, xs'))) {
+    arbitrary x:UInt
+    // one expand unfolds only the outer maximum, leaving maximum(node(y,xs'))
+    // intact so it lines up with the case split and the IH.
+    expand maximum
+    cases uint_max_is_left_or_right[x, maximum(node(y, xs'))]
+    case left: max(x, maximum(node(y, xs'))) = x {
+      replace left
+      expand contains.
+    }
+    case right: max(x, maximum(node(y, xs'))) = maximum(node(y, xs')) {
+      replace right
+      expand contains
+      IH[y]
+    }
+  }
+end
+
+// Corollary in the form the equivalence needs: a non-empty list contains
+// its maximum.  The node-decomposition happens here, once.
+theorem maximum_member_ne: all xs:List<UInt>.
+  if not (xs = @[]<UInt>) then contains(xs, maximum(xs))
+proof
+  arbitrary xs:List<UInt>
+  suppose ne: not (xs = @[]<UInt>)
+  switch xs {
+    case empty assume eq: xs = @[]<UInt> {
+      conclude false by apply ne to eq
+    }
+    case node(h, t) assume eq: xs = node(h, t) {
+      maximum_member[t][h]
+    }
+  }
+end
+
+// --- the equivalence ---
+
+theorem maximum_specs_equivalent: all xs:List<UInt>, m:UInt.
+  if not (xs = @empty<UInt>)
+  then ( ( (all x:UInt. if contains(xs, x) then x ≤ m)
+           and (all u:UInt. if (all x:UInt. if contains(xs, x) then x ≤ u) then m ≤ u) )
+         ⇔ ( contains(xs, m)
+             and (all x:UInt. if contains(xs, x) then x ≤ m) ) )
+proof
+  arbitrary xs:List<UInt>, m:UInt
+  suppose ne: not (xs = @[]<UInt>)
+  // (lub => greatest) : m is the lub, so m = maximum(xs); maximum is a
+  // member of a non-empty list, so m is too. The bound clause is shared.
+  have fwd: if ( (all x:UInt. if contains(xs, x) then x ≤ m)
+                 and (all u:UInt.
+                        if (all x:UInt. if contains(xs, x) then x ≤ u) then m ≤ u) )
+            then ( contains(xs, m)
+                   and (all x:UInt. if contains(xs, x) then x ≤ m) )
+  by {
+    assume a
+    have ub: all x:UInt. if contains(xs, x) then x ≤ m  by conjunct 0 of a
+    have lub: all u:UInt.
+        if (all x:UInt. if contains(xs, x) then x ≤ u) then m ≤ u  by conjunct 1 of a
+    have max_le_m: maximum(xs) ≤ m  by apply maximum_least[xs, m] to ub
+    have m_le_max: m ≤ maximum(xs)
+      by apply lub[maximum(xs)] to maximum_upper_bound[xs]
+    have m_eq_max: m = maximum(xs)
+      by apply uint_less_equal_antisymmetric[m, maximum(xs)] to m_le_max, max_le_m
+    have mem: contains(xs, m) by {
+      replace m_eq_max
+      apply maximum_member_ne[xs] to ne
+    }
+    (mem, ub)
+  }
+  // (greatest => lub) : m bounds every element (shared clause), and since
+  // m is itself a member, any bound u of all elements bounds m directly.
+  have bkwd: if ( contains(xs, m)
+                  and (all x:UInt. if contains(xs, x) then x ≤ m) )
+             then ( (all x:UInt. if contains(xs, x) then x ≤ m)
+                    and (all u:UInt.
+                           if (all x:UInt. if contains(xs, x) then x ≤ u) then m ≤ u) )
+  by {
+    assume b
+    have mem: contains(xs, m)  by conjunct 0 of b
+    have ub: all x:UInt. if contains(xs, x) then x ≤ m  by conjunct 1 of b
+    have lub: all u:UInt.
+        if (all x:UInt. if contains(xs, x) then x ≤ u) then m ≤ u by {
+      arbitrary u:UInt
+      suppose ubu: all x:UInt. if contains(xs, x) then x ≤ u
+      apply ubu[m] to mem
+    }
+    (ub, lub)
+  }
+  fwd, bkwd
+end
