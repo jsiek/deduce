@@ -1479,20 +1479,11 @@ case with x. 1 + x assume IH { ... }
 ```
 
 For `UInt`, this means `induction UInt` uses the public zero/successor
-view from `uint_induction`, not the private binary constructors. The two
-cases are:
+view constructors, not the private binary constructors. The two cases are:
 
 ```
-case 0 { ... }
-case with n. 1 + n assume IH { ... }
-```
-
-If `UInt`'s bijective `view` is available, the same induction may also
-be written with the view target constructors:
-
-```
-case UIntZero { ... }
-case UIntSucc(n) assume IH { ... }
+case zero { ... }
+case suc(n) assume IH { ... }
 ```
 
 If a custom induction proof has the wrong number of cases, or if a

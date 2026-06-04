@@ -1,6 +1,6 @@
 import UInt
 
 recursive countdown(UInt) -> UInt {
-  countdown(UIntZero) = 0
-  countdown(UIntSucc(p)) = countdown(0)
+  countdown(zero) = 0
+  countdown(suc(p)) = countdown(0)
 }

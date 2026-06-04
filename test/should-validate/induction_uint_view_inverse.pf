@@ -5,10 +5,10 @@ theorem induction_uint_view_inverse:
   all n:UInt. n + 1 = 1 + n
 proof
   induction UInt
-  case UIntZero {
+  case zero {
     .
   }
-  case UIntSucc(m) assume IH {
+  case suc(m) assume IH {
     replace IH.
   }
 end

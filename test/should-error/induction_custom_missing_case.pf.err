@@ -1,8 +1,8 @@
-./test/should-error/induction_custom_missing_case.pf:5.3-8.4: expected 2 cases for custom induction on UInt, but have 1
+./test/should-error/induction_custom_missing_case.pf:5.3-8.4: expected 2 view cases for induction on `UInt` via view `UInt`, but have 1
 Expected cases:
-	case 0  {
-		?
+	case zero {
+	  ?
 	}
-	case with m. 1 + m assume IH0  {
-		?
+	case suc(B1) {
+	  ?
 	}

@@ -19,11 +19,11 @@ theorem replicate_add: all T:type. all m:UInt. all n:UInt, x:T.
 proof
   arbitrary T:type
   induction UInt
-  case 0 {
+  case zero {
     arbitrary n:UInt, x:T
     expand replicate | operator++.
   }
-  case with m'. 1 + m' assume IH: all n:UInt, x:T.
+  case suc(m') assume IH: all n:UInt, x:T.
       replicate(m' + n, x) = replicate(m', x) ++ replicate(n, x) {
     arbitrary n:UInt, x:T
     equations
@@ -44,11 +44,11 @@ theorem length_replicate: all T:type. all n:UInt. all x:T.
 proof
   arbitrary T:type
   induction UInt
-  case 0 {
+  case zero {
     arbitrary x:T
     expand replicate | length.
   }
-  case with n'. 1 + n' assume IH: all x:T. length(replicate(n', x)) = n' {
+  case suc(n') assume IH: all x:T. length(replicate(n', x)) = n' {
     arbitrary x:T
     equations
       length(replicate(1 + n', x))

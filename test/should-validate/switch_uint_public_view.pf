@@ -1,9 +1,7 @@
-// Issue #774: `switch` on a type with a custom-induction (public)
-// view should accept the public-view shape, not demand the union's
-// private constructors. For `UInt`, that means `case 0 { ... }` and
-// `case with m. 1 + m { ... }` desugar through the custom induction
-// theorem instead of asking the user to spell out `bzero`, `dub_inc`,
-// `inc_dub`.
+// Issue #774: `switch` on a type with a public view should accept the
+// public-view shape, not demand the union's private constructors. For
+// `UInt`, that means `case zero { ... }` and `case suc(m) { ... }`
+// instead of asking the user to spell out `bzero`, `dub_inc`, `inc_dub`.
 
 import UInt
 import List
@@ -16,7 +14,7 @@ theorem take_drop_empty:
 proof
   arbitrary n:UInt
   switch n {
-    case 0 { evaluate }
-    case with m. 1 + m { evaluate }
+    case zero { evaluate }
+    case suc(m) { evaluate }
   }
 end

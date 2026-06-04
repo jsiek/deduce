@@ -23,11 +23,11 @@ private union Binary {
 }
 
 private union UIntView {
-  UIntZero
-  UIntSucc(Binary)
+  zero
+  suc(Binary)
 }
-export UIntZero
-export UIntSucc
+export zero
+export suc
 
 // Interpret a UInt as a Nat.
 opaque recursive toNat(Binary) -> Nat {
@@ -120,13 +120,13 @@ private fun pred(x:Binary) {
 }
 
 private fun uint_view(x:Binary) {
-  if x = bzero then UIntZero else UIntSucc(pred(x))
+  if x = bzero then zero else suc(pred(x))
 }
 
 private fun uint_unview(v:UIntView) {
   switch v {
-    case UIntZero { 0 }
-    case UIntSucc(p) { 1 + p }
+    case zero { 0 }
+    case suc(p) { 1 + p }
   }
 }
 
@@ -146,14 +146,14 @@ proof
   }
 end
 
-lemma uint_view_inc: all x:Binary. uint_view(inc(x)) = UIntSucc(x)
+lemma uint_view_inc: all x:Binary. uint_view(inc(x)) = suc(x)
 proof
   induction Binary
   case bzero {
     evaluate
   }
   case dub_inc(x) assume IH {
-    suffices uint_view(inc(dub_inc(x))) = UIntSucc(dub_inc(x)) by .
+    suffices uint_view(inc(dub_inc(x))) = suc(dub_inc(x)) by .
     expand uint_view | inc | pred
     replace dub_inc_is_dub_inc[x]
     .
@@ -203,8 +203,8 @@ lemma uint_view_unview: all v:UIntView. uint_view(uint_unview(v)) = v
 proof
   arbitrary v:UIntView
   switch v {
-    case UIntZero { evaluate }
-    case UIntSucc(p) {
+    case zero { evaluate }
+    case suc(p) {
       expand uint_unview
       replace symmetric inc_add_one_raw[p]
       uint_view_inc[p]

@@ -31,7 +31,7 @@ proof
     if i < length(l) then just((array(l))[i]) = get(l, i)
     by {
     induction UInt
-    case 0 {
+    case zero {
       arbitrary l:List<UInt>
       switch l {
         case empty {
@@ -44,7 +44,7 @@ proof
         }
       }
     }
-    case with i'. 1 + i' assume IH {
+    case suc(i') assume IH {
       arbitrary l:List<UInt>
       switch l {
         case empty {

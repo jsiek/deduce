@@ -6,7 +6,7 @@ theorem switch_uint_view_inverse:
 proof
   arbitrary n:UInt
   switch n {
-    case UIntZero { evaluate }
-    case UIntSucc(m) { evaluate }
+    case zero { evaluate }
+    case suc(m) { evaluate }
   }
 end
