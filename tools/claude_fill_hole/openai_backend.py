@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import json
 import time
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from .agent import (
     AgentResult,
@@ -444,44 +444,46 @@ def _query_payload(outcome: QueryOutcome) -> dict[str, object]:
     return {"error": outcome.error or "unknown"}
 
 
-# Any: SDK-response accessor boundary. The helpers below read fields off
-# OpenAI response objects (Pydantic models, or plain dicts from OpenAI-compatible
+# SDK-response accessor boundary. The helpers below read fields off OpenAI
+# response objects (Pydantic models, or plain dicts from OpenAI-compatible
 # servers); their concrete types live in the optional `openai` package and vary
-# by server, so the duck-typed reads stay Any and the typed results are produced
-# by the isinstance guards inside each helper.
-def _first_choice(response: Any) -> Any:
-    choices = _attr(response, "choices", default=[]) or []
-    if not choices:
+# by server. We accept the input as `object` (consistent with schema.py's
+# parsed-JSON boundary) and produce typed results via local isinstance guards.
+def _first_choice(response: object) -> object:
+    choices_raw = _attr(response, "choices", default=None)
+    if not isinstance(choices_raw, list) or not choices_raw:
         # Surface a structured error rather than crashing.
         raise RuntimeError("OpenAI response has no choices")
-    return choices[0]
+    return cast(list[object], choices_raw)[0]
 
 
-def _choice_message(choice: Any) -> Any:
+def _choice_message(choice: object) -> object:
     return _attr(choice, "message")
 
 
-def _message_content(msg: Any) -> Any:
+def _message_content(msg: object) -> object:
     return _attr(msg, "content")
 
 
-def _tool_calls(msg: Any) -> list[Any]:
-    calls = _attr(msg, "tool_calls", default=None) or []
-    return list(calls)
+def _tool_calls(msg: object) -> list[object]:
+    calls = _attr(msg, "tool_calls", default=None)
+    if not isinstance(calls, list):
+        return []
+    return list(cast(list[object], calls))
 
 
-def _tool_call_id(tc: Any) -> str:
+def _tool_call_id(tc: object) -> str:
     val = _attr(tc, "id", default="")
     return val if isinstance(val, str) else ""
 
 
-def _tool_call_function_name(tc: Any) -> str:
+def _tool_call_function_name(tc: object) -> str:
     fn = _attr(tc, "function")
     val = _attr(fn, "name", default="")
     return val if isinstance(val, str) else ""
 
 
-def _tool_call_function_arguments(tc: Any) -> str:
+def _tool_call_function_arguments(tc: object) -> str:
     """Return the JSON-string ``arguments`` field for a tool call."""
     fn = _attr(tc, "function")
     val = _attr(fn, "arguments", default="")
@@ -509,8 +511,9 @@ def _extract_proof_text(args_raw: str) -> Optional[str]:
     return proof
 
 
-# Any: tool_call objects are SDK Pydantic models or plain dicts (see above).
-def _serialize_tool_calls(tool_calls: list[Any]) -> list[dict[str, object]]:
+# tool_call entries are SDK Pydantic models or plain dicts (see above); each
+# accessor below narrows internally.
+def _serialize_tool_calls(tool_calls: list[object]) -> list[dict[str, object]]:
     """Re-serialise a list of tool_call objects (Pydantic models or dicts)
     into a plain list of dicts safe to round-trip through the request.
 
@@ -590,11 +593,14 @@ def _strip_trailing_turn_with_synthetic_note(
     return messages[:cut] + [note]
 
 
-def _attr(obj: Any, name: str, default: Any = None) -> Any:
-    # Any: the generic SDK-shape reader underlying the accessors above.
-    """Read ``name`` off ``obj`` whether it's a dict or attribute object."""
+def _attr(obj: object, name: str, default: object = None) -> object:
+    """Read ``name`` off ``obj`` whether it's a dict or attribute object.
+
+    The generic SDK-shape reader underlying the accessors above. Returns
+    ``object``; callers refine via ``isinstance`` to a concrete type.
+    """
     if obj is None:
         return default
     if isinstance(obj, dict):
-        return obj.get(name, default)
+        return cast(dict[object, object], obj).get(name, default)
     return getattr(obj, name, default)

@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import json
 import time
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from .agent import (
     AgentResult,
@@ -368,37 +368,49 @@ class AnthropicBackend(Backend):
 # ---------------------------------------------------------------------------
 
 
-# Any: SDK-response accessor boundary. `block` is an Anthropic content block,
-# either a Pydantic model from the optional `anthropic` package or a plain dict;
-# its concrete type isn't available here, so the duck-typed reads stay Any and
-# each helper's isinstance guards produce the typed result.
-def _is_tool_use(block: Any) -> bool:
+# SDK-response accessor boundary. ``block`` is an Anthropic content block --
+# either a Pydantic model from the optional `anthropic` package or a plain dict.
+# We accept the input as ``object`` (consistent with schema.py's parsed-JSON
+# boundary) and produce typed results via local isinstance guards.
+def _is_tool_use(block: object) -> bool:
     return _block_type(block) == "tool_use"
 
 
-def _block_type(block: Any) -> str:
-    val = block.get("type", "") if isinstance(block, dict) else getattr(block, "type", "")
+def _block_type(block: object) -> str:
+    val = (
+        cast(dict[object, object], block).get("type", "")
+        if isinstance(block, dict)
+        else getattr(block, "type", "")
+    )
     return val if isinstance(val, str) else ""
 
 
-def _block_id(block: Any) -> str:
-    val = block.get("id", "") if isinstance(block, dict) else getattr(block, "id", "")
+def _block_id(block: object) -> str:
+    val = (
+        cast(dict[object, object], block).get("id", "")
+        if isinstance(block, dict)
+        else getattr(block, "id", "")
+    )
     return val if isinstance(val, str) else ""
 
 
-def _tool_use_name(block: Any) -> str:
-    val = block.get("name", "") if isinstance(block, dict) else getattr(block, "name", "")
+def _tool_use_name(block: object) -> str:
+    val = (
+        cast(dict[object, object], block).get("name", "")
+        if isinstance(block, dict)
+        else getattr(block, "name", "")
+    )
     return val if isinstance(val, str) else ""
 
 
-def _extract_proof_text(block: Any) -> Optional[str]:
+def _extract_proof_text(block: object) -> Optional[str]:
     if isinstance(block, dict):
-        inp = block.get("input", {})
+        inp = cast(dict[object, object], block).get("input", {})
     else:
         inp = getattr(block, "input", {})
     if not isinstance(inp, dict):
         return None
-    proof = inp.get("proof_text")
+    proof = cast(dict[object, object], inp).get("proof_text")
     if not isinstance(proof, str):
         return None
     return proof
