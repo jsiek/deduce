@@ -1,10 +1,17 @@
 DIGIT: /[0-9]/
 INT: DIGIT+
-NAT: /[ℕ]/DIGIT+
-UPPER: /[A-Z]/
-LOWER: /[a-z]/
+// Higher priority than IDENT so that "ℕ0" stays a Nat literal even
+// though "ℕ" is now allowed as an identifier letter.
+NAT.2: /[ℕ]/DIGIT+
 OPERATOR: /[\-\+∸*%=≠<>≤≥&∘∪∩⊆∈⨄⊝\^≲≈]/
-IDENT: (/_/|UPPER|LOWER) (/_/|UPPER|LOWER|DIGIT|/[₀₁₂₃₄₅₆₇₈₉!?']/)*
+// Identifier characters: any Unicode letter (or `_`) to start; the same
+// set plus digits, the existing subscript digits, and `!?'` to continue.
+// Operators and punctuation are naturally excluded because they fall
+// outside `\w`. We also exclude `λ` so that `λx:T{x}` still tokenises as
+// a lambda followed by an identifier, even without a space, and exclude
+// the subscript digits `₀`–`₉` from the first character so they only
+// appear as modifiers on a preceding letter (matches the previous rule).
+IDENT: /[^\W\dλ₀₁₂₃₄₅₆₇₈₉]/ /([^\Wλ]|[₀₁₂₃₄₅₆₇₈₉!?'])*/
 NEWLINE: (/\r/? /\n/)+
 WS: /[ \t\f\r\n]/+
 LINECOMMENT: "//" /[^\n]*/ 
