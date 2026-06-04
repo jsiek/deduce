@@ -178,7 +178,7 @@ def _read_file(path: str) -> str:
 
 
 @mcp.tool()
-def check_file(path: str) -> JSONDict:
+def check_file(path: str, content: Optional[str] = None) -> JSONDict:
     """Run the Deduce pipeline on ``path`` and return diagnostics.
 
     The standard library at ``lib/`` is auto-prepended unless the
@@ -186,10 +186,12 @@ def check_file(path: str) -> JSONDict:
     with a ``diagnostics`` list; an empty list means the file is
     valid. Diagnostic entries have ``severity``, ``range`` (with
     1-indexed line/column positions), ``message``, and an optional
-    ``code``.
+    ``code``. When ``content`` is given, validate that text as if it
+    were the contents of ``path``; ``path`` is still used for imports,
+    prelude selection, and diagnostic locations.
     """
-    content = _read_file(path)
-    diagnostics = query.check(path, content, prelude=_prelude_for(path))
+    text = _read_file(path) if content is None else content
+    diagnostics = query.check(path, text, prelude=_prelude_for(path))
     return {"diagnostics": _to_serializable(diagnostics)}
 
 

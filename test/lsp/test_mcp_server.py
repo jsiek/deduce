@@ -139,6 +139,38 @@ async def test_check_file_on_error_file_returns_one_diagnostic(server):
 
 
 @pytest.mark.anyio
+async def test_check_file_accepts_inline_content(server, tmp_path):
+    disk_src = (
+        "theorem from_disk: true\n"
+        "proof\n"
+        "  .\n"
+        "end\n"
+    )
+    inline_src = (
+        "theorem from_inline: true\n"
+        "proof\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "inline-content.pf"
+    fp.write_text(disk_src)
+
+    payload = await _call(
+        server,
+        "check_file",
+        {"path": str(fp), "content": inline_src},
+    )
+
+    assert "diagnostics" in payload
+    diags = payload["diagnostics"]
+    assert len(diags) == 1
+    diag = diags[0]
+    assert diag["severity"] == "error"
+    assert diag["range"]["start"]["line"] == 3
+    assert "incomplete proof" in diag["message"]
+
+
+@pytest.mark.anyio
 async def test_check_file_on_stdlib_file_does_not_prepend_stdlib(
     server, monkeypatch
 ):
