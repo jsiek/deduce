@@ -2135,12 +2135,16 @@ The output is `5`.
 
 ```deduce-grammar
 atomic_proof ::= "?"
+               | NAMED_HOLE
 ```
 
 A proof can be left incomplete by placing a `?` in the part that you
-don't know. Deduce halts at the `?` and prints an error message with
-the location of the `?` and the formula that needs to be proved, as
-well as some advice about how to prove it.
+don't know. You can also name the hole with `?name`, where `name` uses
+identifier characters. Deduce halts at the hole and prints an error
+message with the location of the hole and the formula that needs to be
+proved, as well as some advice about how to prove it. Named holes are
+useful for editor and MCP tools because `?name` can be addressed by its
+name even if nearby edits move the line and column.
 
 ## Reason
 

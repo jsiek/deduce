@@ -143,6 +143,26 @@ def test_parser_argument_validates_with_each(parser: str) -> None:
     )
 
 
+@pytest.mark.parametrize("parser", ["recursive-descent", "lalr"])
+def test_named_hole_parses_with_each_parser(
+    tmp_path: Path, parser: str
+) -> None:
+    path = tmp_path / "NamedHole.pf"
+    path.write_text(
+        "theorem named_hole: true\n"
+        "proof\n"
+        "  ?goal\n"
+        "end\n",
+        encoding="utf-8",
+    )
+
+    result = check_file(str(path), prelude=(), parser=parser)
+
+    assert not result.ok
+    assert result.error_message is not None
+    assert "incomplete proof" in result.error_message
+
+
 def test_parser_argument_rejects_unknown_value() -> None:
     """An unknown parser name is a programming error and must fail
     loudly rather than silently falling back to the default."""

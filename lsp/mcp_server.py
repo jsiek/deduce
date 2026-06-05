@@ -38,7 +38,7 @@ from __future__ import annotations
 import os
 import re
 import sys
-from dataclasses import asdict, is_dataclass
+from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
 from typing import Optional, TypeAlias, cast
 
@@ -183,6 +183,19 @@ _DECL_RE = re.compile(
     r"(?:theorem|lemma|postulate|define|recursive|fun|union|predicate)\s+"
     r"(?P<name>[^\s:{(<]+)"
 )
+_IDENT_START_RE = r"[^\W\dλ₀₁₂₃₄₅₆₇₈₉]"
+_IDENT_CONTINUE_RE = r"(?:[^\Wλ]|[₀₁₂₃₄₅₆₇₈₉!?'])*"
+_HOLE_TOKEN_RE = re.compile(
+    rf"(?<![^\Wλ])(?<![₀₁₂₃₄₅₆₇₈₉!?'])"
+    rf"\?(?P<name>{_IDENT_START_RE}{_IDENT_CONTINUE_RE})?"
+)
+
+
+@dataclass(frozen=True)
+class _HoleSite:
+    hole_id: str
+    range: query.Range
+    name: Optional[str] = None
 
 
 def _mask_comments(
@@ -223,12 +236,12 @@ def _mask_comments(
     return "".join(chars), in_block_comment
 
 
-def _hole_sites_by_id(content: str, path: str) -> dict[str, query.Range]:
-    """Return declaration-scoped IDs for every literal ``?`` hole."""
+def _hole_sites(content: str, path: str) -> list[_HoleSite]:
+    """Return source sites for every literal ``?`` / ``?name`` hole."""
     fallback_scope = Path(path).stem or "file"
     current_scope = fallback_scope
     next_ordinal: dict[str, int] = {}
-    sites: dict[str, query.Range] = {}
+    sites: list[_HoleSite] = []
     in_block_comment = False
 
     for line_no, raw_line in enumerate(content.splitlines(keepends=True), 1):
@@ -239,29 +252,42 @@ def _hole_sites_by_id(content: str, path: str) -> dict[str, query.Range]:
         if decl_match is not None:
             current_scope = decl_match.group("name")
 
-        for match in re.finditer(r"\?", code_line):
+        for match in _HOLE_TOKEN_RE.finditer(code_line):
             ordinal = next_ordinal.get(current_scope, 0)
             next_ordinal[current_scope] = ordinal + 1
             hole_id = f"{current_scope}#{ordinal}"
             col = match.start() + 1
-            sites[hole_id] = query.Range(
+            rng = query.Range(
                 start=query.Position(line=line_no, column=col),
-                end=query.Position(line=line_no, column=col + 1),
+                end=query.Position(
+                    line=line_no, column=col + len(match.group(0))
+                ),
+            )
+            sites.append(
+                _HoleSite(
+                    hole_id=hole_id, range=rng, name=match.group("name")
+                )
             )
     return sites
 
 
-def _hole_ids_by_start(content: str, path: str) -> dict[tuple[int, int], str]:
+def _hole_sites_by_id(content: str, path: str) -> dict[str, _HoleSite]:
+    return {site.hole_id: site for site in _hole_sites(content, path)}
+
+
+def _hole_sites_by_start(
+    content: str, path: str
+) -> dict[tuple[int, int], _HoleSite]:
     return {
-        (rng.start.line, rng.start.column): hole_id
-        for hole_id, rng in _hole_sites_by_id(content, path).items()
+        (site.range.start.line, site.range.start.column): site
+        for site in _hole_sites(content, path)
     }
 
 
 def _diagnostic_payloads(
     diagnostics: object, content: str, path: str
 ) -> list[JSONDict]:
-    hole_ids = _hole_ids_by_start(content, path)
+    hole_sites = _hole_sites_by_start(content, path)
     payloads = _to_list_of_dicts(diagnostics)
     for payload in payloads:
         rng = cast(JSONDict, payload.get("range"))
@@ -269,10 +295,23 @@ def _diagnostic_payloads(
             payload.pop("goal", None)
         start = cast(JSONDict, rng.get("start"))
         key = (cast(int, start.get("line")), cast(int, start.get("column")))
-        hole_id = hole_ids.get(key)
-        if hole_id is not None:
-            payload["hole_id"] = hole_id
+        site = hole_sites.get(key)
+        if site is not None:
+            payload["hole_id"] = site.hole_id
+            if site.name is not None:
+                payload["hole"] = site.name
     return payloads
+
+
+def _hole_site_by_name(
+    tool_name: str, content: str, path: str, hole: str
+) -> _HoleSite:
+    matches = [site for site in _hole_sites(content, path) if site.name == hole]
+    if not matches:
+        raise ValueError(f"{tool_name}: unknown hole {hole!r}")
+    if len(matches) > 1:
+        raise ValueError(f"{tool_name}: ambiguous hole {hole!r}")
+    return matches[0]
 
 
 def _position_from_args(
@@ -282,15 +321,22 @@ def _position_from_args(
     line: Optional[int],
     column: Optional[int],
     hole_id: Optional[str],
+    hole: Optional[str],
 ) -> query.Position:
+    if hole_id is not None and hole is not None:
+        raise ValueError(
+            f"{tool_name}: provide only one of hole_id or hole"
+        )
     if hole_id is not None:
-        rng = _hole_sites_by_id(content, path).get(hole_id)
-        if rng is None:
+        site = _hole_sites_by_id(content, path).get(hole_id)
+        if site is None:
             raise ValueError(f"{tool_name}: unknown hole_id {hole_id!r}")
-        return rng.start
+        return site.range.start
+    if hole is not None:
+        return _hole_site_by_name(tool_name, content, path, hole).range.start
     if line is None or column is None:
         raise ValueError(
-            f"{tool_name}: provide line and column, or hole_id"
+            f"{tool_name}: provide line and column, hole_id, or hole"
         )
     return query.Position(line=line, column=column)
 
@@ -357,6 +403,7 @@ def goal_at(
     line: Optional[int] = None,
     column: Optional[int] = None,
     hole_id: Optional[str] = None,
+    hole: Optional[str] = None,
 ) -> Optional[JSONDict]:
     """Return the proof obligation visible at ``line``:``column``.
 
@@ -376,7 +423,7 @@ def goal_at(
     """
     content = _read_file(path)
     pos = _position_from_args(
-        "goal_at", path, content, line, column, hole_id
+        "goal_at", path, content, line, column, hole_id, hole
     )
     goal = query.goal_at(path, content, pos, prelude=_prelude_for(path))
     return _to_dict_or_none(goal)
@@ -388,6 +435,7 @@ def definition_of(
     line: Optional[int] = None,
     column: Optional[int] = None,
     hole_id: Optional[str] = None,
+    hole: Optional[str] = None,
 ) -> Optional[JSONDict]:
     """Return the source location of the symbol at ``line``:``column``.
 
@@ -397,7 +445,7 @@ def definition_of(
     """
     content = _read_file(path)
     pos = _position_from_args(
-        "definition_of", path, content, line, column, hole_id
+        "definition_of", path, content, line, column, hole_id, hole
     )
     loc = query.definition_of(path, content, pos, prelude=_prelude_for(path))
     return _to_dict_or_none(loc)
@@ -409,6 +457,7 @@ def refine_at(
     line: Optional[int] = None,
     column: Optional[int] = None,
     hole_id: Optional[str] = None,
+    hole: Optional[str] = None,
 ) -> Optional[JSONDict]:
     """Propose a refinement template for the hole at ``line``:``column``.
 
@@ -435,7 +484,7 @@ def refine_at(
     """
     content = _read_file(path)
     pos = _position_from_args(
-        "refine_at", path, content, line, column, hole_id
+        "refine_at", path, content, line, column, hole_id, hole
     )
     edit = query.refine_at(path, content, pos, prelude=_prelude_for(path))
     return _to_dict_or_none(edit)
@@ -617,6 +666,7 @@ def matching_givens_at(
     line: Optional[int] = None,
     column: Optional[int] = None,
     hole_id: Optional[str] = None,
+    hole: Optional[str] = None,
 ) -> list[str]:
     """Return labels of in-scope local proof bindings whose formula
     equals the goal at ``line``:``column``.
@@ -627,7 +677,7 @@ def matching_givens_at(
     """
     content = _read_file(path)
     pos = _position_from_args(
-        "matching_givens_at", path, content, line, column, hole_id
+        "matching_givens_at", path, content, line, column, hole_id, hole
     )
     return list(
         query.matching_givens_at(path, content, pos, prelude=_prelude_for(path))
@@ -740,6 +790,7 @@ def preview_replace_at(
     line: Optional[int] = None,
     column: Optional[int] = None,
     hole_id: Optional[str] = None,
+    hole: Optional[str] = None,
 ) -> Optional[JSONDict]:
     """Preview the result of ``replace <equation>`` at the hole at
     ``line``:``column``.
@@ -771,7 +822,7 @@ def preview_replace_at(
     """
     content = _read_file(path)
     pos = _position_from_args(
-        "preview_replace_at", path, content, line, column, hole_id
+        "preview_replace_at", path, content, line, column, hole_id, hole
     )
     preview = query.preview_replace_at(
         path, content, pos, equation, prelude=_prelude_for(path)
@@ -823,6 +874,7 @@ def available_lemmas_at(
     query: Optional[str] = None,
     limit: int = 50,
     hole_id: Optional[str] = None,
+    hole: Optional[str] = None,
 ) -> list[JSONDict]:
     """Search for theorems/lemmas/postulates relevant at a position.
 
@@ -858,7 +910,7 @@ def available_lemmas_at(
 
     content = _read_file(path)
     pos = _position_from_args(
-        "available_lemmas_at", path, content, line, column, hole_id
+        "available_lemmas_at", path, content, line, column, hole_id, hole
     )
     matches = _q.available_lemmas_at(
         path,

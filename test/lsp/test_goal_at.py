@@ -245,6 +245,23 @@ def test_goal_at_cursor_immediately_after_existing_hole() -> None:
     assert g.range.end == Position(line=4, column=4)
 
 
+def test_goal_at_cursor_after_named_hole() -> None:
+    source = (
+        "theorem t: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  ?goal\n"
+        "end\n"
+    )
+
+    g = goal_at("test.pf", source, Position(line=4, column=8))
+
+    assert g is not None
+    assert g.formula == "P = P"
+    assert g.range.start == Position(line=4, column=3)
+    assert g.range.end == Position(line=4, column=8)
+
+
 def test_goal_at_cursor_on_hole_matches_synthetic_hole_path() -> None:
     """Sanity: the cursor-on-`?` path and the synthesise-a-hole path
     return the same formula and givens for matching positions.

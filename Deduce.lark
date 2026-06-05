@@ -11,6 +11,7 @@ OPERATOR: /[\-\+∸*%=≠<>≤≥&∘∪∩⊆∈⨄⊝\^≲≈]/
 // a lambda followed by an identifier, even without a space, and exclude
 // the subscript digits `₀`–`₉` from the first character so they only
 // appear as modifiers on a preceding letter (matches the previous rule).
+NAMED_HOLE.2: "?" /[^\W\dλ₀₁₂₃₄₅₆₇₈₉]/ /([^\Wλ]|[₀₁₂₃₄₅₆₇₈₉!?'])*/
 IDENT: /[^\W\dλ₀₁₂₃₄₅₆₇₈₉]/ /([^\Wλ]|[₀₁₂₃₄₅₆₇₈₉!?'])*/
 NEWLINE: (/\r/? /\n/)+
 WS: /[ \t\f\r\n]/+
@@ -115,6 +116,7 @@ identifier: IDENT              -> identifier
     | "<" identifier_list ">" term                      -> alltype_formula
     | "some" type_annotation_list "." term              -> some_formula
     | "define" IDENT "=" term ";" term             -> define_term
+    | NAMED_HOLE                                  -> named_hole_term
     | "?"                                          -> hole_term
     | "─"                                          -> omitted_term
     | "__"                                         -> omitted_term
@@ -232,6 +234,7 @@ identifier: IDENT              -> identifier
 
 ?atomic_proof: IDENT                                              -> proof_var
     | "."                                                -> true_proof
+    | NAMED_HOLE                                      -> named_hole_proof
     | "?"                                                -> hole_proof
     | "(" proof ")"                                      -> paren
     | atomic_proof "[" term_list "]"                         -> all_elim
