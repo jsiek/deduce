@@ -5,6 +5,9 @@
 // remaining `| length` then has nothing to unfold and must be a no-op.
 // Regression test for https://github.com/jsiek/deduce/issues/862
 
+import UInt
+import List
+
 theorem expand_collapse_filter_first: all T:type, p:fn (T)->bool.
   length(filter(@[]<T>, p)) <= length(@[]<T>)
 proof
