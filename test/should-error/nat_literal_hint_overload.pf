@@ -1,0 +1,5 @@
+import Nat
+import UInt
+
+define n : Nat = ℕ3
+define bad = 2 * n

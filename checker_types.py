@@ -88,6 +88,102 @@ SubtermNames: TypingTypeAlias = Sequence[str]
 ParamBindings: TypingTypeAlias = list[tuple[str, Type]]
 Substitution: TypingTypeAlias = dict[str, Term | Type | RecFun | GenRecFun]
 
+_NAT_LITERAL_HINT_PREFIX = (
+    "\n\tnumeric literals default to `UInt`; for a `Nat` literal write "
+)
+
+def _type_base_name(typ: TypeExpr | None) -> str | None:
+  if typ is None:
+    return None
+  if isinstance(typ, VarRef):
+    return cast(str, typ.get_name()).split('.')[0]
+  match typ:
+    case TypeInst(_, inner_typ, _):
+      return _type_base_name(inner_typ)
+    case GenericUnknownInst(_, inner_typ):
+      return _type_base_name(inner_typ)
+    case _:
+      return None
+
+def _type_named(typ: TypeExpr | None, name: str) -> bool:
+  return _type_base_name(typ) == name or (typ is not None and str(typ) == name)
+
+def _var_ref_base_name(term: Term) -> str | None:
+  if isinstance(term, VarRef):
+    return cast(str, term.get_name()).split('.')[0]
+  return None
+
+def _nat_constructor_literal_value(term: Term) -> int | None:
+  match term:
+    case Mark(_, _, subject) | TAnnote(_, _, subject, _):
+      return _nat_constructor_literal_value(subject)
+    case _ if _var_ref_base_name(term) == 'zero':
+      return 0
+    case Call(_, _, rator, [arg]) if _var_ref_base_name(rator) == 'suc':
+      arg_value = _nat_constructor_literal_value(arg)
+      return None if arg_value is None else arg_value + 1
+    case _:
+      return None
+
+def _nat_literal_value(term: Term) -> int | None:
+  match term:
+    case Mark(_, _, subject) | TAnnote(_, _, subject, _):
+      return _nat_literal_value(subject)
+    case Call(_, _, rator, [arg]) if _var_ref_base_name(rator) == 'lit':
+      return _nat_constructor_literal_value(arg)
+    case _:
+      return None
+
+def _uint_literal_value(term: Term) -> int | None:
+  match term:
+    case Mark(_, _, subject) | TAnnote(_, _, subject, _):
+      return _uint_literal_value(subject)
+    case Call(_, _, rator, [arg]) if _var_ref_base_name(rator) == 'fromNat':
+      return _nat_literal_value(arg)
+    case _:
+      return None
+
+def _nat_literal_hint(literal_value: int | None) -> str:
+  example = 'ℕ' + (str(literal_value) if literal_value is not None else '5')
+  return _NAT_LITERAL_HINT_PREFIX + f"`{example}`."
+
+def _nat_literal_expected_hint(
+    expected_type: TypeExpr | None,
+    actual_type: TypeExpr | None,
+    term: Term,
+) -> str:
+  if not _type_named(expected_type, 'Nat') \
+      or not _type_named(actual_type, 'UInt'):
+    return ''
+  literal_value = _uint_literal_value(term)
+  if literal_value is None:
+    return ''
+  return _nat_literal_hint(literal_value)
+
+def _overload_nat_literal_hint(
+    loc: Meta,
+    args: list[Term],
+    arg_types: list[TypeExpr | None],
+    overloads: list[tuple[str, Type]],
+) -> str:
+  for index, (arg, arg_type) in enumerate(zip(args, arg_types)):
+    literal_value = _uint_literal_value(arg)
+    if literal_value is None or not _type_named(arg_type, 'UInt'):
+      continue
+    for _, overload_type in overloads:
+      match overload_type:
+        case FunctionType(_, typarams, param_types, _) \
+            if index < len(param_types):
+          type_params = type_names(loc, typarams)
+          matching: TypeMatching = {}
+          try:
+            type_match(loc, type_params, param_types[index], arg_type,
+                       matching)
+          except MatchFailed:
+            if _type_named(param_types[index], 'Nat'):
+              return _nat_literal_hint(literal_value)
+  return ''
+
 # Lazy adapter for checker_pipeline._instantiate_view_type: a module-level
 # import would close the cycle
 # checker_types -> checker_pipeline -> checker_induction -> checker_proofs
@@ -202,8 +298,12 @@ def type_check_call_funty(
 
   if len(typarams) == 0:
     if ret_ty != None and ret_ty != return_type:
-      user_error(loc, 'expected ' + str(ret_ty) \
-            + ' but the call returns ' + str(return_type))
+      user_error(
+          loc,
+          'expected ' + str(ret_ty) + ' but the call returns '
+          + str(return_type)
+          + _nat_literal_expected_hint(ret_ty, return_type, call),
+      )
     new_args: list[Term] = []
     for (param_type, arg) in zip(param_types, args):
       new_args.append(type_check_term(arg, param_type, env, recfun, subterms))
@@ -413,6 +513,7 @@ def type_check_call_helper(
               msg += '\n\t' + str(ty)
               if annotation is not None:
                   msg += '   <-- ' + annotation
+          msg += _overload_nat_literal_hint(loc, args, arg_types, overloads)
           user_error(loc, msg)
       elif len(matches) > 1:
           user_error(loc, 'in call to ' + str(new_rator) + '\n'\

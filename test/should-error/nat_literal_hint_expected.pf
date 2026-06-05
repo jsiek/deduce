@@ -1,0 +1,4 @@
+import Nat
+import UInt
+
+define n : Nat = 5
