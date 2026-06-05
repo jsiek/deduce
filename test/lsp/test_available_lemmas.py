@@ -768,6 +768,73 @@ def test_current_theorem_excluded_from_lemma_list() -> None:
     assert "helper" in names
 
 
+# ---------------------------------------------------------------------------
+# Disjunction / existential lemma discovery (issue #869)
+# ---------------------------------------------------------------------------
+
+
+_DISJUNCTION_SOURCE = (
+    "define g : fn bool, bool -> bool"
+    " = fun x:bool, y:bool { if x then x else y }\n"
+    "\n"
+    "theorem g_left_or_right: all x:bool, y:bool."
+    " (g(x, y) = x) or (g(x, y) = y)\n"
+    "proof\n"
+    "  arbitrary x:bool, y:bool\n"
+    "  switch x { case true { evaluate } case false { evaluate } }\n"
+    "end\n"
+    "\n"
+    "theorem g_unrelated: all x:bool. not (not x) = x\n"
+    "proof\n"
+    "  arbitrary x:bool\n"
+    "  switch x { case true { evaluate } case false { evaluate } }\n"
+    "end\n"
+)
+
+
+def test_goal_shape_or_query_finds_disjunction_lemma() -> None:
+    """A goal-shape ``query`` with a top-level ``or`` finds a lemma whose
+    conclusion is a disjunction of equations, even though each equation
+    is parenthesized in the rendered signature (issue #869). A single
+    whitespace-flexible regex misses it because of the parens; splitting
+    on ``or`` and searching each disjunct independently does not."""
+    source = _DISJUNCTION_SOURCE + (
+        "\ntheorem t: true\nproof\n  .\nend\n"
+    )
+    matches = available_lemmas_at(
+        "lemmas.pf",
+        source,
+        Position(line=1, column=1),
+        query="g(_, _) = _ or g(_, _) = _",
+    )
+    names = {m.name for m in matches}
+    assert "g_left_or_right" in names
+    assert "g_unrelated" not in names
+
+
+def test_unify_disjunctive_split_tier_fires_for_disjunction_lemma() -> None:
+    """A disjunction-of-equations lemma whose disjunct's LHS unifies with
+    a subterm of the goal gets the ``disjunctive_split`` tier -- the
+    high-value case-analysis lemma is surfaced rather than buried under
+    rewrite-shaped lemmas with ``unify_tier: null`` (issue #869)."""
+    source = _DISJUNCTION_SOURCE + (
+        "\ntheorem with_hole: all a:bool, b:bool."
+        " if g(a, b) = a then g(a, b) = a\n"
+        "proof\n"
+        "  arbitrary a:bool, b:bool\n"
+        "  suppose h: g(a, b) = a\n"
+        "  ?\n"
+        "end\n"
+    )
+    hole_line = source.split("\n").index("  ?") + 1
+    matches = available_lemmas_at(
+        "lemmas.pf", source, Position(line=hole_line, column=3)
+    )
+    by_name = {m.name: m for m in matches}
+    assert "g_left_or_right" in by_name
+    assert by_name["g_left_or_right"].unify_tier == "disjunctive_split"
+
+
 def test_browse_mode_leaves_unify_tier_unset() -> None:
     """Browse mode (no goal, no query) doesn't run the unifier, so
     ``unify_tier`` stays ``None`` on every result."""

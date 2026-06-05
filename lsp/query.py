@@ -412,6 +412,10 @@ class LemmaMatch:
     - ``"rewrite_subterm"`` -- the conclusion is an equation whose
       LHS (or RHS) unifies with a subterm of the goal -- a candidate
       for ``replace``;
+    - ``"disjunctive_split"`` -- the conclusion is a disjunction
+      (optionally existentially quantified) one of whose equation
+      disjuncts matches a goal subterm -- a candidate for case analysis
+      (``cases``);
     - ``None`` -- no unification path was found, or the structured
       goal/env wasn't available (e.g. browse mode, parse error).
 
@@ -3779,6 +3783,9 @@ def insert_lemma_at(
       the user to fill.
     - **rewrite_subterm** (equation lemma whose LHS/RHS matches a goal
       subterm): replaces ``?`` with ``replace <name>``.
+    - **disjunctive_split** (disjunction lemma, optionally existential,
+      one of whose equation disjuncts matches a goal subterm): replaces
+      ``?`` with ``cases <name>``.
     - **none** (no tier match, or cursor not on a hole, or browse mode):
       inserts the bare ``<name>`` at ``pos`` (zero-width edit when not
       on a hole, otherwise replacing the ``?``).
@@ -3881,6 +3888,8 @@ def _insert_lemma_template(
         return f"apply {name_inst} to ?"
     if tier == "rewrite_subterm":
         return f"replace {name_inst}"
+    if tier == "disjunctive_split":
+        return f"cases {name_inst}"
     return name
 
 
@@ -4255,32 +4264,53 @@ def _formula_symbols(formula: "Formula") -> frozenset[str]:
     return frozenset(out)
 
 
-def _query_pattern(query: Optional[str]) -> Optional[re.Pattern[str]]:
-    """Return a compiled regex if ``query`` is a goal-shape pattern
-    (contains ``_``), else ``None``.  Each ``_`` becomes ``.+?`` and
-    other characters are matched literally with whitespace
+def _compile_shape_regex(chunk: str) -> Optional[re.Pattern[str]]:
+    """Compile one goal-shape fragment to a regex. Each ``_`` becomes
+    ``.+?`` and other characters are matched literally with whitespace
     flexibility (any run of whitespace matches any other run)."""
-    if not query or "_" not in query:
-        return None
     parts = []
-    for chunk in query.split("_"):
-        if not chunk:
+    for piece in chunk.split("_"):
+        if not piece:
             parts.append("")
             continue
         # Collapse runs of whitespace in the literal, then split on
         # them so we can re-emit ``\s+`` between literal pieces.
-        words = chunk.split()
+        words = piece.split()
         if not words:
             parts.append(r"\s*")
             continue
-        prefix = r"\s*" if chunk[:1].isspace() else ""
-        suffix = r"\s*" if chunk[-1:].isspace() else ""
+        prefix = r"\s*" if piece[:1].isspace() else ""
+        suffix = r"\s*" if piece[-1:].isspace() else ""
         parts.append(prefix + r"\s+".join(re.escape(w) for w in words) + suffix)
     body = ".+?".join(parts)
     try:
         return re.compile(body)
     except re.error:
         return None
+
+
+def _query_patterns(query: Optional[str]) -> Optional[list[re.Pattern[str]]]:
+    """Return goal-shape regexes if ``query`` is a pattern (contains
+    ``_``), else ``None`` (the caller then treats it as a substring).
+
+    A top-level ``or`` in the query splits it into disjunct fragments;
+    a candidate signature matches when *every* fragment is found in it
+    (in any position). This lets a disjunction query such as
+    ``max(_, _) = _ or max(_, _) = _`` find a lemma whose conclusion is
+    a parenthesized disjunction ``(max(x, y) = x) or (max(x, y) = y)`` --
+    each disjunct is searched independently, so the parentheses around
+    each equation no longer defeat a single whitespace-flexible regex
+    (issue #869)."""
+    if not query or "_" not in query:
+        return None
+    fragments = re.split(r"\s+or\s+", query.strip())
+    patterns = [p for p in (_compile_shape_regex(f) for f in fragments) if p]
+    return patterns or None
+
+
+def _query_matches(patterns: list[re.Pattern[str]], text: str) -> bool:
+    """True when every goal-shape fragment is found in ``text``."""
+    return all(p.search(text) for p in patterns)
 
 
 # Score per unify tier (issue #690). Tier names match what's emitted
@@ -4290,6 +4320,7 @@ _UNIFY_TIER_SCORE: dict[str, float] = {
     "full": 1.0,
     "premises_remain": 0.7,
     "rewrite_subterm": 0.4,
+    "disjunctive_split": 0.4,
 }
 
 
@@ -4489,6 +4520,9 @@ def _unify_score(
       open. Score ``0.7``.
     - ``"rewrite_subterm"`` -- conclusion is an equation whose LHS
       (or RHS) unifies with a subterm of the goal. Score ``0.4``.
+    - ``"disjunctive_split"`` -- conclusion is a disjunction (optionally
+      under an existential) and one disjunct is an equation matching a
+      goal subterm -- a case-analysis lemma. Score ``0.4``.
     - falls back to ``(0.0, None, (), ())`` on no match, missing AST/
       env, or any internal exception in the unifier.
 
@@ -4509,7 +4543,7 @@ def _unify_score(
     if goal_ast is None or env is None or formula is None:
         return (0.0, None, (), ())
 
-    from abstract_syntax import Call, VarRef, formula_match
+    from abstract_syntax import formula_match
     from error import MatchFailed
 
     peeled = _peel_quantified_implication(formula)
@@ -4570,50 +4604,112 @@ def _unify_score(
         )
 
     # Tier 3: equation conclusion -> try LHS/RHS against goal subterms.
-    if isinstance(conc, Call) and isinstance(conc.rator, VarRef):
-        try:
-            if conc.rator.get_name() == "=" and len(conc.args) == 2:
-                lhs, rhs = conc.args
-                subterms = _iter_subterms(goal_ast)
-                for side in (lhs, rhs):
-                    # When the side is a bare forall-var, ``formula_match``
-                    # binds it to the first subterm visited -- typically
-                    # the whole goal -- which is a meaningless
-                    # "instantiation" for the splice. Skip emitting
-                    # instantiations in that case: a bare ``replace name``
-                    # lets the rewrite engine pattern-match across the
-                    # goal as before.
-                    side_is_bare_var = isinstance(side, VarRef) and side in vars
-                    for sub in subterms:
-                        sub_matching: dict[str, "Term"] = {}
-                        try:
-                            formula_match(
-                                location, vars, side, sub, sub_matching, env
-                            )
-                        except MatchFailed:
-                            continue
-                        except Exception:
-                            continue
-                        unmatched = [
-                            v for v in vars if v.name not in sub_matching
-                        ]
-                        if unmatched:
-                            continue
-                        insts: tuple[str, ...] = (
-                            ()
-                            if side_is_bare_var
-                            else _render_instantiations(vars, sub_matching)
-                        )
-                        return (
-                            _UNIFY_TIER_SCORE["rewrite_subterm"],
-                            "rewrite_subterm",
-                            (),
-                            insts,
-                        )
-        except Exception:
-            pass
+    insts = _equation_subterm_match(conc, vars, goal_ast, env, location)
+    if insts is not None:
+        return (
+            _UNIFY_TIER_SCORE["rewrite_subterm"],
+            "rewrite_subterm",
+            (),
+            insts,
+        )
+
+    # Tier 4: disjunction (or existential) of equations -> a case-analysis
+    # lemma like `(max(x,y) = x) or (max(x,y) = y)`. Its whole conclusion
+    # never unifies with a goal, and a single equation side is what users
+    # reach for when they *don't* know the proof structure, so surface it
+    # whenever any disjunct's equation matches a goal subterm (issue #869).
+    disj_insts = _disjunctive_subterm_match(conc, vars, goal_ast, env, location)
+    if disj_insts is not None:
+        return (
+            _UNIFY_TIER_SCORE["disjunctive_split"],
+            "disjunctive_split",
+            (),
+            disj_insts,
+        )
 
     return (0.0, None, (), ())
+
+
+def _equation_subterm_match(
+    conc: "Formula",
+    vars: list["ResolvedVar"],
+    goal_ast: "Formula",
+    env: "Env",
+    location: object,
+) -> Optional[tuple[str, ...]]:
+    """If ``conc`` is an equation whose LHS or RHS unifies with a subterm
+    of ``goal_ast``, return the rendered instantiations (the
+    ``rewrite_subterm`` match). ``None`` when ``conc`` isn't an equation
+    or no side matches. Wrapped broadly: a ranking heuristic must never
+    crash the caller."""
+    from abstract_syntax import Call, VarRef, formula_match
+    from error import MatchFailed
+
+    if not (
+        isinstance(conc, Call)
+        and isinstance(conc.rator, VarRef)
+        and conc.rator.get_name() == "="
+        and len(conc.args) == 2
+    ):
+        return None
+    try:
+        lhs, rhs = conc.args
+        subterms = _iter_subterms(goal_ast)
+        for side in (lhs, rhs):
+            # When the side is a bare forall-var, ``formula_match`` binds
+            # it to the first subterm visited -- typically the whole goal
+            # -- which is a meaningless "instantiation" for the splice.
+            # Skip emitting instantiations in that case: a bare
+            # ``replace name`` lets the rewrite engine pattern-match
+            # across the goal as before.
+            side_is_bare_var = isinstance(side, VarRef) and side in vars
+            for sub in subterms:
+                sub_matching: dict[str, "Term"] = {}
+                try:
+                    formula_match(location, vars, side, sub, sub_matching, env)
+                except MatchFailed:
+                    continue
+                except Exception:
+                    continue
+                if [v for v in vars if v.name not in sub_matching]:
+                    continue
+                return (
+                    ()
+                    if side_is_bare_var
+                    else _render_instantiations(vars, sub_matching)
+                )
+    except Exception:
+        pass
+    return None
+
+
+def _disjunctive_subterm_match(
+    conc: "Formula",
+    vars: list["ResolvedVar"],
+    goal_ast: "Formula",
+    env: "Env",
+    location: object,
+) -> Optional[tuple[str, ...]]:
+    """If ``conc`` is a disjunction (optionally under an existential) and
+    one disjunct is an equation matching a goal subterm, return that
+    disjunct's instantiations, else ``None``. Existential binders are
+    treated as additional pattern variables, mirroring the all-bound
+    ones from :func:`_peel_quantified_implication`."""
+    from abstract_syntax import Or, ResolvedVar, Some
+
+    node = conc
+    all_vars = list(vars)
+    if isinstance(node, Some):
+        for name, ty in node.vars:
+            all_vars.append(ResolvedVar(node.location, ty, name))
+        node = node.body
+    if not isinstance(node, Or):
+        return None
+    for disjunct in node.args:
+        insts = _equation_subterm_match(disjunct, all_vars, goal_ast, env, location)
+        if insts is not None:
+            return insts
+    return None
 
 
 def _rank_lemmas(
@@ -4660,9 +4756,9 @@ def _rank_lemmas(
     """
     goal_head = _goal_head_symbol(goal_text)
     goal_syms = _goal_tokens(goal_text)
-    pattern = _query_pattern(query)
+    patterns = _query_patterns(query)
     query_substr = (query or "").strip().lower()
-    has_substring_query = bool(query_substr) and pattern is None
+    has_substring_query = bool(query_substr) and patterns is None
     browse_mode = goal_text is None and not query
     has_unify_signal = goal_ast is not None and env is not None
 
@@ -4697,7 +4793,7 @@ def _rank_lemmas(
                 substring_score = 0.5
 
         pattern_score = 0.0
-        if pattern is not None and pattern.search(info.signature):
+        if patterns is not None and _query_matches(patterns, info.signature):
             pattern_score = 1.0
 
         # When the user typed a goal-shape pattern or substring, only
@@ -4706,7 +4802,7 @@ def _rank_lemmas(
         # recursive symbol extraction cost for every in-scope theorem.
         if has_substring_query and substring_score == 0.0:
             continue
-        if pattern is not None and pattern_score == 0.0:
+        if patterns is not None and pattern_score == 0.0:
             continue
 
         if browse_mode:
