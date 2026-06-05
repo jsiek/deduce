@@ -754,6 +754,10 @@ def expand_definitions(loc: Meta, formula: Formula, defs: Sequence[Term],
                      + str(formula))
   if get_verbose():
       print('expand definitions to formula: ' + str(new_formula))
+  # True once an earlier target in this `expand a | b | ...` collapsed the
+  # goal to `true` (e.g. via an auto rewrite). Later targets then have nothing
+  # left to unfold; we treat that as a no-op so `expand` is order-independent.
+  collapsed_by_earlier = False
   for var in defs:
     if not env.term_var_is_defined(var):
       user_error(loc, f"Expected a term or a type variable when attempting to expand {var}." +\
@@ -802,7 +806,9 @@ def expand_definitions(loc: Meta, formula: Formula, defs: Sequence[Term],
                       print('expanded definition ' + var_name)
       if get_verbose():
           print('new_formula = ' + str(new_formula))
-      if not reduced_one:
+      if reduced_one and is_true(new_formula):
+          collapsed_by_earlier = True
+      if not reduced_one and not collapsed_by_earlier:
           user_error(loc, 'could not find a place to expand definition of ' \
                 + name2str(var.name) \
                 + ' in:\n' + '\t' + str(new_formula) \
