@@ -171,6 +171,65 @@ async def test_check_file_accepts_inline_content(server, tmp_path):
 
 
 @pytest.mark.anyio
+async def test_check_file_hole_diagnostics_include_ids_and_goals(
+    server, tmp_path
+):
+    src = (
+        "theorem first: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  ?\n"
+        "end\n"
+        "\n"
+        "theorem second: all P:bool, Q:bool. P and Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  ?, ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "hole-ids.pf"
+    fp.write_text(src)
+
+    payload = await _call(server, "check_file", {"path": str(fp)})
+
+    diags = payload["diagnostics"]
+    assert len(diags) == 3
+    by_id = {diag["hole_id"]: diag for diag in diags}
+    assert set(by_id) == {"first#0", "second#0", "second#1"}
+
+    first = by_id["first#0"]
+    assert first["goal"]["formula"] == "P = P"
+    assert first["goal"]["range"] == first["range"]
+    assert first["goal"]["givens"] == []
+
+    assert by_id["second#0"]["goal"]["formula"] == "P"
+    assert by_id["second#1"]["goal"]["formula"] == "Q"
+
+
+@pytest.mark.anyio
+async def test_hole_id_resolves_goal_after_lines_shift(server, tmp_path):
+    src = (
+        "// Later edits can add lines above the declaration.\n"
+        "\n"
+        "theorem hole_owner: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "shifted-goal.pf"
+    fp.write_text(src)
+
+    payload = await _call(
+        server, "goal_at", {"path": str(fp), "hole_id": "hole_owner#0"}
+    )
+
+    assert payload is not None
+    assert payload["formula"] == "P = P"
+    assert payload["range"]["start"] == {"line": 6, "column": 3}
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize("parser", ["recursive-descent", "lalr"])
 async def test_check_file_accepts_parser_argument(server, parser):
     """The MCP wrapper plumbs ``parser`` through to ``query.check`` and
@@ -368,6 +427,27 @@ async def test_definition_of_returns_null_for_whitespace(server, tmp_path):
     assert payload is None
 
 
+@pytest.mark.anyio
+async def test_definition_of_accepts_hole_id(server, tmp_path):
+    src = (
+        "theorem hole_owner: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "definition-hole-id.pf"
+    fp.write_text(src)
+
+    payload = await _call(
+        server,
+        "definition_of",
+        {"path": str(fp), "hole_id": "hole_owner#0"},
+    )
+
+    assert payload is None
+
+
 # --------------------------------------------------------------------------
 # list_symbols
 # --------------------------------------------------------------------------
@@ -421,6 +501,31 @@ async def test_refine_at_returns_workspace_edit(server, tmp_path):
         "refine_at",
         {"path": str(fp), "line": 4, "column": 3},
     )
+    assert payload is not None
+    assert payload["path"] == str(fp)
+    assert payload["new_text"] == "reflexive"
+    assert payload["range"]["start"] == {"line": 4, "column": 3}
+    assert payload["range"]["end"] == {"line": 4, "column": 4}
+
+
+@pytest.mark.anyio
+async def test_refine_at_accepts_hole_id(server, tmp_path):
+    src = (
+        "theorem hole_owner: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "refine-hole-id.pf"
+    fp.write_text(src)
+
+    payload = await _call(
+        server,
+        "refine_at",
+        {"path": str(fp), "hole_id": "hole_owner#0"},
+    )
+
     assert payload is not None
     assert payload["path"] == str(fp)
     assert payload["new_text"] == "reflexive"
@@ -702,6 +807,33 @@ async def test_eliminable_vars_at_returns_candidates(server, tmp_path):
     assert "H" in payload
 
 
+
+
+# --------------------------------------------------------------------------
+# matching_givens_at
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_matching_givens_at_accepts_hole_id(server, tmp_path):
+    src = (
+        "theorem hole_owner: all P:bool. if P then P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  assume H: P\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "matching-hole-id.pf"
+    fp.write_text(src)
+
+    payload = await _call(
+        server,
+        "matching_givens_at",
+        {"path": str(fp), "hole_id": "hole_owner#0"},
+    )
+
+    assert payload == ["H"]
 # --------------------------------------------------------------------------
 # apply_at
 # --------------------------------------------------------------------------
@@ -826,6 +958,35 @@ async def test_preview_replace_at_returns_ok_outcome(server, tmp_path):
 
 
 @pytest.mark.anyio
+async def test_preview_replace_at_accepts_hole_id(server, tmp_path):
+    src = (
+        "theorem hole_owner: all P:bool, Q:bool. if P = Q then P\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H: P = Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "preview-replace-hole-id.pf"
+    fp.write_text(src)
+
+    payload = await _call(
+        server,
+        "preview_replace_at",
+        {
+            "path": str(fp),
+            "hole_id": "hole_owner#0",
+            "equation": "H",
+        },
+    )
+
+    assert payload is not None
+    assert payload["outcome"] == "ok"
+    assert payload["before"] == "P"
+    assert payload["after"] == "Q"
+
+
+@pytest.mark.anyio
 async def test_preview_replace_at_returns_unbound(server, tmp_path):
     src = (
         "theorem t: all P:bool. P\n"
@@ -924,6 +1085,41 @@ async def test_available_lemmas_at_query_pattern(server, tmp_path):
     assert entry["kind"] == "theorem"
     assert entry["module"] == "lemmas"
     assert 0.0 <= entry["relevance"] <= 1.0
+
+
+@pytest.mark.anyio
+async def test_available_lemmas_at_accepts_hole_id(server, tmp_path):
+    src = (
+        "theorem and_intro: all P:bool, Q:bool. if P then if Q then P and Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume pP: P\n"
+        "  assume qQ: Q\n"
+        "  pP, qQ\n"
+        "end\n"
+        "\n"
+        "theorem with_hole: all P:bool, Q:bool. if P then if Q then P and Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume pP: P\n"
+        "  assume qQ: Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "available-hole-id.pf"
+    fp.write_text(src)
+
+    payload = await _call(
+        server,
+        "available_lemmas_at",
+        {"path": str(fp), "hole_id": "with_hole#0", "limit": 10},
+    )
+
+    assert isinstance(payload, list)
+    names = [m["name"] for m in payload]
+    assert "and_intro" in names
+    entry = next(m for m in payload if m["name"] == "and_intro")
+    assert entry["kind"] == "theorem"
 
 
 @pytest.mark.anyio

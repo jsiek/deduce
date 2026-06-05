@@ -185,6 +185,10 @@ class Diagnostic:
     # so adapters can plumb it through; the checker does not yet emit
     # codes.
     code: Optional[str] = None
+    # Structured goal payload for incomplete-proof diagnostics. Protocol
+    # adapters can expose this alongside the compact diagnostic message
+    # without forcing callers to re-run ``goal_at`` for each hole.
+    goal: Optional["Goal"] = None
 
 
 @dataclass(frozen=True)
@@ -659,13 +663,17 @@ def _diagnostic_from_exception(
 
     formula = getattr(exc, "formula", None)
     body: str
+    goal: Optional[Goal] = None
     if formula is not None:
         body = _format_incomplete_proof_message(formula)
+        goal = _goal_from_exception(exc, rng)
     else:
         msg = getattr(exc, "message_body", None)
         body = msg if msg is not None else _format_unstructured_exception(exc, str_fallback)
 
-    return Diagnostic(severity=Severity.ERROR, range=rng, message=body)
+    return Diagnostic(
+        severity=Severity.ERROR, range=rng, message=body, goal=goal
+    )
 
 
 def _format_unstructured_exception(

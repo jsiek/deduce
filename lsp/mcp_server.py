@@ -36,6 +36,7 @@ adapter (Step 9) goes through ``lsp.query``.
 from __future__ import annotations
 
 import os
+import re
 import sys
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
@@ -177,6 +178,123 @@ def _read_file(path: str) -> str:
         return f.read()
 
 
+_DECL_RE = re.compile(
+    r"^\s*(?:private\s+|public\s+|opaque\s+)*"
+    r"(?:theorem|lemma|postulate|define|recursive|fun|union|predicate)\s+"
+    r"(?P<name>[^\s:{(<]+)"
+)
+
+
+def _mask_comments(
+    line: str, in_block_comment: bool
+) -> tuple[str, bool]:
+    """Replace comment text with spaces while preserving columns."""
+    chars = list(line)
+    i = 0
+    while i < len(line):
+        if in_block_comment:
+            end = line.find("*/", i)
+            stop = len(line) if end < 0 else end + 2
+            for j in range(i, stop):
+                if chars[j] not in "\r\n":
+                    chars[j] = " "
+            if end < 0:
+                return "".join(chars), True
+            i = stop
+            in_block_comment = False
+            continue
+
+        if line.startswith("//", i):
+            for j in range(i, len(line)):
+                if chars[j] not in "\r\n":
+                    chars[j] = " "
+            break
+        if line.startswith("/*", i):
+            end = line.find("*/", i + 2)
+            stop = len(line) if end < 0 else end + 2
+            for j in range(i, stop):
+                if chars[j] not in "\r\n":
+                    chars[j] = " "
+            if end < 0:
+                return "".join(chars), True
+            i = stop
+            continue
+        i += 1
+    return "".join(chars), in_block_comment
+
+
+def _hole_sites_by_id(content: str, path: str) -> dict[str, query.Range]:
+    """Return declaration-scoped IDs for every literal ``?`` hole."""
+    fallback_scope = Path(path).stem or "file"
+    current_scope = fallback_scope
+    next_ordinal: dict[str, int] = {}
+    sites: dict[str, query.Range] = {}
+    in_block_comment = False
+
+    for line_no, raw_line in enumerate(content.splitlines(keepends=True), 1):
+        code_line, in_block_comment = _mask_comments(
+            raw_line, in_block_comment
+        )
+        decl_match = _DECL_RE.match(code_line)
+        if decl_match is not None:
+            current_scope = decl_match.group("name")
+
+        for match in re.finditer(r"\?", code_line):
+            ordinal = next_ordinal.get(current_scope, 0)
+            next_ordinal[current_scope] = ordinal + 1
+            hole_id = f"{current_scope}#{ordinal}"
+            col = match.start() + 1
+            sites[hole_id] = query.Range(
+                start=query.Position(line=line_no, column=col),
+                end=query.Position(line=line_no, column=col + 1),
+            )
+    return sites
+
+
+def _hole_ids_by_start(content: str, path: str) -> dict[tuple[int, int], str]:
+    return {
+        (rng.start.line, rng.start.column): hole_id
+        for hole_id, rng in _hole_sites_by_id(content, path).items()
+    }
+
+
+def _diagnostic_payloads(
+    diagnostics: object, content: str, path: str
+) -> list[JSONDict]:
+    hole_ids = _hole_ids_by_start(content, path)
+    payloads = _to_list_of_dicts(diagnostics)
+    for payload in payloads:
+        rng = cast(JSONDict, payload.get("range"))
+        if payload.get("goal") is None:
+            payload.pop("goal", None)
+        start = cast(JSONDict, rng.get("start"))
+        key = (cast(int, start.get("line")), cast(int, start.get("column")))
+        hole_id = hole_ids.get(key)
+        if hole_id is not None:
+            payload["hole_id"] = hole_id
+    return payloads
+
+
+def _position_from_args(
+    tool_name: str,
+    path: str,
+    content: str,
+    line: Optional[int],
+    column: Optional[int],
+    hole_id: Optional[str],
+) -> query.Position:
+    if hole_id is not None:
+        rng = _hole_sites_by_id(content, path).get(hole_id)
+        if rng is None:
+            raise ValueError(f"{tool_name}: unknown hole_id {hole_id!r}")
+        return rng.start
+    if line is None or column is None:
+        raise ValueError(
+            f"{tool_name}: provide line and column, or hole_id"
+        )
+    return query.Position(line=line, column=column)
+
+
 @mcp.tool()
 def check_file(
     path: str,
@@ -217,9 +335,9 @@ def check_file(
             parser="lalr",
         )
         merged: list[JSONDict] = []
-        for d in _to_list_of_dicts(rd_diags):
+        for d in _diagnostic_payloads(rd_diags, text, path):
             merged.append({**d, "parser": "recursive-descent"})
-        for d in _to_list_of_dicts(lalr_diags):
+        for d in _diagnostic_payloads(lalr_diags, text, path):
             merged.append({**d, "parser": "lalr"})
         return {"diagnostics": merged}
     if parser not in ("recursive-descent", "lalr"):
@@ -230,11 +348,16 @@ def check_file(
     diagnostics = query.check(
         path, text, prelude=_prelude_for(path), parser=parser,
     )
-    return {"diagnostics": _to_serializable(diagnostics)}
+    return {"diagnostics": _diagnostic_payloads(diagnostics, text, path)}
 
 
 @mcp.tool()
-def goal_at(path: str, line: int, column: int) -> Optional[JSONDict]:
+def goal_at(
+    path: str,
+    line: Optional[int] = None,
+    column: Optional[int] = None,
+    hole_id: Optional[str] = None,
+) -> Optional[JSONDict]:
     """Return the proof obligation visible at ``line``:``column``.
 
     Lines and columns are 1-indexed (matching the location text in
@@ -252,13 +375,20 @@ def goal_at(path: str, line: int, column: int) -> Optional[JSONDict]:
     alone.
     """
     content = _read_file(path)
-    pos = query.Position(line=line, column=column)
+    pos = _position_from_args(
+        "goal_at", path, content, line, column, hole_id
+    )
     goal = query.goal_at(path, content, pos, prelude=_prelude_for(path))
     return _to_dict_or_none(goal)
 
 
 @mcp.tool()
-def definition_of(path: str, line: int, column: int) -> Optional[JSONDict]:
+def definition_of(
+    path: str,
+    line: Optional[int] = None,
+    column: Optional[int] = None,
+    hole_id: Optional[str] = None,
+) -> Optional[JSONDict]:
     """Return the source location of the symbol at ``line``:``column``.
 
     Returns ``None`` when the cursor isn't on a resolvable symbol or
@@ -266,13 +396,20 @@ def definition_of(path: str, line: int, column: int) -> Optional[JSONDict]:
     a built-in). The result has ``path`` and ``range``.
     """
     content = _read_file(path)
-    pos = query.Position(line=line, column=column)
+    pos = _position_from_args(
+        "definition_of", path, content, line, column, hole_id
+    )
     loc = query.definition_of(path, content, pos, prelude=_prelude_for(path))
     return _to_dict_or_none(loc)
 
 
 @mcp.tool()
-def refine_at(path: str, line: int, column: int) -> Optional[JSONDict]:
+def refine_at(
+    path: str,
+    line: Optional[int] = None,
+    column: Optional[int] = None,
+    hole_id: Optional[str] = None,
+) -> Optional[JSONDict]:
     """Propose a refinement template for the hole at ``line``:``column``.
 
     The cursor must sit on (or immediately adjacent to) a ``?`` token.
@@ -297,7 +434,9 @@ def refine_at(path: str, line: int, column: int) -> Optional[JSONDict]:
     - reducible ``e1 = e2`` -> ``reflexive``
     """
     content = _read_file(path)
-    pos = query.Position(line=line, column=column)
+    pos = _position_from_args(
+        "refine_at", path, content, line, column, hole_id
+    )
     edit = query.refine_at(path, content, pos, prelude=_prelude_for(path))
     return _to_dict_or_none(edit)
 
@@ -474,7 +613,10 @@ def fill_from_given_at(
 
 @mcp.tool()
 def matching_givens_at(
-    path: str, line: int, column: int
+    path: str,
+    line: Optional[int] = None,
+    column: Optional[int] = None,
+    hole_id: Optional[str] = None,
 ) -> list[str]:
     """Return labels of in-scope local proof bindings whose formula
     equals the goal at ``line``:``column``.
@@ -484,7 +626,9 @@ def matching_givens_at(
     the goal AST isn't available, or no local binding matches.
     """
     content = _read_file(path)
-    pos = query.Position(line=line, column=column)
+    pos = _position_from_args(
+        "matching_givens_at", path, content, line, column, hole_id
+    )
     return list(
         query.matching_givens_at(path, content, pos, prelude=_prelude_for(path))
     )
@@ -591,7 +735,11 @@ def apply_at(
 
 @mcp.tool()
 def preview_replace_at(
-    path: str, line: int, column: int, equation: str
+    path: str,
+    equation: str,
+    line: Optional[int] = None,
+    column: Optional[int] = None,
+    hole_id: Optional[str] = None,
 ) -> Optional[JSONDict]:
     """Preview the result of ``replace <equation>`` at the hole at
     ``line``:``column``.
@@ -622,7 +770,9 @@ def preview_replace_at(
     its plan.
     """
     content = _read_file(path)
-    pos = query.Position(line=line, column=column)
+    pos = _position_from_args(
+        "preview_replace_at", path, content, line, column, hole_id
+    )
     preview = query.preview_replace_at(
         path, content, pos, equation, prelude=_prelude_for(path)
     )
@@ -668,10 +818,11 @@ def preview_expand_at(
 @mcp.tool()
 def available_lemmas_at(
     path: str,
-    line: int,
-    column: int,
+    line: Optional[int] = None,
+    column: Optional[int] = None,
     query: Optional[str] = None,
     limit: int = 50,
+    hole_id: Optional[str] = None,
 ) -> list[JSONDict]:
     """Search for theorems/lemmas/postulates relevant at a position.
 
@@ -706,7 +857,9 @@ def available_lemmas_at(
     from lsp import query as _q
 
     content = _read_file(path)
-    pos = _q.Position(line=line, column=column)
+    pos = _position_from_args(
+        "available_lemmas_at", path, content, line, column, hole_id
+    )
     matches = _q.available_lemmas_at(
         path,
         content,
