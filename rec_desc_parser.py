@@ -1317,10 +1317,44 @@ def parse_rule_induction_case() -> RuleInductionCase:
     raise ParseError(meta_from_tokens(start_token, previous_token()),
                      "Unexpected error while parsing:\n\t" + str(e))
 
+def parse_equation_side_logic() -> Term:
+  # `and`/`or` directly on top of comparison terms (left-associative, to
+  # match the LALR `eqs_logical_term` rule). The equality level is skipped so
+  # the step-separator `=` is not consumed here.
+  token = current_token()
+  term = parse_term_compare()
+  while (not end_of_file()) and (current_token().type == 'AND'
+                                 or current_token().type == 'OR'):
+    opr = current_token().type
+    advance()
+    right = parse_term_compare()
+    loc = meta_from_tokens(token, previous_token())
+    if opr == 'AND':
+      term = And(loc, None, extract_and(term) + extract_and(right))
+    else:
+      term = Or(loc, None, extract_or(term) + extract_or(right))
+  return term
+
+def parse_equation_side() -> Term:
+  # One side of an `equations` step. Allows the logical connectives
+  # `iff`/`and`/`or` (which sit below `=` in the normal precedence ladder) by
+  # parsing them on top of comparison terms, leaving the top-level `=` to
+  # separate the two sides of the step. See Deduce.lark `equation_side`.
+  token = current_token()
+  term = parse_equation_side_logic()
+  while (not end_of_file()) and (current_token().value in iff_operators):
+    advance()
+    right = parse_equation_side_logic()
+    loc = meta_from_tokens(token, previous_token())
+    left_right = IfThen(loc, None, term.copy(), right.copy())
+    right_left = IfThen(loc, None, right.copy(), term.copy())
+    term = And(loc, None, [left_right, right_left])
+  return term
+
 def parse_equation() -> tuple[Term, Term, Proof]:
-  lhs = parse_term_compare()
+  lhs = parse_equation_side()
   consume_token('EQUAL', '"="', context='after left-hand side of equation')
-  rhs = parse_term_compare()
+  rhs = parse_equation_side()
   reason = parse_reason()
   return (lhs, rhs, reason)
 
@@ -1328,7 +1362,7 @@ def parse_half_equation() -> tuple[Term | None, Term, Proof]:
   if current_token().value == '...':
     advance()
     consume_token('EQUAL', '"="', context='after "..."')
-    rhs = parse_term_compare()
+    rhs = parse_equation_side()
     reason = parse_reason()
     return (None, rhs, reason)
   elif current_token().value == '$':

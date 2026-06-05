@@ -175,9 +175,22 @@ identifier: IDENT              -> identifier
 ?switch_proof_case_list: switch_proof_case               -> single
     | switch_proof_case switch_proof_case_list           -> push
 
-?equation: comparison_term "=" additive_term reason    -> equation
+?equation: equation_side "=" equation_side reason    -> equation
 
-?half_equation:  "..." "=" additive_term reason     -> half_equation
+?half_equation:  "..." "=" equation_side reason     -> half_equation
+
+// An equation step's `=` is the step separator, which would otherwise be
+// shadowed by the `=` boolean-equality operator (higher precedence than the
+// `and`/`or`/`iff` connectives). So each side parses the logical connectives
+// directly on top of comparison terms, leaving the top-level `=` for the step.
+?equation_side: eqs_iff_term
+?eqs_iff_term: eqs_iff_term "iff" eqs_logical_term     -> iff_formula
+    | eqs_iff_term "<=>" eqs_logical_term              -> iff_formula
+    | eqs_iff_term "⇔" eqs_logical_term                -> iff_formula
+    | eqs_logical_term
+?eqs_logical_term: eqs_logical_term "and" comparison_term  -> and_formula
+    | eqs_logical_term "or" comparison_term            -> or_formula
+    | comparison_term
 
 ?equation_list: half_equation                      -> single
     | half_equation equation_list                  -> push
