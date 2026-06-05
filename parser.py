@@ -23,7 +23,7 @@ from lark import Lark, Token, Tree, exceptions
 from lark.tree import Meta
 from typing import Any, TypeAlias as TypingTypeAlias, cast
 from flags import VerboseLevel
-from error import ParseError
+from error import ParseError, lark_unexpected_chars_to_parse_error
 
 filename: str = '???'
 
@@ -963,6 +963,15 @@ def parse(program_text: str,
         print('')
     return ast
 
+  except exceptions.UnexpectedCharacters as e:
+      if error_expected:
+          raise Exception()
+      # The default lark lexer message is parser-internal noise (and
+      # actively misleading for backslash: "Expected one of: DOT, ..."
+      # reads as "you forgot a period"). Route through the shared
+      # helper so `\` gets a Deduce-flavored hint and other stray
+      # characters at least get a clean header.
+      raise Exception(str(lark_unexpected_chars_to_parse_error(e, get_filename())))
   except exceptions.UnexpectedToken as t:
       if error_expected:
           raise Exception()

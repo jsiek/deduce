@@ -1,0 +1,9 @@
+
+
+assert (\x. x = x)(0)
+        ^
+./test/parse/backslash_lambda.pf:4.9-4.10: '\' is not a valid character in Deduce. Anonymous functions are written
+	fun x { ... }
+or, equivalently,
+	λx{ ... }
+e.g. `filter(xs, fun x { x % 2 = 0 })`.

@@ -381,3 +381,38 @@ class ParseError(Exception):
 
     # return  self.error_str() #+ '\n\n' + error_program_text(self.loc)
 
+
+def lark_unexpected_chars_to_parse_error(exc: object, filename: str) -> 'ParseError':
+  """Turn a lark ``UnexpectedCharacters`` into a Deduce ``ParseError``.
+
+  The default lark message ("No terminal matches '\\' in the current
+  parser context...") drops the reader into the lark internals and
+  lists raw terminal names. For characters Deduce wants to call out
+  specifically -- ``\\`` is the obvious one, since Haskell-style
+  lambdas are reflex for incoming FP students -- we replace the
+  message with a hint that points at the supported syntax.
+  """
+  char = getattr(exc, 'char', '?')
+  line = getattr(exc, 'line', 1)
+  column = getattr(exc, 'column', 1)
+  pos_in_stream = getattr(exc, 'pos_in_stream', 0)
+  meta = Meta()  # type: ignore[no-untyped-call,unused-ignore]
+  meta.empty = False
+  setattr(meta, 'filename', filename)
+  meta.line = line
+  meta.column = column
+  meta.start_pos = pos_in_stream
+  meta.end_line = line
+  meta.end_column = column + 1
+  meta.end_pos = pos_in_stream + 1
+  if char == '\\':
+    msg = ("'\\' is not a valid character in Deduce. "
+           "Anonymous functions are written\n"
+           "\tfun x { ... }\n"
+           "or, equivalently,\n"
+           "\tλx{ ... }\n"
+           "e.g. `filter(xs, fun x { x % 2 = 0 })`.")
+  else:
+    msg = (f"unexpected character {char!r} in input "
+           "(no terminal matches it in the current parser context)")
+  return ParseError(meta, msg)
