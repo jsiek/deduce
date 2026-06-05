@@ -412,10 +412,17 @@ $ claude
 Claude will call the Deduce MCP server's `check_file` tool, see the
 diagnostics, and respond. The full tool list:
 
+For incomplete-proof diagnostics on a `?`, `check_file` includes a
+stable declaration-scoped `hole_id` (for example `my_theorem#0`) and
+the same structured goal payload that `goal_at` returns. The MCP
+position tools that expose `hole_id` can use `{path, hole_id}` instead
+of `{path, line, column}` when the caller has a fresh ID from
+`check_file`.
+
 | Tool                       | What it does                                                  |
 | -------------------------- | ------------------------------------------------------------- |
-| `check_file`               | Type-check and proof-check a `.pf` file, optionally with inline `content`; returns diagnostics. |
-| `goal_at`                  | Return the proof goal + givens at a cursor position.          |
+| `check_file`               | Type-check and proof-check a `.pf` file, optionally with inline `content`; returns diagnostics, hole IDs, and structured goals. |
+| `goal_at`                  | Return the proof goal + givens at a cursor position or `hole_id`. |
 | `definition_of`            | Jump from a symbol to its declaration.                        |
 | `list_symbols`             | Outline of top-level theorems / definitions in a file.        |
 | `refine_at`                | Refine a `?` based on the goal's shape.                       |
@@ -426,6 +433,12 @@ diagnostics, and respond. The full tool list:
 | `eliminable_vars_at`       | List in-scope hypotheses that `eliminate_at` can target.      |
 | `fill_from_given_at`       | Replace a `?` with `conclude <goal> by <label>`.              |
 | `matching_givens_at`       | List in-scope hypotheses whose formula equals the goal.       |
+| `preview_conclude_at`      | Preview whether a local given discharges the current goal.    |
+| `apply_at`                 | Preview `apply <theorem>[<args>] to ?` at a hole.             |
+| `preview_replace_at`       | Preview the goal after `replace <equation>`.                  |
+| `preview_expand_at`        | Preview the goal after `expand <names>`.                      |
+| `available_lemmas_at`      | Search ranked visible lemmas at a position, query, or `hole_id`. |
+| `auto_rules_at`            | List visible `auto` rewrite rules at a position.              |
 
 These are the same operations the Emacs mode binds to `C-c C-r`,
 `C-c C-c`, `C-c C-i`, `C-c C-e`, and `C-c C-f` — the assistant has
