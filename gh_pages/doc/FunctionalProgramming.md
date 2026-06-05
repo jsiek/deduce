@@ -47,6 +47,11 @@ Optionally, the type can be specified after the name, following a
 colon.  In the above, `six` holds a natural number, so its type is
 `UInt`.
 
+Bare numeric literals such as `5` and `12` have type `UInt`. If you
+need a literal of type `Nat`, write the `ℕ` prefix before the digits,
+for example `ℕ0`, `ℕ5`, or `ℕ12`. You can copy and paste the `ℕ`
+symbol if your keyboard does not have a direct way to enter it.
+
 ## Printing Values
 
 You can ask Deduce to print a value to standard output using the
