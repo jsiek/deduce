@@ -55,8 +55,143 @@ proof
   }
 end
 
+// Disjunction is idempotent.
+theorem or_idempotent: all P:bool. (P or P) = P
+proof
+  arbitrary P:bool
+  switch P {
+    case true { . }
+    case false { . }
+  }
+end
+
+// Disjoining with true yields true.
+theorem or_true: all P:bool. (P or true) = true
+proof
+  arbitrary P:bool
+  switch P {
+    case true { . }
+    case false { . }
+  }
+end
+
+// false is the identity for disjunction.
+theorem or_false: all P:bool. (P or false) = P
+proof
+  arbitrary P:bool
+  switch P {
+    case true { . }
+    case false { . }
+  }
+end
+
 // Conjunction is symmetric.
 theorem and_sym: all P:bool, Q:bool.  (P and Q) = (Q and P)
+proof
+  arbitrary P:bool, Q:bool
+  switch P {
+    case true { . }
+    case false { . }
+  }
+end
+
+// Conjunction is associative.
+theorem and_assoc: all P:bool, Q:bool, R:bool.
+  (P and (Q and R)) = ((P and Q) and R)
+proof
+  arbitrary P:bool, Q:bool, R:bool
+  switch P {
+    case true { . }
+    case false { . }
+  }
+end
+
+// Conjunction is idempotent.
+theorem and_idempotent: all P:bool. (P and P) = P
+proof
+  arbitrary P:bool
+  switch P {
+    case true { . }
+    case false { . }
+  }
+end
+
+// true is the identity for conjunction.
+theorem and_true: all P:bool. (P and true) = P
+proof
+  arbitrary P:bool
+  switch P {
+    case true { . }
+    case false { . }
+  }
+end
+
+// Conjoining with false yields false.
+theorem and_false: all P:bool. (P and false) = false
+proof
+  arbitrary P:bool
+  switch P {
+    case true { . }
+    case false { . }
+  }
+end
+
+// Conjunction distributes over disjunction on the left.
+theorem and_or_distrib: all P:bool, Q:bool, R:bool.
+  (P and (Q or R)) = ((P and Q) or (P and R))
+proof
+  arbitrary P:bool, Q:bool, R:bool
+  switch P {
+    case true { . }
+    case false { . }
+  }
+end
+
+// Disjunction distributes over conjunction on the left.
+theorem or_and_distrib: all P:bool, Q:bool, R:bool.
+  (P or (Q and R)) = ((P or Q) and (P or R))
+proof
+  arbitrary P:bool, Q:bool, R:bool
+  switch P {
+    case true { . }
+    case false { . }
+  }
+end
+
+// Absorption: a conjunction is dominated by a disjunct it contains.
+theorem and_or_absorb: all P:bool, Q:bool. (P and (P or Q)) = P
+proof
+  arbitrary P:bool, Q:bool
+  switch P {
+    case true { . }
+    case false { . }
+  }
+end
+
+// Absorption: a disjunction is dominated by a conjunct it contains.
+theorem or_and_absorb: all P:bool, Q:bool. (P or (P and Q)) = P
+proof
+  arbitrary P:bool, Q:bool
+  switch P {
+    case true { . }
+    case false { . }
+  }
+end
+
+// De Morgan's law for conjunction.
+theorem not_and: all P:bool, Q:bool.
+  (not (P and Q)) = ((not P) or (not Q))
+proof
+  arbitrary P:bool, Q:bool
+  switch P {
+    case true { . }
+    case false { . }
+  }
+end
+
+// De Morgan's law for disjunction.
+theorem not_or: all P:bool, Q:bool.
+  (not (P or Q)) = ((not P) and (not Q))
 proof
   arbitrary P:bool, Q:bool
   switch P {
@@ -131,6 +266,14 @@ proof
   fwd, bkwd
 end
 
+// Reflexivity of iff.
+theorem iff_refl: all P:bool. P ⇔ P
+proof
+  arbitrary P:bool
+  have fwd: if P then P by { assume p p }
+  fwd, fwd
+end
+
 theorem contrapositive: all P : bool, Q : bool.
   if (if P then Q) and not Q then not P
 proof
@@ -139,6 +282,34 @@ proof
     case true { . }
     case false { . }
   }
+end
+
+// Reflexivity of implication.
+theorem implies_refl: all P:bool. if P then P
+proof
+  arbitrary P:bool
+  assume p
+  p
+end
+
+// Transitivity of implication.
+theorem implies_trans: all P:bool, Q:bool, R:bool.
+  if (if P then Q) and (if Q then R) then (if P then R)
+proof
+  arbitrary P:bool, Q:bool, R:bool
+  assume prem
+  assume p
+  have q: Q by apply (conjunct 0 of prem) to p
+  apply (conjunct 1 of prem) to q
+end
+
+// Modus ponens as a theorem (operationally available via `apply ... to ...`).
+theorem modus_ponens: all P:bool, Q:bool.
+  if (if P then Q) and P then Q
+proof
+  arbitrary P:bool, Q:bool
+  assume prem
+  apply (conjunct 0 of prem) to (conjunct 1 of prem)
 end
 
 theorem double_neg: all P: bool.
@@ -196,6 +367,67 @@ proof
       switch b {
         case true { evaluate }
         case false { evaluate }
+      }
+    }
+  }
+end
+
+// xor of a value with itself is false.
+theorem xor_self: all a:bool. xor(a, a) = false
+proof
+  arbitrary a:bool
+  switch a {
+    case true { evaluate }
+    case false { evaluate }
+  }
+end
+
+// xor of a value with its negation is true.
+theorem xor_neg: all a:bool. xor(a, not a) = true
+proof
+  arbitrary a:bool
+  switch a {
+    case true { evaluate }
+    case false { evaluate }
+  }
+end
+
+// xor is associative.
+theorem xor_assoc: all a:bool, b:bool, c:bool.
+  xor(a, xor(b, c)) = xor(xor(a, b), c)
+proof
+  arbitrary a:bool, b:bool, c:bool
+  switch a {
+    case true {
+      switch b {
+        case true {
+          switch c {
+            case true { evaluate }
+            case false { evaluate }
+          }
+        }
+        case false {
+          switch c {
+            case true { evaluate }
+            case false { evaluate }
+          }
+        }
+      }
+    }
+    case false {
+      switch b {
+        case true {
+          switch c {
+            case true { evaluate }
+            case false { evaluate }
+          }
+        }
+        case false {
+          switch c {
+            case true { evaluate }
+            case false { evaluate }
+          }
+        }
       }
     }
   }
