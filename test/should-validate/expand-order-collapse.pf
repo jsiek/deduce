@@ -1,0 +1,24 @@
+// A multi-target `expand a | b` must be order-independent even when an
+// earlier target collapses the goal to `true` via an auto rewrite rule.
+// Here `expand filter` reduces the goal to `length(@[]) <= length(@[])`,
+// which the `uint_less_equal_refl_true` auto rule collapses to `true`; the
+// remaining `| length` then has nothing to unfold. That clause is allowed
+// (the proof still validates) but Deduce emits an "unused clause" warning.
+// Regression test for https://github.com/jsiek/deduce/issues/862
+
+import UInt
+import List
+
+theorem expand_collapse_filter_first: all T:type, p:fn (T)->bool.
+  length(filter(@[]<T>, p)) <= length(@[]<T>)
+proof
+  arbitrary T:type, p:fn (T)->bool
+  expand filter | length.
+end
+
+theorem expand_collapse_length_first: all T:type, p:fn (T)->bool.
+  length(filter(@[]<T>, p)) <= length(@[]<T>)
+proof
+  arbitrary T:type, p:fn (T)->bool
+  expand length | filter.
+end
