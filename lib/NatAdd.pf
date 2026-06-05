@@ -140,7 +140,7 @@ proof
 end
 
 // `suc` on the right of `+` factors out.
-lemma add_suc: all m:Nat. all n:Nat.
+theorem add_suc: all m:Nat. all n:Nat.
   m + suc(n) = suc(m + n)
 proof
   induction Nat

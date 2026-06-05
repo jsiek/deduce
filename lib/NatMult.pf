@@ -38,7 +38,7 @@ end
 auto nat_zero_mult
 
 // Right zero of multiplication.
-lemma mult_zero: all n:Nat.
+theorem mult_zero: all n:Nat.
   n * zero = zero
 proof
   induction Nat
@@ -72,7 +72,7 @@ end
 auto lit_suc_mult
 
 // Step the right operand of `*` through `suc`.
-lemma mult_suc: all m:Nat. all n:Nat.
+theorem mult_suc: all m:Nat. all n:Nat.
   m * suc(n) = m + m * n
 proof
   induction Nat
