@@ -1,0 +1,61 @@
+// gauss_sum.pf
+//
+// A classic introductory functional-programming / induction example:
+// the function that sums the first n natural numbers,
+//
+//     sum_upto(n) = 0 + 1 + 2 + ... + n
+//
+// and the closed-form "Gauss" formula for it. To stay within the
+// natural numbers (no division), we prove the doubled form, where
+// suc(n) plays the role of n + 1:
+//
+//     2 * sum_upto(n) = n * (n + 1)
+//
+// The induction is done once, in the helper `sum_upto_double`, phrased
+// as sum_upto(n) + sum_upto(n) so that the arithmetic stays in terms of
+// `suc` (avoiding the literal `2`). The headline theorem `gauss_sum`
+// then follows in one step.
+
+recursive sum_upto(Nat) -> Nat {
+  sum_upto(zero) = zero
+  sum_upto(suc(n)) = suc(n) + sum_upto(n)
+}
+
+// A quick test of the definition: 0+1+2+3+4+5 = 15.
+assert sum_upto(ℕ5) = ℕ15
+
+// The heart of the proof, by induction on n.
+theorem sum_upto_double: all n:Nat.
+  sum_upto(n) + sum_upto(n) = n * suc(n)
+proof
+  induction Nat
+  case zero {
+    evaluate
+  }
+  case suc(n') assume IH: sum_upto(n') + sum_upto(n') = n' * suc(n') {
+    // Unfold the closed form by commuting the suc-headed factor to the
+    // front, where `*` reduces by its recursive definition.
+    have rhs_exp: suc(n') * suc(suc(n')) = suc(n') + suc(n') + n' * suc(n')
+      by equations
+           suc(n') * suc(suc(n'))
+               = suc(suc(n')) * suc(n')                by mult_commute[suc(n'), suc(suc(n'))]
+           ... = suc(n') + suc(n') + n' * suc(n')      by expand operator* | operator*.
+    equations
+      sum_upto(suc(n')) + sum_upto(suc(n'))
+          = (suc(n') + sum_upto(n')) + (suc(n') + sum_upto(n'))    by expand sum_upto.
+      ... = suc(n') + suc(n') + (sum_upto(n') + sum_upto(n'))
+                       by replace add_commute[suc(n') + sum_upto(n'), suc(n')].
+      ... = suc(n') + suc(n') + n' * suc(n')                       by replace IH.
+      ... = suc(n') * suc(suc(n'))                                 by symmetric rhs_exp
+  }
+end
+
+// Gauss's formula in its recognizable doubled form.
+theorem gauss_sum: all n:Nat.
+  ℕ2 * sum_upto(n) = n * suc(n)
+proof
+  arbitrary n:Nat
+  equations
+    ℕ2 * sum_upto(n) = sum_upto(n) + sum_upto(n)   by lit_two_mult[sum_upto(n)]
+                 ... = n * suc(n)                   by sum_upto_double[n]
+end
