@@ -2,7 +2,8 @@
 // earlier target collapses the goal to `true` via an auto rewrite rule.
 // Here `expand filter` reduces the goal to `length(@[]) <= length(@[])`,
 // which the `uint_less_equal_refl_true` auto rule collapses to `true`; the
-// remaining `| length` then has nothing to unfold and must be a no-op.
+// remaining `| length` then has nothing to unfold. That clause is allowed
+// (the proof still validates) but Deduce emits an "unused clause" warning.
 // Regression test for https://github.com/jsiek/deduce/issues/862
 
 import UInt

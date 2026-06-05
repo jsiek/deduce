@@ -67,7 +67,7 @@ from checker_common import *
 if TYPE_CHECKING:
     from checker_proofs import update_all_head
 from checker_types import check_formula
-from error import MatchFailed, UserError, internal_error, user_error, wrap_user_error
+from error import MatchFailed, UserError, internal_error, user_error, warning, wrap_user_error
 from flags import get_verbose, print_verbose
 
 SubstitutionValue: TypeAlias = Term | Type | RecFun | GenRecFun
@@ -808,12 +808,22 @@ def expand_definitions(loc: Meta, formula: Formula, defs: Sequence[Term],
           print('new_formula = ' + str(new_formula))
       if reduced_one and is_true(new_formula):
           collapsed_by_earlier = True
-      if not reduced_one and not collapsed_by_earlier:
-          user_error(loc, 'could not find a place to expand definition of ' \
-                + name2str(var.name) \
-                + ' in:\n' + '\t' + str(new_formula) \
-                + auto_simplified_hint(new_formula) \
-                + expand_backward_mark_hint(formula, var, env))
+      if not reduced_one:
+          if collapsed_by_earlier:
+              # An earlier clause already reduced the goal to `true`, so this
+              # clause has nothing left to unfold. Allow it (expand stays
+              # order-independent w.r.t. early collapse) but warn that it is
+              # dead weight so the user can tidy the proof.
+              warning(loc, "warning: unused clause '" + name2str(var.name) \
+                    + "' in expand: the goal was already simplified to `true` " \
+                    + "by an earlier clause, so there is nothing left to " \
+                    + "expand. Drop this clause from the expand.")
+          else:
+              user_error(loc, 'could not find a place to expand definition of ' \
+                    + name2str(var.name) \
+                    + ' in:\n' + '\t' + str(new_formula) \
+                    + auto_simplified_hint(new_formula) \
+                    + expand_backward_mark_hint(formula, var, env))
 
   if num_marks == 0:          
       return check_formula(new_formula, env)
