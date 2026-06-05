@@ -28,6 +28,8 @@ export lit
 export zero
 export suc
 
-// Declaring at the end of the library, so that the induction rule is
-// available after the supporting UInt facts have been loaded.
+// Keep this explicit hook even though the public `induction UInt` case
+// syntax is driven by the bijective view in UIntDefs. The view checker
+// reuses uint_induction to supply the recursive successor IH, and the
+// declaration also preserves the theorem-shaped custom induction fallback.
 inductive UInt by uint_induction
