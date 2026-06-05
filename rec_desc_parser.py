@@ -22,9 +22,9 @@ from abstract_syntax import (
     count_marks, extract_and, extract_or, extract_tuple, get_default_mark_LHS,
     intToNat, listToNodeList, mkEqual, mkIntLit, mkUIntLit, remove_mark,
 )
-from lark import Lark, Token
+from lark import Lark, Token, exceptions
 from lark.tree import Meta
-from error import ParseError, error_header
+from error import ParseError, error_header, lark_unexpected_chars_to_parse_error
 from flags import VerboseLevel
 from edit_distance import closest_keyword, edit_distance
 
@@ -123,10 +123,18 @@ def parse(program_text: str,
     lexed = lark_parser.lex(program_text)
     token_list = []
     current_position = 0
-    for token in lexed:
-      if trace:
-        print(repr(token))
-      token_list.append(token)
+    # ``lark_parser.lex`` is a generator -- ``UnexpectedCharacters``
+    # only surfaces once the bad char is reached during iteration. Wrap
+    # the consume loop (not the construction) so the default
+    # parser-internal message gets replaced with a Deduce hint (notably
+    # for ``\``, which Haskell-trained users reach for first).
+    try:
+      for token in lexed:
+        if trace:
+          print(repr(token))
+        token_list.append(token)
+    except exceptions.UnexpectedCharacters as e:
+      raise lark_unexpected_chars_to_parse_error(e, get_filename())
 
     stmts: list[Statement] = []
     while not end_of_file():

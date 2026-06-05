@@ -1,0 +1,4 @@
+// Haskell-style backslash lambda is not Deduce syntax. The parser
+// should suggest `fun x { ... }` / `λx{ ... }` rather than dumping
+// the lark terminal set.
+assert (\x. x = x)(0)
