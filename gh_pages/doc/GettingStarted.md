@@ -454,6 +454,10 @@ This introduction to Deduce has two parts. The first part gives a tutorial on ho
 
 I recommend that you work through the examples in this introduction. Create a file named `examples.pf` in the top `deduce` directory and add the examples one at a time. To check the file, run the `deduce.py` script on the file from the `deduce` directory.
 
+When working through the programming examples, note that bare numeric
+literals such as `5` are `UInt` values. `Nat` literals use the `ℕ`
+prefix, for example `ℕ5`.
+
 The Deduce Reference manual is linked below. It provides an alphabetical list of all the features in Deduce. The Cheat Sheet gives some advice regarding proof strategy and which Deduce keyword to use next in a proof. The Syntax Overview page provides a brief overview of the syntax structure of deduce.
 
 * [Reference Manual](./Reference.md)
