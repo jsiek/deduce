@@ -69,9 +69,17 @@ quick-lsp:
 	        or missing_recall.pf \
 	        or recursive_clause_name_mismatch.pf"
 
-# Full LSP suite (~3:20). Use ``quick-lsp`` for fast iteration; this
-# target is the comprehensive check before merging.
+# Full LSP suite, fanned out one pytest process per test file across
+# cores. Each file's prelude memory is freed between files (a single
+# ``pytest test/lsp`` process accumulates it until it OOMs on a small
+# machine), and the parallelism caps wall time under three minutes with
+# no loss of coverage. A per-file timeout kills any wedged debug-session
+# file rather than letting it sink the whole run. Use ``quick-lsp`` for
+# fast iteration; ``tests-lsp-serial`` for the plain single-process run.
 tests-lsp:
+	$(PYTHON) run_lsp_tests.py
+
+tests-lsp-serial:
 	$(PYTHON) -m pytest test/lsp/
 
 # Python-level unit tests for AST helpers (issue #475). Fast: runs in
