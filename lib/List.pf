@@ -334,6 +334,26 @@ proof
   }
 end
 
+// Membership distributes over append: an element belongs to xs ++ ys
+// iff it belongs to xs or to ys.
+theorem contains_append: all T:type. all xs:List<T>, ys:List<T>, e:T.
+  contains(xs ++ ys, e) = (contains(xs, e) or contains(ys, e))
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary ys:List<T>, e:T
+    expand operator++ | contains.
+  }
+  case node(x, xs') assume IH: all ys:List<T>, e:T.
+      contains(xs' ++ ys, e) = (contains(xs', e) or contains(ys, e)) {
+    arbitrary ys:List<T>, e:T
+    expand operator++ | contains
+    replace IH[ys, e]
+    or_assoc[(x = e), contains(xs', e), contains(ys, e)]
+  }
+end
+
 // Reversing a list preserves its length.
 theorem length_reverse: all U :type, xs :List<U>.
   length(reverse(xs)) = length(xs)
@@ -533,6 +553,59 @@ proof
   }
 end
 */
+
+// `filter` and its complement partition the input by length: the kept
+// and dropped sublists' lengths sum to the original.
+theorem length_filter_complement: all T:type. all xs:List<T>. all p:fn(T)->bool.
+  length(filter(xs, p)) + length(filter(xs, fun y:T { not p(y) })) = length(xs)
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary p:fn(T)->bool
+    expand filter | length.
+  }
+  case node(x, xs') assume IH: all p:fn(T)->bool.
+      length(filter(xs', p)) + length(filter(xs', fun y:T { not p(y) })) = length(xs') {
+    arbitrary p:fn(T)->bool
+    switch p(x) {
+      case true assume px_true {
+        have keep_eq: filter(node(x, xs'), p) = node(x, filter(xs', p))
+          by expand filter simplify with px_true.
+        have drop_eq: filter(node(x, xs'), fun y:T { not p(y) })
+                   = filter(xs', fun y:T { not p(y) })
+          by expand filter simplify with px_true.
+        equations
+          length(filter(node(x, xs'), p)) + length(filter(node(x, xs'), fun y:T { not p(y) }))
+              = (1 + length(filter(xs', p))) + length(filter(xs', fun y:T { not p(y) }))
+                  by replace keep_eq | drop_eq expand length.
+          ... = 1 + (length(filter(xs', p)) + length(filter(xs', fun y:T { not p(y) })))
+                  by .
+          ... = 1 + length(xs')         by replace IH[p].
+          ... = #length(node(x, xs'))#  by expand length.
+      }
+      case false assume px_false {
+        have drop_eq: filter(node(x, xs'), p) = filter(xs', p)
+          by expand filter simplify with px_false.
+        have keep_eq: filter(node(x, xs'), fun y:T { not p(y) })
+                   = node(x, filter(xs', fun y:T { not p(y) }))
+          by expand filter simplify with px_false.
+        equations
+          length(filter(node(x, xs'), p)) + length(filter(node(x, xs'), fun y:T { not p(y) }))
+              = length(filter(xs', p)) + (1 + length(filter(xs', fun y:T { not p(y) })))
+                  by replace keep_eq | drop_eq expand length.
+          ... = (length(filter(xs', p)) + 1) + length(filter(xs', fun y:T { not p(y) }))
+                  by .
+          ... = (1 + length(filter(xs', p))) + length(filter(xs', fun y:T { not p(y) }))
+                  by replace uint_add_commute[length(filter(xs', p)), 1].
+          ... = 1 + (length(filter(xs', p)) + length(filter(xs', fun y:T { not p(y) })))
+                  by .
+          ... = 1 + length(xs')         by replace IH[p].
+          ... = #length(node(x, xs'))#  by expand length.
+      }
+    }
+  }
+end
 
 // A list whose `set_of` is empty must itself be empty.
 theorem set_of_empty: all T:type, xs:List<T>.
