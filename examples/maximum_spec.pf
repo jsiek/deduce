@@ -46,40 +46,6 @@ assert maximum([3, 1, 4, 1, 5, 9, 2, 6]) = 9
 assert maximum(@[]<UInt>) = 0
 
 // ============================================================
-// Small helpers.
-// ============================================================
-
-// Associativity of `or` (not in the prelude).
-theorem bool_or_assoc: all P:bool, Q:bool, R:bool.
-  (P or (Q or R)) = ((P or Q) or R)
-proof
-  arbitrary P:bool, Q:bool, R:bool
-  switch P {
-    case true { . }
-    case false { . }
-  }
-end
-
-// Membership distributes over append.
-theorem contains_append: all T:type. all xs:List<T>, ys:List<T>, e:T.
-  contains(xs ++ ys, e) = (contains(xs, e) or contains(ys, e))
-proof
-  arbitrary T:type
-  induction List<T>
-  case empty {
-    arbitrary ys:List<T>, e:T
-    expand operator++ | contains.
-  }
-  case node(x, xs') assume IH: all ys:List<T>, e:T.
-      contains(xs' ++ ys, e) = (contains(xs', e) or contains(ys, e)) {
-    arbitrary ys:List<T>, e:T
-    expand operator++ | contains
-    replace IH[ys, e]
-    bool_or_assoc[(x = e), contains(xs', e), contains(ys, e)]
-  }
-end
-
-// ============================================================
 // The specification, proved of `maximum`.
 // ============================================================
 

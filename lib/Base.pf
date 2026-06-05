@@ -44,6 +44,17 @@ proof
   }
 end
 
+// Disjunction is associative.
+theorem or_assoc: all P:bool, Q:bool, R:bool.
+  (P or (Q or R)) = ((P or Q) or R)
+proof
+  arbitrary P:bool, Q:bool, R:bool
+  switch P {
+    case true { . }
+    case false { . }
+  }
+end
+
 // Conjunction is symmetric.
 theorem and_sym: all P:bool, Q:bool.  (P and Q) = (Q and P)
 proof
