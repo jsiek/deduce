@@ -945,8 +945,8 @@ conclusion ::= "equations" equation equation_list
 ```
 
 ```deduce-grammar
-equation ::= comparison_term "=" additive_term reason
-half_equation ::= "..." "=" additive_term reason
+equation ::= equation_side "=" equation_side reason
+half_equation ::= "..." "=" equation_side reason
 equation_list ::= half_equation
 equation_list ::= half_equation equation_list
 equation_list ::= "$" equation equation_list
@@ -957,6 +957,12 @@ so Deduce provides `equations` to streamline this process.  After the
 first equation, the left-hand side of each equation is written as
 `...` because it is just a repetition of the right-hand side of the
 previous equation.
+
+Each `equation_side` may use the logical connectives `and`, `or`, and
+`iff` without parentheses (for example, `P or Q = Q or P`); the `=`
+that separates the two sides of a step still binds the whole step
+together, even though the `=` operator normally binds more tightly than
+those connectives.
 
 When using `replace` or `expand` for one of the reasoning steps in
 `equations`, the transformation is, by default, applied to the

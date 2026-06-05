@@ -1,0 +1,38 @@
+// An `equations` step may carry the low-precedence logical connectives
+// `or`, `and`, and `iff` on either side, unparenthesized. The step-separator
+// `=` still binds the two sides together (it is not read as the boolean `=`
+// operator that normally binds tighter than these connectives).
+// Regression test for https://github.com/jsiek/deduce/issues/857
+
+theorem equation_or_on_both_sides: all P:bool, Q:bool, R:bool.
+  (P or (Q or R)) = ((P or Q) or R)
+proof
+  arbitrary P:bool, Q:bool, R:bool
+  equations
+    P or (Q or R)        = (P or Q) or R    by .
+end
+
+theorem equation_and_on_both_sides: all P:bool, Q:bool, R:bool.
+  (P and (Q and R)) = ((P and Q) and R)
+proof
+  arbitrary P:bool, Q:bool, R:bool
+  equations
+    P and (Q and R)      = (P and Q) and R  by .
+end
+
+theorem equation_iff_on_both_sides: all P:bool, Q:bool.
+  (P iff Q) = (P iff Q)
+proof
+  arbitrary P:bool, Q:bool
+  equations
+    P iff Q              = P iff Q          by .
+end
+
+theorem equation_chained_or: all P:bool.
+  (P or true) = true
+proof
+  arbitrary P:bool
+  equations
+    P or true            = true or P        by .
+                     ... = true             by .
+end
