@@ -1,0 +1,2 @@
+./test/should-error/nat_literal_hint_expected.pf:4.18-4.19: expected Nat but the call returns UInt
+	numeric literals default to `UInt`; for a `Nat` literal write `ℕ5`.
