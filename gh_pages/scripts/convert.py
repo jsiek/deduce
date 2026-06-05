@@ -24,6 +24,7 @@ mdToHtmlName = {
     'StandardLib' : 'stdlib',
     'Compiler' : 'compiler',
     'Debugger' : 'debugger',
+    'Emacs' : 'emacs',
     'Index' : 'index',
 }
 
@@ -39,6 +40,7 @@ mdToTitle = {
     'StandardLib' : 'Standard Library',
     'Compiler' : 'Compiler',
     'Debugger' : 'Debugger',
+    'Emacs' : 'Emacs Mode',
     'Index' : 'Home',
 }
 
@@ -54,6 +56,7 @@ mdToDescription = {
     'StandardLib' : 'Documentation for the deduce standard library.',
     'Compiler' : 'Compile Deduce programs to a self-contained C binary.',
     'Debugger' : 'Step through Deduce programs with the gdb-style debugger.',
+    'Emacs' : 'Setup and AI-assisted proof completion for Deduce\'s Emacs mode.',
     'Index' : 'Deduce is an automated proof checker meant for use in education to help students',
 }
 
@@ -69,6 +72,7 @@ mdToDeduceCode = {
     'StandardLib' : 'stdlib',
     'Compiler' : 'compiler',
     'Debugger' : 'debugger',
+    'Emacs' : 'emacs',
     'Index' : 'index',
 }
 
