@@ -1921,10 +1921,9 @@ def _check_proof_of_switch(proof: SwitchProof, formula: CheckedFormula, env: Env
       match env.get_def_of_type_var(tname):
         case Union(_, _, typarams, alts):
           # Prefer a bijective view when the cases are written against
-          # the view target constructors. Until UInt's target
-          # constructors are renamed, the older `case 0` / `case with
-          # m. 1 + m` syntax still falls through to the custom
-          # induction path below.
+          # the view target constructors. This is the public UInt path:
+          # `case zero` / `case suc(m)` are handled by the view before
+          # any custom-induction fallback is considered.
           view_match = _bijective_view_for_source_type(loc, ty, env)
           if view_match is not None:
             view, _, view_target_ty, view_type_args = view_match
@@ -1936,14 +1935,12 @@ def _check_proof_of_switch(proof: SwitchProof, formula: CheckedFormula, env: Env
                                      env)
               return
 
-          # If the type has a custom induction theorem (e.g. UInt's 0 /
-          # 1+m view) and any case looks like the public view rather
-          # than a union constructor, dispatch to the custom-induction
-          # path so `case 0 { ... }` / `case with m. 1 + m { ... }`
-          # actually checks. Switches whose cases all use the union
-          # constructors continue through the existing handler below
-          # (this matters for the in-module switches in UIntAdd etc.,
-          # where `bzero` / `dub_inc` / `inc_dub` are still in scope).
+          # If the type has a custom induction theorem and a case
+          # misses both the view target constructors and the underlying
+          # union constructors, fall back to the custom-induction path.
+          # UInt keeps this hook as the support theorem for recursive
+          # view induction and for legacy theorem-shaped cases such as
+          # `case 0` / `case with m. 1 + m`.
           custom_ind = env.get_inductive(ty)
           if custom_ind is not None and any(
               not _switch_pattern_could_match_alts(c.pattern, alts)

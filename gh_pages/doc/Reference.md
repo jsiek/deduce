@@ -1494,7 +1494,9 @@ case with x. 1 + x assume IH { ... }
 ```
 
 For `UInt`, this means `induction UInt` uses the public zero/successor
-view constructors, not the private binary constructors. The two cases are:
+view constructors, not the private binary constructors. The library still
+registers `uint_induction` as the supporting theorem that supplies the
+recursive successor IH. The two public cases are:
 
 ```
 case zero { ... }
