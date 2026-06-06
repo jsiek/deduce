@@ -1,0 +1,42 @@
+// reverse_involutive.pf
+//
+// A classic introductory-functional-programming example: reversing a
+// list twice gives back the original list.
+//
+//   reverse(reverse(xs)) = xs
+//
+// This is the canonical "prove it by induction" exercise (it appears,
+// for instance, as `rev_involutive` in Software Foundations). The
+// `reverse` function and the helper lemma `reverse_append` live in the
+// standard library (`lib/List.pf`):
+//
+//   reverse([])           = []
+//   reverse(node(n, xs))  = reverse(xs) ++ [n]
+//
+//   reverse_append:  reverse(xs ++ ys) = reverse(ys) ++ reverse(xs)
+//
+// The proof is by induction on the list. The node case is the heart of
+// it: `reverse(node(x, xs'))` is `reverse(xs') ++ [x]`, so reversing it
+// again lets us push the outer `reverse` through the append with
+// `reverse_append` and then apply the induction hypothesis.
+
+assert reverse(reverse([1, 2, 3])) = [1, 2, 3]
+assert reverse(reverse(@[]<UInt>)) = @[]<UInt>
+
+theorem reverse_involutive: all T:type. all xs:List<T>.
+  reverse(reverse(xs)) = xs
+proof
+  arbitrary T:type
+  induction List<T>
+  case [] {
+    expand reverse.
+  }
+  case node(x, xs') assume IH: reverse(reverse(xs')) = xs' {
+    equations
+      reverse(reverse(node(x, xs')))
+          = reverse(reverse(xs') ++ [x])           by expand reverse.
+      ... = reverse([x]) ++ reverse(reverse(xs'))  by reverse_append<T>[reverse(xs'), [x]]
+      ... = reverse([x]) ++ xs'                    by replace IH.
+      ... = node(x, xs')                           by evaluate
+  }
+end
