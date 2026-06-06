@@ -343,17 +343,18 @@ $ claude
 Claude will call the Deduce MCP server's `check_file` tool, see the
 diagnostics, and respond. The full tool list:
 
-For incomplete-proof diagnostics on a `?`, `check_file` includes a
-stable declaration-scoped `hole_id` (for example `my_theorem#0`) and
-the same structured goal payload that `goal_at` returns. The MCP
-position tools that expose `hole_id` can use `{path, hole_id}` instead
-of `{path, line, column}` when the caller has a fresh ID from
-`check_file`.
+For incomplete-proof diagnostics on a `?` or named `?goal`, `check_file`
+includes a stable declaration-scoped `hole_id` (for example
+`my_theorem#0`) and the same structured goal payload that `goal_at`
+returns. Named holes also include a `hole` field, such as `"goal"`.
+The MCP position tools that expose `hole_id` and `hole` can use
+`{path, hole_id}` or `{path, hole}` instead of `{path, line, column}`
+when the caller has a fresh handle from `check_file`.
 
 | Tool                       | What it does                                                  |
 | -------------------------- | ------------------------------------------------------------- |
-| `check_file`               | Type-check and proof-check a `.pf` file, optionally with inline `content`; returns diagnostics, hole IDs, and structured goals. |
-| `goal_at`                  | Return the proof goal + givens at a cursor position or `hole_id`. |
+| `check_file`               | Type-check and proof-check a `.pf` file, optionally with inline `content`; returns diagnostics, hole IDs/names, and structured goals. |
+| `goal_at`                  | Return the proof goal + givens at a cursor position, `hole_id`, or named hole. |
 | `definition_of`            | Jump from a symbol to its declaration.                        |
 | `list_symbols`             | Outline of top-level theorems / definitions in a file.        |
 | `refine_at`                | Refine a `?` based on the goal's shape.                       |
@@ -368,7 +369,7 @@ of `{path, line, column}` when the caller has a fresh ID from
 | `apply_at`                 | Preview `apply <theorem>[<args>] to ?` at a hole.             |
 | `preview_replace_at`       | Preview the goal after `replace <equation>`.                  |
 | `preview_expand_at`        | Preview the goal after `expand <names>`.                      |
-| `available_lemmas_at`      | Search ranked visible lemmas at a position, query, or `hole_id`. |
+| `available_lemmas_at`      | Search ranked visible lemmas at a position, query, `hole_id`, or named hole. |
 | `auto_rules_at`            | List visible `auto` rewrite rules at a position.              |
 
 These are the same operations the Emacs mode binds to `C-c C-r`,

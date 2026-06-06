@@ -349,6 +349,8 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
         return Call(e.meta, None, Var(e.meta, None, '-'), [arg])
     elif e.data == 'hole_term':
         return Hole(e.meta, None)
+    elif e.data == 'named_hole_term':
+        return Hole(e.meta, None)
     elif e.data == 'omitted_term':
         return Omitted(e.meta, None)
     elif e.data == 'identifier':
@@ -458,6 +460,8 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
     elif e.data == 'true_proof':
         return PTrue(e.meta)
     elif e.data == 'hole_proof':
+        return PHole(e.meta)
+    elif e.data == 'named_hole_proof':
         return PHole(e.meta)
     elif e.data == 'sorry_proof':
         return PSorry(e.meta)

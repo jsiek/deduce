@@ -888,6 +888,12 @@ def _line_col_to_offset(content: str, pos: Position) -> Optional[int]:
 
 
 _END_RE = re.compile(r"\bend\b")
+_IDENT_START_RE = r"[^\W\dλ₀₁₂₃₄₅₆₇₈₉]"
+_IDENT_CONTINUE_RE = r"(?:[^\Wλ]|[₀₁₂₃₄₅₆₇₈₉!?'])*"
+_HOLE_TOKEN_RE = re.compile(
+    rf"(?<![^\Wλ])(?<![₀₁₂₃₄₅₆₇₈₉!?'])"
+    rf"\?(?:{_IDENT_START_RE}{_IDENT_CONTINUE_RE})?"
+)
 
 
 def _goal_from_exception(
@@ -1866,19 +1872,28 @@ def refine_at(
 
 
 def _find_hole_at(content: str, pos: Position) -> Optional[Range]:
-    """Return the source range of a ``?`` token at or adjacent to ``pos``.
+    """Return the source range of a ``?`` / ``?name`` token at ``pos``.
 
-    Tries the cursor offset itself, then one position to the left
-    (cursor sits just after the ``?``). Returns ``None`` when neither
-    matches.
+    The cursor may sit anywhere inside the token or just after it.
+    Returns ``None`` when no hole token matches.
     """
     offset = _line_col_to_offset(content, pos)
     if offset is None:
         return None
-    for try_off in (offset, offset - 1):
-        if 0 <= try_off < len(content) and content[try_off] == "?":
-            return _char_range_at(content, try_off)
+    for match in _HOLE_TOKEN_RE.finditer(content):
+        if match.start() <= offset <= match.end():
+            return _range_for_offsets(content, match.start(), match.end())
     return None
+
+
+def _range_for_offsets(content: str, start: int, end: int) -> Range:
+    """Return a 1-indexed Range for ``content[start:end]``."""
+    start_line, start_col = _offset_to_line_col(content, start)
+    end_line, end_col = _offset_to_line_col(content, end)
+    return Range(
+        start=Position(line=start_line, column=start_col),
+        end=Position(line=end_line, column=end_col),
+    )
 
 
 def _char_range_at(content: str, offset: int) -> Range:

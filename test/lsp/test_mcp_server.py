@@ -207,6 +207,36 @@ async def test_check_file_hole_diagnostics_include_ids_and_goals(
 
 
 @pytest.mark.anyio
+async def test_check_file_named_hole_diagnostics_include_names(
+    server, tmp_path
+):
+    src = (
+        "theorem named: all P:bool, Q:bool. P and Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  ?left, ?right\n"
+        "end\n"
+    )
+    fp = tmp_path / "named-holes.pf"
+    fp.write_text(src)
+
+    payload = await _call(server, "check_file", {"path": str(fp)})
+
+    diags = payload["diagnostics"]
+    assert len(diags) == 2
+    by_name = {diag["hole"]: diag for diag in diags}
+    assert set(by_name) == {"left", "right"}
+    assert by_name["left"]["hole_id"] == "named#0"
+    assert by_name["left"]["goal"]["formula"] == "P"
+    assert by_name["left"]["range"]["start"] == {"line": 4, "column": 3}
+    assert by_name["left"]["range"]["end"] == {"line": 4, "column": 8}
+    assert by_name["right"]["hole_id"] == "named#1"
+    assert by_name["right"]["goal"]["formula"] == "Q"
+    assert by_name["right"]["range"]["start"] == {"line": 4, "column": 10}
+    assert by_name["right"]["range"]["end"] == {"line": 4, "column": 16}
+
+
+@pytest.mark.anyio
 async def test_hole_id_resolves_goal_after_lines_shift(server, tmp_path):
     src = (
         "// Later edits can add lines above the declaration.\n"
@@ -227,6 +257,31 @@ async def test_hole_id_resolves_goal_after_lines_shift(server, tmp_path):
     assert payload is not None
     assert payload["formula"] == "P = P"
     assert payload["range"]["start"] == {"line": 6, "column": 3}
+
+
+@pytest.mark.anyio
+async def test_named_hole_resolves_goal(server, tmp_path):
+    src = (
+        "// Later edits can move this declaration without invalidating"
+        " the name.\n"
+        "\n"
+        "theorem named_owner: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  ?target\n"
+        "end\n"
+    )
+    fp = tmp_path / "named-goal.pf"
+    fp.write_text(src)
+
+    payload = await _call(
+        server, "goal_at", {"path": str(fp), "hole": "target"}
+    )
+
+    assert payload is not None
+    assert payload["formula"] == "P = P"
+    assert payload["range"]["start"] == {"line": 6, "column": 3}
+    assert payload["range"]["end"] == {"line": 6, "column": 10}
 
 
 @pytest.mark.anyio

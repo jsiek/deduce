@@ -356,6 +356,11 @@ def parse_term_hi() -> Term:
     meta = meta_from_tokens(token,token)
     return Hole(meta, None)
 
+  elif token.type == 'NAMED_HOLE':
+    advance()
+    meta = meta_from_tokens(token,token)
+    return Hole(meta, None)
+
   elif token.type == 'SOME':
     advance()
     vars = parse_type_annot_list()
@@ -810,6 +815,11 @@ def parse_proof_hi() -> Proof:
     return proof
 
   elif token.type == 'QMARK':
+    advance()
+    meta = meta_from_tokens(token, token)
+    return PHole(meta)
+
+  elif token.type == 'NAMED_HOLE':
     advance()
     meta = meta_from_tokens(token, token)
     return PHole(meta)
