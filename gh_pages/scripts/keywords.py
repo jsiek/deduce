@@ -75,6 +75,7 @@ known_tokens = {
     'MINUS': 'operator',
     'MODULE': 'keyword',
     'MORETHAN': 'operator',
+    'NAMED_HOLE': 'operator',
     'NOT': 'keyword',
     'NAT': 'keyword',
     'OBTAIN': 'keyword',
