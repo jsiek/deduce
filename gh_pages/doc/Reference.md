@@ -150,8 +150,8 @@ presentation while they are migrated to the strict check.
 
 ## Add
 
-```
-term ::= term "+" term
+```deduce-grammar
+additive_term ::= additive_term "+" multiplicative_term
 ```
 
 The addition operator for unsigned integers is defined in `UInt.pf`
@@ -165,15 +165,16 @@ assert 2 + 3 = 5
 
 ## Add (Multiset)
 
-```
-term ::= term "⨄" term
-term ::= term "[+]" term
+```deduce-grammar
+additive_term ::= additive_term "⨄" multiplicative_term
+additive_term ::= additive_term ".+." multiplicative_term
 ```
 
 Addition on multisets is defined in `MultiSet.pf`.  The main theorem
 about multiset addition is `cnt_sum`, which says that the count for
 each item in `A ⨄ B` is the sum of (1) the count for that item in `A`
 and (2) the count for that item in `B`.
+The ASCII spelling `.+.` is equivalent to `⨄`.
 
 ```
 cnt_sum: all T:type. all A:MultiSet<T>, B:MultiSet<T>, x:T.
@@ -239,8 +240,8 @@ end
 
 ## And (logical conjunction)
 
-```
-formula ::= formula "and" formula
+```deduce-grammar
+logical_term ::= logical_term "and" equality_term
 ```
 
 The formula `P and Q` is true when both `P` and `Q` are true.
@@ -285,8 +286,8 @@ end
 
 ## Append
 
-```
-term ::= term "++" term
+```deduce-grammar
+additive_term ::= additive_term "++" multiplicative_term
 ```
 
 The append function, i.e., `operator ++`, is defined in `List.pf` as follows.
@@ -478,10 +479,10 @@ theorem uint_mult_commute: all m:UInt, n:UInt.
 
 ## Biconditional (if and only if)
 
-```
-formula ::= formula "⇔" formula
-formula ::= formula "<=>" formula
-formula ::= formula "iff" formula
+```deduce-grammar
+iff_term ::= iff_term "⇔" logical_term
+iff_term ::= iff_term "<=>" logical_term
+iff_term ::= iff_term "iff" logical_term
 ```
 
 The biconditional formula `P ⇔ Q` is syntactic sugar for
@@ -591,13 +592,14 @@ See the entry for [And](#and-logical-conjunction).
 
 ## Compose (Functions)
 
-```
-term ::= term "∘" term
-term ::= term "[o]" term
+```deduce-grammar
+multiplicative_term ::= multiplicative_term "∘" exponent_term
+multiplicative_term ::= multiplicative_term ".o." exponent_term
 ```
 
 The composition of two functions `g ∘ f` is defined in `Maps.pf`
 so that `(g ∘ f)(x) = g(f(x))`.
+The ASCII spelling `.o.` is equivalent to `∘`.
 
 Example:
 
@@ -809,8 +811,8 @@ end
 
 ## Divide
 
-```
-term ::= term "/" term
+```deduce-grammar
+multiplicative_term ::= multiplicative_term "/" exponent_term
 ```
 
 The division function for `UInt` is defined in `UInt.pf`.  The main
@@ -918,8 +920,8 @@ end
 
 ## Empty Set
 
-```
-term ::= "∅"
+```deduce-grammar
+atomic_term ::= "∅"
 ```
 
 The empty set `∅` does not contain any elements and is defined in
@@ -927,8 +929,8 @@ The empty set `∅` does not contain any elements and is defined in
 
 ## Equal
 
-```
-formula ::= term "=" term
+```deduce-grammar
+equality_term ::= equality_term "=" comparison_term
 ```
 
 The formula `a = b` is true when the left-hand side and right-hand are
@@ -1202,8 +1204,8 @@ within a proof.
 
 ## Greater-Than
 
-```
-formula ::= term ">" term
+```deduce-grammar
+comparison_term ::= comparison_term ">" additive_term
 ```
 
 The greater-than operator on unsigned integers is defined in `UInt.pf`
@@ -1224,9 +1226,9 @@ assert not (0 > 1)
 
 ## Greater-Than or Equal
 
-```
-formula ::= term "≥" term
-formula ::= term ">=" term
+```deduce-grammar
+comparison_term ::= comparison_term "≥" additive_term
+comparison_term ::= comparison_term ">=" additive_term
 ```
 
 The greater-than-or-equal operator on unsigned integers is defined in `UInt.pf`
@@ -1395,9 +1397,9 @@ the re-exports.
 
 ## In (Set Membership)
 
-```
-formula ::= term "∈" term
-formula ::= term "in" term
+```deduce-grammar
+comparison_term ::= comparison_term "∈" additive_term
+comparison_term ::= comparison_term "in" additive_term
 ```
 
 The formula `x ∈ S` is true when element `x` is contained in the set `S`.
@@ -1577,9 +1579,9 @@ define empty_nat_list = @empty<UInt>
 
 ## Intersection
 
-```
-term ::= term "∩" term
-term ::= term "&" term
+```deduce-grammar
+additive_term ::= additive_term "∩" multiplicative_term
+additive_term ::= additive_term "&" multiplicative_term
 ```
 
 Set intersection is defined in `Set.pf`.
@@ -1598,8 +1600,8 @@ assert not (3 ∈ C ∩ D)
 
 ## Less-Than
 
-```
-formula ::= term "<" term
+```deduce-grammar
+comparison_term ::= comparison_term "<" additive_term
 ```
 
 The less-than operator on unsigned integers is defined in `UInt.pf`.
@@ -1616,9 +1618,9 @@ assert not (2 < 1)
 
 ## Less-Than or Equal
 
-```
-formula ::= term "≤" term
-formula ::= term "<=" term
+```deduce-grammar
+comparison_term ::= comparison_term "≤" additive_term
+comparison_term ::= comparison_term "<=" additive_term
 ```
 
 The less-than-or-equal operator on unsigned integers is defined in `UInt.pf`.
@@ -1692,8 +1694,8 @@ end
 
 ## Modulo
 
-```
-term ::= term "%" term
+```deduce-grammar
+multiplicative_term ::= multiplicative_term "%" exponent_term
 ```
 
 The modulo operator is defined in `UInt.pf` as follows. 
@@ -1722,8 +1724,8 @@ See the entry for [Apply-To](#apply-to-proof-modus-ponens).
 
 ## Multiply
 
-```
-term ::= term "*" term
+```deduce-grammar
+multiplicative_term ::= multiplicative_term "*" exponent_term
 ```
 
 Multiplication on unsigned integers is defined in `UInt.pf`.
@@ -1744,9 +1746,8 @@ element. The `MultiSet<T>` type is defined in `MultiSet.pf`.
 
 ## Natural Number
 
-```
-natural_number ::= ℕ[0-9]+
-term ::= natural_number
+```deduce-grammar
+atomic_term ::= natural_number
 ```
 
 An natural number literal is the symbol `ℕ` followed by a sequence of
@@ -1767,9 +1768,9 @@ Deduce treats `not P` as syntactic sugar for `(if P then false)`.
 
 ## Not Equal
 
-```
-formula ::= term "≠" term
-formula ::= term "/=" term
+```deduce-grammar
+equality_term ::= equality_term "≠" comparison_term
+equality_term ::= equality_term "/=" comparison_term
 ```
 
 Deduce treats `x ≠ y` as syntactic sugar for `not (x = y)`.
@@ -1888,8 +1889,8 @@ implement and names the corresponding public Lark rules.
 
 ## Or  (logical disjunction)
 
-```
-formula ::= formula "or" formula
+```deduce-grammar
+logical_term ::= logical_term "or" equality_term
 ```
 
 The formula `P or Q` is true when either `P` is true or `Q` is true.
@@ -2518,9 +2519,9 @@ However, it prints a warning message with the location of the `sorry`.
 
 ## Subset or Equal
 
-```
-formula ::= term "⊆" term
-formula ::= term "(=" term
+```deduce-grammar
+comparison_term ::= comparison_term "⊆" additive_term
+comparison_term ::= comparison_term "(=" additive_term
 ```
 
 The formula `A ⊆ B` is true when every element of set `A` is
@@ -2547,8 +2548,8 @@ end
 
 ## Subtract (Producing Integers)
 
-```
-term ::= term "-" term
+```deduce-grammar
+additive_term ::= additive_term "-" multiplicative_term
 ```
 
 ```{.deduce^#subtract_example}
@@ -2559,9 +2560,9 @@ assert 2 - 3 = -1
 
 ## Subtraction of Unsigned Integers (aka. monus or truncated subtraction)
 
-```
-term ::= term "∸" term
-term ::= term ".-." term
+```deduce-grammar
+additive_term ::= additive_term "∸" multiplicative_term
+additive_term ::= additive_term ".-." multiplicative_term
 ```
 
 The monus operator is different from ordanary subtraction on integers
@@ -2943,9 +2944,9 @@ define T3 : Tree = Internal(T1, 5, T2)
 
 ## Union (Operator on Sets)
 
-```
-term ::= term "∪" term
-term ::= term "|" term
+```deduce-grammar
+additive_term ::= additive_term "∪" multiplicative_term
+additive_term ::= additive_term "|" multiplicative_term
 ```
 
 Set union is defined in `Set.pf`.
@@ -2965,9 +2966,8 @@ assert not (4 ∈ C' ∪ D')
 
 ## Unsigned Integer
 
-```
-unsigned_integer ::= [0-9]+
-term ::= unsigned_integer
+```deduce-grammar
+atomic_term ::= unsigned_integer
 ```
 
 An unsigned integer literal is a sequence of one or more digits.
