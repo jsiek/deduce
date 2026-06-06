@@ -32,12 +32,21 @@ TOKEN_ALIASES = {
     "unsigned_integer": "INT",
 }
 PASSTHROUGH_RULES = {"atomic_type"}
+# Many Reference entries document one syntax form at a time. For these
+# categories, every documented alternative must exist in Deduce.lark, but the
+# entry does not have to repeat the full rule.
 SUBSET_RULES = {
-    "statement",
+    "additive_term",
     "atomic_term",
-    "proof_stmt",
     "atomic_proof",
     "conclusion",
+    "comparison_term",
+    "equality_term",
+    "iff_term",
+    "logical_term",
+    "multiplicative_term",
+    "proof_stmt",
+    "statement",
     "visibility",
 }
 
