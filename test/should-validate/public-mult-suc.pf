@@ -1,0 +1,26 @@
+// Regression test for https://github.com/jsiek/deduce/issues/881
+// `mult_suc`, `add_suc`, and `mult_zero` were module-private `lemma`s,
+// so a user file could not cite them. They are now public `theorem`s.
+
+import Nat
+
+theorem mult_suc_is_public: all m:Nat, n:Nat.
+  m * suc(n) = m + m * n
+proof
+  arbitrary m:Nat, n:Nat
+  mult_suc[m][n]
+end
+
+theorem add_suc_is_public: all m:Nat, n:Nat.
+  m + suc(n) = suc(m + n)
+proof
+  arbitrary m:Nat, n:Nat
+  add_suc[m][n]
+end
+
+theorem mult_zero_is_public: all n:Nat.
+  n * zero = zero
+proof
+  arbitrary n:Nat
+  mult_zero[n]
+end
