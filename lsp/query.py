@@ -1875,15 +1875,26 @@ def _find_hole_at(content: str, pos: Position) -> Optional[Range]:
     """Return the source range of a ``?`` / ``?name`` token at ``pos``.
 
     The cursor may sit anywhere inside the token or just after it.
-    Returns ``None`` when no hole token matches.
+    When the cursor isn't on a token but the line contains one or more
+    ``?`` tokens, snap to the closest one on that line -- a near-miss
+    cursor shouldn't flip goal-driven MCP tools into browse mode
+    (issue #903).  Returns ``None`` when no hole token is on the cursor
+    or on the cursor's line.
     """
     offset = _line_col_to_offset(content, pos)
     if offset is None:
         return None
+    same_line: list[tuple[int, int]] = []
     for match in _HOLE_TOKEN_RE.finditer(content):
         if match.start() <= offset <= match.end():
             return _range_for_offsets(content, match.start(), match.end())
-    return None
+        start_line, _ = _offset_to_line_col(content, match.start())
+        if start_line == pos.line:
+            same_line.append((match.start(), match.end()))
+    if not same_line:
+        return None
+    start, end = min(same_line, key=lambda se: abs(se[0] - offset))
+    return _range_for_offsets(content, start, end)
 
 
 def _range_for_offsets(content: str, start: int, end: int) -> Range:
@@ -3748,14 +3759,11 @@ def available_lemmas_at(
 
     # A proof can't cite the theorem it's proving -- circularity --
     # so drop the enclosing theorem from candidates before ranking.
-    # Only applies when the cursor is at a hole inside a proof body;
-    # browse mode (cursor anywhere else) keeps every declaration
-    # visible, including the theorem that happens to start at pos.
-    exclude = (
-        _enclosing_theorem_name(ast_nodes, pos)
-        if hole_range is not None
-        else None
-    )
+    # Applies in browse mode too: surfacing the theorem currently
+    # being edited as a top recommendation reproduces the visible
+    # weirdness from issue #903 (the user-file theorem ranks at 1.0
+    # alongside browse-mode "alphabetical soup").
+    exclude = _enclosing_theorem_name(ast_nodes, pos)
     candidates = _collect_lemma_candidates(
         path, ast_nodes, prelude, exclude_name=exclude
     )
@@ -3930,11 +3938,13 @@ def _enclosing_theorem_name(
     encloses ``pos``, or ``None`` when ``pos`` isn't inside one.
 
     Theorems don't nest at the top level, so the enclosing one is the
-    last ``Theorem`` whose start ``location`` is at or before ``pos``
-    and which has no later top-level statement starting at or before
-    ``pos``. The intent is to skip the theorem currently being proved
-    when surfacing lemmas at one of its holes -- the proof can't
-    refer to itself.
+    last ``Theorem`` whose start ``location`` is strictly before
+    ``pos`` and which has no later top-level statement starting at or
+    before ``pos``. The intent is to skip the theorem currently being
+    proved when surfacing lemmas at one of its holes -- the proof
+    can't refer to itself. The strict comparison handles the edge
+    case where ``pos`` sits exactly on the ``theorem`` keyword: the
+    cursor isn't yet inside the proof body.
     """
     if ast_nodes is None:
         return None
@@ -3949,12 +3959,14 @@ def _enclosing_theorem_name(
             # ``ast_nodes`` is in source order; no later sibling can be
             # at-or-before ``pos`` either.
             break
-        if isinstance(stmt, Theorem):
+        if isinstance(stmt, Theorem) and _meta_strictly_before(loc, pos):
             enclosing = base_name(stmt.name)
         else:
-            # A non-Theorem starts at-or-before pos, which means any
-            # earlier Theorem ended before this stmt -- pos is outside
-            # it. Reset.
+            # Either a non-Theorem starts at-or-before pos (an earlier
+            # Theorem closed before it, so pos is outside that
+            # Theorem), or a Theorem starts exactly at pos (we're on
+            # its ``theorem`` keyword, not yet inside its body).
+            # Either way, reset.
             enclosing = None
     return enclosing
 
@@ -5378,6 +5390,23 @@ def _meta_at_or_before(meta: Meta, pos: Position) -> bool:
     if meta.line < pos.line:
         return True
     if meta.line == pos.line and meta.column <= pos.column:
+        return True
+    return False
+
+
+def _meta_strictly_before(meta: Meta, pos: Position) -> bool:
+    """True iff ``meta`` starts strictly before 1-indexed ``pos``.
+
+    Same convention as :func:`_meta_at_or_before` for empty meta
+    (treated as "before"), but rejects ``pos == meta.start`` so a
+    cursor exactly on the statement's keyword isn't counted as
+    "inside" it.
+    """
+    if getattr(meta, "empty", True):
+        return True
+    if meta.line < pos.line:
+        return True
+    if meta.line == pos.line and meta.column < pos.column:
         return True
     return False
 
