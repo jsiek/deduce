@@ -4453,6 +4453,75 @@ def _iter_subterms(node: "AST") -> list["AST"]:
     return out
 
 
+def _matching_respects_var_types(
+    vars: list["ResolvedVar"],
+    matching: dict[str, "Term"],
+) -> bool:
+    """True when matched substitutions are consistent with the declared
+    types of the lemma's ``all``-bound (or existential) variables.
+
+    ``formula_match`` is deliberately permissive about types -- it lets
+    a ``y:Nat`` pattern bind to a list-typed goal term so the matcher
+    can be reused by ``apply_at`` (which surfaces a "you instantiated y
+    at the wrong type" error after the fact). For ranking, that
+    permissiveness produces vacuous matches: on a list-reverse goal,
+    ``iff_equal: all P:bool, Q:bool. if P ⇔ Q then P = Q`` and the
+    ``X_injective`` family all conclude with a bare ``=`` and bind P/Q
+    to the list-typed sides, even though the binders' declared types
+    have no relationship to the goal's. Without a type check those
+    lemmas score ``premises_remain`` and crowd out the lemma users
+    actually need (issue #896).
+
+    We compare each matched term's ``typeof`` against the variable's
+    declared ``typ`` after substituting earlier-matched type variables.
+    A mismatch between two concrete types is rejected; if either side
+    still has free type-variable references (the matcher chose not to
+    bind a particular type-var) we stay permissive.
+    """
+    from abstract_syntax import TypeType
+    try:
+        for v in vars:
+            if v.name not in matching:
+                continue
+            expected = getattr(v, "typeof", None)
+            if expected is None:
+                continue
+            try:
+                expected = expected.substitute(matching)
+            except Exception:
+                continue
+            # Type-binders carry a Type as their match, not a Term;
+            # there's no ``.typeof`` to compare against.
+            if isinstance(expected, TypeType):
+                continue
+            matched = matching[v.name]
+            actual = getattr(matched, "typeof", None)
+            if actual is None:
+                continue
+            try:
+                if expected == actual:
+                    continue
+            except Exception:
+                continue
+            # Permissive only when the substituted expected still
+            # references one of the lemma's own pattern variables
+            # (the matcher chose not to bind that type-var). A free
+            # name that comes from the global environment -- a bare
+            # type-name like ``Nat`` -- is effectively a constant
+            # and a mismatch against it is real.
+            try:
+                free = expected.free_vars()
+            except Exception:
+                continue
+            lemma_var_names = {v.name for v in vars}
+            if free & lemma_var_names:
+                continue
+            return False
+        return True
+    except Exception:
+        return True
+
+
 def _typed_formula_index(env: Optional["Env"]) -> dict[str, "Formula"]:
     """Build a one-shot ``base_name -> typed_formula`` index over the
     proof bindings in ``env``.
@@ -4582,7 +4651,7 @@ def _unify_score(
     try:
         formula_match(location, vars, conc, goal_ast, matching, env)
         unmatched = [v for v in vars if v.name not in matching]
-        if not unmatched:
+        if not unmatched and _matching_respects_var_types(vars, matching):
             conc_matched = True
     except MatchFailed:
         pass
@@ -4679,13 +4748,16 @@ def _equation_subterm_match(
         lhs, rhs = conc.args
         subterms = _iter_subterms(goal_ast)
         for side in (lhs, rhs):
-            # When the side is a bare forall-var, ``formula_match`` binds
-            # it to the first subterm visited -- typically the whole goal
-            # -- which is a meaningless "instantiation" for the splice.
-            # Skip emitting instantiations in that case: a bare
-            # ``replace name`` lets the rewrite engine pattern-match
-            # across the goal as before.
-            side_is_bare_var = isinstance(side, VarRef) and side in vars
+            # Skip a side that's a bare forall-var: ``formula_match``
+            # binds it to the first subterm visited and reports
+            # success regardless of the equation's shape, which makes
+            # every ``X = bare_var`` lemma look like a ``rewrite_subterm``
+            # match for every goal. The structured side (if any) is
+            # what tells us a ``replace lemma`` could actually fire;
+            # if neither side has structure, the lemma isn't a useful
+            # rewrite to surface (issue #896).
+            if isinstance(side, VarRef) and side in vars:
+                continue
             for sub in subterms:
                 sub_matching: dict[str, "Term"] = {}
                 try:
@@ -4696,11 +4768,9 @@ def _equation_subterm_match(
                     continue
                 if [v for v in vars if v.name not in sub_matching]:
                     continue
-                return (
-                    ()
-                    if side_is_bare_var
-                    else _render_instantiations(vars, sub_matching)
-                )
+                if not _matching_respects_var_types(vars, sub_matching):
+                    continue
+                return _render_instantiations(vars, sub_matching)
     except Exception:
         pass
     return None

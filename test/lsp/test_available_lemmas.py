@@ -835,6 +835,66 @@ def test_unify_disjunctive_split_tier_fires_for_disjunction_lemma() -> None:
     assert by_name["g_left_or_right"].unify_tier == "disjunctive_split"
 
 
+def test_type_incompatible_match_does_not_outrank_real_match() -> None:
+    """Issue #896: a lemma whose conclusion only unifies because the
+    matcher ignores type annotations -- e.g. ``injective : all x:Nat,
+    y:Nat. if f(x) = f(y) then x = y`` matched against a list-equality
+    goal -- must not outrank the lemma the user actually needs.
+
+    Reproducer mirrors the ``reverse_involutive`` induction step from
+    the bug report. The goal is a list equation and ``reverse_append``
+    is the relevant lemma; before the fix, ``X_injective``-shaped
+    lemmas all scored ``premises_remain`` (their ``x = y`` conclusion
+    unifies bindings with arbitrary types) and the relevant lemma
+    dropped to relevance ~0.5.
+    """
+    source = (
+        "theorem n_injective: all x:Nat, y:Nat."
+        " if suc(x) = suc(y) then x = y\n"
+        "proof\n"
+        "  arbitrary x:Nat, y:Nat\n"
+        "  suppose h: suc(x) = suc(y)\n"
+        "  injective suc h\n"
+        "end\n"
+        "\n"
+        "theorem b_idem: all P:bool. (P and P) = P\n"
+        "proof\n  arbitrary P:bool\n  switch P { case true { . } case false { . } }\n"
+        "end\n"
+        "\n"
+        "theorem reverse_helper: all T:type. all xs:List<T>, ys:List<T>.\n"
+        "  reverse(xs ++ ys) = reverse(ys) ++ reverse(xs)\n"
+        "proof\n"
+        "  arbitrary T:type\n"
+        "  arbitrary xs:List<T>, ys:List<T>\n"
+        "  ?\n"
+        "end\n"
+    )
+    hole_line = source.split("\n").index("  ?") + 1
+    matches = available_lemmas_at(
+        "user.pf",
+        source,
+        Position(line=hole_line, column=3),
+        prelude=("Base", "Option", "NatDefs", "Pair", "List"),
+    )
+    by_name = {m.name: m for m in matches}
+    assert "n_injective" in by_name, (
+        "Sanity: lemma must still be in scope even if it's deprioritized"
+    )
+    assert "b_idem" in by_name
+    # A list-equality goal: ``n_injective`` and ``b_idem`` both have
+    # bare-var conclusions that match by ignoring binder types
+    # (Nat vs. List<T>, bool vs. List<T>). They must rank no higher
+    # than the unrelated catch-all noise.
+    assert by_name["n_injective"].unify_tier is None, (
+        "n_injective binds x:Nat to a list value -- its conclusion "
+        "shouldn't pretend to unify"
+    )
+    assert by_name["b_idem"].unify_tier is None, (
+        "b_idem's RHS is bare ``P:bool`` -- it shouldn't claim a "
+        "rewrite_subterm tier on a list-equality goal"
+    )
+
+
 def test_browse_mode_leaves_unify_tier_unset() -> None:
     """Browse mode (no goal, no query) doesn't run the unifier, so
     ``unify_tier`` stays ``None`` on every result."""
