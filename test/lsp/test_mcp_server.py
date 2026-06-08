@@ -285,6 +285,79 @@ async def test_named_hole_resolves_goal(server, tmp_path):
 
 
 @pytest.mark.anyio
+async def test_goal_at_resolves_hole_id_against_content(server, tmp_path):
+    """``goal_at`` must honor ``content`` when resolving ``hole_id`` --
+    the documented editor flow is ``check_file(path, content=...)``
+    returns a fresh ID and the follow-up position queries pass that
+    ID back along with the same ``content``. The on-disk file has
+    no hole, so resolving against disk would 404."""
+    disk_src = (
+        "theorem hole_owner: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  reflexive\n"
+        "end\n"
+    )
+    inline_src = (
+        "theorem hole_owner: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "content-override.pf"
+    fp.write_text(disk_src)
+
+    payload = await _call(
+        server,
+        "goal_at",
+        {
+            "path": str(fp),
+            "hole_id": "hole_owner#0",
+            "content": inline_src,
+        },
+    )
+
+    assert payload is not None
+    assert payload["formula"] == "P = P"
+    assert payload["range"]["start"] == {"line": 4, "column": 3}
+
+
+@pytest.mark.anyio
+async def test_goal_at_content_override_uses_inline_for_query(
+    server, tmp_path
+):
+    """The ``content`` override must drive the *query*, not just hole
+    resolution -- otherwise the goal payload would describe a hole the
+    on-disk file doesn't even have. Use line/column (not hole_id) so
+    the test isolates that the query itself runs against ``content``."""
+    disk_src = "// empty on disk\n"
+    inline_src = (
+        "theorem t: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "content-query.pf"
+    fp.write_text(disk_src)
+
+    payload = await _call(
+        server,
+        "goal_at",
+        {
+            "path": str(fp),
+            "line": 4,
+            "column": 3,
+            "content": inline_src,
+        },
+    )
+
+    assert payload is not None
+    assert payload["formula"] == "P = P"
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize("parser", ["recursive-descent", "lalr"])
 async def test_check_file_accepts_parser_argument(server, parser):
     """The MCP wrapper plumbs ``parser`` through to ``query.check`` and
@@ -503,6 +576,42 @@ async def test_definition_of_accepts_hole_id(server, tmp_path):
     assert payload is None
 
 
+@pytest.mark.anyio
+async def test_definition_of_resolves_hole_id_against_content(
+    server, tmp_path
+):
+    """``content`` override unlocks ``hole_id`` resolution for an
+    unsaved buffer where the on-disk file has no hole."""
+    disk_src = (
+        "theorem hole_owner: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  reflexive\n"
+        "end\n"
+    )
+    inline_src = (
+        "theorem hole_owner: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "definition-content.pf"
+    fp.write_text(disk_src)
+
+    payload = await _call(
+        server,
+        "definition_of",
+        {
+            "path": str(fp),
+            "hole_id": "hole_owner#0",
+            "content": inline_src,
+        },
+    )
+
+    assert payload is None
+
+
 # --------------------------------------------------------------------------
 # list_symbols
 # --------------------------------------------------------------------------
@@ -583,6 +692,43 @@ async def test_refine_at_accepts_hole_id(server, tmp_path):
 
     assert payload is not None
     assert payload["path"] == str(fp)
+    assert payload["new_text"] == "reflexive"
+    assert payload["range"]["start"] == {"line": 4, "column": 3}
+    assert payload["range"]["end"] == {"line": 4, "column": 4}
+
+
+@pytest.mark.anyio
+async def test_refine_at_resolves_hole_id_against_content(
+    server, tmp_path
+):
+    disk_src = (
+        "theorem hole_owner: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  reflexive\n"
+        "end\n"
+    )
+    inline_src = (
+        "theorem hole_owner: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "refine-content.pf"
+    fp.write_text(disk_src)
+
+    payload = await _call(
+        server,
+        "refine_at",
+        {
+            "path": str(fp),
+            "hole_id": "hole_owner#0",
+            "content": inline_src,
+        },
+    )
+
+    assert payload is not None
     assert payload["new_text"] == "reflexive"
     assert payload["range"]["start"] == {"line": 4, "column": 3}
     assert payload["range"]["end"] == {"line": 4, "column": 4}
@@ -889,6 +1035,42 @@ async def test_matching_givens_at_accepts_hole_id(server, tmp_path):
     )
 
     assert payload == ["H"]
+
+
+@pytest.mark.anyio
+async def test_matching_givens_at_resolves_hole_id_against_content(
+    server, tmp_path
+):
+    disk_src = (
+        "theorem hole_owner: all P:bool. if P then P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  assume H: P\n"
+        "  H\n"
+        "end\n"
+    )
+    inline_src = (
+        "theorem hole_owner: all P:bool. if P then P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  assume H: P\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "matching-content.pf"
+    fp.write_text(disk_src)
+
+    payload = await _call(
+        server,
+        "matching_givens_at",
+        {
+            "path": str(fp),
+            "hole_id": "hole_owner#0",
+            "content": inline_src,
+        },
+    )
+
+    assert payload == ["H"]
 # --------------------------------------------------------------------------
 # apply_at
 # --------------------------------------------------------------------------
@@ -1042,6 +1224,47 @@ async def test_preview_replace_at_accepts_hole_id(server, tmp_path):
 
 
 @pytest.mark.anyio
+async def test_preview_replace_at_resolves_hole_id_against_content(
+    server, tmp_path
+):
+    disk_src = (
+        "theorem hole_owner: all P:bool, Q:bool. if P = Q then P\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H: P = Q\n"
+        "  replace H\n"
+        "  H\n"
+        "end\n"
+    )
+    inline_src = (
+        "theorem hole_owner: all P:bool, Q:bool. if P = Q then P\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H: P = Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "preview-replace-content.pf"
+    fp.write_text(disk_src)
+
+    payload = await _call(
+        server,
+        "preview_replace_at",
+        {
+            "path": str(fp),
+            "hole_id": "hole_owner#0",
+            "equation": "H",
+            "content": inline_src,
+        },
+    )
+
+    assert payload is not None
+    assert payload["outcome"] == "ok"
+    assert payload["before"] == "P"
+    assert payload["after"] == "Q"
+
+
+@pytest.mark.anyio
 async def test_preview_replace_at_returns_unbound(server, tmp_path):
     src = (
         "theorem t: all P:bool. P\n"
@@ -1175,6 +1398,66 @@ async def test_available_lemmas_at_accepts_hole_id(server, tmp_path):
     assert "and_intro" in names
     entry = next(m for m in payload if m["name"] == "and_intro")
     assert entry["kind"] == "theorem"
+
+
+@pytest.mark.anyio
+async def test_available_lemmas_at_resolves_hole_id_against_content(
+    server, tmp_path
+):
+    """``content`` override must work for the lemma-search position
+    tool too -- it's the headline goal-driven entry point for editor
+    flows operating on unsaved buffers."""
+    disk_src = (
+        "theorem and_intro: all P:bool, Q:bool. if P then if Q then P and Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume pP: P\n"
+        "  assume qQ: Q\n"
+        "  pP, qQ\n"
+        "end\n"
+        "\n"
+        "theorem with_hole: all P:bool, Q:bool. if P then if Q then P and Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume pP: P\n"
+        "  assume qQ: Q\n"
+        "  pP, qQ\n"
+        "end\n"
+    )
+    inline_src = (
+        "theorem and_intro: all P:bool, Q:bool. if P then if Q then P and Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume pP: P\n"
+        "  assume qQ: Q\n"
+        "  pP, qQ\n"
+        "end\n"
+        "\n"
+        "theorem with_hole: all P:bool, Q:bool. if P then if Q then P and Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume pP: P\n"
+        "  assume qQ: Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "available-content.pf"
+    fp.write_text(disk_src)
+
+    payload = await _call(
+        server,
+        "available_lemmas_at",
+        {
+            "path": str(fp),
+            "hole_id": "with_hole#0",
+            "limit": 10,
+            "content": inline_src,
+        },
+    )
+
+    assert isinstance(payload, list)
+    names = [m["name"] for m in payload]
+    assert "and_intro" in names
 
 
 @pytest.mark.anyio

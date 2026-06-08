@@ -404,6 +404,7 @@ def goal_at(
     column: Optional[int] = None,
     hole_id: Optional[str] = None,
     hole: Optional[str] = None,
+    content: Optional[str] = None,
 ) -> Optional[JSONDict]:
     """Return the proof obligation visible at ``line``:``column``.
 
@@ -420,12 +421,17 @@ def goal_at(
     after serialization) when it would equal ``formula`` -- i.e. no
     auto rule fired -- so callers can compare cheaply by presence
     alone.
+
+    When ``content`` is given, that text is used in place of the
+    on-disk file -- both for resolving ``hole_id`` and for the query
+    itself -- so editor flows can query unsaved buffers with the
+    fresh IDs returned by ``check_file(path, content=...)``.
     """
-    content = _read_file(path)
+    text = _read_file(path) if content is None else content
     pos = _position_from_args(
-        "goal_at", path, content, line, column, hole_id, hole
+        "goal_at", path, text, line, column, hole_id, hole
     )
-    goal = query.goal_at(path, content, pos, prelude=_prelude_for(path))
+    goal = query.goal_at(path, text, pos, prelude=_prelude_for(path))
     return _to_dict_or_none(goal)
 
 
@@ -436,18 +442,23 @@ def definition_of(
     column: Optional[int] = None,
     hole_id: Optional[str] = None,
     hole: Optional[str] = None,
+    content: Optional[str] = None,
 ) -> Optional[JSONDict]:
     """Return the source location of the symbol at ``line``:``column``.
 
     Returns ``None`` when the cursor isn't on a resolvable symbol or
     when the definition lives outside the file (an imported module,
     a built-in). The result has ``path`` and ``range``.
+
+    When ``content`` is given, that text is used in place of the
+    on-disk file -- both for resolving ``hole_id`` and for the query
+    itself.
     """
-    content = _read_file(path)
+    text = _read_file(path) if content is None else content
     pos = _position_from_args(
-        "definition_of", path, content, line, column, hole_id, hole
+        "definition_of", path, text, line, column, hole_id, hole
     )
-    loc = query.definition_of(path, content, pos, prelude=_prelude_for(path))
+    loc = query.definition_of(path, text, pos, prelude=_prelude_for(path))
     return _to_dict_or_none(loc)
 
 
@@ -458,6 +469,7 @@ def refine_at(
     column: Optional[int] = None,
     hole_id: Optional[str] = None,
     hole: Optional[str] = None,
+    content: Optional[str] = None,
 ) -> Optional[JSONDict]:
     """Propose a refinement template for the hole at ``line``:``column``.
 
@@ -481,12 +493,16 @@ def refine_at(
     - ``all x:T. body`` -> ``arbitrary x:T\\n?``
     - ``some x:T. body`` -> ``choose ?\\n?``
     - reducible ``e1 = e2`` -> ``reflexive``
+
+    When ``content`` is given, that text is used in place of the
+    on-disk file -- both for resolving ``hole_id`` and for the query
+    itself.
     """
-    content = _read_file(path)
+    text = _read_file(path) if content is None else content
     pos = _position_from_args(
-        "refine_at", path, content, line, column, hole_id, hole
+        "refine_at", path, text, line, column, hole_id, hole
     )
-    edit = query.refine_at(path, content, pos, prelude=_prelude_for(path))
+    edit = query.refine_at(path, text, pos, prelude=_prelude_for(path))
     return _to_dict_or_none(edit)
 
 
@@ -667,6 +683,7 @@ def matching_givens_at(
     column: Optional[int] = None,
     hole_id: Optional[str] = None,
     hole: Optional[str] = None,
+    content: Optional[str] = None,
 ) -> list[str]:
     """Return labels of in-scope local proof bindings whose formula
     equals the goal at ``line``:``column``.
@@ -674,13 +691,17 @@ def matching_givens_at(
     The cursor must sit on a ``?`` token.  Names are sorted and
     deduplicated.  Returns ``[]`` when the cursor isn't on a ``?``,
     the goal AST isn't available, or no local binding matches.
+
+    When ``content`` is given, that text is used in place of the
+    on-disk file -- both for resolving ``hole_id`` and for the query
+    itself.
     """
-    content = _read_file(path)
+    text = _read_file(path) if content is None else content
     pos = _position_from_args(
-        "matching_givens_at", path, content, line, column, hole_id, hole
+        "matching_givens_at", path, text, line, column, hole_id, hole
     )
     return list(
-        query.matching_givens_at(path, content, pos, prelude=_prelude_for(path))
+        query.matching_givens_at(path, text, pos, prelude=_prelude_for(path))
     )
 
 
@@ -791,6 +812,7 @@ def preview_replace_at(
     column: Optional[int] = None,
     hole_id: Optional[str] = None,
     hole: Optional[str] = None,
+    content: Optional[str] = None,
 ) -> Optional[JSONDict]:
     """Preview the result of ``replace <equation>`` at the hole at
     ``line``:``column``.
@@ -819,13 +841,17 @@ def preview_replace_at(
     ``goal_at`` for the inner loop where the agent picks an equation,
     previews the rewrite, and only commits when the after-text matches
     its plan.
+
+    When ``content`` is given, that text is used in place of the
+    on-disk file -- both for resolving ``hole_id`` and for the query
+    itself.
     """
-    content = _read_file(path)
+    text = _read_file(path) if content is None else content
     pos = _position_from_args(
-        "preview_replace_at", path, content, line, column, hole_id, hole
+        "preview_replace_at", path, text, line, column, hole_id, hole
     )
     preview = query.preview_replace_at(
-        path, content, pos, equation, prelude=_prelude_for(path)
+        path, text, pos, equation, prelude=_prelude_for(path)
     )
     return _to_dict_or_none(preview)
 
@@ -875,6 +901,7 @@ def available_lemmas_at(
     limit: int = 50,
     hole_id: Optional[str] = None,
     hole: Optional[str] = None,
+    content: Optional[str] = None,
 ) -> list[JSONDict]:
     """Search for theorems/lemmas/postulates relevant at a position.
 
@@ -905,16 +932,20 @@ def available_lemmas_at(
 
     Returns ``[]`` only when nothing is in scope at the position or
     a given ``query`` matches nothing.
+
+    When ``content`` is given, that text is used in place of the
+    on-disk file -- both for resolving ``hole_id`` and for the query
+    itself.
     """
     from lsp import query as _q
 
-    content = _read_file(path)
+    text = _read_file(path) if content is None else content
     pos = _position_from_args(
-        "available_lemmas_at", path, content, line, column, hole_id, hole
+        "available_lemmas_at", path, text, line, column, hole_id, hole
     )
     matches = _q.available_lemmas_at(
         path,
-        content,
+        text,
         pos,
         query=query,
         prelude=_prelude_for(path),
