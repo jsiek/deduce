@@ -1463,7 +1463,8 @@ async def test_available_lemmas_at_resolves_hole_id_against_content(
 @pytest.mark.anyio
 async def test_available_lemmas_at_no_signal_browses(server, tmp_path):
     """No `?` and no `query`: browse mode surfaces every in-scope
-    lemma so off-hole exploration works (issue #418)."""
+    lemma so off-hole exploration works (issue #418). The enclosing
+    theorem is excluded -- a proof can't cite itself (issue #903)."""
     fp = tmp_path / "browse.pf"
     fp.write_text(
         "theorem alpha: true\nproof\n  .\nend\n"
@@ -1476,14 +1477,17 @@ async def test_available_lemmas_at_no_signal_browses(server, tmp_path):
         "  reflexive\n"
         "end\n"
     )
+    # Cursor on the `reflexive` line (line 14): inside `gamma`, so
+    # `gamma` is dropped; sibling theorems remain.
     payload = await _call(
         server,
         "available_lemmas_at",
-        {"path": str(fp), "line": 9, "column": 3},
+        {"path": str(fp), "line": 14, "column": 3},
     )
     assert isinstance(payload, list)
     names = {m["name"] for m in payload}
-    assert {"alpha", "beta", "gamma"} <= names
+    assert {"alpha", "beta"} <= names
+    assert "gamma" not in names
 
 
 # --------------------------------------------------------------------------

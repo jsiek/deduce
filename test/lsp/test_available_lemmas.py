@@ -86,7 +86,9 @@ def test_goal_drives_ranking_by_head_symbol() -> None:
 def test_no_hole_no_query_returns_browse_results() -> None:
     """Cursor not on a `?` and no `query`: browse mode surfaces every
     in-scope lemma so off-hole exploration works without inserting a
-    synthetic `?` (issue #418)."""
+    synthetic `?` (issue #418). The enclosing theorem (the one the
+    cursor sits inside) is excluded -- it can't be cited from its
+    own proof (issue #903)."""
     source = (
         "theorem alpha: true\n"
         "proof\n  .\nend\n"
@@ -100,13 +102,15 @@ def test_no_hole_no_query_returns_browse_results() -> None:
         "  reflexive\n"
         "end\n"
     )
-    # Cursor on `reflexive` (line 12), not a `?`. Browse mode returns
-    # every user-file lemma in scope at that point.
+    # Cursor on the `reflexive` line (line 14), not a `?`. Browse
+    # mode returns sibling user-file lemmas but not `gamma`, which
+    # the cursor is inside.
     matches = available_lemmas_at(
-        "lemmas.pf", source, Position(line=12, column=3)
+        "lemmas.pf", source, Position(line=14, column=3)
     )
     names = {m.name for m in matches}
-    assert {"alpha", "beta", "gamma"} <= names
+    assert {"alpha", "beta"} <= names
+    assert "gamma" not in names
 
 
 def test_user_lemmas_get_module_set_to_file_stem() -> None:
@@ -909,3 +913,127 @@ def test_browse_mode_leaves_unify_tier_unset() -> None:
     assert matches  # browse mode surfaces everything
     assert all(m.unify_tier is None for m in matches)
     assert all(m.discharged_premises == () for m in matches)
+
+
+# ---------------------------------------------------------------------------
+# Snap-to-hole (issue #903): an off-cursor (line, column) on the same line
+# as a ``?`` token snaps to that hole rather than silently falling through
+# to browse mode.
+# ---------------------------------------------------------------------------
+
+
+def test_off_cursor_same_line_snaps_to_hole() -> None:
+    """Cursor a few columns to the left of a ``?`` on the same line
+    drives goal-mode ranking, not browse mode -- the enclosing
+    theorem doesn't surface at 1.0 and ranking remains goal-shape
+    driven (issue #903)."""
+    source = (
+        "theorem and_helper: all P:bool, Q:bool."
+        " if P then if Q then P and Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  suppose pP: P\n"
+        "  suppose qQ: Q\n"
+        "  pP, qQ\n"
+        "end\n"
+        "\n"
+        "theorem with_hole: all P:bool, Q:bool."
+        " if P then if Q then P and Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  suppose pP: P\n"
+        "  suppose qQ: Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    # The `?` sits at (line=14, column=3).
+    on_hole = available_lemmas_at(
+        "lemmas.pf", source, Position(line=14, column=3)
+    )
+    # A few columns to the left of the `?`, same line.
+    off_cursor = available_lemmas_at(
+        "lemmas.pf", source, Position(line=14, column=1)
+    )
+    on_names = [m.name for m in on_hole]
+    off_names = [m.name for m in off_cursor]
+    # Snap brings the off-cursor call back to the goal-driven result
+    # set: same names, same order.
+    assert on_names == off_names
+    # And it does NOT include the enclosing theorem (with_hole).
+    assert "with_hole" not in off_names
+
+
+def test_off_cursor_closest_hole_wins() -> None:
+    """When multiple ``?`` sit on the same line, snap to the one
+    whose start column is closest to the cursor (issue #903)."""
+    # Two `?` holes on the same line; the cursor is closer to the
+    # first one's start column.
+    source = (
+        "theorem with_two_holes: all P:bool, Q:bool. P or Q or true\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  ?       ?\n"
+        "end\n"
+    )
+    # The two `?` are at columns 3 and 11 on line 4. The cursor sits
+    # at column 4 (between them but closer to the first).
+    near_first = available_lemmas_at(
+        "lemmas.pf", source, Position(line=4, column=4)
+    )
+    # Compare against an exact-hit call at column 3.
+    exact = available_lemmas_at(
+        "lemmas.pf", source, Position(line=4, column=3)
+    )
+    assert [m.name for m in near_first] == [m.name for m in exact]
+
+
+def test_off_cursor_no_hole_on_line_stays_browse_mode() -> None:
+    """Cursor on a line without any ``?`` token doesn't snap -- the
+    call still falls through to browse mode, just like before issue
+    #903. This preserves the off-hole exploration contract."""
+    source = (
+        "theorem alpha: true\nproof\n  .\nend\n"
+        "\n"
+        "theorem beta: all P:bool. P = P\n"
+        "proof\n  arbitrary P:bool\n  reflexive\nend\n"
+        "\n"
+        "theorem with_hole: true\nproof\n  ?\nend\n"
+    )
+    # Cursor at line=8 sits on `arbitrary P:bool` -- inside `beta`,
+    # nowhere near the `?` in `with_hole`. Browse mode applies.
+    matches = available_lemmas_at(
+        "lemmas.pf", source, Position(line=8, column=3)
+    )
+    names = {m.name for m in matches}
+    # Sibling theorems still appear; `beta` (enclosing) is dropped.
+    assert "alpha" in names
+    assert "with_hole" in names
+    assert "beta" not in names
+
+
+# ---------------------------------------------------------------------------
+# Enclosing theorem exclusion in browse mode (issue #903 part 4).
+# ---------------------------------------------------------------------------
+
+
+def test_enclosing_theorem_excluded_in_browse_mode() -> None:
+    """Browse mode also drops the enclosing theorem from candidates
+    -- a proof can't cite the theorem it's editing, even when no
+    hole is present at the cursor (issue #903)."""
+    source = (
+        "theorem helper: true\nproof\n  .\nend\n"
+        "\n"
+        "theorem reverse_involutive: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  reflexive\n"
+        "end\n"
+    )
+    # Cursor on the `reflexive` line (line 8), no `?` on that line,
+    # so browse mode applies via the no-snap fallback.
+    matches = available_lemmas_at(
+        "lemmas.pf", source, Position(line=8, column=3)
+    )
+    names = {m.name for m in matches}
+    assert "helper" in names
+    assert "reverse_involutive" not in names
