@@ -349,7 +349,10 @@ includes a stable declaration-scoped `hole_id` (for example
 returns. Named holes also include a `hole` field, such as `"goal"`.
 The MCP position tools that expose `hole_id` and `hole` can use
 `{path, hole_id}` or `{path, hole}` instead of `{path, line, column}`
-when the caller has a fresh handle from `check_file`.
+when the caller has a fresh handle from `check_file`. Editors that
+operate on unsaved buffers should pass the same `content` they passed
+to `check_file` so the `hole_id` resolves against that buffer (without
+`content`, the handle is looked up in the on-disk file).
 
 | Tool                       | What it does                                                  |
 | -------------------------- | ------------------------------------------------------------- |
