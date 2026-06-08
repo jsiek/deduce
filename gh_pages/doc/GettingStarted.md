@@ -385,7 +385,14 @@ the same proof-editing toolkit you do.
 The `deduce.py` script supports command line arguments which are
 documented below. If an argument is not preceded by one of the
 keywords listed below, then it is treated as the name of a file or
-directory and will be processed by Deduce.
+directory and will be processed by Deduce. An argument starting with
+`-` that does not match a known flag is reported as `unknown option:
+<flag>` and Deduce exits with a non-zero status.
+
+`--help` or `-h`
+
+Prints a concise summary of the supported command line arguments and
+exits.
 
 `--dir directory-name`
 
