@@ -133,6 +133,40 @@ def deduce_directory(directory: str, recursive_directories: bool,
         elif recursive_directories and os.path.isdir(fpath):
             deduce_directory(fpath, recursive_directories, tracing_functions, prelude, debugger=debugger)
     
+USAGE = """\
+Usage: python deduce.py [options] file_or_directory [...]
+
+Check the given Deduce (.pf) files. Multiple files or directories may be
+supplied; directories are scanned for *.pf (use -r to recurse).
+
+Options:
+  -h, --help                show this help message and exit
+  -v, --version             print version and exit
+  --dir <directory>         add <directory> to the import search path
+  --no-stdlib               do not auto-include the standard library
+  --recursive-descent       use the recursive descent parser (default)
+  --lalr                    use the Lark LALR parser
+  -r, --recursive-directories
+                            descend into subdirectories of supplied paths
+  --quiet                   suppress informational output
+  --verbose [full]          enable debug output ('full' includes imports)
+  --unique-names            print every name with its unique suffix
+  --trace <function>        trace calls to <function> (may be repeated)
+  --traceback               include the Python traceback on error
+  --suppress-theorems       do not write .thm files
+  --error                   expect each file to error (exit 255 if not)
+  --no-check-imports        do not check proofs of imported files
+  --color / --no-color      force or disable ANSI color output
+  --compile                 compile to a self-contained C program
+  --compile-module          compile as a single module (.c + .h)
+  --no-main                 (with --compile-module) library module, no main
+  -o <path>                 output path for --compile / --compile-module
+  --no-prune                with --compile, keep all lowered declarations
+  --debug                   enable the interactive debugger
+
+See gh_pages/doc/GettingStarted.md for the full reference.
+"""
+
 def check_in_prelude(deducable : str, stdlib_dir : str) -> bool:
     deducable_path = Path(deducable)
     stdlib_path = Path(stdlib_dir)
@@ -177,7 +211,10 @@ if __name__ == "__main__":
             continue
     
         argument = sys.argv[i]
-        if argument == '--error':
+        if argument == '--help' or argument == '-h':
+            print(USAGE, end='')
+            exit(0)
+        elif argument == '--error':
             error_expected = True
         elif argument == '--unique-names':
             set_unique_names(True)
@@ -233,6 +270,11 @@ if __name__ == "__main__":
             color_mode = 'never'
         elif argument == '--color':
             color_mode = 'always'
+        elif argument.startswith('-'):
+            print(f"unknown option: {argument}", file=sys.stderr)
+            print("Run 'python deduce.py --help' for a list of options.",
+                  file=sys.stderr)
+            exit(1)
         else:
             deducables.append(argument)
     
