@@ -490,7 +490,7 @@ The biconditional formula `P ⇔ Q` is syntactic sugar for
 
 ## Bool (Type)
 
-```
+```deduce-grammar
 type ::= "bool"
 ```
 
@@ -499,8 +499,8 @@ A *formula* is a term of type `bool`.
 
 ## Braces (Proof)
 
-```
-proof ::= "{" proof "}"
+```deduce-grammar
+atomic_proof ::= "{" proof "}"
 ```
 
 A proof may be surrounded in curly braces.
@@ -1118,7 +1118,7 @@ assert interchange(pair(1,2)) = pair(2,1)
 
 ## Function Type
 
-```
+```deduce-grammar
 type ::= "fn" type_params_opt type_list "->" type
 type ::= "fn" type_params_opt "(" type "," type_list ")" "->" type
 ```
@@ -1283,10 +1283,9 @@ given.
 
 ## Identifier 
 
-```
-term ::= identifier
-formula ::= identifier
-conclusion ::= identifier
+```deduce-grammar
+atomic_term ::= identifier
+atomic_proof ::= identifier
 ```
 
 Identifiers are used in Deduce to give names to functions and values and
@@ -1930,10 +1929,9 @@ To use a given of the form `P or Q`, use
 
 ## Parentheses
 
-```
-term ::= "(" term ")"
-formula ::= "(" formula ")"
-proof ::= "(" proof ")"
+```deduce-grammar
+atomic_term ::= "(" term ")"
+atomic_proof ::= "(" proof ")"
 ```
 
 A term, formula, or a proof may be surrounded in parentheses.
