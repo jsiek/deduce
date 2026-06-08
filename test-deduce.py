@@ -144,6 +144,21 @@ PARSER_ROUND_TRIP_FILES = (
     "./test/should-validate/bintree.pf",
     "./test/should-validate/uint_viewrec.pf",
     "./lib/Option.pf",
+    # Broaden coverage to additional small files that already
+    # round-trip cleanly under today's pretty-printer. Each one
+    # exercises a distinct surface construct so a regression in
+    # any of these forms is caught here too.
+    "./test/should-validate/empty_file.pf",        # empty input
+    "./test/should-validate/bicond1.pf",           # biconditional <=>
+    "./test/should-validate/conditional1.pf",      # if-then-else term
+    "./test/should-validate/array1.pf",            # array literal + indexing
+    "./test/should-validate/some1.pf",             # existential + `choose`
+    "./test/should-validate/inst1.pf",             # all-elim by application
+    "./test/should-validate/switch_term.pf",       # switch in a term position
+    "./test/should-validate/predicate_basic.pf",   # `predicate` declaration
+    "./test/should-validate/relation_basic.pf",    # `relation` declaration
+    "./test/should-validate/opaque_define.pf",     # `opaque` visibility
+    "./test/should-validate/import_using.pf",      # `import ... using ...`
 )
 
 
