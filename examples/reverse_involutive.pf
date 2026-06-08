@@ -1,0 +1,43 @@
+// reverse_involutive.pf
+//
+// A classic introductory functional-programming exercise: prove that
+// reversing a list twice gives back the original list, i.e. that
+// `reverse` is its own inverse (an involution).
+//
+//   reverse(reverse(xs)) = xs
+//
+// This is the list counterpart of `tree_mirror_involutive` in
+// `tree_mirror.pf`, and a staple induction exercise in Haskell / OCaml
+// / SML introductions to functional programming.
+//
+// The proof is by induction on the list, using the standard library's
+// `reverse` (lib/List.pf):
+//
+//   reverse([])           = []
+//   reverse(node(n, xs))  = reverse(xs) ++ [n]
+//
+// and the library lemma `reverse_append`:
+//
+//   reverse(xs ++ ys) = reverse(ys) ++ reverse(xs)
+
+assert reverse(reverse([1, 2, 3, 4])) = [1, 2, 3, 4]
+assert reverse(reverse(@[]<UInt>)) = []
+
+theorem reverse_involutive: all T:type. all xs:List<T>.
+  reverse(reverse(xs)) = xs
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    expand reverse.
+  }
+  case node(n, xs') assume IH: reverse(reverse(xs')) = xs' {
+    equations
+      reverse(reverse(node(n, xs')))
+          = reverse(reverse(xs') ++ [n])              by expand reverse.
+      ... = reverse([n]) ++ reverse(reverse(xs'))
+                                  by reverse_append<T>[reverse(xs'), [n]]
+      ... = reverse([n]) ++ xs'                       by replace IH.
+      ... = node(n, xs')                              by expand 2*reverse | 3*operator++.
+  }
+end
