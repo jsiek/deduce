@@ -1,0 +1,91 @@
+// zip_unzip.pf
+//
+// A classic introductory-functional-programming example: `zip` and
+// `unzip` are inverses. Given two lists of the same length, zipping
+// them into a list of pairs and then unzipping recovers the originals:
+//
+//   unzip(zip(xs, ys)) = pair(xs, ys)
+//
+// The equal-length side condition is essential because `zip` truncates
+// to the shorter of its two inputs. The `zip` and `unzip` functions live
+// in the standard library (`lib/List.pf`):
+//
+//   zip([], ys)            = []
+//   zip(node(x,xs'), ys)   = switch ys { [] -> []; node(y,ys') -> node(pair(x,y), zip(xs',ys')) }
+//
+//   unzip([])              = pair([], [])
+//   unzip(node(p, ps))     = let xys = unzip(ps) in
+//                            pair(node(first(p), first(xys)), node(second(p), second(xys)))
+//
+// The proof is by induction on `xs`, keeping `ys` universally
+// quantified so the induction hypothesis applies to the tail of `ys`.
+// The node case splits on `ys`: the empty case is impossible (the
+// lengths cannot match) and the node case uses the induction hypothesis
+// on the two tails. Besides `first_pair` / `second_pair` (`lib/Pair.pf`),
+// the proof leans on three `lib` length/arithmetic facts:
+// `length_zero_empty`, `uint_not_one_add_zero`, and
+// `uint_add_both_sides_of_equal`.
+
+assert unzip(zip([1, 2, 3], [4, 5, 6])) = pair([1, 2, 3], [4, 5, 6])
+assert unzip(zip(@[]<UInt>, @[]<UInt>)) = pair(@[]<UInt>, @[]<UInt>)
+
+theorem zip_unzip: all T:type, U:type. all xs:List<T>. all ys:List<U>.
+  if length(xs) = length(ys)
+  then unzip(zip(xs, ys)) = pair(xs, ys)
+proof
+  arbitrary T:type, U:type
+  induction List<T>
+  case [] {
+    arbitrary ys:List<U>
+    suppose len_eq: length(@[]<T>) = length(ys)
+    have ys_empty: ys = [] by {
+      have len_ys_zero: length(ys) = 0 by {
+        equations
+          length(ys) = length(@[]<T>)  by symmetric len_eq
+                 ... = 0               by expand length.
+      }
+      apply length_zero_empty<U>[ys] to len_ys_zero
+    }
+    equations
+      unzip(zip(@[]<T>, ys))
+          = pair(@[]<T>, @[]<U>)    by expand zip | unzip.
+      ... =# pair(@[]<T>, ys) #     by replace ys_empty.
+  }
+  case node(x, xs') assume IH: all ys:List<U>.
+        if length(xs') = length(ys) then unzip(zip(xs', ys)) = pair(xs', ys) {
+    arbitrary ys:List<U>
+    suppose len_eq: length(node(x, xs')) = length(ys)
+    switch ys {
+      case [] assume ys_def: ys = [] {
+        // length(node(x,xs')) = 1 + length(xs'), which cannot equal
+        // length([]) = 0, so this case is vacuous.
+        have e1: length(node(x, xs')) = length(@[]<U>) by replace ys_def in len_eq
+        have absurd: 1 + length(xs') = 0 by expand length in e1
+        have contra: false by apply uint_not_one_add_zero[length(xs')] to absurd
+        conclude unzip(zip(node(x, xs'), @[]<U>)) = pair(node(x, xs'), @[]<U>)
+          by recall false
+      }
+      case node(y, ys') assume ys_def: ys = node(y, ys') {
+        have len_tails: length(xs') = length(ys') by {
+          have e1: length(node(x, xs')) = length(node(y, ys')) by replace ys_def in len_eq
+          have h: 1 + length(xs') = 1 + length(ys') by expand length in e1
+          apply (conjunct 0 of uint_add_both_sides_of_equal[1, length(xs'), length(ys')]) to h
+        }
+        have ih_app: unzip(zip(xs', ys')) = pair(xs', ys')
+          by apply IH[ys'] to len_tails
+        equations
+          unzip(zip(node(x, xs'), node(y, ys')))
+              = unzip(node(pair(x, y), zip(xs', ys')))   by expand zip.
+          ... = pair(node(first(pair(x, y)), first(unzip(zip(xs', ys')))),
+                     node(second(pair(x, y)), second(unzip(zip(xs', ys')))))
+                                                         by expand unzip.
+          ... = pair(node(x, first(unzip(zip(xs', ys')))),
+                     node(y, second(unzip(zip(xs', ys')))))
+                                                         by replace first_pair | second_pair.
+          ... = pair(node(x, first(pair(xs', ys'))),
+                     node(y, second(pair(xs', ys'))))    by replace ih_app.
+          ... = pair(node(x, xs'), node(y, ys'))         by replace first_pair | second_pair.
+      }
+    }
+  }
+end
