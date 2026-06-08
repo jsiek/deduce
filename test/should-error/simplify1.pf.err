@@ -1,5 +1,5 @@
-./test/should-error/simplify1.pf:4.3-4.4: incomplete proof
-Goal:
-	true
+./test/should-error/simplify1.pf:3.3-3.11: incomplete proof
+the `simplify` already reduced the goal to `true`.
 Advice:
-	You can prove "true" with a period.
+	Add a trailing `.` after `simplify` (e.g. `by simplify ... .`) to close this step.
+

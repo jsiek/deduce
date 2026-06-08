@@ -1,0 +1,22 @@
+import UInt
+import List
+
+// Regression test for #905. A tactic-style `by REASON` in an `equations`
+// step needs a trailing `.` to close the residual that the rewrite/
+// expansion leaves behind. When the period is missing and the residual
+// happens to reduce to `true`, the user used to see the generic
+// "incomplete proof; Goal: true" diagnostic, anchored at the *next*
+// equation step. The new diagnostic names the tactic (`replace` here),
+// anchors at the tactic itself, and tells the user exactly what to add.
+theorem bug_905: all xs:List<UInt>, ys:List<UInt>, zs:List<UInt>, x:UInt, y:UInt.
+  if length(node(x,xs)) = length(ys) then if ys = node(y,zs) then 1 + length(xs) = 1 + length(zs)
+proof
+  arbitrary xs:List<UInt>, ys:List<UInt>, zs:List<UInt>, x:UInt, y:UInt
+  suppose len_eq: length(node(x,xs)) = length(ys)
+  suppose ys_def: ys = node(y,zs)
+  equations
+    1 + length(xs) =# length(node(x, xs)) #  by expand length.
+               ... = length(ys)              by len_eq
+               ... = length(node(y, zs))     by replace ys_def
+               ... = 1 + length(zs)          by expand length.
+end

@@ -1,0 +1,8 @@
+./test/should-error/equations_replace_no_period_905.pf:20.49-20.63: incomplete proof
+the `replace` already reduced the goal to `true`.
+Advice:
+	Add a trailing `.` after `replace` (e.g. `by replace ... .`) to close this step.
+
+Givens:
+	ys_def: ys = node(y, zs),
+	len_eq: length(node(x, xs)) = length(ys)

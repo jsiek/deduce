@@ -1428,6 +1428,34 @@ def _check_proof_of_evaluate_goal(proof: EvaluateGoal, formula: CheckedFormula, 
           + str(red_formula)
           + givens_str(env))
 
+def _missing_period_after_tactic(tactic_loc: Meta, body: Proof,
+                                 residual: CheckedFormula,
+                                 tactic: str, env: Env) -> bool:
+  # When a tactic-style goal (`replace` / `expand` / `simplify`) has a
+  # `PHole` body and the residual reduces to `true`, the user is one
+  # period away from a valid proof. The generic `PHole` diagnostic
+  # reports `Goal: true` with the equally generic advice "prove `true`
+  # with a period," which is correct but doesn't point at the tactic
+  # that produced the tautology -- in an `equations` chain especially,
+  # the body location reads as the next step's boundary and the user
+  # has to figure out which step is missing the period. Emit a
+  # targeted hint anchored at the tactic itself and return `True` so
+  # the caller skips the generic path.
+  if not isinstance(body, PHole):
+    return False
+  reduced = remove_mark(residual).reduce(env)
+  if not (isinstance(reduced, Bool) and reduced.value is True):
+    return False
+  add_incomplete(tactic_loc,
+    style.bold_red('incomplete proof') + '\n'
+    + 'the `' + tactic + '` already reduced the goal to `true`.\n'
+    + style.dark_green('Advice:') + '\n'
+    + '\tAdd a trailing `.` after `' + tactic
+    + '` (e.g. `by ' + tactic + ' ... .`) to close this step.\n'
+    + givens_str(env),
+    formula=reduced, env=env)
+  return True
+
 def _check_proof_of_rewrite_goal(proof: RewriteGoal, formula: CheckedFormula, env: Env) -> None:
   loc = proof.location
   equations = [check_proof(proof, env) for proof in proof.equations]
@@ -1435,6 +1463,8 @@ def _check_proof_of_rewrite_goal(proof: RewriteGoal, formula: CheckedFormula, en
   new_formula = formula.reduce(env)
   new_formula = apply_rewrites(loc, new_formula, eqns, env,
                                display_formula=formula)
+  if _missing_period_after_tactic(loc, proof.body, new_formula, 'replace', env):
+    return
   _try_check_proof_of(proof.body, new_formula, env)
 
 def _check_proof_of_simplify_goal(proof: SimplifyGoal, formula: CheckedFormula, env: Env) -> None:
@@ -1444,12 +1474,16 @@ def _check_proof_of_simplify_goal(proof: SimplifyGoal, formula: CheckedFormula, 
   eqns = [equation.reduce(env) for equation in equations]
   new_formula = apply_rewrites(loc, formula, eqns, env)
   new_formula = new_formula.reduce(env)
+  if _missing_period_after_tactic(loc, proof.body, new_formula, 'simplify', env):
+    return
   _try_check_proof_of(proof.body, new_formula, env)
 
 def _check_proof_of_apply_defs_goal(proof: ApplyDefsGoal, formula: CheckedFormula, env: Env) -> None:
   loc = proof.location
   new_formula = expand_definitions(loc, formula, proof.definitions, env)
   red_formula = new_formula.reduce(env)
+  if _missing_period_after_tactic(loc, proof.body, red_formula, 'expand', env):
+    return
   sink = get_active_sink()
   before_len = len(sink.errors) if sink is not None else 0
   try:
