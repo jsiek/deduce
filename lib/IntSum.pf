@@ -37,7 +37,7 @@ fun int_summation(k:UInt, begin:UInt, f:fn UInt -> Int) {
 
 // `(a + b) + (c + d) = (a + c) + (b + d)`: inner swap used to combine two parallel
 // summations of pointwise sums into a sum of two separate summations.
-private lemma int_add_swap_inner: all a:Int, b:Int, c:Int, d:Int.
+lemma int_add_swap_inner: all a:Int, b:Int, c:Int, d:Int.
   (a + b) + (c + d) = (a + c) + (b + d)
 proof
   arbitrary a:Int, b:Int, c:Int, d:Int
@@ -45,7 +45,7 @@ proof
 end
 
 // `fromNat` commutes with adding a Nat onto a UInt (same helper as in UIntSum).
-private lemma fromNat_toNat_add_uint:
+lemma fromNat_toNat_add_uint:
   all x:UInt, i:Nat. fromNat(toNat(x) + i) = x + fromNat(i)
 proof
   arbitrary x:UInt, i:Nat
@@ -76,7 +76,7 @@ end
 // Internal snoc lemma: append a final term to a Nat-counted summation.
 // Stated and proved entirely in Nat-land for `begin`, sidestepping the
 // `fromNat(zero)` vs `fromNat(ℕ0)` mismatch that arises when `begin` is UInt.
-private lemma int_summation_nat_snoc:
+lemma int_summation_nat_snoc:
   all k:Nat. all s:Nat, f:fn UInt -> Int.
   int_summation_nat(suc(k), s, f) = int_summation_nat(k, s, f) + f(fromNat(s + k))
 proof
@@ -138,7 +138,7 @@ proof
 end
 
 // Pointwise-equal summands over shifted ranges yield equal sums.
-private lemma int_summation_nat_cong:
+lemma int_summation_nat_cong:
   all k:Nat. all f:fn UInt -> Int, g:fn UInt -> Int, s:Nat, t:Nat.
   if (all i:Nat. if i < k then f(fromNat(s + i)) = g(fromNat(t + i)))
   then int_summation_nat(k, s, f) = int_summation_nat(k, t, g)
@@ -203,7 +203,7 @@ end
 
 // Split a length `a + b` summation into prefix `g` (length `a`) and
 // suffix `h` (length `b`), each agreeing pointwise with `f` on its segment.
-private lemma int_summation_nat_add:
+lemma int_summation_nat_add:
   all a:Nat. all b:Nat, s:Nat, t:Nat,
       f:fn UInt -> Int, g:fn UInt -> Int, h:fn UInt -> Int.
   if (all i:Nat. if i < a then g(fromNat(s + i)) = f(fromNat(s + i)))
@@ -332,7 +332,7 @@ end
 */
 
 // Negating each summand negates the sum.
-private lemma int_summation_nat_neg:
+lemma int_summation_nat_neg:
   all k:Nat. all s:Nat, f:fn UInt -> Int.
   int_summation_nat(k, s, fun i:UInt { - f(i) })
     = - int_summation_nat(k, s, f)
@@ -364,7 +364,7 @@ proof
 end
 
 // Pointwise sum: `Σ_i (f(i) + g(i)) = Σ_i f(i) + Σ_i g(i)`.
-private lemma int_summation_nat_add_pointwise:
+lemma int_summation_nat_add_pointwise:
   all k:Nat. all s:Nat, f:fn UInt -> Int, g:fn UInt -> Int.
   int_summation_nat(k, s, fun i:UInt { f(i) + g(i) })
     = int_summation_nat(k, s, f) + int_summation_nat(k, s, g)
@@ -403,7 +403,7 @@ end
 // Helper: binary subtraction unfolds to addition of negation. The definition
 // `n - m = n + (- m)` is non-opaque, but `expand operator-` is ambiguous with
 // unary negation, so this lemma packages the rewrite in a form callers can use.
-private lemma int_sub_as_add_neg: all x:Int, y:Int. x - y = x + (- y)
+lemma int_sub_as_add_neg: all x:Int, y:Int. x - y = x + (- y)
 proof
   arbitrary x:Int, y:Int
   evaluate
