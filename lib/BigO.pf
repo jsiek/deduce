@@ -656,6 +656,20 @@ proof
   A, B
 end
 
+// Sibling of `bigo_add_dominated_absorb_equiv` with the summands in the
+// opposite order: if `f ≲ g` then `f + g ≈ g`. Lets callers write the
+// dominant function on the right of `+` without first invoking
+// commutativity.
+theorem bigo_add_dominated: all f:fn UInt->UInt, g:fn UInt->UInt.
+  if f ≲ g then f + g ≈ g
+proof
+  arbitrary f:fn UInt->UInt, g:fn UInt->UInt
+  assume f_g: f ≲ g
+  have gf_g: g + f ≈ g by apply bigo_add_dominated_absorb_equiv[g, f] to f_g
+  have fg_gf: f + g ≈ g + f by bigo_add_commute
+  apply bigo_equiv_trans to fg_gf, gf_g
+end
+
 // A positive constant factor drops out of ≈.
 theorem bigo_const_mult_equiv: all f:fn UInt->UInt, k:UInt.
   if 0 < k then k * f ≈ f
@@ -1342,6 +1356,21 @@ proof
   replace pow_factor
   replace uint_mult_commute[c, n^a]
   mult_step
+end
+
+// Monomial-sum dominance: when `a ≤ b`, adding a lower-degree monomial
+// `n^a` to the higher-degree monomial `n^b` does not change the
+// asymptotic equivalence class — the lower-degree term is absorbed.
+// Specializes `bigo_add_dominated` along `bigo_pow_mono`.
+theorem bigo_pow_add_dominated: all a:UInt, b:UInt.
+  if a ≤ b
+  then (fun n:UInt { n^a }) + (fun n:UInt { n^b }) ≈ (fun n:UInt { n^b })
+proof
+  arbitrary a:UInt, b:UInt
+  assume a_le_b: a ≤ b
+  have na_le_nb: (fun n:UInt { n^a }) ≲ (fun n:UInt { n^b })
+    by apply bigo_pow_mono to a_le_b
+  apply bigo_add_dominated[fun n:UInt { n^a }, fun n:UInt { n^b }] to na_le_nb
 end
 
 // Polynomial closure, degree 1: a degree-1 polynomial with positive leading
