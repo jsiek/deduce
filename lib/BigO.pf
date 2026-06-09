@@ -1748,3 +1748,117 @@ proof
   apply bigo_pointwise_eq[fun x:UInt { uint_summation(x, 0, fun i:UInt { 1 }) }, O_n]
     to pointwise
 end
+
+// `Σ_{i<n} i ≈ O_n2`: the Gauss-sum bound. From the closed form
+// `2 · Σ = n · (n ∸ 1)` (`uint_summation_id`), the upper bound `Σ ≤ n*n`
+// follows at `(n0, c) = (0, 1)` and the lower bound `n*n ≤ 4 · Σ` at
+// `(n0, c) = (2, 4)`. Second slice of Section H of the BigO catalogue
+// (#725).
+theorem bigo_summation_id:
+  (fun x:UInt { uint_summation(x, 0, fun i:UInt { i }) }) ≈ O_n2
+proof
+  expand operator≈
+  have closed: all n:UInt.
+    2 * uint_summation(n, 0, fun i:UInt { i }) = n * (n ∸ 1)
+    by uint_summation_id
+
+  // Upper: Σ ≤ Σ + Σ = 2·Σ = n·(n ∸ 1) ≤ n · n.
+  have upper: (fun x:UInt { uint_summation(x, 0, fun i:UInt { i }) }) ≲ O_n2 by {
+    expand operator≲
+    choose 0, 1
+    arbitrary n:UInt
+    assume _
+    show uint_summation(n, 0, fun i:UInt { i }) ≤ 1 * O_n2(n)
+    expand O_n2
+    have two_S: 2 * uint_summation(n, 0, fun i:UInt { i }) = n * (n ∸ 1)
+      by closed[n]
+    have S_le_2S: uint_summation(n, 0, fun i:UInt { i })
+                  ≤ 2 * uint_summation(n, 0, fun i:UInt { i }) by {
+      have e: 2 * uint_summation(n, 0, fun i:UInt { i })
+              = uint_summation(n, 0, fun i:UInt { i })
+              + uint_summation(n, 0, fun i:UInt { i }) by uint_two_mult
+      replace e
+      uint_less_equal_add_left
+    }
+    have nm1_le_n: n ∸ 1 ≤ n by {
+      have dichot: 1 ≤ n or n < 1 by uint_dichotomy[1, n]
+      cases dichot
+      case one_le_n {
+        have ident: 1 + (n ∸ 1) = n by apply uint_monus_add_identity[n, 1] to one_le_n
+        have h: n ∸ 1 ≤ 1 + (n ∸ 1) by uint_less_equal_add_left
+        replace ident in h
+      }
+      case n_lt_one {
+        have n_le_zero: n ≤ 0 by apply uint_less_add_one_implies_less_equal[n, 0] to n_lt_one
+        have n_eq: n = 0 by apply uint_less_equal_zero to n_le_zero
+        replace n_eq
+        .
+      }
+    }
+    have two_S_le: 2 * uint_summation(n, 0, fun i:UInt { i }) ≤ n * n by {
+      replace two_S
+      apply uint_mult_mono_le[n, n ∸ 1, n] to nm1_le_n
+    }
+    have S_le: uint_summation(n, 0, fun i:UInt { i }) ≤ n * n
+      by apply uint_less_equal_trans to S_le_2S, two_S_le
+    S_le
+  }
+
+  // Lower: 4·Σ = 2·(2·Σ) = 2·n·(n ∸ 1) = n · (2·(n ∸ 1)) ≥ n · n, when n ≥ 2.
+  have lower: O_n2 ≲ (fun x:UInt { uint_summation(x, 0, fun i:UInt { i }) }) by {
+    expand operator≲
+    choose 2, 4
+    arbitrary n:UInt
+    assume two_le_n: 2 ≤ n
+    show O_n2(n) ≤ 4 * uint_summation(n, 0, fun i:UInt { i })
+    expand O_n2
+    have two_S: 2 * uint_summation(n, 0, fun i:UInt { i }) = n * (n ∸ 1)
+      by closed[n]
+
+    have one_le_n: 1 ≤ n by {
+      have one_le_two: (1:UInt) ≤ 2 by .
+      apply uint_less_equal_trans to one_le_two, two_le_n
+    }
+    have ident: 1 + (n ∸ 1) = n by apply uint_monus_add_identity[n, 1] to one_le_n
+
+    // From 2 ≤ n = 1 + (n ∸ 1), cancel 1 to get 1 ≤ n ∸ 1.
+    have one_le_nm1: 1 ≤ n ∸ 1 by {
+      have step: 1 + 1 ≤ 1 + (n ∸ 1) by {
+        replace ident
+        two_le_n
+      }
+      apply uint_add_both_sides_of_less_equal[1, 1, n ∸ 1] to step
+    }
+
+    // n = 1 + (n ∸ 1) ≤ (n ∸ 1) + (n ∸ 1) = 2·(n ∸ 1).
+    have n_le_2nm1: n ≤ 2 * (n ∸ 1) by {
+      have h: 1 + (n ∸ 1) ≤ (n ∸ 1) + (n ∸ 1)
+        by apply uint_add_mono_less_equal[1, n ∸ 1, n ∸ 1, n ∸ 1]
+           to one_le_nm1, uint_less_equal_refl
+      have step1: n ≤ (n ∸ 1) + (n ∸ 1) by replace ident in h
+      have step2: 2 * (n ∸ 1) = (n ∸ 1) + (n ∸ 1) by uint_two_mult
+      replace symmetric step2 in step1
+    }
+
+    // n · n ≤ n · (2·(n ∸ 1)) = 2·(n·(n ∸ 1)) = 2·(2·S) = 4·S.
+    have nn_le: n * n ≤ n * (2 * (n ∸ 1))
+      by apply uint_mult_mono_le[n, n, 2 * (n ∸ 1)] to n_le_2nm1
+    have factor: n * (2 * (n ∸ 1)) = 2 * (n * (n ∸ 1)) by {
+      have a: n * (2 * (n ∸ 1)) = (n * 2) * (n ∸ 1) by uint_mult_assoc
+      have b: n * 2 = 2 * n by uint_mult_commute
+      have c: (n * 2) * (n ∸ 1) = (2 * n) * (n ∸ 1) by replace b.
+      have d: (2 * n) * (n ∸ 1) = 2 * (n * (n ∸ 1)) by uint_mult_assoc
+      transitive a (transitive c d)
+    }
+    have four_S: 4 * uint_summation(n, 0, fun i:UInt { i }) = 2 * (n * (n ∸ 1)) by {
+      replace symmetric two_S.
+    }
+    have final: n * n ≤ 4 * uint_summation(n, 0, fun i:UInt { i }) by {
+      replace four_S | symmetric factor
+      nn_le
+    }
+    final
+  }
+
+  upper, lower
+end
