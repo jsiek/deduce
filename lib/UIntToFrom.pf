@@ -13,13 +13,13 @@ import UIntDefs
 */
 
 // Zero in Nat embeds as zero in UInt.
-lemma from_zero: fromNat(ℕ0) = 0
+theorem from_zero: fromNat(ℕ0) = 0
 proof
   evaluate
 end
 
 // One in Nat embeds as one in UInt.
-lemma from_one: fromNat(ℕ1) = 1
+theorem from_one: fromNat(ℕ1) = 1
 proof
   evaluate
 end
