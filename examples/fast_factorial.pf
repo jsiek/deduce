@@ -1,0 +1,76 @@
+// fast_factorial.pf
+//
+// A classic introductory-functional-programming example: the
+// accumulator transformation. We define the naive recursive factorial
+//
+//   factorial(0)       = 1
+//   factorial(suc(n))  = suc(n) * factorial(n)
+//
+// and a tail-recursive version that threads a running product through an
+// accumulator
+//
+//   fact_iter(0, acc)       = acc
+//   fact_iter(suc(n), acc)  = fact_iter(n, suc(n) * acc)
+//   fast_factorial(n)       = fact_iter(n, 1)
+//
+// and prove the two compute the same function:
+//
+//   fast_factorial_correct:  fast_factorial(n) = factorial(n)
+//
+// The heart of the proof is the generalized accumulator lemma
+//
+//   fact_iter_acc:  fact_iter(n, acc) = acc * factorial(n)
+//
+// proved by induction on `n` with `acc` left universally quantified so
+// the induction hypothesis applies at the new accumulator value. The
+// main theorem then specializes it to acc = 1.
+
+recursive factorial(Nat) -> Nat {
+  factorial(zero) = ℕ1
+  factorial(suc(n)) = suc(n) * factorial(n)
+}
+
+recursive fact_iter(Nat, Nat) -> Nat {
+  fact_iter(zero, acc) = acc
+  fact_iter(suc(n), acc) = fact_iter(n, suc(n) * acc)
+}
+
+define fast_factorial : fn Nat -> Nat = λn { fact_iter(n, ℕ1) }
+
+// A quick test of the definitions: 3! = 6.
+assert factorial(ℕ3) = ℕ6
+assert fast_factorial(ℕ3) = ℕ6
+
+// The generalized accumulator lemma. Keeping `acc` universally
+// quantified inside the induction is what makes the induction
+// hypothesis usable at the larger accumulator `suc(n) * acc`.
+theorem fact_iter_acc: all n:Nat. all acc:Nat.
+  fact_iter(n, acc) = acc * factorial(n)
+proof
+  induction Nat
+  case zero {
+    arbitrary acc:Nat
+    conclude fact_iter(zero, acc) = acc * factorial(zero)
+        by expand fact_iter | factorial.
+  }
+  case suc(n') assume IH: (all acc:Nat. fact_iter(n', acc) = acc * factorial(n')) {
+    arbitrary acc:Nat
+    equations
+      fact_iter(suc(n'), acc)
+          = fact_iter(n', suc(n') * acc)        by expand fact_iter.
+      ... = (suc(n') * acc) * factorial(n')     by IH[suc(n') * acc]
+      ... = (acc * suc(n')) * factorial(n')     by replace mult_commute[suc(n'), acc].
+      ... = # acc * factorial(suc(n')) #        by expand factorial.
+  }
+end
+
+theorem fast_factorial_correct: all n:Nat.
+  fast_factorial(n) = factorial(n)
+proof
+  arbitrary n:Nat
+  equations
+    fast_factorial(n)
+        = fact_iter(n, ℕ1)      by expand fast_factorial.
+    ... = ℕ1 * factorial(n)     by fact_iter_acc[n][ℕ1]
+    ... = factorial(n)          by one_mult
+end
