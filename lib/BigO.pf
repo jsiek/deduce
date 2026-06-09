@@ -1730,3 +1730,21 @@ proof
   }
   upper, lower
 end
+
+// `Σ_{i<n} 1 ≈ O_n`: summing the constant 1 over a range of length `n`
+// is asymptotically linear. The simplest of the standard asymptotic
+// summation formulas (CLRS / Knuth) and the first slice of Section H
+// of the BigO catalogue (#725).
+theorem bigo_summation_const_one:
+  (fun x:UInt { uint_summation(x, 0, fun i:UInt { 1 }) }) ≈ O_n
+proof
+  have pointwise: all m:UInt.
+      (fun x:UInt { uint_summation(x, 0, fun i:UInt { 1 }) })(m) = O_n(m) by {
+    arbitrary m:UInt
+    expand O_n
+    show uint_summation(m, 0, fun i:UInt { 1 }) = m
+    uint_summation_const_one[m, 0]
+  }
+  apply bigo_pointwise_eq[fun x:UInt { uint_summation(x, 0, fun i:UInt { 1 }) }, O_n]
+    to pointwise
+end

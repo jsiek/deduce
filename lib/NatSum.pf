@@ -199,6 +199,26 @@ proof
   }
 end
 
+// Summing the constant function `1` over a range of length `n` equals
+// `n`. The simplest of the standard asymptotic-summation building blocks.
+theorem summation_const_one: all n:Nat. all s:Nat.
+  summation(n, s, fun i:Nat { suc(zero) }) = n
+proof
+  induction Nat
+  case zero {
+    arbitrary s:Nat
+    expand summation.
+  }
+  case suc(n') assume IH {
+    arbitrary s:Nat
+    suffices suc(zero) + summation(n', suc(s), fun i:Nat { suc(zero) }) = suc(n')
+      by expand summation.
+    replace IH[suc(s)]
+    show suc(zero) + n' = suc(n')
+    expand operator+.
+  }
+end
+
 // Append a final term to a summation: `Σ_{i<n+1} f(s+i) = Σ_{i<n} + f(s+n)`.
 lemma summation_suc_add: all n:Nat, s:Nat, f:fn Nat->Nat.
   summation(suc(zero) + n, s, f) = summation(n, s, f) + f(s + n)
