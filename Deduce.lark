@@ -103,7 +103,7 @@ identifier: IDENT              -> identifier
     | "∅"                                         -> emptyset_literal
     | ".0."                                        -> emptyset_literal
     | "not" atomic_term                                -> logical_not
-    | IDENT                                        -> term_var
+    | identifier                                   -> term_var
     | "@" atomic_term "<" type_list ">"                -> term_inst
     | "array" "(" term ")"                         -> make_array
     | atomic_term "(" term_list ")"                    -> call
