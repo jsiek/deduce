@@ -490,7 +490,7 @@ The biconditional formula `P ⇔ Q` is syntactic sugar for
 
 ## Bool (Type)
 
-```
+```deduce-grammar
 type ::= "bool"
 ```
 
@@ -1118,7 +1118,7 @@ assert interchange(pair(1,2)) = pair(2,1)
 
 ## Function Type
 
-```
+```deduce-grammar
 type ::= "fn" type_params_opt type_list "->" type
 type ::= "fn" type_params_opt "(" type "," type_list ")" "->" type
 ```

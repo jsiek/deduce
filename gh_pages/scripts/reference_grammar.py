@@ -47,6 +47,7 @@ SUBSET_RULES = {
     "multiplicative_term",
     "proof_stmt",
     "statement",
+    "type",
     "visibility",
 }
 
