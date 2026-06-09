@@ -18,10 +18,11 @@ Per-category flags (combinable):
     --passable     ``test/should-validate``, ``example.pf``,
                    ``test/prelude`` with both parsers.
     --errors       ``test/should-error`` (RD only, ``.err`` diff).
-    --equiv        Parse ``lib/`` and ``test/should-validate/`` with both
-                   parsers and compare structural ASTs. Known historical
-                   divergences are allowlisted so CI catches new drift.
-                   Also round-trip representative ASTs through the
+    --equiv        Parse ``lib/``, ``test/should-validate/``, and most of
+                   ``test/should-error/`` with both parsers and compare
+                   structural ASTs. Known historical divergences and
+                   parser-error fixtures are allowlisted so CI catches new
+                   drift. Also round-trip representative ASTs through the
                    pretty-printer and both parsers.
 
 Standalone modes (mutually exclusive with the above):
@@ -130,6 +131,54 @@ PARSER_EQUIV_EXPECTED_DIVERGENCES = frozenset({
     "./test/should-validate/expand-repeat.pf",
     "./test/should-validate/inst3.pf",
     "./test/should-validate/map_append_cross_type.pf",
+})
+
+
+# Most ``test/should-error`` files fail in later phases (type-check,
+# proof-check) and parse cleanly under both parsers; comparing their ASTs
+# gives us 180+ extra surface-syntax samples for drift detection. The files
+# below are excluded because at least one parser rejects them at parse time
+# today -- either as an intentional parser-error fixture or because the two
+# parsers diverge on a tolerated form (e.g. RD currently accepts ``conclude
+# ... by`` with a hole where LALR does not). If a listed file ever starts to
+# parse cleanly with both parsers, the staleness check downgrades it to a
+# failure so the baseline shrinks over time.
+SHOULD_ERROR_PARSER_EQUIV_SKIP = frozenset({
+    "./test/should-error/all5.pf",
+    "./test/should-error/apply_to_error.pf",
+    "./test/should-error/cases_error.pf",
+    "./test/should-error/conclude.pf",
+    "./test/should-error/conjunct.pf",
+    "./test/should-error/deep_error.pf",
+    "./test/should-error/define_missing_semi.pf",
+    "./test/should-error/define_proof_missing_term.pf",
+    "./test/should-error/define_type.pf",
+    "./test/should-error/define_with_type_params.pf",
+    "./test/should-error/double_private.pf",
+    "./test/should-error/fn_missing_arrow.pf",
+    "./test/should-error/foldr_sum.pf",
+    "./test/should-error/function_case_missing_equal.pf",
+    "./test/should-error/givens_cases_not_or.pf",
+    "./test/should-error/givens_induction_not_all.pf",
+    "./test/should-error/induction_case.pf",
+    "./test/should-error/missing-colon-in-have.pf",
+    "./test/should-error/missing-conclusion1.pf",
+    "./test/should-error/paren_term.pf",
+    "./test/should-error/private_opaque.pf",
+    "./test/should-error/suffices_misspell.pf",
+    "./test/should-error/suffices_omitted.pf",
+    "./test/should-error/sum_foldr.pf",
+    "./test/should-error/sum_foldr_switch.pf",
+    "./test/should-error/switch_case_close.pf",
+    "./test/should-error/switch_case_empty.pf",
+    "./test/should-error/switch_case_open.pf",
+    "./test/should-error/switch_case_pattern.pf",
+    "./test/should-error/term_inst_foldr.pf",
+    "./test/should-error/theorem_implies8.pf",
+    "./test/should-error/theorem_misspelled.pf",
+    "./test/should-error/unclosed_comment.pf",
+    "./test/should-error/union_bad_constructor.pf",
+    "./test/should-error/union_missing_name.pf",
 })
 
 
@@ -457,9 +506,15 @@ def _pretty_print_program(ast: Iterable[object]) -> str:
 def run_parser_equivalence() -> list[tuple[str, str, str]]:
     """Compare RD and LALR ASTs for accepted syntax.
 
-    This covers ``lib/`` and ``test/should-validate/``. ``test/parse`` remains
-    RD-only because those fixtures intentionally lock down beginner-facing RD
-    diagnostics, while the LALR parser is kept as an executable grammar spec.
+    Covers ``lib/``, ``test/should-validate/``, and most of
+    ``test/should-error/``. ``should-error`` files fail in later phases, so
+    their ASTs are still meaningful surface-syntax samples; the
+    ``SHOULD_ERROR_PARSER_EQUIV_SKIP`` baseline excludes the fixtures where
+    at least one parser rejects at parse time today.
+
+    ``test/parse`` remains RD-only because those fixtures intentionally lock
+    down beginner-facing RD diagnostics, while the LALR parser is kept as an
+    executable grammar spec.
     """
     # ``--site`` generates ``doc_*.pf`` files into ``test/should-validate``.
     # They are already validated with both parsers by the site mode itself;
@@ -468,7 +523,11 @@ def run_parser_equivalence() -> list[tuple[str, str, str]]:
         f for f in list_pf(PASS_DIR)
         if not Path(f).name.startswith("doc_")
     ]
-    files = list_pf(LIB_DIR) + pass_files
+    should_error_files = [
+        f for f in list_pf(ERROR_DIR)
+        if f not in SHOULD_ERROR_PARSER_EQUIV_SKIP
+    ]
+    files = list_pf(LIB_DIR) + pass_files + should_error_files
     failures: list[tuple[str, str, str]] = []
     seen_divergences: set[str] = set()
     for path in files:
@@ -496,12 +555,46 @@ def run_parser_equivalence() -> list[tuple[str, str, str]]:
             failures.append((path, "parser-equivalence",
                              "RD and LALR ASTs differ"))
 
+    failures.extend(_check_should_error_skip_set())
+
     stale = PARSER_EQUIV_EXPECTED_DIVERGENCES - seen_divergences - {
         f for f in files if f in PARSER_EQUIV_EXPECTED_DIVERGENCES
     }
     for path in sorted(stale):
         failures.append((path, "parser-equivalence",
                          "expected divergence path no longer exists"))
+    return failures
+
+
+def _check_should_error_skip_set() -> list[tuple[str, str, str]]:
+    """Verify each ``SHOULD_ERROR_PARSER_EQUIV_SKIP`` entry still needs skipping.
+
+    A file belongs in the skip set only as long as at least one parser
+    rejects it at parse time. Once both parsers accept it, it should be
+    promoted into the main equivalence sweep so we get drift coverage there
+    too.
+    """
+    failures: list[tuple[str, str, str]] = []
+    existing_error_files = set(list_pf(ERROR_DIR))
+    for path in sorted(SHOULD_ERROR_PARSER_EQUIV_SKIP):
+        if path not in existing_error_files:
+            failures.append((path, "parser-equivalence",
+                             "skip-set path no longer exists"))
+            continue
+        try:
+            _parse_for_equivalence(path, recursive_descent=True)
+            rd_ok = True
+        except Exception:
+            rd_ok = False
+        try:
+            _parse_for_equivalence(path, recursive_descent=False)
+            lalr_ok = True
+        except Exception:
+            lalr_ok = False
+        if rd_ok and lalr_ok:
+            failures.append((path, "parser-equivalence",
+                             "skip-set entry now parses with both parsers; "
+                             "remove from SHOULD_ERROR_PARSER_EQUIV_SKIP"))
     return failures
 
 
@@ -839,7 +932,7 @@ def main(argv: list[str]) -> int:
 
     if flags["equiv"]:
         print("\n=== parser equivalence (RD vs LALR ASTs) ===")
-        _, fails = time_section("lib + should-validate",
+        _, fails = time_section("lib + should-validate + should-error",
                                 run_parser_equivalence)
         total_failures.extend(fails)
         _, fails = time_section("pretty-print round trip",
