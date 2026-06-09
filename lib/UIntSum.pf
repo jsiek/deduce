@@ -6,6 +6,8 @@ import UIntDefs
 import UIntToFrom
 import UIntLess
 import UIntAdd
+import UIntMult
+import UIntMonus
 
 /*
   Finite summation over UInt ranges.
@@ -168,4 +170,41 @@ proof
   }
   replace body_eq
   summation_const_one[toNat(n), toNat(s)]
+end
+
+// UInt analogue of `sum_n` (lib/Nat.pf): twice the sum 0+1+...+(n-1)
+// equals n*(n ∸ 1). Transported through `toNat`/`fromNat` to the Nat
+// lemma. The doubled form keeps the closed form in UInt (no rationals).
+theorem uint_summation_id: all n:UInt.
+  2 * uint_summation(n, 0, fun i:UInt { i }) = n * (n ∸ 1)
+proof
+  arbitrary n:UInt
+  suffices toNat(2 * uint_summation(n, 0, fun i:UInt { i }))
+           = toNat(n * (n ∸ 1)) by uint_toNat_injective
+  replace toNat_mult | toNat_uint_summation | toNat_monus
+  have body_eq:
+    summation(toNat(n), toNat(0:UInt),
+              λ j { toNat((fun u:UInt { u })(fromNat(j))) })
+    = summation(toNat(n), ℕ0, λ x:Nat { x }) by {
+    apply summation_cong[toNat(n),
+        λ j { toNat((fun u:UInt { u })(fromNat(j))) },
+        λ x:Nat { x },
+        toNat(0:UInt), ℕ0]
+    to arbitrary i:Nat
+       assume _
+       have tonat_zero: toNat(0:UInt) = ℕ0
+         by replace symmetric from_zero in uint_toNat_fromNat[ℕ0]
+       replace tonat_zero | uint_toNat_fromNat.
+  }
+  replace body_eq
+  have tonat_one: toNat(1:UInt) = ℕ1 by {
+    have h: toNat(fromNat(ℕ1)) = ℕ1 by uint_toNat_fromNat
+    h
+  }
+  have tonat_two: toNat(2:UInt) = ℕ2 by {
+    have h: toNat(fromNat(ℕ2)) = ℕ2 by uint_toNat_fromNat
+    h
+  }
+  replace tonat_two | tonat_one
+  sum_n[toNat(n)]
 end
