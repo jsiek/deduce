@@ -36,7 +36,7 @@ proof
   sle, els
 end
 
-lemma less_suc_iff_suc_less: all x:Nat, y:Nat.
+theorem less_suc_iff_suc_less: all x:Nat, y:Nat.
   x < y ⇔ suc(x) < suc(y)
 proof
   arbitrary x:Nat, y:Nat
