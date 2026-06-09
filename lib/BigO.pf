@@ -1939,3 +1939,148 @@ proof
 
   upper, lower
 end
+
+// `Σ_{i<n} a^i ≈ (fun n. a^n)` for `2 ≤ a`: the generic geometric-series
+// bound, generalising `bigo_summation_pow2`. From the closed form
+// `1 + (a − 1) · Σ = a^n` (`uint_summation_pow_succ`), the upper bound
+// `Σ ≤ a^n` follows at `(n0, c) = (0, 1)` via `Σ ≤ (a − 1) · Σ ≤ 1 + (a − 1) · Σ`,
+// and the lower bound `a^n ≤ a · Σ` at `(n0, c) = (1, a)` via
+// `Σ ≥ 1` for `n ≥ 1` (since `a^n ≥ a ≥ 2`, so `(a − 1) · Σ ≥ 1`, and
+// `a − 1 ≥ 1` forces `Σ ≥ 1`), then `a · Σ = (a − 1) · Σ + Σ ≥ (a − 1) · Σ + 1 = a^n`.
+// Fourth slice of Section H of the BigO catalogue (#725).
+theorem bigo_summation_pow: all a:UInt. if 2 ≤ a then
+  (fun x:UInt { uint_summation(x, 0, fun i:UInt { a ^ i }) })
+  ≈ (fun x:UInt { a ^ x })
+proof
+  arbitrary a:UInt
+  assume two_le_a: 2 ≤ a
+
+  have one_le_a: 1 ≤ a by {
+    have h: (1:UInt) ≤ 2 by .
+    apply uint_less_equal_trans to h, two_le_a
+  }
+  have one_le_am1: 1 ≤ a ∸ 1 by {
+    have ident: 1 + (a ∸ 1) = a by apply uint_monus_add_identity[a, 1] to one_le_a
+    have step: 1 + 1 ≤ 1 + (a ∸ 1) by {
+      replace ident
+      two_le_a
+    }
+    apply uint_add_both_sides_of_less_equal[1, 1, a ∸ 1] to step
+  }
+
+  have closed: all n:UInt.
+    1 + (a ∸ 1) * uint_summation(n, 0, fun i:UInt { a ^ i }) = a ^ n
+    by apply uint_summation_pow_succ to one_le_a
+
+  expand operator≈
+
+  // Upper: Σ ≤ (a − 1) · Σ ≤ 1 + (a − 1) · Σ = a^n.
+  have upper: (fun x:UInt { uint_summation(x, 0, fun i:UInt { a ^ i }) })
+              ≲ (fun x:UInt { a ^ x }) by {
+    expand operator≲
+    choose 0, 1
+    arbitrary n:UInt
+    assume _
+    show uint_summation(n, 0, fun i:UInt { a ^ i }) ≤ 1 * (fun x:UInt { a ^ x })(n)
+    have an_eq: 1 + (a ∸ 1) * uint_summation(n, 0, fun i:UInt { a ^ i }) = a ^ n
+      by closed[n]
+    have S_le_am1S: uint_summation(n, 0, fun i:UInt { a ^ i })
+                  ≤ (a ∸ 1) * uint_summation(n, 0, fun i:UInt { a ^ i }) by {
+      have h: 1 * uint_summation(n, 0, fun i:UInt { a ^ i })
+            ≤ (a ∸ 1) * uint_summation(n, 0, fun i:UInt { a ^ i })
+        by apply uint_mult_mono_le2[1, uint_summation(n, 0, fun i:UInt { a ^ i }),
+              a ∸ 1, uint_summation(n, 0, fun i:UInt { a ^ i })]
+           to one_le_am1, uint_less_equal_refl
+      h
+    }
+    have am1S_le_oneplus: (a ∸ 1) * uint_summation(n, 0, fun i:UInt { a ^ i })
+                        ≤ 1 + (a ∸ 1) * uint_summation(n, 0, fun i:UInt { a ^ i })
+      by uint_less_equal_add_left
+    have S_le_oneplus: uint_summation(n, 0, fun i:UInt { a ^ i })
+                     ≤ 1 + (a ∸ 1) * uint_summation(n, 0, fun i:UInt { a ^ i })
+      by apply uint_less_equal_trans to S_le_am1S, am1S_le_oneplus
+    replace symmetric an_eq
+    S_le_oneplus
+  }
+
+  // Lower: a^n = 1 + (a − 1) · Σ ≤ Σ + (a − 1) · Σ = a · Σ, using Σ ≥ 1
+  // when n ≥ 1.
+  have lower: (fun x:UInt { a ^ x })
+              ≲ (fun x:UInt { uint_summation(x, 0, fun i:UInt { a ^ i }) }) by {
+    expand operator≲
+    choose 1, a
+    arbitrary n:UInt
+    assume one_le_n: 1 ≤ n
+    show (fun x:UInt { a ^ x })(n)
+       ≤ a * uint_summation(n, 0, fun i:UInt { a ^ i })
+
+    have an_eq: 1 + (a ∸ 1) * uint_summation(n, 0, fun i:UInt { a ^ i }) = a ^ n
+      by closed[n]
+
+    // Σ ≥ 1 when n ≥ 1: from a^n ≥ a ≥ 2, hence 1 + (a − 1) · Σ ≥ 2,
+    // hence (a − 1) · Σ ≥ 1, hence Σ ≥ 1 (since a − 1 ≥ 1, a Σ of 0
+    // would give (a − 1) · 0 = 0, contradicting (a − 1) · Σ ≥ 1).
+    have an_ge_2: 2 ≤ a ^ n by {
+      have a_le_an: a ≤ a ^ n
+        by apply (apply uint_pow_le_mono_r[n, a, 1] to one_le_a) to one_le_n
+      apply uint_less_equal_trans to two_le_a, a_le_an
+    }
+    have step_2: 2 ≤ 1 + (a ∸ 1) * uint_summation(n, 0, fun i:UInt { a ^ i }) by {
+      replace an_eq
+      an_ge_2
+    }
+    have am1S_ge_1: 1 ≤ (a ∸ 1) * uint_summation(n, 0, fun i:UInt { a ^ i }) by {
+      have h: 1 + 1 ≤ 1 + (a ∸ 1) * uint_summation(n, 0, fun i:UInt { a ^ i })
+        by step_2
+      apply uint_add_both_sides_of_less_equal[1, 1,
+            (a ∸ 1) * uint_summation(n, 0, fun i:UInt { a ^ i })] to h
+    }
+    have S_ge_1: 1 ≤ uint_summation(n, 0, fun i:UInt { a ^ i }) by {
+      have dichot: 1 ≤ uint_summation(n, 0, fun i:UInt { a ^ i })
+                or uint_summation(n, 0, fun i:UInt { a ^ i }) < 1
+        by uint_dichotomy[1, uint_summation(n, 0, fun i:UInt { a ^ i })]
+      cases dichot
+      case yes { yes }
+      case S_lt_1: uint_summation(n, 0, fun i:UInt { a ^ i }) < 1 {
+        have S_le_0: uint_summation(n, 0, fun i:UInt { a ^ i }) ≤ 0
+          by apply uint_less_add_one_implies_less_equal[uint_summation(n, 0, fun i:UInt { a ^ i }), 0] to S_lt_1
+        have S_eq_0: uint_summation(n, 0, fun i:UInt { a ^ i }) = 0
+          by apply uint_less_equal_zero to S_le_0
+        have prod_zero: (a ∸ 1) * uint_summation(n, 0, fun i:UInt { a ^ i }) = 0
+          by replace S_eq_0.
+        have absurd: (1:UInt) ≤ 0 by replace prod_zero in am1S_ge_1
+        conclude false by evaluate in absurd
+      }
+    }
+
+    // a · Σ = (1 + (a − 1)) · Σ = Σ + (a − 1) · Σ.
+    have ident: 1 + (a ∸ 1) = a by apply uint_monus_add_identity[a, 1] to one_le_a
+    have a_split: a * uint_summation(n, 0, fun i:UInt { a ^ i })
+                = uint_summation(n, 0, fun i:UInt { a ^ i })
+                + (a ∸ 1) * uint_summation(n, 0, fun i:UInt { a ^ i }) by {
+      have h: (1 + (a ∸ 1)) * uint_summation(n, 0, fun i:UInt { a ^ i })
+            = 1 * uint_summation(n, 0, fun i:UInt { a ^ i })
+             + (a ∸ 1) * uint_summation(n, 0, fun i:UInt { a ^ i })
+        by uint_dist_mult_add_right[1, a ∸ 1, uint_summation(n, 0, fun i:UInt { a ^ i })]
+      replace ident in h
+    }
+
+    // Σ + (a − 1) · Σ ≥ 1 + (a − 1) · Σ = a^n.
+    have one_plus_le: 1 + (a ∸ 1) * uint_summation(n, 0, fun i:UInt { a ^ i })
+                    ≤ uint_summation(n, 0, fun i:UInt { a ^ i })
+                    + (a ∸ 1) * uint_summation(n, 0, fun i:UInt { a ^ i })
+      by apply uint_add_mono_less_equal[1,
+            (a ∸ 1) * uint_summation(n, 0, fun i:UInt { a ^ i }),
+            uint_summation(n, 0, fun i:UInt { a ^ i }),
+            (a ∸ 1) * uint_summation(n, 0, fun i:UInt { a ^ i })]
+         to S_ge_1, uint_less_equal_refl
+
+    have an_le: a ^ n ≤ a * uint_summation(n, 0, fun i:UInt { a ^ i }) by {
+      replace a_split | symmetric an_eq
+      one_plus_le
+    }
+    an_le
+  }
+
+  upper, lower
+end

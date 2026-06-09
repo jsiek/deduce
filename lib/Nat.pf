@@ -343,6 +343,62 @@ proof
   }
 end
 
+// Generic geometric sum closed form: `1 + (a − 1) · Σ_{i<n} a^i = a^n`,
+// written additively so the closed form stays in Nat (no monus on the
+// RHS). The premise `1 ≤ a` lets `monus_add_identity` recover
+// `(a ∸ 1) + 1 = a` inside the inductive step. The pow2 specialization
+// (`a = 2`, so `a ∸ 1 = 1`) recovers `summation_pow2_succ`.
+theorem summation_pow_succ: all a:Nat. if ℕ1 ≤ a then
+  all n:Nat.
+  ℕ1 + (a ∸ ℕ1) * summation(n, ℕ0, λ i:Nat { a ^ i }) = a ^ n
+proof
+  arbitrary a:Nat
+  assume one_le_a: ℕ1 ≤ a
+  have a_eq: ℕ1 + (a ∸ ℕ1) = a by apply monus_add_identity to one_le_a
+  induction Nat
+  case zero {
+    expand summation
+    evaluate
+  }
+  case suc(n') suppose IH {
+    show ℕ1 + (a ∸ ℕ1) * summation(suc(n'), ℕ0, λ i:Nat { a ^ i }) = a ^ suc(n')
+    have e_suc: suc(zero) + n' = suc(n') by expand operator+.
+    have step:
+      summation(suc(n'), ℕ0, λ i:Nat { a ^ i })
+      = summation(n', ℕ0, λ i:Nat { a ^ i }) + a ^ n'
+    by {
+      have h1: summation(suc(zero) + n', ℕ0, λ i:Nat { a ^ i })
+             = summation(n', ℕ0, λ i:Nat { a ^ i }) + (λ i:Nat { a ^ i })(ℕ0 + n')
+        by summation_suc_add[n', ℕ0, λ i:Nat { a ^ i }]
+      replace e_suc in h1
+    }
+    replace step
+    show ℕ1 + (a ∸ ℕ1) * (summation(n', ℕ0, λ i:Nat { a ^ i }) + a ^ n') = a ^ suc(n')
+
+    have pow_step: a ^ suc(n') = a * a ^ n' by expand operator^ | expt.
+
+    // `((a ∸ 1) + 1) · a^n' = a · a^n' = a^(suc n')`.
+    have a_eq': (a ∸ ℕ1) + ℕ1 = a by replace add_commute in a_eq
+    have d: ((a ∸ ℕ1) + ℕ1) * a ^ n' = (a ∸ ℕ1) * a ^ n' + ℕ1 * a ^ n'
+      by dist_mult_add_right[a ∸ ℕ1, ℕ1, a ^ n']
+    have e: a * a ^ n' = (a ∸ ℕ1) * a ^ n' + a ^ n' by replace a_eq' in d
+    have collapse: (a ∸ ℕ1) * a ^ n' + a ^ n' = a ^ suc(n')
+      by transitive (symmetric e) (symmetric pow_step)
+
+    equations
+          ℕ1 + (a ∸ ℕ1) * (summation(n', ℕ0, λ i:Nat { a ^ i }) + a ^ n')
+        = ℕ1 + ((a ∸ ℕ1) * summation(n', ℕ0, λ i:Nat { a ^ i })
+                + (a ∸ ℕ1) * a ^ n')
+            by replace dist_mult_add.
+    ... = (ℕ1 + (a ∸ ℕ1) * summation(n', ℕ0, λ i:Nat { a ^ i }))
+            + (a ∸ ℕ1) * a ^ n'
+            by symmetric add_assoc[ℕ1, (a ∸ ℕ1) * summation(n', ℕ0, λ i:Nat { a ^ i }), (a ∸ ℕ1) * a ^ n']
+    ... = a ^ n' + (a ∸ ℕ1) * a ^ n'    by replace IH.
+    ... = (a ∸ ℕ1) * a ^ n' + a ^ n'    by add_commute
+    ... = a ^ suc(n')                    by collapse
+  }
+end
+
 // Closed form: twice the sum 0+1+...+n equals n*(n+1).
 theorem sum_n' : all n : Nat.
     ℕ2 * summation(suc(n), ℕ0, λ x {x}) = n * (n + ℕ1)

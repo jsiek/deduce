@@ -213,6 +213,49 @@ proof
   summation_pow2_succ[toNat(n)]
 end
 
+// UInt analogue of `summation_pow_succ` (lib/Nat.pf): the generic
+// geometric sum closed form `1 + (a − 1) · Σ_{i<n} a^i = a^n` for
+// `1 ≤ a`. Transported through `toNat`/`fromNat` to the Nat lemma.
+// The additive form keeps the closed form in UInt (no rationals).
+theorem uint_summation_pow_succ: all a:UInt. if 1 ≤ a then
+  all n:UInt.
+  (1:UInt) + (a ∸ 1) * uint_summation(n, 0, fun i:UInt { a ^ i }) = a ^ n
+proof
+  arbitrary a:UInt
+  assume one_le_a: 1 ≤ a
+  arbitrary n:UInt
+  suffices toNat((1:UInt) + (a ∸ 1) * uint_summation(n, 0, fun i:UInt { a ^ i }))
+           = toNat(a ^ n) by uint_toNat_injective
+  replace toNat_add | toNat_mult | toNat_uint_summation | toNat_monus
+  have body_eq:
+    summation(toNat(n), toNat(0:UInt),
+              λ j { toNat((fun u:UInt { a ^ u })(fromNat(j))) })
+    = summation(toNat(n), ℕ0, λ j:Nat { toNat(a) ^ j }) by {
+    apply summation_cong[toNat(n),
+        λ j { toNat((fun u:UInt { a ^ u })(fromNat(j))) },
+        λ j:Nat { toNat(a) ^ j },
+        toNat(0:UInt), ℕ0]
+    to arbitrary i:Nat
+       assume _
+       have tonat_zero: toNat(0:UInt) = ℕ0
+         by replace symmetric from_zero in uint_toNat_fromNat[ℕ0]
+       replace tonat_zero
+       show toNat(a ^ fromNat(ℕ0 + i)) = toNat(a) ^ (ℕ0 + i)
+       replace toNat_expt | uint_toNat_fromNat.
+  }
+  replace body_eq
+  have tonat_one: toNat(1:UInt) = ℕ1 by {
+    have h: toNat(fromNat(ℕ1)) = ℕ1 by uint_toNat_fromNat
+    h
+  }
+  replace toNat_expt | tonat_one
+  have one_le_toNat_a: ℕ1 ≤ toNat(a) by {
+    have h: toNat(1:UInt) ≤ toNat(a) by apply toNat_less_equal to one_le_a
+    replace tonat_one in h
+  }
+  apply summation_pow_succ[toNat(a)] to one_le_toNat_a
+end
+
 // UInt analogue of `sum_n` (lib/Nat.pf): twice the sum 0+1+...+(n-1)
 // equals n*(n ∸ 1). Transported through `toNat`/`fromNat` to the Nat
 // lemma. The doubled form keeps the closed form in UInt (no rationals).
