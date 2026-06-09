@@ -971,6 +971,15 @@ proof
   bigo_log_le_self[O_log]
 end
 
+// Log dominance under `+`: adding the pointwise log of a cost function
+// to that function does not change its asymptotic class. Direct corollary
+// of `bigo_log_le_self` (which gives `log(f) ≲ f`) and `bigo_add_dominated`.
+theorem bigo_log_add_dominated: all f:fn UInt->UInt. log(f) + f ≈ f
+proof
+  arbitrary f:fn UInt->UInt
+  apply bigo_add_dominated to bigo_log_le_self[f]
+end
+
 // Polynomial-vs-exponential domination, base case k = 2: n*n ≤ 2^n for n ≥ 4.
 // Proven by k-induction starting at 4. The inductive step uses the polynomial
 // slack 1 + 2m ≤ m*m (via 1 + 2m ≤ 4m ≤ m*m, both valid for m ≥ 4) to bound
@@ -1371,6 +1380,40 @@ proof
   have na_le_nb: (fun n:UInt { n^a }) ≲ (fun n:UInt { n^b })
     by apply bigo_pow_mono to a_le_b
   apply bigo_add_dominated[fun n:UInt { n^a }, fun n:UInt { n^b }] to na_le_nb
+end
+
+// log + n^k ≈ n^k for `1 ≤ k`. Adding `log(n)` to any monomial of degree
+// at least one is absorbed by that monomial. Distinct from
+// `bigo_log_add_dominated` instantiated at `f = (fun n. n^k)`, because
+// the lifted `log(fun n. n^k)` is `fun n. log(n^k)`, not the bare
+// logarithm. Chains `log ≲ O_n ≲ (fun n. n^k)` (via `bigo_log_le_self`
+// and `bigo_pow_mono`) and feeds the result to `bigo_add_dominated`.
+theorem bigo_log_pow_add_dominated: all k:UInt.
+  if 1 ≤ k
+  then log(O_n) + (fun n:UInt { n^k }) ≈ (fun n:UInt { n^k })
+proof
+  arbitrary k:UInt
+  assume one_le_k: 1 ≤ k
+  have log_n_le_n: log(O_n) ≲ O_n by bigo_log_le_self[O_n]
+  // `bigo_pow_mono[1, k]` gives `(fun n. n^1) ≲ (fun n. n^k)`. Bridge
+  // through `bigo_pointwise_eq` to align `O_n = fun n. n` with
+  // `fun n. n^1` (which auto-reduces to the same shape but is not
+  // syntactically identical from the type checker's perspective).
+  have n1_le_nk: (fun n:UInt { n^1 }) ≲ (fun n:UInt { n^k })
+    by apply bigo_pow_mono[1, k] to one_le_k
+  have on_eq: all n:UInt. O_n(n) = (fun m:UInt { m^1 })(n) by {
+    arbitrary n:UInt
+    expand O_n.
+  }
+  have on_equiv: O_n ≈ (fun n:UInt { n^1 })
+    by apply bigo_pointwise_eq[O_n, fun n:UInt { n^1 }] to on_eq
+  have on_le_n1: O_n ≲ (fun n:UInt { n^1 })
+    by conjunct 0 of (expand operator≈ in on_equiv)
+  have n_le_nk: O_n ≲ (fun n:UInt { n^k })
+    by apply bigo_trans to on_le_n1, n1_le_nk
+  have log_le_nk: log(O_n) ≲ (fun n:UInt { n^k })
+    by apply bigo_trans to log_n_le_n, n_le_nk
+  apply bigo_add_dominated[log(O_n), fun n:UInt { n^k }] to log_le_nk
 end
 
 // Polynomial closure, degree 1: a degree-1 polynomial with positive leading
