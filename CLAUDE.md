@@ -94,6 +94,20 @@ Per `docs/knowledge-base/what-to-update.md`, a syntax change touches: `Deduce.la
 
 When the task is to write or modify a `.pf` proof, read [`gh_pages/doc/TacticsCheatSheet.md`](gh_pages/doc/TacticsCheatSheet.md) first — it lists every tactic with a one-line meaning and documents the syntactic pitfalls (auto-rule goal collapse, `lemma` privacy, `replace` direction, `ℕ0`/`zero` non-unification, conjunction destructuring with `conjunct N of`, etc.) that otherwise have to be discovered by trial. The companion [`gh_pages/doc/CheatSheet.md`](gh_pages/doc/CheatSheet.md) gives goal-shape-keyed strategy advice; [`gh_pages/doc/Reference.md`](gh_pages/doc/Reference.md) is the long-form reference manual.
 
+### Use the deduce MCP server, not the edit-and-revalidate loop
+
+When the `mcp__deduce__*` tools are available in the session, they are the default workflow for `.pf` work — not a fallback. The `python deduce.py file.pf` cycle is slow, gives errors at the wrong granularity, and burns turns on parse-error churn that the MCP tools surface inline.
+
+In particular:
+
+- **`mcp__deduce__goal_at`** at any hole or proof position is the answer to "what does the goal look like here?" Use it *before* writing the next step, not after a failed `replace` tells you the goal had already been auto-collapsed.
+- **`mcp__deduce__available_lemmas_at`** ranks in-scope lemmas against the current goal. Use it instead of grepping `lib/*.pf` for "what theorem says `m^(1+k) = m * m^k`".
+- **`mcp__deduce__preview_replace_at` / `preview_expand_at` / `preview_conclude_at`** dry-run a tactic against the live goal. Use them before committing to a `replace` chain — they catch "no need for replace because this equation is handled automatically" without a full re-check.
+- **`mcp__deduce__refine_at`** suggests the next step. Use it when stuck rather than guessing.
+- **`mcp__deduce__check_file`** is the in-MCP equivalent of running `deduce.py`; faster than spawning a fresh interpreter.
+
+Keep `python deduce.py file.pf` for the final pre-commit smoke check and for `--lalr` parity. Skip it as the inner loop.
+
 ## Profiling
 
 `./profile.sh file.pf` runs cProfile + gprof2dot and opens a PNG (requires `dot`).
