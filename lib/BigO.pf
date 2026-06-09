@@ -1862,3 +1862,80 @@ proof
 
   upper, lower
 end
+
+// `Σ_{i<n} 2^i ≈ O_2pow_n`: the geometric-series bound. From the closed
+// form `1 + Σ = 2^n` (`uint_summation_pow2_succ`), the upper bound
+// `Σ ≤ 2^n` follows at `(n0, c) = (0, 1)` and the lower bound `2^n ≤ 2·Σ`
+// at `(n0, c) = (1, 2)`: when `n ≥ 1`, `2^n ≥ 2`, so `Σ = 2^n − 1 ≥ 1`,
+// giving `2·Σ = Σ + Σ ≥ 1 + Σ = 2^n`. Third slice of Section H of the
+// BigO catalogue (#725).
+theorem bigo_summation_pow2:
+  (fun x:UInt { uint_summation(x, 0, fun i:UInt { 2 ^ i }) }) ≈ O_2pow_n
+proof
+  expand operator≈
+  have closed: all m:UInt.
+    1 + uint_summation(m, 0, fun i:UInt { 2 ^ i }) = 2 ^ m
+    by uint_summation_pow2_succ
+
+  // Upper: Σ ≤ 1 + Σ = 2^n.
+  have upper: (fun x:UInt { uint_summation(x, 0, fun i:UInt { 2 ^ i }) })
+              ≲ O_2pow_n by {
+    expand operator≲
+    choose 0, 1
+    arbitrary n:UInt
+    assume _
+    show uint_summation(n, 0, fun i:UInt { 2 ^ i }) ≤ 1 * O_2pow_n(n)
+    expand O_2pow_n
+    have one_S_eq: 1 + uint_summation(n, 0, fun i:UInt { 2 ^ i }) = 2 ^ n
+      by closed[n]
+    have S_le_oneS: uint_summation(n, 0, fun i:UInt { 2 ^ i })
+                    ≤ 1 + uint_summation(n, 0, fun i:UInt { 2 ^ i })
+      by uint_less_equal_add_left
+    replace symmetric one_S_eq
+    S_le_oneS
+  }
+
+  // Lower: 2·Σ = Σ + Σ ≥ 1 + Σ = 2^n, since Σ ≥ 1 when n ≥ 1.
+  have lower: O_2pow_n
+              ≲ (fun x:UInt { uint_summation(x, 0, fun i:UInt { 2 ^ i }) }) by {
+    expand operator≲
+    choose 1, 2
+    arbitrary n:UInt
+    assume one_le_n: 1 ≤ n
+    show O_2pow_n(n) ≤ 2 * uint_summation(n, 0, fun i:UInt { 2 ^ i })
+    expand O_2pow_n
+    have one_S_eq: 1 + uint_summation(n, 0, fun i:UInt { 2 ^ i }) = 2 ^ n
+      by closed[n]
+
+    // `2^n ≥ 2^1 = 2`, hence `1 + Σ = 2^n ≥ 2`, hence `Σ ≥ 1`.
+    have two_le_pow: (2:UInt) ≤ 2 ^ n
+      by apply (apply uint_pow_le_mono_r[n, 2, 1]
+                to (conclude (1:UInt) ≤ 2 by .)) to one_le_n
+    have one_le_S: 1 ≤ uint_summation(n, 0, fun i:UInt { 2 ^ i }) by {
+      have step: 1 + 1 ≤ 1 + uint_summation(n, 0, fun i:UInt { 2 ^ i }) by {
+        replace one_S_eq
+        two_le_pow
+      }
+      apply uint_add_both_sides_of_less_equal[1, 1,
+            uint_summation(n, 0, fun i:UInt { 2 ^ i })] to step
+    }
+
+    // `2 · Σ = Σ + Σ ≥ 1 + Σ = 2^n`.
+    have twoS_eq: 2 * uint_summation(n, 0, fun i:UInt { 2 ^ i })
+                = uint_summation(n, 0, fun i:UInt { 2 ^ i })
+                + uint_summation(n, 0, fun i:UInt { 2 ^ i })
+      by uint_two_mult
+    have oneS_le_twoS: 1 + uint_summation(n, 0, fun i:UInt { 2 ^ i })
+                     ≤ 2 * uint_summation(n, 0, fun i:UInt { 2 ^ i }) by {
+      replace twoS_eq
+      apply uint_add_mono_less_equal[1, uint_summation(n, 0, fun i:UInt { 2 ^ i }),
+            uint_summation(n, 0, fun i:UInt { 2 ^ i }),
+            uint_summation(n, 0, fun i:UInt { 2 ^ i })]
+        to one_le_S, uint_less_equal_refl
+    }
+    replace symmetric one_S_eq
+    oneS_le_twoS
+  }
+
+  upper, lower
+end

@@ -311,6 +311,38 @@ proof
     }
 end
 
+// Geometric sum closed form: Σ_{i<n} 2^i = 2^n − 1, stated additively
+// as `1 + Σ = 2^n` to stay in Nat (no monus). Proved by induction on n,
+// peeling off the final term via `summation_suc_add` and reducing
+// `2^(suc n') = 2 * 2^n'` to `2^n' + 2^n'`.
+theorem summation_pow2_succ: all n:Nat.
+  ℕ1 + summation(n, ℕ0, λ i:Nat { ℕ2 ^ i }) = ℕ2 ^ n
+proof
+  induction Nat
+  case zero {
+    expand summation
+    evaluate
+  }
+  case suc(n') suppose IH {
+    show ℕ1 + summation(suc(n'), ℕ0, λ i:Nat { ℕ2 ^ i }) = ℕ2 ^ suc(n')
+    have e_suc: suc(zero) + n' = suc(n') by expand operator+.
+    have step:
+      summation(suc(n'), ℕ0, λ i:Nat { ℕ2 ^ i })
+      = summation(n', ℕ0, λ i:Nat { ℕ2 ^ i }) + ℕ2 ^ n'
+    by {
+      have h1: summation(suc(zero) + n', ℕ0, λ i:Nat { ℕ2 ^ i })
+             = summation(n', ℕ0, λ i:Nat { ℕ2 ^ i }) + (λ i:Nat { ℕ2 ^ i })(ℕ0 + n')
+        by summation_suc_add[n', ℕ0, λ i:Nat { ℕ2 ^ i }]
+      replace e_suc in h1
+    }
+    replace step | IH
+    show ℕ2 ^ n' + ℕ2 ^ n' = ℕ2 ^ suc(n')
+    have pow_step: ℕ2 ^ suc(n') = ℕ2 * ℕ2 ^ n' by expand operator^ | expt.
+    replace pow_step
+    symmetric lit_two_mult[ℕ2 ^ n']
+  }
+end
+
 // Closed form: twice the sum 0+1+...+n equals n*(n+1).
 theorem sum_n' : all n : Nat.
     ℕ2 * summation(suc(n), ℕ0, λ x {x}) = n * (n + ℕ1)
