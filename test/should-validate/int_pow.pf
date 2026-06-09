@@ -1,0 +1,66 @@
+import Int
+
+// Literal computations are decided by reduction.
+
+assert (+2:Int) ^ (3:UInt) = +8
+assert (-2:Int) ^ (3:UInt) = -8
+assert (-2:Int) ^ (4:UInt) = +16
+assert (+0:Int) ^ (5:UInt) = +0
+assert (+1:Int) ^ (100:UInt) = +1
+assert (- +1:Int) ^ (2:UInt) = +1
+assert (- +1:Int) ^ (3:UInt) = - +1
+
+// Basic laws via the public theorems.
+
+theorem Tz: all x:Int. x ^ (0:UInt) = +1
+proof
+  arbitrary x:Int
+  int_pow_zero[x]
+end
+
+theorem To: all x:Int. x ^ (1:UInt) = x
+proof
+  arbitrary x:Int
+  int_pow_one[x]
+end
+
+theorem Ttwo: all x:Int. x ^ (2:UInt) = x * x
+proof
+  arbitrary x:Int
+  int_pow_two[x]
+end
+
+theorem Tadd: all x:Int, j:UInt, k:UInt. x ^ (j + k) = x ^ j * x ^ k
+proof
+  arbitrary x:Int, j:UInt, k:UInt
+  int_pow_add[x, j, k]
+end
+
+// Sign / parity layer.
+
+theorem Tneg_even: (- +3) ^ (4:UInt) = (+3) ^ (4:UInt)
+proof
+  have e: Even((4:UInt)) by {
+    expand Even
+    choose (2:UInt).
+  }
+  apply int_pow_neg_base_when_even[+3, 4] to e
+end
+
+theorem Tneg_one_even: (- +1) ^ (10:UInt) = +1
+proof
+  have e: Even((10:UInt)) by {
+    expand Even
+    choose (5:UInt).
+  }
+  apply int_neg_one_pow_even to e
+end
+
+theorem Tneg_one_odd: (- +1) ^ (7:UInt) = - +1
+proof
+  have o: Odd((7:UInt)) by {
+    expand Odd
+    choose (3:UInt).
+  }
+  apply int_neg_one_pow_odd to o
+end
