@@ -142,3 +142,30 @@ proof
       λ i { toNat(g(fromNat(i))) },
       λ i { toNat(h(fromNat(i))) }] to p1, p2).
 end
+
+// UInt analogue of `summation_const_one`: summing the constant `1`
+// over a UInt range of length `n` equals `n`. Transported through
+// `toNat`/`fromNat` to the Nat lemma.
+theorem uint_summation_const_one: all n:UInt. all s:UInt.
+  uint_summation(n, s, fun i:UInt { 1 }) = n
+proof
+  arbitrary n:UInt
+  arbitrary s:UInt
+  suffices toNat(uint_summation(n, s, fun i:UInt { 1 })) = toNat(n)
+    by uint_toNat_injective
+  replace toNat_uint_summation
+  have body_eq:
+    summation(toNat(n), toNat(s),
+              λ j { toNat((fun u:UInt { 1 })(fromNat(j))) })
+    = summation(toNat(n), toNat(s), fun j:Nat { suc(zero) }) by {
+    apply summation_cong[toNat(n),
+        λ j { toNat((fun u:UInt { 1 })(fromNat(j))) },
+        fun j:Nat { suc(zero) },
+        toNat(s), toNat(s)]
+    to arbitrary i:Nat
+       assume _
+       evaluate
+  }
+  replace body_eq
+  summation_const_one[toNat(n), toNat(s)]
+end
