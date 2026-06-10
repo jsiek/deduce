@@ -205,8 +205,9 @@ def _drop_auto_handled_equations(
   for source, display_eq, reduced_eq in zip(sources, equations, reduced):
     if is_true(reduced_eq):
       warning(source.location,
-              "warning: this equation is handled automatically by an auto rule"
-              " — drop it from the " + tactic + " list:\n\t" + str(display_eq))
+              "warning: `" + str(source) + "` is handled automatically by an"
+              " auto rule — drop it from the " + tactic + " list"
+              " (it states: " + str(display_eq) + ")")
       continue
     kept_reduced.append(reduced_eq)
     kept_display.append(display_eq)
