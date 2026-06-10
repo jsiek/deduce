@@ -165,7 +165,6 @@ SHOULD_ERROR_PARSER_EQUIV_SKIP = frozenset({
     "./test/should-error/paren_term.pf",
     "./test/should-error/private_opaque.pf",
     "./test/should-error/suffices_misspell.pf",
-    "./test/should-error/suffices_omitted.pf",
     "./test/should-error/switch_case_close.pf",
     "./test/should-error/switch_case_empty.pf",
     "./test/should-error/switch_case_open.pf",
