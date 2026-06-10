@@ -463,6 +463,8 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
         return PHole(e.meta)
     elif e.data == 'named_hole_proof':
         return PHole(e.meta)
+    elif e.data == 'implicit_hole_proof':
+        return PHole(e.meta)
     elif e.data == 'sorry_proof':
         return PSorry(e.meta)
     elif e.data == 'help_use_proof':
