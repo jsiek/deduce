@@ -53,6 +53,15 @@ class Declaration(Statement):
       if not self.visibility == 'private':
         print(self.pretty_print(0), file=f)
 
+  def visibility_prefix(self) -> str:
+      # Source-level visibility keywords that prefix a declaration head.
+      # `default` is the historical "no keyword written" sentinel and
+      # `public` is its concrete spelling once normalised — neither emits
+      # a prefix. Lemma/private theorems handle their own surface form.
+      if self.visibility in ('private', 'opaque'):
+        return self.visibility + ' '
+      return ''
+
 ################ Statements ######################################
 
 ## Updates the environment with a name, creating overloads
@@ -310,7 +319,7 @@ class Predicate(Declaration):
       shown_name = self.name
     else:
       shown_name = base_name(self.name)
-    header = self.original_keyword + ' ' + shown_name
+    header = self.visibility_prefix() + self.original_keyword + ' ' + shown_name
     if self.type_params:
       header += '<' + ','.join([base_name(t) for t in self.type_params]) + '>'
     body = '\n'.join('  ' + str(r) for r in self.rules)
@@ -365,16 +374,13 @@ class Union(Declaration):
     return self
       
   def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
-      header = 'union ' + base_name(self.name) \
+      header = self.visibility_prefix() + 'union ' + base_name(self.name) \
           + ('<' + ','.join([base_name(t) for t in self.type_params]) + '>' if len(self.type_params) > 0 \
              else '')
-      if self.visibility == 'opaque':
-        ret = header + '\n'
-      else:
-        ret = header + ' {\n' \
-                     + '\n'.join([c.pretty_print(indent+2) for c in self.alternatives]) + '\n'\
-                     + indent*' ' + '}\n'
-      
+      ret = header + ' {\n' \
+                   + '\n'.join([c.pretty_print(indent+2) for c in self.alternatives]) + '\n'\
+                   + indent*' ' + '}\n'
+
       return indent*' ' + ret
   
   def __str__(self) -> str:
@@ -424,7 +430,7 @@ class TypeAlias(Declaration):
     return self
 
   def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
-    header = 'type ' + base_name(self.name) \
+    header = self.visibility_prefix() + 'type ' + base_name(self.name) \
         + ('<' + ','.join([base_name(t) for t in self.type_params]) + '>' if self.type_params else '')
     return indent*' ' + header + ' = ' + str(self.body) + '\n'
 
@@ -540,14 +546,11 @@ class RecFun(Declaration):
            if len(self.type_params) > 0 else '') \
       + '(' + ','.join([str(ty) for ty in self.params]) + ')' \
       + ' -> ' + str(self.returns)
-    if self.visibility == 'opaque':
-      ret = 'fun ' + header + '\n'
-    else:
-      ret = 'recursive ' + header + '{\n' \
+    ret = self.visibility_prefix() + 'recursive ' + header + '{\n' \
       + '\n'.join([c.pretty_print(indent+2) for c in self.cases]) + '\n' \
       + '}\n'
 
-    return indent*' ' + ret 
+    return indent*' ' + ret
 
   def __eq__(self, other: object) -> bool:
     if isinstance(other, ResolvedVar):
@@ -670,11 +673,9 @@ class GenRecFun(Declaration):
       + '(' + ', '.join([base_name(x) + ':' + str(t) if t else x for (x,t) in self.vars])\
       + ') -> ' + str(self.returns) \
       + '\nmeasure\t' + str(self.measure) + ' '
-    
-    if self.visibility == 'opaque':
-      ret = 'fun ' + header + '\n'
-    else:
-      ret = 'recfun ' + header + ' {' + self.body.pretty_print(indent+2) + '\n}\n'
+
+    ret = self.visibility_prefix() + 'recfun ' + header + ' {' \
+      + self.body.pretty_print(indent+2) + '\n}\n'
 
     return indent*' ' + ret
       
@@ -766,7 +767,8 @@ class ViewRecFun(Declaration):
            if len(self.type_params) > 0 else '') \
       + '(' + ', '.join([base_name(x) + ':' + str(t) if t else x for (x,t) in self.vars])\
       + ') -> ' + str(self.returns)
-    ret = 'viewrec ' + header + '\nview ' + base_name(self.view_name) \
+    ret = self.visibility_prefix() + 'viewrec ' + header \
+      + '\nview ' + base_name(self.view_name) \
       + '(' + str(self.view_subject) + ')\n' \
       + '\n'.join([c.pretty_print(indent+2)
                    for c in self.cases]) + '\n'
@@ -836,7 +838,7 @@ class ViewDecl(Declaration):
       target_str = str(self.target)
     finally:
       pop_suppress_view_alias()
-    ret = 'view ' + header + ' {\n' \
+    ret = self.visibility_prefix() + 'view ' + header + ' {\n' \
       + '  source ' + source_str + '\n' \
       + '  target ' + target_str + '\n' \
       + '  into ' + base_name(self.into) + '\n' \
@@ -852,34 +854,48 @@ class Define(Declaration):
   typ: Optional[Type]
   body: Term
 
+  def _can_use_fun_form(self) -> bool:
+    # The `fun name(params) { body }` shape drops `self.typ`, so it
+    # only round-trips when the user wrote no type annotation. Same
+    # logic for the `fun name<T>(...)` (Generic) variant.
+    if self.typ is not None:
+      return False
+    if isinstance(self.body, Lambda):
+      return True
+    if isinstance(self.body, Generic) and isinstance(self.body.body, Lambda):
+      return True
+    return False
+
   def str_header(self) -> str:
-    if isinstance(self.body, Lambda):
+    prefix = self.visibility_prefix()
+    if self._can_use_fun_form() and isinstance(self.body, Lambda):
         params = [(base_name(x), t) for (x,t) in self.body.vars]
-        return pretty_print_function_header(self.name,[],params)
-    elif isinstance(self.body, Generic) \
-         and isinstance(self.body.body, Lambda):
+        return prefix + pretty_print_function_header(self.name,[],params)
+    elif self._can_use_fun_form() and isinstance(self.body, Generic):
+        assert isinstance(self.body.body, Lambda)
         typarams = self.body.type_params
         params = [(base_name(x), t) for (x,t) in self.body.body.vars]
-        return pretty_print_function_header(self.name, typarams, params)
+        return prefix + pretty_print_function_header(self.name, typarams, params)
     else:
-        return 'define ' + complete_name(self.name) \
+        return prefix + 'define ' + complete_name(self.name) \
             + (' : ' + str(self.typ) if self.typ else '') + '\n'
-  
+
   def __str__(self) -> str:
-    if isinstance(self.body, Lambda):
+    prefix = self.visibility_prefix()
+    if self._can_use_fun_form() and isinstance(self.body, Lambda):
         params = [(base_name(x), t) for (x,t) in self.body.vars]
-        return pretty_print_function(self.name,[],params, self.body.body)
-    elif isinstance(self.body, Generic) \
-         and isinstance(self.body.body, Lambda):
+        return prefix + pretty_print_function(self.name,[],params, self.body.body)
+    elif self._can_use_fun_form() and isinstance(self.body, Generic):
+        assert isinstance(self.body.body, Lambda)
         typarams = self.body.type_params
         params = [(base_name(x), t) for (x,t) in self.body.body.vars]
-        return pretty_print_function(self.name, typarams, params,
-                                     self.body.body.body)
+        return prefix + pretty_print_function(self.name, typarams, params,
+                                              self.body.body.body)
     else:
-        return 'define ' + complete_name(self.name) \
+        return prefix + 'define ' + complete_name(self.name) \
             + (' : ' + str(self.typ) if self.typ else '') \
             + ' = ' + self.body.pretty_print(4, False) + '\n'
-    
+
   def pretty_print(self, indent: int) -> str:
       if self.visibility == 'opaque':
           return self.str_header()
