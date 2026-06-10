@@ -1880,11 +1880,9 @@ def _check_proof_of_induction(proof: Induction, formula: CheckedFormula, env: En
                                   if is_recursive(name, ty)]
           body_env = env
 
-          if len(typarams) > 0:
-            sub = { T: ty for (T,ty) in zip(typarams, typ.arg_types)}
-            parameter_types = [p.substitute(sub) for p in constr.parameters]
-          else:
-            parameter_types = constr.parameters
+          parameter_types = constr.instantiate_parameters(
+              typarams,
+              typ.arg_types if isinstance(typ, TypeInst) else [])
           body_env = body_env.declare_term_vars(loc,
                                                 zip(indcase.pattern.parameters,
                                                     parameter_types),
@@ -2051,9 +2049,8 @@ def _check_proof_of_switch(proof: SwitchProof, formula: CheckedFormula, env: Env
             subject_case = pattern_to_term(scase.pattern)
             body_env = env
 
-            tyargs = get_type_args(ty)
-            sub = {T:ty for (T,ty) in zip(typarams, tyargs)}
-            constr_params = [ty.substitute(sub) for ty in constr.parameters]
+            constr_params = constr.instantiate_parameters(typarams,
+                                                          get_type_args(ty))
             body_env = body_env.declare_term_vars(loc, zip(scase.pattern.parameters,
                                                            constr_params))
 

@@ -1384,13 +1384,10 @@ def check_constructor_pattern(
           # (overloaded) constructor. We return that new node alongside
           # the parameter types so the caller can swap it in. (We don't
           # have the PatternCons here, so the caller does the mutation.)
-          if len(typarams) > 0:
-            if not isinstance(typ, TypeInst):
-                internal_error(loc, 'problem in check_constr_pattern with: ' + str(typ))
-            sub = { T: ty for (T,ty) in zip(typarams, typ.arg_types)}
-            parameter_types = [p.substitute(sub) for p in constr.parameters]
-          else:
-            parameter_types = constr.parameters
+          if len(typarams) > 0 and not isinstance(typ, TypeInst):
+            internal_error(loc, 'problem in check_constr_pattern with: ' + str(typ))
+          type_args = typ.arg_types if isinstance(typ, TypeInst) else []
+          parameter_types = constr.instantiate_parameters(typarams, type_args)
           cases_present[constr.name] = True
           new_constr = ResolvedVar(pat_constr.location,
                                    pat_constr.typeof, constr.name)
