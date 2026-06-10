@@ -68,6 +68,9 @@ jobs:
           - name: errors
             args: --errors
             requirements: core
+          - name: warns
+            args: --warns
+            requirements: core
           - name: equiv
             args: --equiv
             requirements: core
