@@ -522,11 +522,11 @@ assert length(list_example) = 3
 
 ```deduce-grammar
 conclusion ::= "cases" proof case_list
-case_list ::= case
+case_list ::= ε
 case_list ::= case case_list
-case ::= "case" identifier "{" proof "}"
-case ::= "case" identifier ":" term "{" proof "}"
-case ::= "case" ":" term "{" proof "}"
+case ::= "case" identifier "{" proof_or_hole "}"
+case ::= "case" identifier ":" term "{" proof_or_hole "}"
+case ::= "case" ":" term "{" proof_or_hole "}"
 ```
 
 In Deduce, you can use an `or` fact by doing case analysis with the
@@ -1414,11 +1414,11 @@ assert 1 ∈ S and 2 ∈ S and 3 ∈ S and not (4 ∈ S)
 
 ```deduce-grammar
 conclusion ::= "induction" type induction_case_list
-induction_case_list ::= induction_case
+induction_case_list ::= ε
 induction_case_list ::= induction_case induction_case_list
-induction_case ::= "case" pattern "{" proof "}"
-induction_case ::= "case" pattern "suppose" assumption_list "{" proof "}"
-induction_case ::= "case" pattern "assume" assumption_list "{" proof "}"
+induction_case ::= "case" pattern "{" proof_or_hole "}"
+induction_case ::= "case" pattern "suppose" assumption_list "{" proof_or_hole "}"
+induction_case ::= "case" pattern "assume" assumption_list "{" proof_or_hole "}"
 ```
 
 A proof of the form
@@ -2004,6 +2004,21 @@ proof ::= proof_stmt proof?
 A proof is a sequence of zero or more [proof statements](#proof-statement)
 that finishes with a [conclusion](#conclusion-proof).
 
+## Proof Or Hole
+
+```deduce-grammar
+proof_or_hole ::= proof
+proof_or_hole ::= ε
+```
+
+`proof_or_hole` appears in proof positions where an omitted proof is
+treated as an implicit `?` hole, so the surrounding construct still
+parses (and the user gets an `incomplete proof` diagnostic instead of a
+parse error). The positions are: a `reason` after `by` or between
+`proof` … `end`, the body of an [`induction`](#induction),
+[`cases`](#cases-disjunction-elimination),
+[`switch`](#switch-proof), or [`rule induction`](#rule-induction-proof) case.
+
 ## Proof List
 
 ```deduce-grammar
@@ -2148,8 +2163,8 @@ name even if nearby edits move the line and column.
 ## Reason
 
 ```deduce-grammar
-reason ::= "by" proof
-reason ::= "proof" proof "end"
+reason ::= "by" proof_or_hole
+reason ::= "proof" proof_or_hole "end"
 ```
 
 ## Recall (Proof)
@@ -2306,8 +2321,8 @@ end
 
 ```deduce-grammar
 conclusion ::= "rule" "induction" identifier rule_induction_case_list
-rule_induction_case ::= "case" identifier "{" proof "}"
-rule_induction_case_list ::= rule_induction_case
+rule_induction_case ::= "case" identifier "{" proof_or_hole "}"
+rule_induction_case_list ::= ε
 rule_induction_case_list ::= rule_induction_case rule_induction_case_list
 ```
 
@@ -2673,11 +2688,11 @@ conclusion ::= "switch" term "for" identifier_list "{" switch_proof_case_list "}
 ```
 
 ```deduce-grammar
-switch_proof_case_list ::= switch_proof_case
+switch_proof_case_list ::= ε
 switch_proof_case_list ::= switch_proof_case switch_proof_case_list
-switch_proof_case ::= "case" pattern "{" proof "}"
-switch_proof_case ::= "case" pattern "suppose" assumption_list "{" proof "}"
-switch_proof_case ::= "case" pattern "assume" assumption_list "{" proof "}"
+switch_proof_case ::= "case" pattern "{" proof_or_hole "}"
+switch_proof_case ::= "case" pattern "suppose" assumption_list "{" proof_or_hole "}"
+switch_proof_case ::= "case" pattern "assume" assumption_list "{" proof_or_hole "}"
 ```
 
 (See entry for Assumption List for the syntax of `assumption_list`.)
