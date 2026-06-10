@@ -232,6 +232,16 @@ PARSER_ROUND_TRIP_FILES = (
     "./test/should-validate/rewrite_with_all.pf",  # `replace x.` finishing form
     "./test/should-validate/type_alias.pf",        # `type Foo = Bar` round-trip
     "./test/should-validate/predicate_opaque.pf",  # `opaque predicate`
+    # Coverage added with the follow-up pretty-printer round (#931 again):
+    # `suffices ... by { ... }` block, `cases <subject> case ... { ... }`,
+    # and `induction T case <pat> { ... }` (no induction-hypothesis clause).
+    "./test/should-validate/suffices1.pf",         # `suffices ... by ...`
+    "./test/should-validate/suffices_def.pf",      # `suffices` with `define`
+    "./test/should-validate/suffices_omitted.pf",  # `suffices ... by` then proof
+    "./test/should-validate/suffices_rewrite.pf",  # `suffices ... by replace ...`
+    "./test/should-validate/cases-tlet.pf",        # `cases prem` with `case <l>: <t>`
+    "./test/should-validate/induction-tlet.pf",    # `induction T case A { . }`
+    "./test/should-validate/induction_auto_assume.pf",  # induction + suffices body
 )
 
 

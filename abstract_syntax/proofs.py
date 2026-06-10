@@ -160,6 +160,7 @@ class Suffices(Proof):
   def pretty_print(self, indent: int) -> str:
       return indent*' ' + 'suffices ' + str(self.claim) + '  by {\n' \
           + self.reason.pretty_print(indent+2) + '\n' \
+          + indent*' ' + '}\n' \
           + maybe_pretty_print(self.body, indent)
 
   def __str__(self) -> str:
@@ -170,13 +171,21 @@ class Cases(Proof):
   subject: Proof
   cases: List[Tuple[str,Optional[Formula],Proof]]
 
+  def _case_header(self, label: str, frm: Optional[Formula]) -> str:
+    label_str = base_name(label)
+    if frm is None:
+      return 'case ' + label_str
+    return 'case ' + label_str + ': ' + str(frm)
+
   def pretty_print(self, indent: int) -> str:
-      cases_str = ''
+      lines = [indent*' ' + 'cases ' + self.subject.pretty_print(indent).strip()]
       for (label, frm, body) in self.cases:
-          cases_str += indent*' ' + 'case ' + base_name(label) + ' : ' + str(frm) + '{\n' \
-              + body.pretty_print(indent+2) + '\n' \
-              + indent*' ' + '}'
-      return '\n'.join(cases_str) + '\n'
+          lines.append(
+            indent*' ' + self._case_header(label, frm) + ' {\n'
+            + body.pretty_print(indent+2) + '\n'
+            + indent*' ' + '}'
+          )
+      return '\n'.join(lines) + '\n'
       
   def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> Cases:
     new_subject = self.subject.uniquify(env, ctx)
@@ -491,17 +500,25 @@ class IndCase(AST):
   induction_hypotheses: list[Tuple[str,Formula]]
   body: Proof
 
+  def _hyp_clause(self) -> str:
+    if not self.induction_hypotheses:
+      return ''
+    return ' assume ' + ', '.join(
+      x + ': ' + str(f) if f is not None else x
+      for (x, f) in self.induction_hypotheses
+    )
+
   def pretty_print(self, indent: int) -> str:
     return indent*' ' + 'case ' + str(self.pattern) \
-      + ' assume ' + ', '.join([x + ': ' + str(f) for (x,f) in self.induction_hypotheses]) \
-      + '{\n' \
+      + self._hyp_clause() \
+      + ' {\n' \
       + self.body.pretty_print(indent+2) \
       + indent*' ' + '}\n'
-      
+
   def __str__(self) -> str:
     return 'case ' + str(self.pattern) \
-      + ' assume ' + ', '.join([x + ': ' + str(f) for (x,f) in self.induction_hypotheses]) \
-      + '{' + str(self.body) + '}'
+      + self._hyp_clause() \
+      + ' {' + str(self.body) + '}'
 
   def uniquify(self, env: object, ctx: object) -> IndCase:
     env_map = cast(UniquifyEnv, env)
