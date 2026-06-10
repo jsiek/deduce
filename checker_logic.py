@@ -855,10 +855,6 @@ def apply_rewrites(loc: Meta, formula: Formula,
   display_seq: Sequence[Formula | AutoRewriteRule] = \
       display_eqns if display_eqns is not None else eqns
   for eq, display_eq in zip(eqns, display_seq):
-    if is_true(eq):
-        warning(loc, "warning: this equation is handled automatically by an auto rule"
-                     " — drop it from the replace list:\n\t" + str(display_eq))
-        continue
     if not is_equation(eq):
         msg = 'in replace, expected an equation, not:\n\t' + str(eq) \
               + '\n\twhile replacing ' \
