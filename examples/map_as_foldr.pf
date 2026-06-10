@@ -1,0 +1,60 @@
+// map_as_foldr.pf
+//
+// A classic exercise from introductory functional programming: every
+// `map` can be expressed as a `foldr`. A student implements `map` by
+// folding an "apply f, then cons" combiner over the list. We prove that
+// this implementation agrees with the library's `map` for every input,
+// so the student's definition is correct.
+//
+// The library defines:
+//
+//     map(empty, f)        = empty
+//     map(node(x, xs), f)  = node(f(x), map(xs, f))
+//
+//     foldr(empty, u, c)       = u
+//     foldr(node(t, ls), u, c) = c(t, foldr(ls, u, c))
+//
+// The student's implementation folds with the combiner
+// `λ x, r { node(f(x), r) }` starting from the empty list.
+
+fun map_foldr<T,U>(xs : List<T>, f : fn T->U) {
+  foldr(xs, empty, λ e:T, r:List<U> { node(f(e), r) })
+}
+
+// The heart of the argument, phrased directly on `foldr` so that the
+// inductive hypothesis is about the same `foldr` term that appears in
+// the recursive case (the non-recursive wrapper would hide it).
+theorem foldr_cons_is_map: all T:type, U:type, f:fn T->U, xs:List<T>.
+  foldr(xs, @empty<U>, λ e:T, r:List<U> { node(f(e), r) }) = map(xs, f)
+proof
+  arbitrary T:type, U:type, f:fn T->U
+  induction List<T>
+  case empty {
+    conclude foldr(@empty<T>, @empty<U>, λ e:T, r:List<U> { node(f(e), r) })
+             = map(@empty<T>, f)
+      by expand foldr | map.
+  }
+  case node(x, xs') assume IH:
+      foldr(xs', @empty<U>, λ e:T, r:List<U> { node(f(e), r) }) = map(xs', f) {
+    equations
+      foldr(node(x,xs'), @empty<U>, λ e:T, r:List<U> { node(f(e), r) })
+          = node(f(x), foldr(xs', @empty<U>, λ e:T, r:List<U> { node(f(e), r) }))
+                                               by expand foldr.
+      ... = node(f(x), map(xs', f))            by replace IH.
+      ... = # map(node(x,xs'), f) #            by expand map.
+  }
+end
+
+// The student's named function is therefore correct.
+theorem map_foldr_correct: all T:type, U:type, f:fn T->U, xs:List<T>.
+  map_foldr(xs, f) = map(xs, f)
+proof
+  arbitrary T:type, U:type, f:fn T->U, xs:List<T>
+  expand map_foldr
+  foldr_cons_is_map<T,U>[f, xs]
+end
+
+// A concrete sanity check on a sample list.
+define inc : fn UInt->UInt = λ n { n + 1 }
+assert map_foldr([1,2,3], inc) = map([1,2,3], inc)
+assert map_foldr([1,2,3], inc) = [2,3,4]
