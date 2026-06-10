@@ -326,11 +326,26 @@ def isNat(t: Term) -> bool:
     case _:
       return False
 
+def isRawNat(t: Term) -> bool:
+  # ``zero`` / ``suc(zero)`` / ... with no ``lit`` wrapping. Used by
+  # ``isLitNat`` so that ``lit(ℕn)`` (which the parser desugars to
+  # ``lit(lit(suc^n(zero)))``) is NOT collapsed to ``ℕn``: that
+  # surface form has an extra ``lit`` wrapper the pretty-printer
+  # must preserve so the AST round-trips.
+  match t:
+    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)) if base_name(n) == 'zero':
+      return True
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)), [arg]) \
+         if base_name(n) == 'suc':
+      return isRawNat(arg)
+    case _:
+      return False
+
 def isLitNat(t: Term) -> bool:
   match t:
     case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)), [arg]) \
          if base_name(n) == 'lit':
-      return isNat(arg)
+      return isRawNat(arg)
     case _:
       return False
 
