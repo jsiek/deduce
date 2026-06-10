@@ -159,22 +159,30 @@ identifier: IDENT              -> identifier
     | ":" term "," assumption_list                 -> push_anon_binding
     | identifier "," assumption_list                    -> push_var
 
-?induction_case: "case" pattern "{" proof "}"            -> induction_case
-    | "case" pattern "suppose" assumption_list "{" proof "}" -> induction_case_assume
-    | "case" pattern "assume" assumption_list "{" proof "}" -> induction_case_assume
+?induction_case: "case" pattern "{" proof_or_hole "}"            -> induction_case
+    | "case" pattern "suppose" assumption_list "{" proof_or_hole "}" -> induction_case_assume
+    | "case" pattern "assume" assumption_list "{" proof_or_hole "}" -> induction_case_assume
 
-?induction_case_list: induction_case                           -> single
+// Allowing an empty list (zero cases after `induction T` / `cases p` /
+// `switch x for ... {}` / `rule induction P`) lets the LALR grammar
+// match what the recursive-descent parser already accepts, so an
+// otherwise valid file like `induction N end` reaches the
+// "induction expected an all-formula" check instead of failing at parse
+// time. The list is written as right-recursive with only an `empty`
+// base case to avoid a reduce/reduce conflict between `single` and
+// `non-empty-then-empty-tail` on the lookahead following the list.
+?induction_case_list:                                          -> empty
     | induction_case induction_case_list                       -> push
 
-?rule_induction_case: "case" IDENT "{" proof "}"         -> rule_induction_case
-?rule_induction_case_list: rule_induction_case                 -> single
+?rule_induction_case: "case" IDENT "{" proof_or_hole "}" -> rule_induction_case
+?rule_induction_case_list:                                     -> empty
     | rule_induction_case rule_induction_case_list             -> push
 
-?switch_proof_case: "case" pattern "{" proof "}"      -> switch_proof_case
-    | "case" pattern "suppose" assumption_list "{" proof "}"      -> switch_proof_case_assume
-    | "case" pattern "assume" assumption_list "{" proof "}"      -> switch_proof_case_assume
+?switch_proof_case: "case" pattern "{" proof_or_hole "}"      -> switch_proof_case
+    | "case" pattern "suppose" assumption_list "{" proof_or_hole "}"      -> switch_proof_case_assume
+    | "case" pattern "assume" assumption_list "{" proof_or_hole "}"      -> switch_proof_case_assume
 
-?switch_proof_case_list: switch_proof_case               -> single
+?switch_proof_case_list:                                 -> empty
     | switch_proof_case switch_proof_case_list           -> push
 
 ?equation: equation_side "=" equation_side reason    -> equation
@@ -198,14 +206,24 @@ identifier: IDENT              -> identifier
     | half_equation equation_list                  -> push
     | "$" equation equation_list                   -> push
 
-?reason: "by" proof                                -> reason
-    | "proof" proof "end"                          -> reason
+?reason: "by" proof_or_hole                        -> reason
+    | "proof" proof_or_hole "end"                  -> reason
 
 ?proof_list: proof                                 -> single
     | proof "|" proof_list                         -> push
 
 ?proof: conclusion                                 -> single_proof
     | proof_stmt proof?                            -> push_proof
+
+// Used in positions where the recursive-descent parser silently
+// fills an implicit hole when no proof is written (e.g. the body
+// of `case pat { }`, a missing `conclude ... by` proof, an empty
+// `proof end`). Keeping LALR and RD in lock-step here is what
+// allows test/should-error fixtures to surface the intended
+// downstream (incomplete-proof, not-an-or, ...) diagnostic
+// instead of a parse error.
+?proof_or_hole: proof
+    |                                              -> implicit_hole_proof
 
 ?conclusion: "conclude" term reason                      -> annot
     | proof "," proof                                    -> tuple
@@ -267,11 +285,11 @@ identifier: IDENT              -> identifier
     | "suppose" IDENT ":" term                      -> imp_intro_explicit
     | "suppose" ":" term                            -> imp_intro_anon
 
-?case: "case" IDENT "{" proof "}"                        -> case
-    | "case" IDENT ":" term "{" proof "}"                -> case_annot
-    | "case" ":" term "{" proof "}"                      -> case_annot_nolabel
+?case: "case" IDENT "{" proof_or_hole "}"                -> case
+    | "case" IDENT ":" term "{" proof_or_hole "}"        -> case_annot
+    | "case" ":" term "{" proof_or_hole "}"              -> case_annot_nolabel
 
-?case_list: case                                        -> single
+?case_list:                                             -> empty
     | case case_list                                    -> push
 
 ?theorem: visibility "theorem" IDENT ":" term reason   -> theorem
