@@ -983,16 +983,21 @@ def parse(program_text: str,
       # actively misleading for backslash: "Expected one of: DOT, ..."
       # reads as "you forgot a period"). Route through the shared
       # helper so `\` gets a Deduce-flavored hint and other stray
-      # characters at least get a clean header.
-      raise Exception(str(lark_unexpected_chars_to_parse_error(e, get_filename())))
+      # characters at least get a clean header. Raise the ParseError
+      # directly (matching rec_desc_parser) so library/LSP callers can
+      # read `.location` / `.message_body` instead of dropping into
+      # the unstructured-exception traceback path.
+      raise lark_unexpected_chars_to_parse_error(e, get_filename())
   except exceptions.UnexpectedToken as t:
       if error_expected:
           raise Exception()
       else:
-          # Raise instead of print+exit so library/LSP callers can
-          # surface the message without their process being killed.
-          # The CLI in deduce.py catches this and prints str(e), which
-          # produces the same stdout the print() did before.
+          # Route through ParseError so library/LSP callers see a
+          # structured diagnostic with `.location` / `.message_body`,
+          # matching the recursive-descent parser. Without this, the
+          # LSP/MCP `check_file` path falls into
+          # `_format_unstructured_exception` and prints a Python
+          # traceback for an ordinary syntax error (issue #933).
           hint = ''
           if t.token.type == 'LESSTHAN':
               preceding = program_text[:t.token.start_pos]
@@ -1006,9 +1011,18 @@ def parse(program_text: str,
                           'or use `fun`/`recursive`:\n'
                           '\tfun ' + name + '<T>(...) { ... }\n'
                           '\trecursive ' + name + '<T>(...) -> ... { ... }')
-          msg = (get_filename() + ":" + str(t.token.line) + "." + str(t.token.column)
-                 + "-" + str(t.token.end_line) + "." + str(t.token.end_column) + ": "
-                 + "error in parsing, unexpected token: " + token_str(t.token, program_text) + '\n'
-                 + "(The error may be immediately before this token.)" + hint)
-          raise Exception(msg)
+          meta = Meta()  # type: ignore[no-untyped-call,unused-ignore]
+          meta.empty = False
+          setattr(meta, 'filename', get_filename())
+          meta.line = t.token.line
+          meta.column = t.token.column
+          meta.start_pos = t.token.start_pos
+          meta.end_line = t.token.end_line
+          meta.end_column = t.token.end_column
+          meta.end_pos = t.token.end_pos
+          msg = ("error in parsing, unexpected token: "
+                 + token_str(t.token, program_text) + '\n'
+                 + "(The error may be immediately before this token.)"
+                 + hint)
+          raise ParseError(meta, msg)
         
