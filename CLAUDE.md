@@ -16,6 +16,29 @@ Smaller code is better. Prefer the change that removes lines over the one that a
 
 This applies to refactors especially: when a global goes away, the module-level alias for it goes away too. When a function's signature changes, every caller updates in the same PR — no overload that accepts both shapes.
 
+## Filing bugs you notice in passing
+
+When you spot a bug — or a strong-suspicion bug — while doing something else, **file it as a GitHub issue before declaring your current task done**. Do not just mention it in your reply summary; the reply gets thrown away, the issue persists. **If you noticed a bug, the task is not done until the issue exists.**
+
+Trigger this when any of the following hold:
+
+- A test, sweep, or experiment surfaced concrete evidence of a defect (failing fixture, divergent output, crash, wrong AST, broken round-trip).
+- Reading the code, you saw a clear logic error a fix-this-now ticket would describe.
+- A documented invariant is violated in code you read.
+
+Do **not** file for: vague code smells, "could be cleaner," missing features, or hunches without a concrete repro.
+
+Each issue must include:
+
+- One sentence stating the bug.
+- A minimal repro (source file or shell command — prefer pulling an existing in-tree file over fabricating one).
+- Observed vs. expected behavior.
+- A link back to where you found it (PR, sweep script, file path).
+
+Group related defects into one issue with categorized sub-bugs (see #931 for the shape) rather than spamming N tiny issues. Cross-reference any umbrella issue the bug sits under with `Refs #N`.
+
+Default to filing without asking first. The exception is when the "bug" might be intentional design — in that case, file anyway but lead the body with "Is this intentional? If so, close." Better to over-file with a quick close than to silently drop a real bug.
+
 ## Running and testing
 
 ```sh
