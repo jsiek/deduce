@@ -171,6 +171,38 @@ def test_parser_argument_rejects_unknown_value() -> None:
         check_file(str(path), prelude=(), parser="bogus")
 
 
+@pytest.mark.parametrize("parser", ["recursive-descent", "lalr"])
+def test_parse_error_is_structured(tmp_path: Path, parser: str) -> None:
+    """Regression test for issue #933: a syntax error reported via
+    ``check_file`` must carry a structured location and a clean
+    diagnostic body. The LALR path used to raise a bare ``Exception``
+    here, which the LSP/MCP layer formatted as ``internal error in
+    Deduce: ... <Python traceback>`` -- useless for an editor."""
+    path = tmp_path / "syntax_error.pf"
+    path.write_text(
+        "theorem foo: all T:type. all xs:List<T>. xs = xs\n"
+        "proof\n"
+        "  arbitrary T:type\n"
+        "  arbitrary xs:List<T>\n"
+        "  expand reverse | foo<T>[xs]\n"
+        "end\n",
+        encoding="utf-8",
+    )
+
+    result = check_file(str(path), prelude=(), parser=parser)
+
+    assert not result.ok
+    assert result.exception is not None
+    location = getattr(result.exception, "location", None)
+    assert location is not None and not getattr(location, "empty", True), (
+        f"{parser}: parse error should carry a non-empty location, got {location!r}"
+    )
+    body = getattr(result.exception, "message_body", None)
+    assert body is not None, f"{parser}: parse error should carry message_body"
+    assert "Traceback" not in body
+    assert "internal error in Deduce" not in body
+
+
 def test_collect_errors_includes_expand_residual_hint() -> None:
     """Regression test for issue #745: the ``expand_residual_hint``
     appended by ``_check_proof_of_apply_defs_goal`` must reach the
