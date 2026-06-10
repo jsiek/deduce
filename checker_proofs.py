@@ -31,7 +31,7 @@ from abstract_syntax import (
     SimplifyFact, SimplifyGoal, Some, SomeElim, SomeIntro, Suffices,
     SwitchProof, SwitchProofCase, TLet, Term, TermInst, Type, TypeInst, TypeType,
     Union, Var, VarRef, ViewBinding, ViewDecl, base_name, callable_name, formula_match,
-    get_predicate_decl, get_type_name, is_constructor, is_equation,
+    get_predicate_decl, get_type_name, is_constructor, is_equation, is_true,
     mkEqual, remove_mark, set_dont_reduce_opaque, set_reduce_all,
     get_reduce_only, set_reduce_only, split_equation, type_match, type_names,
 )
@@ -188,6 +188,31 @@ def _check_proof_apply_defs_fact(proof: ApplyDefsFact, env: Env) -> CheckedFormu
   formula = check_proof(proof.subject, env)
   return expand_definitions(proof.location, formula, proof.definitions, env)
 
+def _drop_auto_handled_equations(
+    sources: list[Proof],
+    equations: list[CheckedFormula],
+    reduced: list[CheckedFormula],
+    tactic: str,
+) -> tuple[list[CheckedFormula], list[CheckedFormula]]:
+  # Drop equations that an `auto` rule has already collapsed to `true`,
+  # warning at each dropped equation's own source location so the user
+  # can see which item in a multi-equation `replace A | B` (or
+  # `simplify A | B`) was the redundant one. Returns the kept reduced
+  # equations and a parallel list of pre-normalized forms suitable for
+  # downstream diagnostics.
+  kept_reduced: list[CheckedFormula] = []
+  kept_display: list[CheckedFormula] = []
+  for source, display_eq, reduced_eq in zip(sources, equations, reduced):
+    if is_true(reduced_eq):
+      warning(source.location,
+              "warning: `" + str(source) + "` is handled automatically by an"
+              " auto rule — drop it from the " + tactic + " list"
+              " (it states: " + str(display_eq) + ")")
+      continue
+    kept_reduced.append(reduced_eq)
+    kept_display.append(display_eq)
+  return kept_reduced, kept_display
+
 def _check_proof_rewrite_fact(proof: RewriteFact, env: Env) -> CheckedFormula:
   formula = check_proof(proof.subject, env)
   eqns = [check_proof(equation_proof, env)
@@ -200,8 +225,11 @@ def _check_proof_simplify_fact(proof: SimplifyFact, env: Env) -> CheckedFormula:
   formula = check_proof(proof.subject, env)
   preds = [check_proof(given, env) for given in proof.givens]
   equations = [pred_to_equality(proof.location, p) for p in preds]
-  eqns = [equation.reduce(env) for equation in equations]
-  new_formula = apply_rewrites(proof.location, formula, eqns, env)
+  reduced = [equation.reduce(env) for equation in equations]
+  eqns, display_eqns = _drop_auto_handled_equations(
+      proof.givens, equations, reduced, "simplify")
+  new_formula = apply_rewrites(proof.location, formula, eqns, env,
+                               display_eqns=display_eqns)
   return new_formula.reduce(env)
 
 def _check_proof_hole(proof: PHole, env: Env) -> CheckedFormula:
@@ -1458,21 +1486,27 @@ def _missing_period_after_tactic(tactic_loc: Meta, body: Proof,
 
 def _check_proof_of_rewrite_goal(proof: RewriteGoal, formula: CheckedFormula, env: Env) -> None:
   loc = proof.location
-  equations = [check_proof(proof, env) for proof in proof.equations]
-  eqns = [equation.reduce(env) for equation in equations]
+  equations = [check_proof(p, env) for p in proof.equations]
+  reduced = [equation.reduce(env) for equation in equations]
+  eqns, display_eqns = _drop_auto_handled_equations(
+      proof.equations, equations, reduced, "replace")
   new_formula = formula.reduce(env)
   new_formula = apply_rewrites(loc, new_formula, eqns, env,
-                               display_formula=formula)
+                               display_formula=formula,
+                               display_eqns=display_eqns)
   if _missing_period_after_tactic(loc, proof.body, new_formula, 'replace', env):
     return
   _try_check_proof_of(proof.body, new_formula, env)
 
 def _check_proof_of_simplify_goal(proof: SimplifyGoal, formula: CheckedFormula, env: Env) -> None:
   loc = proof.location
-  preds = [check_proof(proof, env) for proof in proof.givens]
+  preds = [check_proof(p, env) for p in proof.givens]
   equations = [pred_to_equality(loc, p) for p in preds]
-  eqns = [equation.reduce(env) for equation in equations]
-  new_formula = apply_rewrites(loc, formula, eqns, env)
+  reduced = [equation.reduce(env) for equation in equations]
+  eqns, display_eqns = _drop_auto_handled_equations(
+      proof.givens, equations, reduced, "simplify")
+  new_formula = apply_rewrites(loc, formula, eqns, env,
+                               display_eqns=display_eqns)
   new_formula = new_formula.reduce(env)
   if _missing_period_after_tactic(loc, proof.body, new_formula, 'simplify', env):
     return

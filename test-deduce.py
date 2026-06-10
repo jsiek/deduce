@@ -8,7 +8,8 @@ via copy-on-write and run ``lsp.library.check_file`` directly.
 
 Modes
 -----
-Default (no flags): runs ``--cli + --lib + --passable + --errors``.
+Default (no flags): runs ``--cli + --lib + --passable + --errors +
+--warns + --equiv``.
 
 Per-category flags (combinable):
     --cli          One subprocess invocation of ``deduce.py`` on a tiny
@@ -18,6 +19,8 @@ Per-category flags (combinable):
     --passable     ``test/should-validate``, ``example.pf``,
                    ``test/prelude`` with both parsers.
     --errors       ``test/should-error`` (RD only, ``.err`` diff).
+    --warns        ``test/should-warn`` (RD only, ``.warn`` diff): files
+                   that must validate AND emit specific warning text.
     --equiv        Parse ``lib/``, ``test/should-validate/``, and most of
                    ``test/should-error/`` with both parsers and compare
                    structural ASTs. Known historical divergences and
@@ -38,6 +41,8 @@ Standalone modes (mutually exclusive with the above):
                        catch regressions in the examples themselves.
     --regenerate-errors      Regenerate every ``test/should-error/*.err``.
     --generate-error <path>  Regenerate one ``.err`` fixture.
+    --regenerate-warns       Regenerate every ``test/should-warn/*.warn``.
+    --generate-warn <path>   Regenerate one ``.warn`` fixture.
     --gen-parse              Regenerate every ``test/parse/*.err``.
 
 Pool sizing:
@@ -111,6 +116,7 @@ import rec_desc_parser as _equiv_rd_parser
 LIB_DIR = Path("lib")
 PASS_DIR = Path("test/should-validate")
 ERROR_DIR = Path("test/should-error")
+WARN_DIR = Path("test/should-warn")
 PRELUDE_DIR = Path("test/prelude")
 IMPORTS_DIR = Path("test/test-imports")
 PARSE_DIR = Path("test/parse")
@@ -211,12 +217,15 @@ class ParsedFlags(TypedDict):
     lib: bool
     passable: bool
     errors: bool
+    warns: bool
     equiv: bool
     site: bool
     parser: bool
     examples: bool
     regen_all: bool
     regen_files: list[str]
+    regen_all_warns: bool
+    regen_warn_files: list[str]
     gen_parse: bool
     workers: int
 
@@ -338,6 +347,43 @@ def _check_against_err(f: str) -> tuple[str, bool, str]:
         os.unlink(tmp_path)
 
 
+def _check_against_warn(f: str) -> tuple[str, bool, str]:
+    """Run ``f`` and diff its captured stdout against ``f + '.warn'``.
+
+    Counterpart to ``_check_against_err`` for ``test/should-warn``:
+    the file must validate (``result.ok``) AND the warnings printed
+    via ``error.warning`` must match the ``.warn`` fixture line-for-
+    line (modulo whitespace, like ``--errors``).
+    """
+    warn_file = f + ".warn"
+    if not os.path.isfile(warn_file):
+        return (f, False, "missing .pf.warn fixture")
+    set_recursive_descent(True)
+    set_quiet_mode(True)
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        result = check_file(f, prewarm_modules=_WORKER_PREWARM)
+    if not result.ok:
+        return (f, False, f"expected valid + warnings but file errored:\n"
+                          f"{(result.error_message or '')[:500]}")
+    actual = buf.getvalue()
+    with tempfile.NamedTemporaryFile(
+        "w", suffix=".tmp", delete=False, encoding="utf-8"
+    ) as tf:
+        tf.write(actual)
+        tmp_path = tf.name
+    try:
+        cp = subprocess.run(
+            ["diff", "--ignore-space-change", warn_file, tmp_path],
+            capture_output=True, text=True,
+        )
+        if cp.returncode != 0:
+            return (f, False, f"warning output diverged:\n{cp.stdout[:500]}")
+        return (f, True, "")
+    finally:
+        os.unlink(tmp_path)
+
+
 # ---------------------------------------------------------------------------
 # Orchestration.
 # ---------------------------------------------------------------------------
@@ -428,6 +474,16 @@ def run_err_diff_parallel(directory: Path, label: str,
     return failures
 
 
+def run_warn_diff_parallel(workers: int) -> list[tuple[str, str, str]]:
+    """Run ``.warn``-fixture tests in ``test/should-warn`` (RD only)."""
+    files = list_pf(WARN_DIR)
+    failures: list[tuple[str, str, str]] = []
+    for f, ok, msg in _map_or_serial(workers, _check_against_warn, files, 4):
+        if not ok:
+            failures.append((f, "recursive-descent", msg))
+    return failures
+
+
 def _canonical_ast(
     value: object,
     *,
@@ -501,11 +557,11 @@ def _pretty_print_program(ast: Iterable[object]) -> str:
 def run_parser_equivalence() -> list[tuple[str, str, str]]:
     """Compare RD and LALR ASTs for accepted syntax.
 
-    Covers ``lib/``, ``test/should-validate/``, and most of
-    ``test/should-error/``. ``should-error`` files fail in later phases, so
-    their ASTs are still meaningful surface-syntax samples; the
-    ``SHOULD_ERROR_PARSER_EQUIV_SKIP`` baseline excludes the fixtures where
-    at least one parser rejects at parse time today.
+    Covers ``lib/``, ``test/should-validate/``, ``test/should-warn/``,
+    and most of ``test/should-error/``. ``should-error`` files fail in
+    later phases, so their ASTs are still meaningful surface-syntax
+    samples; the ``SHOULD_ERROR_PARSER_EQUIV_SKIP`` baseline excludes
+    the fixtures where at least one parser rejects at parse time today.
 
     ``test/parse`` remains RD-only because those fixtures intentionally lock
     down beginner-facing RD diagnostics, while the LALR parser is kept as an
@@ -522,7 +578,8 @@ def run_parser_equivalence() -> list[tuple[str, str, str]]:
         f for f in list_pf(ERROR_DIR)
         if f not in SHOULD_ERROR_PARSER_EQUIV_SKIP
     ]
-    files = list_pf(LIB_DIR) + pass_files + should_error_files
+    files = (list_pf(LIB_DIR) + pass_files + list_pf(WARN_DIR)
+             + should_error_files)
     failures: list[tuple[str, str, str]] = []
     seen_divergences: set[str] = set()
     for path in files:
@@ -718,16 +775,16 @@ def _capture_err_output(path: str) -> str:
     return buf.getvalue()
 
 
-def regenerate_one(path: str) -> None:
+def regenerate_one(path: str, suffix: str = ".err") -> None:
     out = _capture_err_output(path)
-    with open(path + ".err", "w", encoding="utf-8") as f:
+    with open(path + suffix, "w", encoding="utf-8") as f:
         f.write(out)
-    print(f"  wrote {path}.err")
+    print(f"  wrote {path}{suffix}")
 
 
-def regenerate_dir(directory: Path) -> None:
+def regenerate_dir(directory: Path, suffix: str = ".err") -> None:
     for f in list_pf(directory):
-        regenerate_one(f)
+        regenerate_one(f, suffix)
 
 
 # ---------------------------------------------------------------------------
@@ -748,9 +805,10 @@ def parse_args(argv: list[str]) -> ParsedFlags:
     arguments still in scripts / muscle memory."""
     flags: ParsedFlags = {
         "cli": False, "lib": False, "passable": False, "errors": False,
-        "equiv": False, "site": False, "parser": False, "examples": False,
-        "regen_all": False, "regen_files": [], "gen_parse": False,
-        "workers": max(1, (os.cpu_count() or 4)),
+        "warns": False, "equiv": False, "site": False, "parser": False,
+        "examples": False, "regen_all": False, "regen_files": [],
+        "regen_all_warns": False, "regen_warn_files": [],
+        "gen_parse": False, "workers": max(1, (os.cpu_count() or 4)),
     }
     i = 0
     while i < len(argv):
@@ -759,6 +817,7 @@ def parse_args(argv: list[str]) -> ParsedFlags:
         elif a == "--lib": flags["lib"] = True
         elif a == "--passable": flags["passable"] = True
         elif a == "--errors": flags["errors"] = True
+        elif a == "--warns": flags["warns"] = True
         elif a == "--equiv": flags["equiv"] = True
         elif a == "--site": flags["site"] = True
         elif a == "--parser": flags["parser"] = True
@@ -766,6 +825,10 @@ def parse_args(argv: list[str]) -> ParsedFlags:
         elif a == "--regenerate-errors": flags["regen_all"] = True
         elif a == "--generate-error":
             flags["regen_files"].append(argv[i + 1])
+            i += 1
+        elif a == "--regenerate-warns": flags["regen_all_warns"] = True
+        elif a == "--generate-warn":
+            flags["regen_warn_files"].append(argv[i + 1])
             i += 1
         elif a == "--gen-parse": flags["gen_parse"] = True
         elif a == "--serial": flags["workers"] = 1
@@ -780,12 +843,13 @@ def parse_args(argv: list[str]) -> ParsedFlags:
     # If no flags at all, default to the per-PR regression sweep.
     if not (
         flags["cli"] or flags["lib"] or flags["passable"] or flags["errors"]
-        or flags["site"] or flags["parser"] or flags["examples"]
-        or flags["equiv"] or flags["regen_all"] or flags["gen_parse"]
-        or flags["regen_files"]
+        or flags["warns"] or flags["site"] or flags["parser"]
+        or flags["examples"] or flags["equiv"] or flags["regen_all"]
+        or flags["regen_all_warns"] or flags["gen_parse"]
+        or flags["regen_files"] or flags["regen_warn_files"]
     ):
         flags["cli"] = flags["lib"] = flags["passable"] = True
-        flags["errors"] = flags["equiv"] = True
+        flags["errors"] = flags["warns"] = flags["equiv"] = True
 
     # Standalone modes are mutually exclusive with everything else.
     category_flags = (
@@ -793,6 +857,7 @@ def parse_args(argv: list[str]) -> ParsedFlags:
         ("lib", flags["lib"]),
         ("passable", flags["passable"]),
         ("errors", flags["errors"]),
+        ("warns", flags["warns"]),
         ("equiv", flags["equiv"]),
     )
     standalone_flags = (
@@ -801,6 +866,8 @@ def parse_args(argv: list[str]) -> ParsedFlags:
         ("examples", flags["examples"]),
         ("regen_all", flags["regen_all"]),
         ("regen_files", bool(flags["regen_files"])),
+        ("regen_all_warns", flags["regen_all_warns"]),
+        ("regen_warn_files", bool(flags["regen_warn_files"])),
         ("gen_parse", flags["gen_parse"]),
     )
     if any(active for _, active in standalone_flags):
@@ -845,6 +912,17 @@ def main(argv: list[str]) -> int:
         for path in flags["regen_files"]:
             print(f"Generating error for: {path}")
             regenerate_one(path)
+        return 0
+    if flags["regen_all_warns"]:
+        print(f"Regenerating ALL warnings in {WARN_DIR}")
+        bootstrap_prewarm(lib_modules)
+        regenerate_dir(WARN_DIR, ".warn")
+        return 0
+    if flags["regen_warn_files"]:
+        bootstrap_prewarm(lib_modules)
+        for path in flags["regen_warn_files"]:
+            print(f"Generating warning fixture for: {path}")
+            regenerate_one(path, ".warn")
         return 0
     if flags["gen_parse"]:
         print(f"Regenerating ALL parser errors in {PARSE_DIR}")
@@ -904,8 +982,9 @@ def main(argv: list[str]) -> int:
                                 lambda: run_prelude_parallel(workers))
         total_failures.extend(fails)
 
-    # Combined pool: should-validate + should-error share a prewarm bootstrap.
-    if flags["passable"] or flags["errors"]:
+    # Combined pool: should-validate + should-error + should-warn share a
+    # prewarm bootstrap.
+    if flags["passable"] or flags["errors"] or flags["warns"]:
         reset_prelude_cache()
         t0 = time.perf_counter()
         bootstrap_prewarm(lib_modules)
@@ -923,6 +1002,12 @@ def main(argv: list[str]) -> int:
         _, fails = time_section("should-error",
                                 lambda: run_err_diff_parallel(
                                     ERROR_DIR, "recursive-descent", workers))
+        total_failures.extend(fails)
+
+    if flags["warns"]:
+        print("\n=== should-warn (RD only, parallel) ===")
+        _, fails = time_section("should-warn",
+                                lambda: run_warn_diff_parallel(workers))
         total_failures.extend(fails)
 
     if flags["equiv"]:

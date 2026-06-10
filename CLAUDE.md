@@ -28,7 +28,7 @@ python deduce.py --lalr file.pf
 
 # Make targets run static checks and BOTH parsers across the test/lib tree
 make static       # ruff + mypy
-make tests        # static + should-validate + should-error
+make tests        # static + should-validate + should-error + should-warn
 make tests-lib    # checks the stdlib itself
 make              # static + token checks + tests (default)
 ```
@@ -36,17 +36,22 @@ make              # static + token checks + tests (default)
 `test-deduce.py` is the higher-level harness used in CI:
 
 ```sh
-python test-deduce.py                  # default: lib + should-validate + should-error + prelude + parser equivalence
+python test-deduce.py                  # default: lib + should-validate + should-error + should-warn + prelude + parser equivalence
 python test-deduce.py --lib            # only ./lib
 python test-deduce.py --passable       # only test/should-validate
 python test-deduce.py --errors         # only test/should-error (diff vs .err files)
-python test-deduce.py --equiv          # compare RD/LALR ASTs for accepted lib + should-validate files
+python test-deduce.py --warns          # only test/should-warn (valid + diff vs .warn files)
+python test-deduce.py --equiv          # compare RD/LALR ASTs for accepted lib + should-validate + should-warn files
 python test-deduce.py --parser         # only test/parse (parser-error fixtures)
 python test-deduce.py --site           # generates and checks doc code from gh_pages/doc
 
 # Regenerate the expected stderr fixture for a should-error test
 python test-deduce.py --generate-error test/should-error/foo.pf
 python test-deduce.py --regenerate-errors      # all of them
+
+# Regenerate the expected warning fixture for a should-warn test
+python test-deduce.py --generate-warn test/should-warn/foo.pf
+python test-deduce.py --regenerate-warns       # all of them
 ```
 
 The test harness runs under the active Python interpreter, which must be Python 3.12+ with `lark` installed. Both parsers must pass — when changing parsing or AST, run with `--lalr` and `--recursive-descent`.
@@ -78,6 +83,7 @@ Steps 3–6 all run inside `proof_checker.check_deduce`. The four-phase comment 
 
 - `test/should-validate/` — must check successfully.
 - `test/should-error/` — must produce an error whose stdout matches the sibling `*.pf.err` file (diffed with `--ignore-space-change`). Update fixtures via `--generate-error`.
+- `test/should-warn/` — must check successfully AND emit warning text matching the sibling `*.pf.warn` file (same diff semantics as `should-error`). Update fixtures via `--generate-warn`.
 - `test/parse/` — same idea but for parser-error messages (only run via `--parser`).
 - `test/test-imports/` — auxiliary modules referenced by `should-validate`/`should-error` tests; passed in as `--dir` so cross-module behavior can be exercised.
 - `test/prelude/` — files that exercise the auto-prelude behavior.

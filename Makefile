@@ -3,6 +3,7 @@ PYTHON = $(shell command -v python3.13)
 LIB_DIR = ./lib
 TEST_PASS_DIR = ./test/should-validate
 TEST_ERROR_DIR = ./test/should-error
+TEST_WARN_DIR = ./test/should-warn
 TEST_IMPORT_DIR = ./test/test-imports
 EXAMPLES_DIR = ./examples
 
@@ -38,6 +39,9 @@ tests-should-validate:
 tests-should-error:
 	$(PYTHON) ./deduce.py --recursive-descent $(TEST_ERROR_DIR) --error --dir $(LIB_DIR)
 	$(PYTHON) ./deduce.py --lalr $(TEST_ERROR_DIR) --error --dir $(LIB_DIR)
+
+tests-should-warn:
+	$(PYTHON) test-deduce.py --warns
 
 tests-lib:
 	$(PYTHON) ./deduce.py ./lib --recursive-descent --dir $(LIB_DIR)
@@ -126,9 +130,10 @@ package:
 	rm -f ./lib/*.thm
 
 clean:
-	rm -f *~ ./lib/*~ ./test/should-validate/*~ ./test/should-error/*~
+	rm -f *~ ./lib/*~ ./test/should-validate/*~ ./test/should-warn/*~ ./test/should-error/*~
 	rm -f ./lib/*.thm
 	rm -f ./test/should-validate/*.thm
+	rm -f ./test/should-warn/*.thm
 	rm -f deduce-release.zip
 	rm -f ./test/compile/lower/*.c ./test/compile/e2e/*.c
 	rm -f ./lib/*.c ./lib/*.h ./lib/*.o

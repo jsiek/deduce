@@ -966,10 +966,10 @@ def auto_rules_at(path: str, line: int, column: int) -> list[JSONDict]:
     tries equations when multiple share a head constructor -- so the
     first hit in the list is the one that fires first.
 
-    Useful when Deduce reports *no need for replace because this
-    equation is handled automatically* or a goal silently simplifies
-    before a tactic runs: scan the list for the rewrite rule whose
-    equation matches the surprise.
+    Useful when Deduce warns that an equation in a ``replace`` is
+    *handled automatically by an auto rule*, or a goal silently
+    simplifies before a tactic runs: scan the list for the rewrite
+    rule whose equation matches the surprise.
     """
     content = _read_file(path)
     pos = query.Position(line=line, column=column)

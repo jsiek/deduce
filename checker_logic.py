@@ -832,10 +832,14 @@ def expand_definitions(loc: Meta, formula: Formula, defs: Sequence[Term],
 
 def apply_rewrites(loc: Meta, formula: Formula,
                    eqns: Sequence[Formula | AutoRewriteRule], env: Env,
-                   *, display_formula: Formula | None = None) -> Formula:
+                   *, display_formula: Formula | None = None,
+                   display_eqns: Sequence[Formula | AutoRewriteRule] | None = None) -> Formula:
   # `formula` is the value rewrites operate over (may be auto-normalized).
   # `display_formula`, if provided, is the pre-normalized form shown in
   # error messages so users see the goal they actually wrote.
+  # `display_eqns`, if provided, is a parallel list of the pre-normalized
+  # equations used in diagnostics; an entry that auto-rules collapse to
+  # `true` would otherwise have no useful printed form.
   num_marks = count_marks(formula)
   if num_marks == 0:
       new_formula = formula
@@ -848,9 +852,9 @@ def apply_rewrites(loc: Meta, formula: Formula,
   else:
       internal_error(loc, 'in rewrite, formula contains more than one mark:\n\t' + str(formula))
 
-  for eq in eqns:
-    if is_true(eq):
-        user_error(loc, 'no need for replace because this equation is handled automatically\n\t' + str(eq))
+  display_seq: Sequence[Formula | AutoRewriteRule] = \
+      display_eqns if display_eqns is not None else eqns
+  for eq, display_eq in zip(eqns, display_seq):
     if not is_equation(eq):
         msg = 'in replace, expected an equation, not:\n\t' + str(eq) \
               + '\n\twhile replacing ' \
