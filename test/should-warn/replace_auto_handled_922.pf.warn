@@ -1,0 +1,8 @@
+./test/should-warn/replace_auto_handled_922.pf:18.39-18.58: warning: this equation is handled automatically by an auto rule — drop it from the replace list:
+	(a * b) * c = a * (b * c)
+./test/should-warn/replace_auto_handled_922.pf:26.18-26.37: warning: this equation is handled automatically by an auto rule — drop it from the replace list:
+	(a * b) * c = a * (b * c)
+./test/should-warn/replace_auto_handled_922.pf:34.18-34.37: warning: this equation is handled automatically by an auto rule — drop it from the replace list:
+	(a * b) * c = a * (b * c)
+./test/should-warn/replace_auto_handled_922.pf:34.40-34.59: warning: this equation is handled automatically by an auto rule — drop it from the replace list:
+	(b * a) * c = b * (a * c)
