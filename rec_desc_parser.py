@@ -170,6 +170,9 @@ def parse_identifier() -> str:
   if token.type == 'IDENT':
     advance()
     return cast(str, token.value)
+  elif token.value == '__':
+    advance()
+    return '__'
   elif current_token().value == 'operator':
     advance()
     rator = cast(str, current_token().value)
