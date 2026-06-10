@@ -5222,6 +5222,16 @@ def _preview_replace(
     eq_reduced = eq_formula.reduce(env)
     before = formula.reduce(env)
 
+    from abstract_syntax import is_true
+    if cast(bool, _call_untyped(is_true, eq_reduced)):
+        return RewritePreview(
+            outcome="no_match",
+            reason=(
+                "this equation is handled automatically -- "
+                "no `replace` needed"
+            ),
+        )
+
     from error import UserError
     from proof_checker import apply_rewrites
 
@@ -5229,12 +5239,7 @@ def _preview_replace(
         after = _call_untyped(apply_rewrites, loc, before, [eq_reduced], env)
     except UserError as exc:
         msg = getattr(exc, "message_body", None) or str(exc)
-        if "no need for replace" in msg:
-            reason = (
-                "this equation is handled automatically -- "
-                "no `replace` needed"
-            )
-        elif "could not find any matches" in msg:
+        if "could not find any matches" in msg:
             try:
                 (lhs, _rhs) = _call_untyped(split_equation, loc, eq_reduced, env)
                 reason = (
@@ -5360,13 +5365,13 @@ def _preview_expand(
 # auto_rules_at -- list `auto` rewrite rules in scope at a position
 # ---------------------------------------------------------------------------
 #
-# Issue #404: when Deduce reports "no need for replace because this
-# equation is handled automatically" or a goal silently simplifies
-# before a tactic can fire, the user wants to know which `auto`
-# declaration is responsible without grepping the prelude.  This
-# function returns every `auto` rule visible at the cursor in
-# declaration order -- the same order ``auto_rewrites`` (in
-# ``abstract_syntax``) tries them when several heads match.
+# Issue #404: when Deduce warns that a `replace` equation is "handled
+# automatically by an auto rule" or a goal silently simplifies before
+# a tactic can fire, the user wants to know which `auto` declaration
+# is responsible without grepping the prelude.  This function returns
+# every `auto` rule visible at the cursor in declaration order -- the
+# same order ``auto_rewrites`` (in ``abstract_syntax``) tries them
+# when several heads match.
 
 
 def auto_rules_at(

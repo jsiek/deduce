@@ -1,0 +1,35 @@
+// Regression test for issue #922.
+//
+// When a `replace A | B` lists several equations and one is already
+// handled by an auto rule, Deduce used to reject the entire step with
+// "no need for replace because this equation is handled automatically",
+// even though the other equation was genuinely required. The fix
+// downgrades that to a warning, names the auto-handled equation, and
+// skips it so the rest of the replace list still applies.
+
+import Nat
+import NatMult
+
+theorem replace_auto_handled_after_needed: all a:Nat, b:Nat, c:Nat.
+  (b * a) * c = a * b * c
+proof
+  arbitrary a:Nat, b:Nat, c:Nat
+  conclude (b * a) * c = a * b * c
+      by replace mult_commute[b, a] | mult_assoc[a, b, c].
+end
+
+theorem replace_auto_handled_before_needed: all a:Nat, b:Nat, c:Nat.
+  (b * a) * c = a * b * c
+proof
+  arbitrary a:Nat, b:Nat, c:Nat
+  conclude (b * a) * c = a * b * c
+      by replace mult_assoc[a, b, c] | mult_commute[b, a].
+end
+
+theorem replace_multiple_auto_handled: all a:Nat, b:Nat, c:Nat.
+  (b * a) * c = a * b * c
+proof
+  arbitrary a:Nat, b:Nat, c:Nat
+  conclude (b * a) * c = a * b * c
+      by replace mult_assoc[a, b, c] | mult_assoc[b, a, c] | mult_commute[b, a].
+end

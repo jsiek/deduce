@@ -201,7 +201,8 @@ def _check_proof_simplify_fact(proof: SimplifyFact, env: Env) -> CheckedFormula:
   preds = [check_proof(given, env) for given in proof.givens]
   equations = [pred_to_equality(proof.location, p) for p in preds]
   eqns = [equation.reduce(env) for equation in equations]
-  new_formula = apply_rewrites(proof.location, formula, eqns, env)
+  new_formula = apply_rewrites(proof.location, formula, eqns, env,
+                               display_eqns=equations)
   return new_formula.reduce(env)
 
 def _check_proof_hole(proof: PHole, env: Env) -> CheckedFormula:
@@ -1462,7 +1463,8 @@ def _check_proof_of_rewrite_goal(proof: RewriteGoal, formula: CheckedFormula, en
   eqns = [equation.reduce(env) for equation in equations]
   new_formula = formula.reduce(env)
   new_formula = apply_rewrites(loc, new_formula, eqns, env,
-                               display_formula=formula)
+                               display_formula=formula,
+                               display_eqns=equations)
   if _missing_period_after_tactic(loc, proof.body, new_formula, 'replace', env):
     return
   _try_check_proof_of(proof.body, new_formula, env)
@@ -1472,7 +1474,8 @@ def _check_proof_of_simplify_goal(proof: SimplifyGoal, formula: CheckedFormula, 
   preds = [check_proof(proof, env) for proof in proof.givens]
   equations = [pred_to_equality(loc, p) for p in preds]
   eqns = [equation.reduce(env) for equation in equations]
-  new_formula = apply_rewrites(loc, formula, eqns, env)
+  new_formula = apply_rewrites(loc, formula, eqns, env,
+                               display_eqns=equations)
   new_formula = new_formula.reduce(env)
   if _missing_period_after_tactic(loc, proof.body, new_formula, 'simplify', env):
     return
