@@ -204,6 +204,17 @@ PARSER_ROUND_TRIP_FILES = (
     "./test/should-validate/relation_basic.pf",    # `relation` declaration
     "./test/should-validate/opaque_define.pf",     # `opaque` visibility
     "./test/should-validate/import_using.pf",      # `import ... using ...`
+    "./test/should-validate/auto_conditional.pf",  # `auto` + `postulate` decl
+    "./test/should-validate/recall1.pf",           # `recall` proof
+    "./test/should-validate/simplify1.pf",         # `simplify` proof
+    "./test/should-validate/trace_recursive.pf",   # `trace` decl + `print`
+    "./test/should-validate/union_positive_nested.pf",  # nested generic union
+    "./test/should-validate/mark2.pf",             # `#`-mark term + `expand a | b`
+    "./test/should-validate/nat_literals.pf",      # `ℕn` Nat literals + `lit`
+    "./test/should-validate/fun_zero_param.pf",    # zero-parameter `fun`
+    "./test/should-validate/some-intro-tlet.pf",   # `define ... ; ...` term-let
+    "./test/should-validate/int1.pf",              # Int negation / literals
+    "./test/should-validate/theorem_let.pf",       # inline `apply ... to ...`
 )
 
 
