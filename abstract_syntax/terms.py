@@ -1794,6 +1794,13 @@ class IfThen(Formula):
   def __str__(self) -> str:
     match self.conclusion:
       case Bool(_, _, False):
+        eq_call = self.premise
+        rator_name = callable_name(eq_call.rator) \
+          if isinstance(eq_call, Call) and len(eq_call.args) == 2 else None
+        if rator_name is not None and base_name(rator_name) == '=':
+          assert isinstance(eq_call, Call)
+          lhs, rhs = eq_call.args
+          return str(lhs) + ' ≠ ' + str(rhs)
         return str(Call(self.location, self.typeof,
                         Var(self.location, None, 'not'),
                         [self.premise]))

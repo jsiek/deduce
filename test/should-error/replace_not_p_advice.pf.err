@@ -1,6 +1,6 @@
 ./test/should-error/replace_not_p_advice.pf:7.3-7.14: in replace, expected an equation, not:
-	not (x = y)
-	while replacing not (x = y)
+	x ≠ y
+	while replacing x ≠ y
 
 `replace` only rewrites with equations of the form `a = b`.
 Since this hypothesis is `not P`, try `simplify with` instead,

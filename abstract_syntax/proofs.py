@@ -241,9 +241,7 @@ class AllIntro(Proof):
     if s + 1 == e:
       res += 'arbitrary '
     res += f"{x} : {str(t)}"
-    if s == 0:
-      res += ";"
-    else:
+    if s != 0:
       res += ","
     return res
 
@@ -657,16 +655,31 @@ class RuleInversion(Proof):
 @dataclass
 class SwitchProofCase(AST):
   pattern: Pattern
-  assumptions: list[Tuple[str,Formula]]
+  # The parser stores ``None`` when the user wrote ``case … assume label {``
+  # with no ``: formula``, so the annotation is widened to match the data.
+  assumptions: list[Tuple[str, Optional[Formula]]]
   body: Proof
 
+  def _assumes_str(self) -> str:
+    if not self.assumptions:
+      return ''
+    parts = []
+    for (label, formula) in self.assumptions:
+      shown = base_name(label) if label else '_'
+      if formula is not None:
+        parts.append(shown + ': ' + str(formula))
+      else:
+        parts.append(shown)
+    return ' assume ' + ', '.join(parts)
+
   def pretty_print(self, indent: int) -> str:
-    return indent*' ' + 'case ' + str(self.pattern) + '{\n' \
+    return indent*' ' + 'case ' + str(self.pattern) + self._assumes_str() + '{\n' \
         + self.body.pretty_print(indent+2) \
         + indent*' ' + '}\n'
 
   def __str__(self) -> str:
-    return 'case ' + str(self.pattern) + '{' + str(self.body) + '}'
+    return 'case ' + str(self.pattern) + self._assumes_str() \
+        + '{' + str(self.body) + '}'
 
   def uniquify(self, env: object, ctx: object) -> SwitchProofCase:
     env_map = cast(UniquifyEnv, env)
@@ -682,10 +695,10 @@ class SwitchProofCase(AST):
     for ((old, _), new) in zip(self.assumptions, new_assumption_labels):
       overwrite(body_env, old, new, self.location)
 
-    new_assumptions: list[Tuple[str, Formula]] = []
+    new_assumptions: list[Tuple[str, Optional[Formula]]] = []
     for ((_, f), new_label) in zip(self.assumptions, new_assumption_labels):
       new_f = f.uniquify(body_env, uniq_ctx) if f else None
-      new_assumptions.append((new_label, cast(Formula, new_f)))
+      new_assumptions.append((new_label, new_f))
 
     new_pat = pattern.with_bindings(new_params).uniquify(body_env, uniq_ctx)
     new_body = self.body.uniquify(body_env, uniq_ctx)
@@ -731,8 +744,10 @@ class SimplifyGoal(Proof):
   givens: List[Proof]
 
   def __str__(self) -> str:
-      return 'simplify ' + ' | '.join([str(p) for p in self.givens]) + '\n' \
-          + str(self.body)
+      head = 'simplify'
+      if self.givens:
+        head += ' with ' + ' | '.join([str(p) for p in self.givens])
+      return head + '\n' + str(self.body)
 
 
 @dataclass
@@ -744,14 +759,20 @@ class SimplifyFact(Proof):
       return str(self)
 
   def __str__(self) -> str:
-    return 'simplify ' \
-        + ' | '.join([str(p) for p in self.givens]) \
-        + ' in ' + str(self.subject)
+    head = 'simplify'
+    if self.givens:
+      head += ' with ' + ' | '.join([str(p) for p in self.givens])
+    return head + ' in ' + str(self.subject)
 
 @dataclass
 class ApplyDefsGoal(Proof):
   definitions: List[Term]
   body: Proof
+
+  def pretty_print(self, indent: int) -> str:
+      return indent*' ' + 'expand ' \
+        + ' | '.join([str(d) for d in self.definitions]) + '\n' \
+        + maybe_pretty_print(self.body, indent)
 
   def __str__(self) -> str:
       return 'expand ' + ' | '.join([str(d) for d in self.definitions]) \
@@ -770,6 +791,11 @@ class ApplyDefsFact(Proof):
 class RewriteGoal(Proof):
   equations: List[Proof]
   body: Proof
+
+  def pretty_print(self, indent: int) -> str:
+      return indent*' ' + 'replace ' \
+        + ' | '.join([str(eqn) for eqn in self.equations]) + '\n' \
+        + maybe_pretty_print(self.body, indent)
 
   def __str__(self) -> str:
       return 'replace ' + '|'.join([str(eqn) for eqn in self.equations]) \

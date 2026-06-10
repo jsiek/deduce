@@ -215,6 +215,23 @@ PARSER_ROUND_TRIP_FILES = (
     "./test/should-validate/some-intro-tlet.pf",   # `define ... ; ...` term-let
     "./test/should-validate/int1.pf",              # Int negation / literals
     "./test/should-validate/theorem_let.pf",       # inline `apply ... to ...`
+    # Coverage added with the issue #931 round of pretty-printer fixes.
+    # Each one exercises a fix landed in that pass:
+    "./test/should-validate/all1.pf",              # `arbitrary x:T` (no `;`)
+    "./test/should-validate/all2.pf",              # multi-`arbitrary` list
+    "./test/should-validate/all3.pf",              # arbitrary + apply chain
+    "./test/should-validate/bicond3.pf",           # `switch ... case … assume`
+    "./test/should-validate/bicond4.pf",           # nested case-assume
+    "./test/should-validate/not_equal.pf",         # `x /= y` surface form
+    "./test/should-validate/private_define.pf",    # `private define : T = …`
+    "./test/should-validate/private_function.pf",  # `private fun …`
+    "./test/should-validate/private_union.pf",     # `private union` + `/=`
+    "./test/should-validate/simplify3.pf",         # `simplify with q.`
+    "./test/should-validate/simplify4.pf",         # `simplify with` + body
+    "./test/should-validate/TestUIntDiv.pf",       # numeric literal sugar
+    "./test/should-validate/rewrite_with_all.pf",  # `replace x.` finishing form
+    "./test/should-validate/type_alias.pf",        # `type Foo = Bar` round-trip
+    "./test/should-validate/predicate_opaque.pf",  # `opaque predicate`
 )
 
 
