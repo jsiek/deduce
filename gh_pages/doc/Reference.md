@@ -1335,6 +1335,10 @@ See the entry for [Biconditional](#biconditional-if-and-only-if).
 
 ## If Then (Conditional Formula)
 
+```deduce-grammar
+atomic_term ::= "if" term "then" term
+```
+
 A formula `if P then Q` is true when both `P` and `Q` are true and it
 is true when `P` is false.
 
@@ -1344,6 +1348,10 @@ To use a given that is a conditional formula, use `apply`-`to`.
 (See the entry for [Apply-To](#apply-to-proof-modus-ponens).)
 
 ## If Then Else (Term)
+
+```deduce-grammar
+atomic_term ::= "if" term "then" term "else" term
+```
 
 A term of the form
 
