@@ -116,16 +116,23 @@ def is_equation(formula: Formula) -> bool:
       return False
 
 def isUInt(t: Term) -> bool:
+  # Value-type recognizer: only matches the *post-uniquify* shape.
+  # Pre-uniquify, the UInt-literal path goes through ``isLitUInt`` /
+  # ``mkUIntLit`` instead, so accepting plain ``Var`` here would let
+  # ``Call.__str__`` collapse user-written ``pos(N)`` / ``negsuc(N)``
+  # (via ``isDeduceInt``) into ``+N`` / ``-(N+1)`` — which then re-parses
+  # to a unary-minus AST rather than the original constructor and breaks
+  # the round-trip (see int1.pf).
   match t:
-    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)) if base_name(n) == 'bzero':
+    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'bzero':
       return True
-    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)), [arg]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
       if base_name(n) == 'inc_dub':
         return isUInt(arg)
-    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)), [arg]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
       if base_name(n) == 'dub_inc':
         return isUInt(arg)
-    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)), [arg]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
       if base_name(n) == 'fromNat':
         return isNat(arg)
     case _:
@@ -133,22 +140,22 @@ def isUInt(t: Term) -> bool:
 
 def isBZero(t: Term) -> bool:
   match t:
-    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)) if base_name(n) == 'bzero':
+    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'bzero':
       return True
     case _:
       return False
-  
+
 def isDubInc(t: Term) -> bool:
   match t:
-    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)), [_]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [_]) \
       if base_name(n) == 'dub_inc':
         return True
     case _:
       return False
-  
+
 def isIncDub(t: Term) -> bool:
   match t:
-    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)), [_]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [_]) \
       if base_name(n) == 'inc_dub':
         return True
     case _:
@@ -184,7 +191,7 @@ def uint_inc(loc: Meta, x: Term) -> Term:
 
 def isSuc(t: Term) -> bool:
   match t:
-    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)), [_]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [_]) \
          if base_name(n) == 'suc':
       return True
     case _:
@@ -314,13 +321,15 @@ def intToNat(
                  sname=sname, ty=ty)
 
 def isNat(t: Term) -> bool:
+  # Value-type recognizer — see the comment on ``isUInt`` for why
+  # plain ``Var`` is intentionally excluded.
   match t:
-    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)) if base_name(n) == 'zero':
+    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'zero':
       return True
-    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)), [arg]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
          if base_name(n) == 'suc':
       return isNat(arg)
-    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)), [arg]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
          if base_name(n) == 'lit':
       return isNat(arg)
     case _:
@@ -358,21 +367,23 @@ def isLitUInt(t: Term) -> bool:
       return False
   
 def isInt(t: Term) -> bool:
+  # Value-type recognizer — see the comment on ``isUInt`` for why
+  # plain ``Var`` is intentionally excluded.
   match t:
-    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)), [arg]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
       if base_name(n) == 'pos':
       return isUInt(arg)
-    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)), [arg]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
       if base_name(n) == 'negsuc':
       return isUInt(arg)
     case _:
       return False
-  
+
 def getZero(t: Term) -> str | bool:
   match t:
-    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)) if base_name(n) == 'zero':
+    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'zero':
       return n
-    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)), [arg]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
       if base_name(n) == 'suc':
       return getZero(arg)
     case _:
@@ -380,9 +391,9 @@ def getZero(t: Term) -> str | bool:
 
 def getSuc(t: Term) -> str | bool:
   match t:
-    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)) if base_name(n) == 'zero':
+    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'zero':
       return False
-    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)), [_]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [_]) \
       if base_name(n) == 'suc':
       return n
     case _:
