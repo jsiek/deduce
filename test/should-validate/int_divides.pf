@@ -1,0 +1,110 @@
+import Int
+
+// Literal sanity checks for gcd/lcm via `pos(UInt.gcd|lcm)`.
+
+assert gcd(+12, +8)   = +4
+assert gcd(-12, +8)   = +4
+assert gcd(+12, -8)   = +4
+assert gcd(-12, -8)   = +4
+assert gcd(+0,  +7)   = +7
+assert gcd(+7,  +0)   = +7
+assert gcd(+0,  +0)   = +0
+
+assert lcm(+4, +6)    = +12
+assert lcm(-4, +6)    = +12
+assert lcm(+4, -6)    = +12
+assert lcm(-4, -6)    = +12
+assert lcm(+0, +7)    = +0
+assert lcm(+5, +0)    = +0
+
+// Reflexivity and the +0/+1 corner cases.
+
+theorem R: all n:Int. divides(n, n)
+proof
+  arbitrary n:Int
+  int_divides_refl[n]
+end
+
+theorem Z: all n:Int. divides(n, +0)
+proof
+  arbitrary n:Int
+  int_divides_zero[n]
+end
+
+theorem O: all n:Int. divides(+1, n)
+proof
+  arbitrary n:Int
+  int_one_divides[n]
+end
+
+// Closure laws.
+
+theorem T: all a:Int, b:Int, c:Int.
+  if divides(a, b) and divides(b, c) then divides(a, c)
+proof
+  arbitrary a:Int, b:Int, c:Int
+  int_divides_trans[a, b, c]
+end
+
+theorem A: all d:Int, m:Int, n:Int.
+  if divides(d, m) and divides(d, n) then divides(d, m + n)
+proof
+  arbitrary d:Int, m:Int, n:Int
+  int_divides_add[d, m, n]
+end
+
+theorem S: all d:Int, m:Int, n:Int.
+  if divides(d, m) and divides(d, n) then divides(d, m - n)
+proof
+  arbitrary d:Int, m:Int, n:Int
+  int_divides_sub[d, m, n]
+end
+
+theorem MR: all d:Int, n:Int, m:Int.
+  if divides(d, n) then divides(d, n * m)
+proof
+  arbitrary d:Int, n:Int, m:Int
+  int_divides_mult_right[d, n, m]
+end
+
+theorem ML: all d:Int, n:Int, m:Int.
+  if divides(d, n) then divides(d, m * n)
+proof
+  arbitrary d:Int, n:Int, m:Int
+  int_divides_mult_left[d, n, m]
+end
+
+// gcd is a common divisor and the greatest such.
+
+theorem GL: all a:Int, b:Int. divides(gcd(a, b), a)
+proof
+  arbitrary a:Int, b:Int
+  int_gcd_divides_left[a, b]
+end
+
+theorem GR: all a:Int, b:Int. divides(gcd(a, b), b)
+proof
+  arbitrary a:Int, b:Int
+  int_gcd_divides_right[a, b]
+end
+
+theorem GG: all d:Int, a:Int, b:Int.
+  if divides(d, a) and divides(d, b) then divides(d, gcd(a, b))
+proof
+  arbitrary d:Int, a:Int, b:Int
+  int_gcd_greatest[d, a, b]
+end
+
+// lcm zero cases.
+
+theorem LzL: all b:Int. lcm(+0, b) = +0
+proof
+  arbitrary b:Int
+  int_lcm_zero_left[b]
+end
+
+theorem LzR: all a:Int. lcm(a, +0) = +0
+proof
+  arbitrary a:Int
+  int_lcm_zero_right[a]
+end

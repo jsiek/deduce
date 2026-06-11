@@ -1,0 +1,285 @@
+module Int
+
+import UInt
+import Base
+import IntDefs
+import IntAddSub
+import IntMult
+import IntLess
+import IntAbs
+
+/*
+  Integer divisibility, gcd, and lcm.
+
+  `divides(a, b)` is the existential `some k:Int. a*k = b`, the same
+  shape as `UInt.divides`. The bridge `int_divides_iff_abs` lifts the
+  Int question to the UInt one, which lets `gcd` and `lcm` be defined
+  via the UInt versions on the absolute values:
+
+      gcd(a, b) = pos(gcd(abs(a), abs(b)))
+      lcm(a, b) = pos(lcm(abs(a), abs(b)))
+
+  This is the divisor / common-multiple half of the Int division story
+  (see issue #720). It is independent of the rounding convention chosen
+  for `Int %`, since `divides` and `gcd`/`lcm` only care about the
+  multiplicative structure.
+*/
+
+// Right distributivity of unary minus through multiplication.
+// `dist_neg_mult` covers the left side; this lemma swaps via commutativity.
+theorem int_neg_mult_right: all x:Int, y:Int.
+  x * (- y) = - (x * y)
+proof
+  arbitrary x:Int, y:Int
+  equations
+    x * (- y) = (- y) * x  by int_mult_commute[x, - y]
+          ... = - (y * x)  by symmetric dist_neg_mult[y, x]
+          ... = - (x * y)  by replace int_mult_commute[y, x].
+end
+
+// `divides(a, b)` holds when some integer multiple of `a` equals `b`.
+fun divides(a : Int, b : Int) {
+  some k:Int. a * k = b
+}
+
+// Reflexivity: every integer divides itself.
+theorem int_divides_refl: all n:Int. divides(n, n)
+proof
+  arbitrary n:Int
+  expand divides
+  choose +1
+  int_mult_one[n]
+end
+
+// Every integer divides zero.
+theorem int_divides_zero: all n:Int. divides(n, +0)
+proof
+  arbitrary n:Int
+  expand divides
+  choose +0
+  int_mult_zero[n]
+end
+
+// `+1` divides every integer.
+theorem int_one_divides: all n:Int. divides(+1, n)
+proof
+  arbitrary n:Int
+  expand divides
+  choose n
+  int_one_mult[n]
+end
+
+// Negation on either side preserves divisibility.
+theorem int_divides_neg_right: all d:Int, n:Int.
+  if divides(d, n) then divides(d, - n)
+proof
+  arbitrary d:Int, n:Int
+  assume dn
+  obtain k where dk_n: d * k = n from expand divides in dn
+  expand divides
+  choose - k
+  have eq: d * (- k) = - (d * k) by int_neg_mult_right[d, k]
+  replace eq | dk_n.
+end
+
+// Negation on the divisor side preserves divisibility.
+theorem int_divides_neg_left: all d:Int, n:Int.
+  if divides(d, n) then divides(- d, n)
+proof
+  arbitrary d:Int, n:Int
+  assume dn
+  obtain k where dk_n: d * k = n from expand divides in dn
+  expand divides
+  choose - k
+  have eq: (- d) * (- k) = d * k by {
+    equations
+      (- d) * (- k) = - (d * (- k))   by symmetric dist_neg_mult[d, - k]
+                ... = - (- (d * k))   by replace int_neg_mult_right[d, k].
+                ... = d * k           by neg_involutive[d * k]
+  }
+  replace eq
+  dk_n
+end
+
+// Transitivity of divisibility.
+theorem int_divides_trans: all a:Int, b:Int, c:Int.
+  if divides(a, b) and divides(b, c) then divides(a, c)
+proof
+  arbitrary a:Int, b:Int, c:Int
+  assume prem
+  obtain k where ak_b: a * k = b from expand divides in conjunct 0 of prem
+  obtain l where bl_c: b * l = c from expand divides in conjunct 1 of prem
+  expand divides
+  choose k * l
+  have eq1: (a * k) * l = c by replace symmetric ak_b in bl_c
+  eq1
+end
+
+// Closure under addition.
+theorem int_divides_add: all d:Int, m:Int, n:Int.
+  if divides(d, m) and divides(d, n) then divides(d, m + n)
+proof
+  arbitrary d:Int, m:Int, n:Int
+  assume prem
+  obtain k where dk_m: d * k = m from expand divides in conjunct 0 of prem
+  obtain l where dl_n: d * l = n from expand divides in conjunct 1 of prem
+  expand divides
+  choose k + l
+  replace int_dist_mult_add[d, k, l] | dk_m | dl_n.
+end
+
+// Closure under subtraction.
+theorem int_divides_sub: all d:Int, m:Int, n:Int.
+  if divides(d, m) and divides(d, n) then divides(d, m - n)
+proof
+  arbitrary d:Int, m:Int, n:Int
+  assume prem
+  obtain k where dk_m: d * k = m from expand divides in conjunct 0 of prem
+  obtain l where dl_n: d * l = n from expand divides in conjunct 1 of prem
+  expand divides
+  choose k - l
+  replace int_dist_mult_sub[d, k, l] | dk_m | dl_n.
+end
+
+// Closure under multiplication on the right.
+theorem int_divides_mult_right: all d:Int, n:Int, m:Int.
+  if divides(d, n) then divides(d, n * m)
+proof
+  arbitrary d:Int, n:Int, m:Int
+  assume dn
+  obtain k where dk_n: d * k = n from expand divides in dn
+  expand divides
+  choose k * m
+  have eq: (d * k) * m = n * m by replace dk_n.
+  eq
+end
+
+// Closure under multiplication on the left.
+theorem int_divides_mult_left: all d:Int, n:Int, m:Int.
+  if divides(d, n) then divides(d, m * n)
+proof
+  arbitrary d:Int, n:Int, m:Int
+  assume dn
+  replace int_mult_commute[m, n]
+  apply int_divides_mult_right[d, n, m] to dn
+end
+
+// Bridge: `Int.divides` is equivalent to `UInt.divides` on absolute
+// values. Lets gcd/lcm theorems lift from the UInt versions.
+theorem int_divides_iff_abs: all a:Int, b:Int.
+  divides(a, b) ⇔ divides(abs(a), abs(b))
+proof
+  arbitrary a:Int, b:Int
+  have fwd: if divides(a, b) then divides(abs(a), abs(b)) by {
+    assume ab
+    obtain k where ak_b: a * k = b from expand divides in ab
+    expand divides
+    choose abs(k)
+    have eq: abs(a) * abs(k) = abs(b) by {
+      replace symmetric int_abs_mult[a, k]
+      replace ak_b.
+    }
+    eq
+  }
+  have bwd: if divides(abs(a), abs(b)) then divides(a, b) by {
+    assume ab
+    obtain k0 where ak0: abs(a) * k0 = abs(b) from expand divides in ab
+    have abs_eq: abs(a * pos(k0)) = abs(b) by {
+      replace int_abs_mult[a, pos(k0)]
+      ak0
+    }
+    have ak_eq_or: a * pos(k0) = b or a * pos(k0) = - b
+      by apply (conjunct 0 of int_abs_eq_iff_eq_or_neg[a * pos(k0), b]) to abs_eq
+    expand divides
+    cases ak_eq_or
+    case ak_b_eq {
+      choose pos(k0)
+      ak_b_eq
+    }
+    case ak_negb {
+      choose - pos(k0)
+      have eq: a * (- pos(k0)) = b by {
+        replace int_neg_mult_right[a, pos(k0)] | ak_negb | neg_involutive[b].
+      }
+      eq
+    }
+  }
+  fwd, bwd
+end
+
+// Greatest common divisor on Int, defined through `UInt.gcd` on
+// absolute values. The result is wrapped as `pos` so the gcd is always
+// nonnegative.
+fun gcd(a : Int, b : Int) {
+  pos(gcd(abs(a), abs(b)))
+}
+
+// `gcd(a, b)` divides `a`.
+theorem int_gcd_divides_left: all a:Int, b:Int. divides(gcd(a, b), a)
+proof
+  arbitrary a:Int, b:Int
+  expand gcd
+  have ug: divides(gcd(abs(a), abs(b)), abs(a))
+    by uint_gcd_divides_left[abs(a), abs(b)]
+  have unfold: abs(pos(gcd(abs(a), abs(b)))) = gcd(abs(a), abs(b))
+    by int_abs_pos[gcd(abs(a), abs(b))]
+  have ug2: divides(abs(pos(gcd(abs(a), abs(b)))), abs(a))
+    by replace symmetric unfold in ug
+  apply (conjunct 1 of int_divides_iff_abs[pos(gcd(abs(a), abs(b))), a]) to ug2
+end
+
+// `gcd(a, b)` divides `b`.
+theorem int_gcd_divides_right: all a:Int, b:Int. divides(gcd(a, b), b)
+proof
+  arbitrary a:Int, b:Int
+  expand gcd
+  have ug: divides(gcd(abs(a), abs(b)), abs(b))
+    by uint_gcd_divides_right[abs(a), abs(b)]
+  have unfold: abs(pos(gcd(abs(a), abs(b)))) = gcd(abs(a), abs(b))
+    by int_abs_pos[gcd(abs(a), abs(b))]
+  have ug2: divides(abs(pos(gcd(abs(a), abs(b)))), abs(b))
+    by replace symmetric unfold in ug
+  apply (conjunct 1 of int_divides_iff_abs[pos(gcd(abs(a), abs(b))), b]) to ug2
+end
+
+// Greatest property: any common divisor `d` of `a` and `b` divides
+// `gcd(a, b)`.
+theorem int_gcd_greatest: all d:Int, a:Int, b:Int.
+  if divides(d, a) and divides(d, b) then divides(d, gcd(a, b))
+proof
+  arbitrary d:Int, a:Int, b:Int
+  assume prem
+  have d_a: divides(d, a) by conjunct 0 of prem
+  have d_b: divides(d, b) by conjunct 1 of prem
+  have abs_d_a: divides(abs(d), abs(a))
+    by apply (conjunct 0 of int_divides_iff_abs[d, a]) to d_a
+  have abs_d_b: divides(abs(d), abs(b))
+    by apply (conjunct 0 of int_divides_iff_abs[d, b]) to d_b
+  have ug: divides(abs(d), gcd(abs(a), abs(b)))
+    by apply uint_gcd_greatest[abs(d), abs(a), abs(b)] to abs_d_a, abs_d_b
+  expand gcd
+  have unfold: abs(pos(gcd(abs(a), abs(b)))) = gcd(abs(a), abs(b))
+    by int_abs_pos[gcd(abs(a), abs(b))]
+  have ug2: divides(abs(d), abs(pos(gcd(abs(a), abs(b)))))
+    by replace symmetric unfold in ug
+  apply (conjunct 1 of int_divides_iff_abs[d, pos(gcd(abs(a), abs(b)))]) to ug2
+end
+
+// Least common multiple on Int, wrapped in `pos` to be nonnegative.
+fun lcm(a : Int, b : Int) {
+  pos(lcm(abs(a), abs(b)))
+}
+
+// `lcm(+0, b) = +0`.
+theorem int_lcm_zero_left: all b:Int. lcm(+0, b) = +0
+proof
+  arbitrary b:Int
+  expand lcm.
+end
+
+// `lcm(a, +0) = +0`.
+theorem int_lcm_zero_right: all a:Int. lcm(a, +0) = +0
+proof
+  arbitrary a:Int
+  expand lcm.
+end
