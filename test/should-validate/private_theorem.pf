@@ -12,6 +12,8 @@ proof
   reflexive
 end
 
+private postulate private_postulate_refl: all x:Nat. x = x
+
 theorem private_theorem_user: all x:Nat. x = x
 proof
   arbitrary x:Nat
