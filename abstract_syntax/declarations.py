@@ -680,18 +680,27 @@ class GenRecFun(Declaration):
         + 'terminates {\n' + str(self.terminates) + '\n}\n'
 
   def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
+    pad = indent * ' '
     header = complete_name(self.name) \
         + ('<' + ','.join([name2str(t) for t in self.type_params]) + '>' \
            if len(self.type_params) > 0 else '') \
       + '(' + ', '.join([base_name(x) + ':' + str(t) if t else x for (x,t) in self.vars])\
       + ') -> ' + str(self.returns) \
-      + '\nmeasure\t' + str(self.measure) + ' '
+      + '\n' + pad + '  measure ' + str(self.measure) \
+      + ' of ' + str(self.measure_ty)
 
-    ret = self.visibility_prefix() + 'recfun ' + header + ' {' \
-      + self.body.pretty_print(indent+2) + '\n}\n'
+    terminates_str = self.terminates.pretty_print(indent + 2)
+    if not terminates_str.startswith('\n'):
+      terminates_str = '\n' + terminates_str
+    if not terminates_str.endswith('\n'):
+      terminates_str = terminates_str + '\n'
 
-    return indent*' ' + ret
-      
+    ret = self.visibility_prefix() + 'recfun ' + header + '\n' \
+      + pad + '{' + self.body.pretty_print(indent + 2) + '\n' + pad + '}\n' \
+      + pad + 'terminates {' + terminates_str + pad + '}\n'
+
+    return pad + ret
+
 
   def __eq__(self, other: object) -> bool:
     if isinstance(other, ResolvedVar):
