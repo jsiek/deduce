@@ -3,6 +3,6 @@
 argument types: UInt, UInt
 expected return type: Nat
 overloads:
-	(fn Nat, Nat -> Nat)   <-- result type matches, but argument types don't
-	(fn UInt, UInt -> UInt)   <-- argument types match, but result type UInt doesn't match expected Nat
+	(fn (Nat, Nat) -> Nat)   <-- result type matches, but argument types don't
+	(fn (UInt, UInt) -> UInt)   <-- argument types match, but result type UInt doesn't match expected Nat
 	numeric literals default to `UInt`; for a `Nat` literal write `ℕ1`.
