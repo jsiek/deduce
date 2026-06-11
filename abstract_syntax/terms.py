@@ -1141,7 +1141,15 @@ class Call(Term):
     elif isEmptySet(self) and not get_verbose():
       return '∅'
     else:
-      return str(self.rator) + "(" \
+      rator_str = str(self.rator)
+      # The parser parses a Call's rator at the `parse_array_get` level,
+      # which only accepts atoms, array accesses, and chained calls. An
+      # operator-call rator (e.g. `f ∘ g`) must be parenthesized so the
+      # printed form reparses as `Call(Call(∘, f, g), [args])` instead of
+      # `Call(∘, f, Call(g, [args]))`.
+      if precedence(self.rator) is not None:
+        rator_str = "(" + rator_str + ")"
+      return rator_str + "(" \
         + ", ".join([str(arg) for arg in self.args])\
         + ")"
 

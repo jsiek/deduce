@@ -258,6 +258,7 @@ PARSER_ROUND_TRIP_FILES = (
     "./test/should-validate/induction1.pf",        # `equations` under induction
     "./test/should-validate/postulate1.pf",        # `equations` + `postulate`
     "./test/should-validate/mark3.pf",             # `equations` + `#`-marks
+    "./test/should-validate/ListTests.pf",         # operator-call rator: `(f ∘ g)(x)`
 )
 
 
