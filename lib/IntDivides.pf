@@ -27,7 +27,7 @@ import IntAbs
 
 // Right distributivity of unary minus through multiplication.
 // `dist_neg_mult` covers the left side; this lemma swaps via commutativity.
-private theorem int_neg_mult_right: all x:Int, y:Int.
+theorem int_neg_mult_right: all x:Int, y:Int.
   x * (- y) = - (x * y)
 proof
   arbitrary x:Int, y:Int
