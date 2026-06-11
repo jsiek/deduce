@@ -250,6 +250,14 @@ PARSER_ROUND_TRIP_FILES = (
     # the `of <measure_ty>` clause and the `terminates` proof block were
     # silently dropped by `GenRecFun.pretty_print`; covers both shapes.
     "./test/should-validate/recfun_roundtrip.pf",
+    # Coverage added with the issue #945 fix for `mkEqual` emitting
+    # `Var('=')` from the parser (so `equations`-block `=` matches the
+    # ordinary infix-`=` parsing shape):
+    "./test/should-validate/assoc1.pf",            # `equations` + `replace`
+    "./test/should-validate/assoc2.pf",            # `equations` chain
+    "./test/should-validate/induction1.pf",        # `equations` under induction
+    "./test/should-validate/postulate1.pf",        # `equations` + `postulate`
+    "./test/should-validate/mark3.pf",             # `equations` + `#`-marks
 )
 
 
