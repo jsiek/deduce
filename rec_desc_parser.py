@@ -1422,11 +1422,11 @@ def parse_theorem(visibility: str) -> Statement:
 
     if is_postulate:
         return Postulate(meta_from_tokens(start_token, previous_token()),
-                         name, what)
+                         name, what, visibility=visibility)
 
     proof = parse_reason()
     return Theorem(meta_from_tokens(start_token, previous_token()),
-                   name, what, proof, is_lemma)
+                   name, what, proof, is_lemma, visibility=visibility)
   except ParseError as e:
     raise e.extend(meta_from_tokens(start_token, previous_token()),
                    while_parsing)

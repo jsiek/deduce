@@ -1,0 +1,19 @@
+import Nat
+
+private theorem private_theorem_refl: all x:Nat. x = x
+proof
+  arbitrary x:Nat
+  reflexive
+end
+
+private lemma private_lemma_refl: all x:Nat. x = x
+proof
+  arbitrary x:Nat
+  reflexive
+end
+
+theorem private_theorem_user: all x:Nat. x = x
+proof
+  arbitrary x:Nat
+  private_theorem_refl[x]
+end
