@@ -170,6 +170,17 @@ class Constructor(AST):
     extend(env_map, self.name, new_name, self.location)
     return Constructor(self.location, new_name, new_params)
 
+  def instantiate_parameters(
+      self, typarams: List[str], type_args: List[Type]
+  ) -> List[Type]:
+    """Apply the union's `typarams → type_args` substitution to this
+    constructor's field types. If `typarams` is empty, returns the parameters
+    unchanged."""
+    if not typarams:
+      return list(self.parameters)
+    sub: dict[str, Type] = {T: ty for (T, ty) in zip(typarams, type_args)}
+    return [p.substitute(sub) for p in self.parameters]
+
   def __str__(self) -> str:
     if get_verbose():
       name = self.name
