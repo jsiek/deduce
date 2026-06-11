@@ -1,0 +1,32 @@
+// Round-trip fixture for the `recfun` (GenRecFun) declaration form.
+// Covers the `measure ... of <type>` clause and the `terminates { ... }`
+// proof block, both of which the pretty-printer used to drop entirely.
+
+import UInt
+import List
+
+recfun count_down(n : UInt) -> UInt
+  measure n of UInt
+{
+  if n = 0 then 0
+  else count_down(n ∸ 1)
+}
+terminates {
+  arbitrary n:UInt
+  uint_monus_one_less[n]
+}
+
+recfun replicate<T>(n : UInt, x : T) -> List<T>
+  measure n of UInt
+{
+  if n = 0 then empty
+  else node(x, replicate(n ∸ 1, x))
+}
+terminates {
+  arbitrary n:UInt, x:T
+  uint_monus_one_less[n]
+}
+
+assert count_down(3) = 0
+assert count_down(0) = 0
+assert replicate(2, true) = node(true, node(true, empty))

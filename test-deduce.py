@@ -246,6 +246,10 @@ PARSER_ROUND_TRIP_FILES = (
     # `private theorem` / `private lemma` / `private postulate` visibility
     # round-trip (Theorem.__str__ / Postulate.__str__ visibility prefix).
     "./test/should-validate/private_theorem.pf",
+    # `recfun ... measure n of T { body } terminates { proof }` — both
+    # the `of <measure_ty>` clause and the `terminates` proof block were
+    # silently dropped by `GenRecFun.pretty_print`; covers both shapes.
+    "./test/should-validate/recfun_roundtrip.pf",
 )
 
 
