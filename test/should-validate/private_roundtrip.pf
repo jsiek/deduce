@@ -1,0 +1,31 @@
+private union Color {
+    Red
+    Green
+    Blue
+}
+
+private type Hue = Color
+
+private union Tree {
+    leaf
+    node(Tree, Tree)
+}
+
+private recursive left_spine(Tree) -> Tree {
+    left_spine(leaf) = leaf
+    left_spine(node(l, r)) = left_spine(l)
+}
+
+private fun flip(c : Color) {
+    switch c {
+        case Red { Green }
+        case Green { Red }
+        case Blue { Blue }
+    }
+}
+
+assert flip(Red) = Green
+assert flip(Green) = Red
+assert flip(Blue) = Blue
+assert left_spine(leaf) = leaf
+assert left_spine(node(leaf, leaf)) = leaf
