@@ -165,6 +165,20 @@ class FunctionType(Type):
     return FunctionType(self.location, new_type_params,
                         new_param_types, new_return_type)
 
+  def instantiate(self, tyargs: List[Type]) -> FunctionType:
+    """Replace this function type's `type_params` with `tyargs`, returning a
+    flat (non-generic) function type. With no type parameters, returns a
+    structurally equivalent copy."""
+    if not self.type_params:
+      return FunctionType(self.location, [], list(self.param_types),
+                          self.return_type)
+    sub: dict[str, Type] = {x: t for (x, t) in zip(self.type_params, tyargs)}
+    return FunctionType(
+        self.location, [],
+        [t.substitute(sub) for t in self.param_types],
+        self.return_type.substitute(sub),
+    )
+
 @dataclass
 class ArrayType(Type):
   elt_type: Type

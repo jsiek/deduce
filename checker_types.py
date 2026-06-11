@@ -836,11 +836,8 @@ def type_check_term_inst(
     retty = TypeInst(loc, ty, tyargs)
   else:
     match ty:
-      case FunctionType(loc2, typarams, param_types, return_type):
-        sub = {x: t for (x,t) in zip(typarams, tyargs)}
-        inst_param_types = [t.substitute(sub) for t in param_types]
-        inst_return_type = return_type.substitute(sub)
-        retty = FunctionType(loc2, [], inst_param_types, inst_return_type)
+      case FunctionType() as fty:
+        retty = fty.instantiate(tyargs)
       case GenericUnknownInst(loc2, union_type):
         retty = TypeInst(loc2, union_type, tyargs)
       case _:
@@ -857,11 +854,8 @@ def type_check_term_inst_var(
         retty = TypeInst(loc, ty, tyargs)
       else:
         match ty:
-          case FunctionType(loc3, typarams, param_types, return_type):
-            sub = {x: t for (x,t) in zip(typarams, tyargs)}
-            inst_param_types = [t.substitute(sub) for t in param_types]
-            inst_return_type = return_type.substitute(sub)
-            retty = FunctionType(loc3, [], inst_param_types, inst_return_type)
+          case FunctionType() as fty:
+            retty = fty.instantiate(tyargs)
           case GenericUnknownInst(loc3, union_type):
             retty = TypeInst(loc3, union_type, tyargs)
           case _:
