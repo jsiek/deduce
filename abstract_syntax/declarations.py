@@ -97,7 +97,8 @@ class Postulate(Declaration):
       print(base_name(self.name) + ': ' + str(self.what) + '\n', file=f)
   
   def __str__(self) -> str:
-    return 'postulate ' + self.name + ': ' + str(self.what) + '\n\n'
+    return self.visibility_prefix() + 'postulate ' + self.name \
+      + ': ' + str(self.what) + '\n\n'
 
   def uniquify(self, env: object, ctx: object) -> Postulate:
     env_map = cast(UniquifyEnv, env)
@@ -127,7 +128,8 @@ class Theorem(Declaration):
       print(base_name(self.name) + ': ' + str(self.what) + '\n', file=f)
   
   def __str__(self) -> str:
-    return ('lemma ' if self.isLemma else 'theorem ') \
+    return self.visibility_prefix() \
+      + ('lemma ' if self.isLemma else 'theorem ') \
       + self.name + ': ' + str(self.what) \
       + '\nproof\n' + self.proof.pretty_print(2) + '\nend\n'
 
