@@ -956,3 +956,31 @@ proof
 end
 
 auto uint_lit_div
+
+// Least common multiple: zero if either operand is zero, otherwise
+// `(a * b) / gcd(a, b)`. The product-form definition keeps `lcm`
+// expressible without a second recursive function and makes the
+// `gcd * lcm = a * b` identity an algebraic consequence of the
+// quotient/remainder spec.
+fun lcm(a : UInt, b : UInt) {
+  if a = 0 or b = 0 then 0
+  else (a * b) / gcd(a, b)
+}
+
+// `lcm(0, b) = 0`: definitional, since the `or` short-circuits.
+theorem uint_lcm_zero_left: all b:UInt. lcm(0, b) = 0
+proof
+  arbitrary b:UInt
+  expand lcm.
+end
+
+auto uint_lcm_zero_left
+
+// `lcm(a, 0) = 0`: the `or` clause `0 = 0` collapses the conditional.
+theorem uint_lcm_zero_right: all a:UInt. lcm(a, 0) = 0
+proof
+  arbitrary a:UInt
+  expand lcm.
+end
+
+auto uint_lcm_zero_right

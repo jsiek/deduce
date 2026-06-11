@@ -21,6 +21,7 @@ public import IntEvenOdd
 public import IntAbs
 public import IntSum
 public import IntPowLog
+public import IntDivides
 
 // The following exports are needed for integer literals: the
 // `lit`/`zero`/`suc` triple supplies the underlying numeric
