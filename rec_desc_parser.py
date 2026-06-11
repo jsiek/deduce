@@ -20,7 +20,7 @@ from abstract_syntax import (
     SwitchCase, SwitchProof, SwitchProofCase, TAnnote, TLet, Term, TermInst,
     Theorem, Trace, Type, TypeAlias, TypeInst, TypeType, Union, Var, ViewDecl,
     count_marks, extract_and, extract_or, extract_tuple, get_default_mark_LHS,
-    intToNat, listToNodeList, mkEqual, mkIntLit, mkUIntLit, remove_mark,
+    intToNat, listToNodeList, mkEqualVar, mkIntLit, mkUIntLit, remove_mark,
 )
 from lark import Lark, Token, exceptions
 from lark.tree import Meta
@@ -788,7 +788,7 @@ def parse_proof_hi() -> Proof:
         else:
             new_lhs = lhs
 
-        eq_proof = PAnnot(meta, mkEqual(meta, new_lhs, rhs), reason)
+        eq_proof = PAnnot(meta, mkEqualVar(meta, new_lhs, rhs), reason)
         if result == None:
             result = eq_proof
         else:

@@ -52,7 +52,26 @@ class AutoRewriteRule:
   rhs: Term
   
 def mkEqual(loc: Meta, arg1: Term, arg2: Term) -> Formula:
+  # Post-uniquify/post-typecheck constructor.  Callers in the proof
+  # checker (e.g. transitivity, symmetry, extensionality) build new
+  # goal formulas with this helper, and those goals are then compared
+  # against already-uniquified terms without a fresh type-check pass,
+  # so the rator must already be a ``ResolvedVar`` to match.
+  #
+  # The *parser* paths that build an ``equations``-block claim do NOT
+  # use this helper -- they construct ``Call(Var('='), ...)`` directly
+  # so the AST matches the ordinary infix-`=` parsing path and the
+  # pretty-print/parse round-trip succeeds (issue #945).
   ret = Call(loc, None, ResolvedVar(loc, None, '='), [arg1, arg2])
+  return cast(Formula, ret)
+
+def mkEqualVar(loc: Meta, arg1: Term, arg2: Term) -> Formula:
+  # Pre-uniquify constructor for parser use.  Matches the AST shape
+  # the ordinary infix-`=` path produces (``Call(Var('='), ...)``) so
+  # the two surface forms for ``a = b`` converge at parse time (see
+  # issue #945).  Downstream phases narrow this to ``OverloadedVar``
+  # / ``ResolvedVar`` the same way they do for every other operator.
+  ret = Call(loc, None, Var(loc, None, '='), [arg1, arg2])
   return cast(Formula, ret)
 
 def split_equation(loc: Meta, equation: Term, env: Env) -> tuple[Term, Term]:

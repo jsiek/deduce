@@ -15,7 +15,7 @@ from abstract_syntax import (
     SwitchCase, SwitchProof, SwitchProofCase, TAnnote, TLet, Term, TermInst,
     Theorem, Trace, Proof, TypeAlias, TypeInst, TypeType, Union, Var,
     ViewDecl, count_marks, extract_and, extract_or, extract_tuple,
-    get_default_mark_LHS, intToNat, listToNodeList, mkEqual, mkIntLit,
+    get_default_mark_LHS, intToNat, listToNodeList, mkEqualVar, mkIntLit,
     mkUIntLit, remove_mark,
 )
 import re
@@ -214,7 +214,7 @@ def build_equations_proof(loc: Meta, eqs: list[tuple[Term, Term, Proof]]) -> Pro
         else:
             new_lhs = lhs
 
-        eq_proof = PAnnot(loc, mkEqual(loc, new_lhs, rhs), reason)
+        eq_proof = PAnnot(loc, mkEqualVar(loc, new_lhs, rhs), reason)
         if result == None:
             result = eq_proof
         else:
