@@ -421,47 +421,58 @@ def parse_term_hi() -> Term:
       raise ParseError(meta_from_tokens(token, previous_token()), "Unexpected error while parsing:\n\t" \
         + str(e))
 
-def parse_array_get() -> Term:
-  while_parsing = 'while parsing array access\n' \
-      + '\tterm ::= term "[" term "]"\n'
-  term = parse_term_hi()
-
-  while (not end_of_file()) and current_token().type == 'LSQB':
-    try:
-      start_token = current_token()
-      advance()
-      index = parse_term()
-      consume_token('RSQB', 'closing bracket "]"')
-      term = ArrayGet(meta_from_tokens(start_token, previous_token()), None,
-                      term, index)
-    except ParseError as e:
-      raise e.extend(meta_from_tokens(start_token, previous_token()), while_parsing)
-    except Exception as e:
-      raise ParseError(meta_from_tokens(start_token, previous_token()), "Unexpected error while parsing:\n\t" \
-        + str(e))
-
+def parse_postfix_chain(term: Term, start_token: Token) -> Term:
+  # Chain postfix calls `(...)` and array accesses `[...]` in any
+  # order. LALR's `?atomic_term` rule already interleaves both via
+  # left recursion: `atomic_term "(" term_list ")"` and
+  # `atomic_term "[" term "]"`. Mirror that here so `f(a)[0]` and
+  # `array(l)[0]` parse identically under both parsers.
+  while not end_of_file():
+    tt = current_token().type
+    if tt == 'LPAR':
+      while_parsing = 'while parsing function call\n' \
+          + '\tterm ::= term "(" term_list ")"\n'
+      try:
+        advance()
+        args = parse_term_list('RPAR')
+        consume_token('RPAR', 'closing parenthesis ")"',
+                      advice='Perhaps you forgot a comma?')
+        term = Call(meta_from_tokens(start_token, previous_token()), None,
+                    term, args)
+      except ParseError as e:
+        raise e.extend(meta_from_tokens(start_token, previous_token()),
+                       while_parsing)
+      except Exception as e:
+        raise ParseError(meta_from_tokens(start_token, previous_token()),
+                         "Unexpected error while parsing:\n\t" + str(e))
+    elif tt == 'LSQB':
+      while_parsing = 'while parsing array access\n' \
+          + '\tterm ::= term "[" term "]"\n'
+      # Use the `[` as the diagnostic anchor so the "while parsing
+      # array access" context points at the bracket, matching the
+      # original parse_array_get behavior captured by the parse/
+      # error fixtures.
+      bracket_token = current_token()
+      try:
+        advance()
+        index = parse_term()
+        consume_token('RSQB', 'closing bracket "]"')
+        term = ArrayGet(meta_from_tokens(bracket_token, previous_token()),
+                        None, term, index)
+      except ParseError as e:
+        raise e.extend(meta_from_tokens(bracket_token, previous_token()),
+                       while_parsing)
+      except Exception as e:
+        raise ParseError(meta_from_tokens(bracket_token, previous_token()),
+                         "Unexpected error while parsing:\n\t" + str(e))
+    else:
+      break
   return term
 
 def parse_call() -> Term:
-  while_parsing = 'while parsing function call\n' \
-      + '\tterm ::= term "(" term_list ")"\n'
   start_token = current_token()
-  term = parse_array_get()
-
-  while (not end_of_file()) and current_token().type == 'LPAR':
-    try:
-      advance()
-      args = parse_term_list('RPAR')
-      consume_token('RPAR', 'closing parenthesis ")"', advice='Perhaps you forgot a comma?')
-      term = Call(meta_from_tokens(start_token, previous_token()), None,
-                  term, args)
-    except ParseError as e:
-      raise e.extend(meta_from_tokens(start_token, previous_token()), while_parsing)
-    except Exception as e:
-      raise ParseError(meta_from_tokens(start_token, previous_token()), "Unexpected error while parsing:\n\t" \
-        + str(e))
-
-  return term
+  term = parse_term_hi()
+  return parse_postfix_chain(term, start_token)
 
 def parse_make_array() -> Term:
   if current_token().value == 'array':
@@ -479,9 +490,9 @@ def parse_make_array() -> Term:
     except Exception as e:
       raise ParseError(meta_from_tokens(start_token, previous_token()), "Unexpected error while parsing:\n\t" \
         + str(e))
+    return parse_postfix_chain(term, start_token)
   else:
-    term = parse_call()
-  return term
+    return parse_call()
 
 
 def parse_term_expt() -> Term:
