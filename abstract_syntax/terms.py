@@ -968,6 +968,12 @@ def op_arg_str(trm: Term, arg: Term) -> str:
       return "(" + str(arg) + ")"
     elif arg_precedence == trm_precedence: # and left_child(trm, arg):
       return "(" + str(arg) + ")"
+  # TAnnote's `:` binds looser than every operator (the parsers consume
+  # `:` only after the full operator chain), so a TAnnote arg of an
+  # operator Call must always be parenthesized -- otherwise the printed
+  # form `subject:type ^ ...` reparses as `subject : (type ^ ...)`.
+  if trm_precedence is not None and isinstance(arg, TAnnote):
+    return "(" + str(arg) + ")"
   return str(arg)
 
 
