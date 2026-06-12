@@ -1660,7 +1660,7 @@ class Hole(Term):
 class Omitted(Term):
 
   def __str__(self) -> str:
-      return '--'
+      return '__'
 
 @dataclass
 class Mark(Term):
