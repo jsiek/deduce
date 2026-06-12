@@ -820,6 +820,19 @@ def type_first_letter(typ: TypeExpr) -> str:
       print('error in type_first_letter: unhandled type ' + repr(typ))
       exit(-1)
 
+def _instantiation_result_type(
+    loc: Meta, ty: Type, tyargs: list[Type], not_instantiable_msg: str,
+) -> Type:
+  if isinstance(ty, VarRef):
+    return TypeInst(loc, ty, tyargs)
+  match ty:
+    case FunctionType() as fty:
+      return fty.instantiate(tyargs)
+    case GenericUnknownInst(loc2, union_type):
+      return TypeInst(loc2, union_type, tyargs)
+    case _:
+      user_error(loc, not_instantiable_msg + str(ty))
+
 def type_check_term_inst(
     loc: Meta,
     subject: Term,
@@ -831,17 +844,8 @@ def type_check_term_inst(
 ) -> TermInst:
   tyargs = [check_type(ty, env) for ty in tyargs]
   new_subject = type_synth_term(subject, env, recfun, subterms)
-  ty = new_subject.typeof
-  if isinstance(ty, VarRef):
-    retty = TypeInst(loc, ty, tyargs)
-  else:
-    match ty:
-      case FunctionType() as fty:
-        retty = fty.instantiate(tyargs)
-      case GenericUnknownInst(loc2, union_type):
-        retty = TypeInst(loc2, union_type, tyargs)
-      case _:
-        user_error(loc, 'expected a type name, not ' + str(ty))
+  retty = _instantiation_result_type(
+      loc, new_subject.typeof, tyargs, 'expected a type name, not ')
   return TermInst(loc, retty, new_subject, tyargs, inferred)
 
 def type_check_term_inst_var(
@@ -849,17 +853,9 @@ def type_check_term_inst_var(
 ) -> TermInst:
   if isinstance(subject_var, VarRef):
       tyargs = [check_type(ty, env) for ty in tyargs]
-      ty = env.get_type_of_term_var(subject_var)
-      if isinstance(ty, VarRef):
-        retty = TypeInst(loc, ty, tyargs)
-      else:
-        match ty:
-          case FunctionType() as fty:
-            retty = fty.instantiate(tyargs)
-          case GenericUnknownInst(loc3, union_type):
-            retty = TypeInst(loc3, union_type, tyargs)
-          case _:
-            user_error(loc, 'cannot instantiate a term of type ' + str(ty))
+      retty = _instantiation_result_type(
+          loc, env.get_type_of_term_var(subject_var), tyargs,
+          'cannot instantiate a term of type ')
       # Subject is now resolved (we've narrowed to its single typed name).
       return TermInst(loc, retty,
                       ResolvedVar(subject_var.location, subject_var.typeof,
