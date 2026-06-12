@@ -1,0 +1,54 @@
+// tree_leaf_count.pf
+//
+// A classic introductory functional-programming / discrete-math result
+// about binary trees: in a *full* binary tree -- one where every node
+// is either a leaf carrying a value or an internal `branch` with
+// exactly two children -- the number of leaves is always exactly one
+// more than the number of internal nodes:
+//
+//   num_leaves(t) = num_branches(t) + 1
+//
+// This is the kind of equational-reasoning exercise found in
+// introductory FP courses (e.g. Hutton, *Programming in Haskell*, the
+// chapter on reasoning about programs). The tree here carries its data
+// in the leaves, which is a different shape from examples/tree_mirror.pf.
+
+union Tree<T> {
+  leaf(T)
+  branch(Tree<T>, Tree<T>)
+}
+
+recursive num_leaves<T>(Tree<T>) -> UInt {
+  num_leaves(leaf(x)) = 1
+  num_leaves(branch(l, r)) = num_leaves(l) + num_leaves(r)
+}
+
+recursive num_branches<T>(Tree<T>) -> UInt {
+  num_branches(leaf(x)) = 0
+  num_branches(branch(l, r)) = num_branches(l) + num_branches(r) + 1
+}
+
+// A small sanity check: this tree has three leaves and two internal nodes.
+assert num_leaves(branch(leaf(1), branch(leaf(2), leaf(3)))) = 3
+assert num_branches(branch(leaf(1), branch(leaf(2), leaf(3)))) = 2
+
+theorem tree_leaves_eq_branches_plus_one: all T:type. all t:Tree<T>.
+  num_leaves(t) = num_branches(t) + 1
+proof
+  arbitrary T:type
+  induction Tree<T>
+  case leaf(x) {
+    expand num_leaves | num_branches.
+  }
+  case branch(l, r) assume IH_l: num_leaves(l) = num_branches(l) + 1,
+                            IH_r: num_leaves(r) = num_branches(r) + 1 {
+    equations
+      num_leaves(branch(l, r))
+          = num_leaves(l) + num_leaves(r)               by expand num_leaves.
+      ... = (num_branches(l) + 1) + (num_branches(r) + 1)
+                                                        by replace IH_l | IH_r.
+      ... = (num_branches(l) + num_branches(r) + 1) + 1
+              by replace uint_add_commute[1, num_branches(r)].
+      ... = #num_branches(branch(l, r)) + 1#            by expand num_branches.
+  }
+end
