@@ -2,6 +2,6 @@
 	2 * n
 argument types: UInt, Nat
 overloads:
-	(fn Nat, Nat -> Nat)
-	(fn UInt, UInt -> UInt)
+	(fn (Nat, Nat) -> Nat)
+	(fn (UInt, UInt) -> UInt)
 	numeric literals default to `UInt`; for a `Nat` literal write `ℕ2`.

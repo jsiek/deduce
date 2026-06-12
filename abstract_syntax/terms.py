@@ -142,7 +142,10 @@ class FunctionType(Type):
       typarams = '<' + ','.join([(x if get_verbose() else base_name(x)) for x in self.type_params]) + '> '
     else:
       typarams = ''
-    return '(' + 'fn ' + typarams + ', '.join([str(ty) for ty in self.param_types]) \
+    params_str = ', '.join([str(ty) for ty in self.param_types])
+    if len(self.param_types) >= 2:
+      params_str = '(' + params_str + ')'
+    return '(' + 'fn ' + typarams + params_str \
       + ' -> ' + str(self.return_type) + ')'
 
   def __eq__(self, other: object) -> bool:

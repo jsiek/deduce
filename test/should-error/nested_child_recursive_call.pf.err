@@ -2,5 +2,5 @@
 expected first argument to be n or h or kids, not x
 
 	in context of call all_elements(kids, fun x:BinTree { is_valid(x) })
-	function type: (fn <T> List<T>, (fn T -> bool) -> bool)
+	function type: (fn <T> (List<T>, (fn T -> bool)) -> bool)
 	inferred type arguments: T := BinTree
