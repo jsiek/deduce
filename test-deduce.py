@@ -264,6 +264,12 @@ PARSER_ROUND_TRIP_FILES = (
     # `Omitted.__str__` previously returned `--`, which neither parser
     # accepts; the surface form is `__` (or `─`). Covers `suffices __ by …`.
     "./test/should-validate/suffices_implies_omitted.pf",
+    # RD parser now chains `(...)` and `[...]` postfix in any order
+    # (matching LALR), so `array(l)[0]` and `f(a)[0]` re-parse the
+    # same way the pretty-printer emits them.
+    "./test/should-validate/array4.pf",            # `array(...)` + `[i]`
+    "./test/should-validate/array5.pf",            # nested `(array(...))[i]`
+    "./test/should-validate/postfix_chain_roundtrip.pf",  # synthetic chain
 )
 
 

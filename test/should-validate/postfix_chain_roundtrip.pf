@@ -1,0 +1,38 @@
+// Round-trip fixture for the RD-parser fix that chains postfix
+// `(...)` calls and `[...]` array accesses in any order, matching
+// the LALR grammar's `?atomic_term: atomic_term "(" term_list ")"
+// | atomic_term "[" term "]"` left recursion. Before the fix the
+// recursive-descent parser rejected `f(a)[0]` and `array(l)[0]`;
+// only the paren-wrapped `(f(a))[0]` / `(array(l))[0]` forms
+// parsed. The pretty-printer always emits the un-wrapped form, so
+// without the parser fix these shapes failed to round-trip.
+
+import UInt
+import List
+
+theorem call_then_index: all xs:List<UInt>. all i:UInt.
+  if i < length(xs)
+  then array(xs)[i] = array(xs)[i]
+proof
+  arbitrary xs:List<UInt>
+  arbitrary i:UInt
+  assume _h: i < length(xs)
+  .
+end
+
+theorem index_then_call: all f:fn UInt -> List<UInt>. all i:UInt.
+  array(f(i))[0 + 0] = array(f(i))[0]
+proof
+  arbitrary f:fn UInt -> List<UInt>
+  arbitrary i:UInt
+  .
+end
+
+theorem nested_chain: all xs:List<List<UInt>>.
+  if 0 < length(xs)
+  then array(xs)[0] = array(xs)[0]
+proof
+  arbitrary xs:List<List<UInt>>
+  assume _h: 0 < length(xs)
+  .
+end
