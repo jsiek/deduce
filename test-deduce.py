@@ -270,6 +270,11 @@ PARSER_ROUND_TRIP_FILES = (
     "./test/should-validate/array4.pf",            # `array(...)` + `[i]`
     "./test/should-validate/array5.pf",            # nested `(array(...))[i]`
     "./test/should-validate/postfix_chain_roundtrip.pf",  # synthetic chain
+    # `opaque define name : T = body` — `Define.pretty_print` used to
+    # short-circuit to header-only when `visibility == 'opaque'`, dropping
+    # the `= body`. Covers both an annotated `opaque define : T = fun ...`
+    # and the visibility coexisting with the broader Define pretty-print.
+    "./test/should-validate/ImportTests.pf",
 )
 
 

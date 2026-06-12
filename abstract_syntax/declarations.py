@@ -888,20 +888,6 @@ class Define(Declaration):
       return True
     return False
 
-  def str_header(self) -> str:
-    prefix = self.visibility_prefix()
-    if self._can_use_fun_form() and isinstance(self.body, Lambda):
-        params = [(base_name(x), t) for (x,t) in self.body.vars]
-        return prefix + pretty_print_function_header(self.name,[],params)
-    elif self._can_use_fun_form() and isinstance(self.body, Generic):
-        assert isinstance(self.body.body, Lambda)
-        typarams = self.body.type_params
-        params = [(base_name(x), t) for (x,t) in self.body.body.vars]
-        return prefix + pretty_print_function_header(self.name, typarams, params)
-    else:
-        return prefix + 'define ' + complete_name(self.name) \
-            + (' : ' + str(self.typ) if self.typ else '') + '\n'
-
   def __str__(self) -> str:
     prefix = self.visibility_prefix()
     if self._can_use_fun_form() and isinstance(self.body, Lambda):
@@ -918,12 +904,6 @@ class Define(Declaration):
             + (' : ' + str(self.typ) if self.typ else '') \
             + ' = ' + self.body.pretty_print(4, False) + '\n'
 
-  def pretty_print(self, indent: int) -> str:
-      if self.visibility == 'opaque':
-          return self.str_header()
-      else:
-          return str(self)
-    
   def uniquify(self, env: object, ctx: object) -> Define:
     env = cast(UniquifyEnv, env)
     ctx = cast(UniquifyContext, ctx)
