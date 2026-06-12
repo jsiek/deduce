@@ -128,16 +128,7 @@ EXAMPLE_FILE = Path("example.pf")
 # both parsers but produce structurally different ASTs today. Keeping the
 # baseline explicit makes any new drift fail CI, and also fails when a listed
 # file becomes equivalent so the list gets smaller over time.
-PARSER_EQUIV_EXPECTED_DIVERGENCES = frozenset({
-    "./lib/List.pf",
-    "./lib/MultiSet.pf",
-    "./lib/Set.pf",
-    "./test/should-validate/all-elim-types-tlet.pf",
-    "./test/should-validate/bicond2.pf",
-    "./test/should-validate/expand-repeat.pf",
-    "./test/should-validate/inst3.pf",
-    "./test/should-validate/map_append_cross_type.pf",
-})
+PARSER_EQUIV_EXPECTED_DIVERGENCES: frozenset[str] = frozenset()
 
 
 # Most ``test/should-error`` files fail in later phases (type-check,
@@ -280,6 +271,16 @@ PARSER_ROUND_TRIP_FILES = (
     # `subject:type ^ ...` previously reparsed as `subject : (type ^ ...)`
     # and the leftover operator tripped the next statement.
     "./test/should-validate/int_pow.pf",
+    # LALR's `all_elim_types` transformer was passing the Lark `Tree`
+    # instead of the loop index `i` as the first slot of `AllElimTypes.pos`,
+    # so the canonical AST drifted (and `__str__` would `TypeError` on a
+    # `Tree + 1` comparison). Each of these files exercises `proof<T>` /
+    # `proof<T1, T2>` in some surface context.
+    "./test/should-validate/inst3.pf",                # `prem<UInt>[...]`
+    "./test/should-validate/bicond2.pf",              # `empty_iff_0<E>` inside `apply`
+    "./test/should-validate/expand-repeat.pf",        # `reverse_append<U>` chain
+    "./test/should-validate/all-elim-types-tlet.pf",  # `bleh<T>` term-let
+    "./test/should-validate/map_append_cross_type.pf",  # multi-arg `proof<UInt, bool>`
 )
 
 

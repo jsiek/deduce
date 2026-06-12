@@ -556,7 +556,7 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
         type_args = parse_tree_to_list(e.children[1], e)
         result = univ
         for i, ty in enumerate(type_args):
-            result = AllElimTypes(e.meta, result, ty, (e ,len(type_args)))
+            result = AllElimTypes(e.meta, result, ty, (i, len(type_args)))
         return result
     elif e.data == 'some_intro':
         witnesses = parse_tree_to_list(e.children[0], e)
