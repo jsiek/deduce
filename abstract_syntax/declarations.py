@@ -331,7 +331,7 @@ class Predicate(Declaration):
     if get_verbose():
       shown_name = self.name
     else:
-      shown_name = base_name(self.name)
+      shown_name = complete_name(self.name)
     header = self.visibility_prefix() + self.original_keyword + ' ' + shown_name
     if self.type_params:
       header += '<' + ','.join([base_name(t) for t in self.type_params]) + '>'

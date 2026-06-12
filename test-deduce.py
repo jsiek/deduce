@@ -260,6 +260,7 @@ PARSER_ROUND_TRIP_FILES = (
     "./test/should-validate/mark3.pf",             # `equations` + `#`-marks
     "./test/should-validate/ListTests.pf",         # operator-call rator: `(f ∘ g)(x)`
     "./test/should-validate/function_type_paren.pf",  # multi-arg `fn` types
+    "./test/should-validate/relation_operator_name.pf",  # `relation operator <op>`
 )
 
 
