@@ -287,6 +287,9 @@ PARSER_ROUND_TRIP_FILES = (
     "./test/should-validate/contradict-tlet.pf",      # term-let under `and`
     "./test/should-validate/define_cases.pf",         # term-let under `and`/`or`
     "./test/should-validate/extensionality-tlet.pf",  # term-let equality args
+    # Remaining issue #931 AST-drift fixes:
+    "./test/should-validate/custom_induction.pf",     # `with xs. term` pattern
+    "./test/should-validate/theorem_false2.pf",       # `replace p | q in ...`
 )
 
 

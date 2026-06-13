@@ -828,5 +828,5 @@ class RewriteFact(Proof):
   equations: List[Proof]
 
   def __str__(self) -> str:
-      return 'replace ' + ','.join([str(eqn) for eqn in self.equations]) \
+      return 'replace ' + ' | '.join([str(eqn) for eqn in self.equations]) \
         + ' in ' + str(self.subject)
