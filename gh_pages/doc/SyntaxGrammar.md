@@ -41,6 +41,7 @@ Each term has a type that classifies the kinds of values that are produced by th
 3. The generic function type `fn <X1,...,Xk> T1,...,Tn -≥ Tr` classifies a generic function with type parameters `X1, ..., Xk`.
 4. A union type given by its name.
 5. An instance of a generic union is given by its name followed by `<`, a comma-separated list of type arguments, followed by `>`.
+6. With `--experimental-imperative`, `[T]!` is parsed as an experimental mutable-array type.
 
 ## Deduce Unicode
 

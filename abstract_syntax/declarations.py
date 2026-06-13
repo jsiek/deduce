@@ -85,6 +85,121 @@ def overwrite(env: UniquifyEnv, name: str, new_name: str, loc: Meta) -> None:
   if base_name(name) != "_" and name in env.keys():
     warning(loc, f"WARNING: {name} is already defined")
   env[name] = [new_name]
+
+@dataclass
+class FrameExpr(AST):
+  def pretty_print(self, indent: int) -> str:
+      return indent*' ' + str(self)
+
+@dataclass
+class FrameTerm(FrameExpr):
+  subject: Term
+
+  def __str__(self) -> str:
+    return str(self.subject)
+
+@dataclass
+class FrameField(FrameExpr):
+  subject: Term
+  field: str
+
+  def __str__(self) -> str:
+    return str(self.subject) + '.' + base_name(self.field)
+
+@dataclass
+class FrameFootprint(FrameExpr):
+  subject: Term
+
+  def __str__(self) -> str:
+    return 'footprint(' + str(self.subject) + ')'
+
+@dataclass
+class FrameEmpty(FrameExpr):
+
+  def __str__(self) -> str:
+    return '{}'
+
+@dataclass
+class ProcParam(AST):
+  name: str
+  typ: Type
+  ghost: bool = False
+
+  def __str__(self) -> str:
+    prefix = 'ghost ' if self.ghost else ''
+    return prefix + base_name(self.name) + ': ' + str(self.typ)
+
+@dataclass
+class ProcSpec(AST):
+  keyword: str
+  frames: List[FrameExpr]
+
+  def __str__(self) -> str:
+    return self.keyword + ' ' + ', '.join(str(f) for f in self.frames)
+
+@dataclass
+class ProcDecl(Declaration):
+  type_params: List[str]
+  params: List[ProcParam]
+  return_type: Optional[Type]
+  specs: List[ProcSpec]
+
+  def __str__(self) -> str:
+    if get_verbose():
+      shown_name = self.name
+      typarams = self.type_params
+    else:
+      shown_name = base_name(self.name)
+      typarams = [base_name(t) for t in self.type_params]
+    header = self.visibility_prefix() + 'proc ' + shown_name
+    if typarams:
+      header += '<' + ','.join(typarams) + '>'
+    header += '(' + ', '.join(str(p) for p in self.params) + ')'
+    if self.return_type is not None:
+      header += ' -> ' + str(self.return_type)
+    if not self.specs:
+      return header + ' {\n}'
+    spec_lines = '\n'.join('  ' + str(spec) for spec in self.specs)
+    return header + '\n' + spec_lines + '\n{\n}'
+
+  def pretty_print(self, indent: int) -> str:
+    return indent*' ' + str(self).replace('\n', '\n' + indent*' ').rstrip()
+
+  def uniquify(self, env: object, ctx: object) -> ProcDecl:
+    env_map = cast(UniquifyEnv, env)
+    uniq_ctx = cast(UniquifyContext, ctx)
+    if self.name in env_map.keys():
+      user_error(self.location,
+                 "proc names may not be overloaded: " + base_name(self.name))
+    new_name = generate_name(self.name, uniq_ctx)
+    overwrite(env_map, self.name, new_name, self.location)
+    env_map['no overload'][self.name] = 'proc'
+
+    proc_env = copy_dict(env_map)
+    new_type_params = [generate_name(t, uniq_ctx) for t in self.type_params]
+    for (old, new) in zip(self.type_params, new_type_params):
+      overwrite(proc_env, old, new, self.location)
+
+    new_params = []
+    for param in self.params:
+      new_typ = param.typ.uniquify(proc_env, uniq_ctx)
+      new_param_name = generate_name(param.name, uniq_ctx)
+      overwrite(proc_env, param.name, new_param_name, param.location)
+      new_params.append(ProcParam(param.location, new_param_name,
+                                  new_typ, param.ghost))
+
+    new_return_type = (
+        self.return_type.uniquify(proc_env, uniq_ctx)
+        if self.return_type is not None
+        else None
+    )
+    new_specs = [spec.uniquify(proc_env, uniq_ctx) for spec in self.specs]
+    return ProcDecl(self.location, new_name, new_type_params, new_params,
+                    new_return_type, new_specs, visibility=self.visibility)
+
+  def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
+    if self.visibility != 'private' or importing_module == get_current_module():
+      export_env[base_name(self.name)] = [self.name]
       
 @dataclass
 class Postulate(Declaration):

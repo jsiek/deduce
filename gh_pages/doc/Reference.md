@@ -2880,10 +2880,14 @@ type ::= "type"                                        // the universe of types
 type ::= identifier                                    // type of a union or type alias
 type ::= identifier "<" type_list ">"                  // type of a generic union or type alias
 type ::= "[" type "]"                                  // type of an array
+type ::= "[" type "]" "!"                              // experimental mutable-array type
 type ::= "fn" type_params_opt type_list "->" type      // type of a function 
 type ::= "fn" type_params_opt "(" type "," type_list ")" "->" type   // parenthesized multi-arg form
 type ::= "(" type ")"
 ```
+
+The mutable-array form `[T]!` is currently parser-only and requires
+`--experimental-imperative`.
 
 ## Type Alias (Statement)
 

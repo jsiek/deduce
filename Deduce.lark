@@ -305,6 +305,7 @@ identifier: IDENT              -> identifier
  | "bool"         -> bool_type
  | "type"         -> type_type
  | "(" type ")"   -> paren
+ | "[" type "]" "!" -> mutable_array_type
  | "[" type "]"   -> array_type
 
 ?type_list:                                      -> empty
@@ -355,6 +356,30 @@ identifier: IDENT              -> identifier
        | visibility "import" IDENT "hiding" import_filter_list -> import_hiding
 ?import_filter_list: identifier ("|" identifier)*            -> import_filter_list
 
+?frame_expr: "{" "}"                               -> frame_empty
+    | "footprint" "(" term ")"                     -> frame_footprint
+    | term "." identifier                          -> frame_field
+    | term                                         -> frame_term
+
+?frame_list: frame_expr                            -> single
+    | frame_expr "," frame_list                    -> push
+
+?proc_param: identifier ":" type                   -> proc_param
+    | "ghost" identifier ":" type                  -> ghost_proc_param
+
+?proc_param_list:                                  -> empty
+    | proc_param                                   -> single
+    | proc_param "," proc_param_list               -> push
+
+?proc_return_opt:                                  -> nothing
+    | "->" type                                    -> proc_return
+
+?proc_spec: "reads" frame_list                     -> proc_reads
+    | "modifies" frame_list                        -> proc_modifies
+
+?proc_spec_list:                                   -> empty
+    | proc_spec proc_spec_list                     -> push
+
 ?view_inverse_opt:                                 -> no_view_inverse
     | "inverse" identifier                         -> view_inverse
 
@@ -365,6 +390,7 @@ identifier: IDENT              -> identifier
  | visibility "recursive" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> recursive_function
  | visibility "fun" identifier type_params_opt "(" variable_list ")" "{" term "}" -> fun
  | visibility "recfun" identifier type_params_opt "(" variable_list ")" "->" type "measure" term "of" type "{" term "}" "terminates" proof -> general_recursive_function
+ | visibility "proc" identifier type_params_opt "(" proc_param_list ")" proc_return_opt proc_spec_list "{" "}" -> proc_decl
  | visibility "view" IDENT type_params_opt "{" "source" type "target" type "into" identifier "out" identifier "roundtrip" identifier view_inverse_opt "}" -> view_declaration
  | definition
  | "associative" identifier type_params_opt "in" type -> associative_declaration

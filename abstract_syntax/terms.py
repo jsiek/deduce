@@ -200,6 +200,23 @@ class ArrayType(Type):
     return self.elt_type.free_vars()
 
 @dataclass
+class MutableArrayType(Type):
+  elt_type: Type
+
+  def __str__(self) -> str:
+    return '[' + str(self.elt_type) + ']!'
+
+  def __eq__(self, other: object) -> bool:
+    match other:
+      case MutableArrayType(_, elt_type):
+        return self.elt_type == elt_type
+      case _:
+        return False
+
+  def free_vars(self) -> Set[str]:
+    return self.elt_type.free_vars()
+
+@dataclass
 class TypeInst(Type):
   typ: Type
   arg_types: List[Type]

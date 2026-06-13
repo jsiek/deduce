@@ -86,6 +86,8 @@ def type_match(
     case (TypeInst(_, n1, args1), GenericUnknownInst(_, n2)):
       if n1 != n2:
         match_failed(loc, str(arg_ty) + " does not match " + str(param_ty))
+    case (MutableArrayType(_, elt1), MutableArrayType(_, elt2)):
+      type_match(loc, tyvars, elt1, elt2, matching)
     case _:
       if param_ty != arg_ty:
         match_failed(loc, str(arg_ty) + " does not match " + str(param_ty))
@@ -543,4 +545,3 @@ def _alpha_equiv_function_type(t1: FunctionType, t2: object,
     if not _alpha_equiv(p1, p2, new_env1, new_env2):
       return False
   return _alpha_equiv(t1.return_type, t2.return_type, new_env1, new_env2)
-

@@ -127,6 +127,24 @@ PARSE_DIR = Path("test/parse")
 EXAMPLES_DIR = Path("examples")
 EXAMPLE_FILE = Path("example.pf")
 
+IMPERATIVE_SYNTAX_SOURCE = """\
+module ImperativeSyntax
+
+union List<T> {
+  empty
+  node(T, List<T>)
+}
+
+type MutableArrayFixture<T> = [T]!
+type NestedMutableArrayFixture<T> = [List<T>]!
+
+proc touch<T>(a: [T]!, xs: [List<T>]!, i: T, ghost p: T) -> [T]!
+  reads a, a[i], p.f, footprint(p), {}
+  modifies a[i]
+{
+}
+"""
+
 
 # Current parser-equivalence baseline. These files parse successfully with
 # both parsers but produce structurally different ASTs today. Keeping the
@@ -621,12 +639,16 @@ def _parse_for_equivalence(
 
 
 def _parse_text_for_equivalence(path: str, source: str, *,
-                                recursive_descent: bool) -> list[object]:
+                                recursive_descent: bool,
+                                experimental_imperative: bool = False
+                                ) -> list[object]:
     parser_mod = _equiv_rd_parser if recursive_descent else _equiv_lark_parser
     parser_mod.set_deduce_directory(str(REPO_ROOT))
     parser_mod.set_filename(path)
     parser_mod.init_parser()
-    return cast(list[object], parser_mod.parse(source))
+    return cast(list[object], parser_mod.parse(
+        source, experimental_imperative=experimental_imperative,
+    ))
 
 
 def _pretty_print_program(ast: Iterable[object]) -> str:
@@ -804,7 +826,6 @@ def run_cli_test() -> list[tuple[str, str, str]]:
             cli_path, "cli",
             f"unexpected stdout:\n{cp.stdout[:500]}",
         ))
-
     help_cp = subprocess.run(
         [sys.executable, "deduce.py", "--help"],
         capture_output=True, text=True,
@@ -824,46 +845,73 @@ def run_cli_test() -> list[tuple[str, str, str]]:
 
 
 def run_experimental_imperative_parser_test() -> list[tuple[str, str, str]]:
-    source = "module Test\nproc p() {}\n"
     failures: list[tuple[str, str, str]] = []
+    path = "__experimental_imperative__.pf"
     try:
         for recursive_descent in (True, False):
-            parser_label = "recursive-descent" if recursive_descent else "lalr"
+            label = "recursive-descent" if recursive_descent else "lalr"
+            try:
+                _parse_text_for_equivalence(
+                    path, IMPERATIVE_SYNTAX_SOURCE,
+                    recursive_descent=recursive_descent,
+                )
+                failures.append((
+                    path, label,
+                    "imperative syntax parsed with the flag disabled",
+                ))
+            except Exception:
+                pass
+
+        rd_ast = _parse_text_for_equivalence(
+            path, IMPERATIVE_SYNTAX_SOURCE,
+            recursive_descent=True,
+            experimental_imperative=True,
+        )
+        lalr_ast = _parse_text_for_equivalence(
+            path, IMPERATIVE_SYNTAX_SOURCE,
+            recursive_descent=False,
+            experimental_imperative=True,
+        )
+        canonical = _canonical_ast(rd_ast)
+        if _canonical_ast(lalr_ast) != canonical:
+            failures.append((
+                path, "experimental-imperative",
+                "RD and LALR ASTs differ",
+            ))
+
+        pretty_source = _pretty_print_program(rd_ast)
+        for recursive_descent in (True, False):
+            label = "recursive-descent" if recursive_descent else "lalr"
+            reparsed = _parse_text_for_equivalence(
+                path + f"<roundtrip-{label}>",
+                pretty_source,
+                recursive_descent=recursive_descent,
+                experimental_imperative=True,
+            )
+            if _canonical_ast(reparsed) != canonical:
+                failures.append((
+                    path, label,
+                    "pretty-printer round-trip changed the AST",
+                ))
+
+        for recursive_descent in (True, False):
+            label = "recursive-descent" if recursive_descent else "lalr"
             set_recursive_descent(recursive_descent)
-
-            set_experimental_imperative(False)
-            disabled = check_file(
-                "__experimental_proc__.pf", content=source, prelude=(),
-            )
-            if disabled.ok:
-                failures.append((
-                    "__experimental_proc__.pf", parser_label,
-                    "proc syntax unexpectedly parsed with the flag disabled",
-                ))
-            elif "experimental imperative parser path" in (
-                disabled.error_message or ""
-            ):
-                failures.append((
-                    "__experimental_proc__.pf", parser_label,
-                    "disabled flag still reached the experimental parser path",
-                ))
-
             set_experimental_imperative(True)
-            enabled = check_file(
-                "__experimental_proc__.pf", content=source, prelude=(),
-            )
-            if enabled.ok:
+            checked = check_file(path, content=IMPERATIVE_SYNTAX_SOURCE,
+                                 prelude=())
+            if checked.ok:
                 failures.append((
-                    "__experimental_proc__.pf", parser_label,
-                    "proc syntax unexpectedly parsed before Proc AST support",
+                    path, label,
+                    "imperative proc unexpectedly checked successfully",
                 ))
-            elif "experimental imperative parser path reached" not in (
-                enabled.error_message or ""
+            elif "imperative proc declarations are not supported yet" not in (
+                checked.error_message or ""
             ):
                 failures.append((
-                    "__experimental_proc__.pf", parser_label,
-                    "enabled flag did not reach the experimental parser path:\n"
-                    f"{(enabled.error_message or '')[:500]}",
+                    path, label,
+                    "expected unsupported-proc diagnostic, got:\n"
+                    f"{(checked.error_message or '')[:500]}",
                 ))
     finally:
         set_experimental_imperative(False)
@@ -1114,7 +1162,7 @@ def main(argv: list[str]) -> int:
         )
         total_failures.extend(fails)
         _, fails = time_section(
-            "experimental imperative parser flag",
+            "experimental imperative parser",
             run_experimental_imperative_parser_test,
         )
         total_failures.extend(fails)
