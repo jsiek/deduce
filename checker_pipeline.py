@@ -468,8 +468,8 @@ def type_check_view_recursive_fun(stmt: RecFun, env: Env,
     + [generate_proof_name("arg") for _ in checked_params[1:]]
   param_pairs = _as_param_pairs(param_names, checked_params)
 
-  fun_type = _viewrec_function_type(loc, typarams, param_pairs,
-                                    checked_returns)
+  fun_type = _alpha_renamed_function_type(loc, typarams, checked_params,
+                                          checked_returns)
   fun_value = _viewrec_placeholder(loc, name, typarams, param_pairs,
                                    checked_returns, stmt.visibility)
   env = env.define_term_var(loc, name, fun_type, fun_value, stmt.visibility)
@@ -518,14 +518,15 @@ def type_check_view_recursive_fun(stmt: RecFun, env: Env,
                    measure, rec_ty, body, PSorry(loc), True,
                    visibility=stmt.visibility)
 
-def _viewrec_function_type(loc: Meta, typarams: list[str],
-                           params: ParamTypes, returns: Type) -> FunctionType:
+def _alpha_renamed_function_type(loc: Meta, typarams: list[str],
+                                 param_types: list[Type],
+                                 returns: Type) -> FunctionType:
   new_typarams = [generate_proof_name(t) for t in typarams]
   sub: Substitution = {
       x: ResolvedVar(loc, None, y) for (x, y) in zip(typarams, new_typarams)
   }
   return FunctionType(loc, new_typarams,
-                      [t.substitute(sub) for (_, t) in params],
+                      [t.substitute(sub) for t in param_types],
                       returns.substitute(sub))
 
 def _view_type_head_and_args(typ: Type | VarRef) -> tuple[VarRef | None, list[Type]]:
@@ -666,8 +667,8 @@ def type_check_viewrec(stmt: ViewRecFun, env: Env) -> GenRecFun:
   body_env = env.declare_type_vars(loc, typarams)
   checked_params = [(x, check_type(t, body_env)) for (x, t) in param_pairs]
   checked_returns = check_type(returns, body_env)
-  fun_type = _viewrec_function_type(loc, typarams, checked_params,
-                                    checked_returns)
+  fun_type = _alpha_renamed_function_type(
+      loc, typarams, [t for (_, t) in checked_params], checked_returns)
   fun_value = _viewrec_placeholder(loc, name, typarams, checked_params,
                                    checked_returns, stmt.visibility)
   env = env.define_term_var(loc, name, fun_type, fun_value, stmt.visibility)
@@ -757,12 +758,8 @@ def type_check_stmt(stmt: Statement, env: Env,
       checked_params = [check_type(p, body_env) for p in params]
       checked_returns = check_type(returns, body_env)
 
-      # alpha rename the type parameters in the function's type
-      new_typarams = [generate_proof_name(t) for t in typarams]
-      sub = {x: ResolvedVar(loc, None, y) for (x,y) in zip(typarams, new_typarams)}
-      new_params = [p.substitute(sub) for p in checked_params]
-      new_returns = checked_returns.substitute(sub)
-      fun_type = FunctionType(loc, new_typarams, new_params, new_returns)
+      fun_type = _alpha_renamed_function_type(
+          loc, typarams, checked_params, checked_returns)
 
       env = env.define_term_var(loc, name, fun_type, stmt.reduce(env),
                                 stmt.visibility)
@@ -792,13 +789,9 @@ def type_check_stmt(stmt: Statement, env: Env,
       checked_returns = check_type(returns, body_env)
       checked_measure_ty = check_type(measure_ty, body_env)
 
-      # alpha rename the type parameters in the function's type
-      new_typarams = [generate_proof_name(t) for t in typarams]
-      sub = {x: ResolvedVar(loc, None, y) for (x,y) in zip(typarams, new_typarams)}
-      new_param_pairs = [(x,p.substitute(sub)) for (x,p) in checked_param_pairs]
-      new_returns = checked_returns.substitute(sub)
-      fun_type = FunctionType(loc, new_typarams, [t for (x,t) in new_param_pairs],
-                              new_returns)
+      fun_type = _alpha_renamed_function_type(
+          loc, typarams, [t for (_, t) in checked_param_pairs],
+          checked_returns)
 
       env = env.define_term_var(loc, name, fun_type, stmt.reduce(env),
                                 stmt.visibility)
