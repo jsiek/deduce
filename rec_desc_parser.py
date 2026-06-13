@@ -11,11 +11,11 @@ from abstract_syntax import (
     FrameFootprint, FrameTerm, FunCase, FunctionType,
     GenRecFun, Generic, Hole, IfThen, ImpIntro, Import,
     IndCase, Induction, Inductive, Lambda, MakeArray, Mark,
-    Module, ModusPonens, MutableArrayType, Omitted, Or, PAndElim, PAnnot,
-    PExtensionality, PHelpUse, PHole, PInjective, PLet, PRecall,
-    PReflexive, PSorry, PSymmetric, PTLetNew, PTransitive, PTrue,
-    PTuple, PVar, Pattern, PatternBool, PatternCons, PatternTerm,
-    Postulate, Predicate, Print, ProcDecl, ProcParam, ProcSpec, Proof, RecFun,
+    Module, ModusPonens, MutableArrayType, ObjectDecl, ObjectField, Omitted,
+    Or, PAndElim, PAnnot, PExtensionality, PHelpUse, PHole, PInjective, PLet,
+    PRecall, PReflexive, PSorry, PSymmetric, PTLetNew, PTransitive, PTrue,
+    PTuple, PVar, Pattern, PatternBool, PatternCons, PatternTerm, Postulate,
+    Predicate, Print, ProcDecl, ProcParam, ProcSpec, Proof, RecFun,
     RewriteFact, RewriteGoal, Rule, RuleInduction, RuleInductionCase,
     RuleInversion, SimplifyFact, SimplifyGoal, Some, SomeElim, SomeIntro,
     Statement, Suffices, Switch, SwitchCase, SwitchProof, SwitchProofCase,
@@ -370,6 +370,13 @@ def parse_term_hi() -> Term:
     subject = parse_term_equal()
     meta = meta_from_tokens(token, previous_token())
     return IfThen(meta, None, subject, Bool(meta, None, False))
+
+  elif token.type == 'NEW':
+    raise ParseError(
+      meta_from_tokens(token, token),
+      "`new` allocation syntax is only available in imperative "
+      "statement right-hand sides",
+    )
 
   elif token.type == 'QMARK':
     advance()
@@ -1504,6 +1511,51 @@ def parse_type_alias(visibility: str) -> Statement:
     raise ParseError(meta_from_tokens(start_token, previous_token()), "Unexpected error while parsing:\n\t" \
       + str(e))
 
+def parse_object_field() -> ObjectField:
+  while_parsing = 'while parsing\n' \
+      + '\tobject_field ::= ["ghost"] "var" identifier ":" type\n'
+  try:
+    start_token = current_token()
+    ghost = False
+    if current_token().type == 'GHOST':
+      ghost = True
+      advance()
+    consume_token('VAR', '"var"', context='at start of object field')
+    name = parse_identifier()
+    consume_token('COLON', '":"',
+                  context='after object field name "' + name + '"')
+    typ = parse_type()
+    return ObjectField(meta_from_tokens(start_token, previous_token()),
+                       name, typ, ghost)
+  except ParseError as e:
+    raise e.extend(meta_from_tokens(start_token, previous_token()), while_parsing)
+  except Exception as e:
+    raise ParseError(meta_from_tokens(start_token, previous_token()),
+                     "Unexpected error while parsing:\n\t" + str(e))
+
+def parse_object(visibility: str) -> Statement:
+  while_parsing = 'while parsing\n' \
+      + '\tstatement ::= "object" identifier type_params_opt ["{" object_field* "}"]\n'
+  try:
+    start_token = current_token()
+    advance()
+    name = parse_identifier()
+    type_params = parse_type_parameters()
+    fields = None
+    if not end_of_file() and current_token().type == 'LBRACE':
+      advance()
+      fields = []
+      while current_token().type != 'RBRACE':
+        fields.append(parse_object_field())
+      consume_token('RBRACE', '"}"', context='after object fields')
+    return ObjectDecl(meta_from_tokens(start_token, previous_token()),
+                      name, type_params, fields, visibility=visibility)
+  except ParseError as e:
+    raise e.extend(meta_from_tokens(start_token, previous_token()), while_parsing)
+  except Exception as e:
+    raise ParseError(meta_from_tokens(start_token, previous_token()),
+                     "Unexpected error while parsing:\n\t" + str(e))
+
 def parse_predicate(visibility: str, keyword: str) -> Statement:
   # Parses both `predicate` and `relation`. They produce the same AST;
   # `keyword` ('predicate' | 'relation') is preserved on the AST node so
@@ -1834,7 +1886,8 @@ def parse_proc_decl(visibility: str) -> Statement:
   return ProcDecl(meta_from_tokens(start, previous_token()), name, typarams,
                   params, return_type, specs, visibility=visibility)
 
-statement_keywords = {'assert', 'define', 'import', 'inductive', 'print',
+statement_keywords = {'assert', 'define', 'import', 'inductive', 'object',
+                      'print',
                       'theorem', 'lemma', 'postulate', 'predicate', 'recursive',
                       'relation', 'fun', 'trace', 'type', 'union', 'view',
                       'proc'}
@@ -1870,6 +1923,9 @@ def parse_statement() -> Statement:
 
   elif token.type == 'TYPE':
     return parse_type_alias(visibility)
+
+  elif token.type == 'OBJECT':
+    return parse_object(visibility)
 
   elif token.type == 'PREDICATE':
     return parse_predicate(visibility, 'predicate')

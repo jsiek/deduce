@@ -60,6 +60,7 @@ from abstract_syntax import (
     Term,
     TermInst,
     Type,
+    ObjectDecl,
     TypeAlias,
     TypeInst,
     TypeType,
@@ -676,6 +677,10 @@ def _check_union_arity(head: VarRef, given: int, env: Env) -> None:
   if isinstance(type_def, Union) and len(type_def.type_params) != given:
     user_error(head.location,
           f"Expected union type '{head}' to have "
+          f"{len(type_def.type_params)} type arguments, not {given}")
+  if isinstance(type_def, ObjectDecl) and len(type_def.type_params) != given:
+    user_error(head.location,
+          f"Expected object type '{head}' to have "
           f"{len(type_def.type_params)} type arguments, not {given}")
 
 def _lookup_type_alias(loc: Meta, typ: TypeExpr, env: Env) -> TypeAlias | None:

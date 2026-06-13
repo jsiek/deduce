@@ -22,9 +22,10 @@ from abstract_syntax import (
     All, And, Array, ArrayGet, Assert, Associative, Auto, Bool,
     Call, Conditional, Constructor, Declaration, Define, Env, Export,
     Formula, FunCase, FunctionType, GenRecFun, Generic, GenericUnknownInst,
-    Hole, IfThen, Import, Inductive, Lambda, MakeArray, Module, Omitted,
-    Or, OverloadType, OverloadedVar, PSorry, PVar, PatternBool, PatternCons,
-    Postulate, Predicate, Print, ProcDecl, RecFun, ResolvedVar, Rule, Some,
+    Hole, IfThen, Import, Inductive, Lambda, MakeArray, Module, ObjectDecl,
+    ObjectField, Omitted, Or, OverloadType, OverloadedVar, PSorry, PVar,
+    PatternBool, PatternCons, Postulate, Predicate, Print, ProcDecl, RecFun,
+    ResolvedVar, Rule, Some,
     Statement, Switch, SwitchCase, TAnnote, TLet, Term, TermInst, Theorem,
     Trace, Type, TypeAlias, TypeInst, TypeType, Union, Var, VarRef, VerboseLevel,
     ViewDecl, ViewRecFun, alpha_equiv, base_name, callable_name,
@@ -188,6 +189,26 @@ def process_declaration_visibility(decl: Declaration, env: Env,
                                 visibility=decl.visibility)
       return checked_alias, env.define_type(loc, name, checked_alias,
                                             decl.visibility)
+
+    case ObjectDecl(loc, name, typarams, fields):
+      env = env.define_type(loc, name, decl, decl.visibility)
+      body_env = env.declare_type_vars(loc, typarams)
+      checked_fields = None
+      if fields is not None:
+        seen_fields: set[str] = set()
+        checked_fields = []
+        for field in fields:
+          if field.name in seen_fields:
+            user_error(field.location,
+                       "duplicate object field name: " + base_name(field.name))
+          seen_fields.add(field.name)
+          checked_fields.append(ObjectField(field.location, field.name,
+                                            check_type(field.typ, body_env),
+                                            field.ghost))
+      checked_object = ObjectDecl(loc, name, typarams, checked_fields,
+                                  visibility=decl.visibility)
+      return checked_object, env.define_type(loc, name, checked_object,
+                                             decl.visibility)
   
     case Union(loc, name, typarams, alts):
       env = env.define_type(loc, name, decl, decl.visibility)
@@ -822,6 +843,9 @@ def type_check_stmt(stmt: Statement, env: Env,
 
     case ViewDecl():
       return stmt
+
+    case ObjectDecl():
+      return stmt
     
     case Trace(loc, var):
       var_ty = env.get_type_of_term_var(var)
@@ -836,6 +860,9 @@ def type_check_stmt(stmt: Statement, env: Env,
       return stmt
 
     case TypeAlias():
+      return stmt
+
+    case ObjectDecl():
       return stmt
   
     case Export(loc, name):
@@ -917,6 +944,9 @@ def collect_env(stmt: Statement, env: Env) -> Env:
       return env
 
     case TypeAlias():
+      return env
+
+    case ObjectDecl():
       return env
           
     case Theorem(loc, name, frm, _, _):
@@ -1190,6 +1220,9 @@ def check_proofs(stmt: Statement, env: Env) -> None:
       pass
 
     case TypeAlias():
+      pass
+
+    case ObjectDecl():
       pass
 
     case ViewDecl():
