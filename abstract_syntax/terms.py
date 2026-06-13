@@ -322,6 +322,9 @@ class PatternTerm(Pattern):
     return PatternTerm(self.location, self.term, params)
 
   def __str__(self) -> str:
+    if len(self.parameters) > 0:
+      return 'with ' + ', '.join([base_name(p) for p in self.parameters]) \
+        + '. ' + str(self.term)
     return str(self.term)
     
 ################ Terms ######################################
