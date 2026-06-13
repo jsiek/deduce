@@ -213,6 +213,27 @@ Attach to the supervisor:
 ssh -t sharks-codex /u/jsiek/.codex/remote-automations/github-issue/interactive.sh
 ```
 
+Attach directly to the `issue-manager` window:
+
+```bash
+ssh -t sharks-codex 'tmux attach -t codex-github-issue:issue-manager'
+```
+
+If you are already attached to the `codex-github-issue` tmux session, switch to
+the `issue-manager` window with the tmux window list:
+
+```text
+Ctrl-b w
+```
+
+Then select `issue-manager` and press Enter. You can also jump by window name:
+
+```text
+Ctrl-b '
+```
+
+Type `issue-manager` and press Enter.
+
 Follow up on a PR:
 
 ```bash
