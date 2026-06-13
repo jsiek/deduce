@@ -968,11 +968,10 @@ def op_arg_str(trm: Term, arg: Term) -> str:
       return "(" + str(arg) + ")"
     elif arg_precedence == trm_precedence: # and left_child(trm, arg):
       return "(" + str(arg) + ")"
-  # TAnnote's `:` binds looser than every operator (the parsers consume
-  # `:` only after the full operator chain), so a TAnnote arg of an
-  # operator Call must always be parenthesized -- otherwise the printed
-  # form `subject:type ^ ...` reparses as `subject : (type ^ ...)`.
-  if trm_precedence is not None and isinstance(arg, TAnnote):
+  # TAnnote's `:` and TLet's `define ...; ...` bind looser than every
+  # operator, so operator-call operands with either shape must be grouped
+  # to round-trip through the parsers without re-association.
+  if trm_precedence is not None and isinstance(arg, (TAnnote, TLet)):
     return "(" + str(arg) + ")"
   return str(arg)
 
@@ -990,6 +989,8 @@ def _connective_arg_str(connective: str, arg: 'str | Formula') -> str:
   # connective itself, so the goal printer never hides this trap.
   if isinstance(arg, str):
     return arg
+  if isinstance(arg, TLet):
+    return '(' + str(arg) + ')'
   conn_prec = infix_precedence.get(connective)
   if isinstance(arg, Call) and conn_prec is not None:
     arg_prec = precedence(arg)

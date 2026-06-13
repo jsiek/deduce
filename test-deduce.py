@@ -281,6 +281,12 @@ PARSER_ROUND_TRIP_FILES = (
     "./test/should-validate/expand-repeat.pf",        # `reverse_append<U>` chain
     "./test/should-validate/all-elim-types-tlet.pf",  # `bleh<T>` term-let
     "./test/should-validate/map_append_cross_type.pf",  # multi-arg `proof<UInt, bool>`
+    # TLet's `define ...; ...` binds looser than operators/connectives, so
+    # term-let operands must be parenthesized when pretty-printed in those
+    # contexts.
+    "./test/should-validate/contradict-tlet.pf",      # term-let under `and`
+    "./test/should-validate/define_cases.pf",         # term-let under `and`/`or`
+    "./test/should-validate/extensionality-tlet.pf",  # term-let equality args
 )
 
 
