@@ -24,7 +24,7 @@ from abstract_syntax import (
     Formula, FunCase, FunctionType, GenRecFun, Generic, GenericUnknownInst,
     Hole, IfThen, Import, Inductive, Lambda, MakeArray, Module, Omitted,
     Or, OverloadType, OverloadedVar, PSorry, PVar, PatternBool, PatternCons,
-    Postulate, Predicate, Print, RecFun, ResolvedVar, Rule, Some,
+    Postulate, Predicate, Print, ProcDecl, RecFun, ResolvedVar, Rule, Some,
     Statement, Switch, SwitchCase, TAnnote, TLet, Term, TermInst, Theorem,
     Trace, Type, TypeAlias, TypeInst, TypeType, Union, Var, VarRef, VerboseLevel,
     ViewDecl, ViewRecFun, alpha_equiv, base_name, callable_name,
@@ -74,6 +74,10 @@ def process_declaration_visibility(decl: Declaration, env: Env,
                                    downstream_needs_checking: list[bool]
                                    ) -> tuple[Statement, Env]:
   match decl:
+    case ProcDecl(loc, name, _, _, _, _):
+      user_error(loc, 'imperative proc declarations are not supported yet: '
+                 + base_name(name))
+
     case Define(loc, name, ty, body):
       if ty == None:
         new_body = type_synth_term(body, env, None, [])

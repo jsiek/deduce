@@ -7,17 +7,19 @@ from abstract_syntax import (
     All, AllElim, AllElimTypes, AllIntro, And, ApplyDefsFact,
     ApplyDefsGoal, ArrayGet, ArrayType, Assert, Associative, Auto,
     Bool, BoolType, Call, Cases, Conditional, Constructor,
-    Define, EvaluateFact, EvaluateGoal, Export, FunCase, FunctionType,
+    Define, EvaluateFact, EvaluateGoal, Export, FrameEmpty, FrameField,
+    FrameFootprint, FrameTerm, FunCase, FunctionType,
     GenRecFun, Generic, Hole, IfThen, ImpIntro, Import,
     IndCase, Induction, Inductive, Lambda, MakeArray, Mark,
-    Module, ModusPonens, Omitted, Or, PAndElim, PAnnot,
+    Module, ModusPonens, MutableArrayType, Omitted, Or, PAndElim, PAnnot,
     PExtensionality, PHelpUse, PHole, PInjective, PLet, PRecall,
     PReflexive, PSorry, PSymmetric, PTLetNew, PTransitive, PTrue,
     PTuple, PVar, Pattern, PatternBool, PatternCons, PatternTerm,
-    Postulate, Predicate, Print, Proof, RecFun, RewriteFact, RewriteGoal,
-    Rule, RuleInduction, RuleInductionCase, RuleInversion, SimplifyFact,
-    SimplifyGoal, Some, SomeElim, SomeIntro, Statement, Suffices, Switch,
-    SwitchCase, SwitchProof, SwitchProofCase, TAnnote, TLet, Term, TermInst,
+    Postulate, Predicate, Print, ProcDecl, ProcParam, ProcSpec, Proof, RecFun,
+    RewriteFact, RewriteGoal, Rule, RuleInduction, RuleInductionCase,
+    RuleInversion, SimplifyFact, SimplifyGoal, Some, SomeElim, SomeIntro,
+    Statement, Suffices, Switch, SwitchCase, SwitchProof, SwitchProofCase,
+    TAnnote, TLet, Term, TermInst,
     Theorem, Trace, Type, TypeAlias, TypeInst, TypeType, Union, Var, ViewDecl,
     count_marks, extract_and, extract_or, extract_tuple, get_default_mark_LHS,
     intToNat, listToNodeList, mkEqualVar, mkIntLit, mkUIntLit, remove_mark,
@@ -26,7 +28,6 @@ from lark import Lark, Token, exceptions
 from lark.tree import Meta
 from error import ParseError, error_header, lark_unexpected_chars_to_parse_error
 from flags import VerboseLevel, get_experimental_imperative
-from imperative_syntax import reject_unimplemented_imperative_syntax
 from edit_distance import closest_keyword, edit_distance
 
 filename: str = '???'
@@ -114,17 +115,25 @@ def consume_token(expected: str, display: str, context: str = "", advice: str = 
     advance()
 
 check_closest_kwd = False
+experimental_imperative_enabled = False
+
+def require_experimental_imperative(loc: Meta) -> None:
+  if not experimental_imperative_enabled:
+    raise ParseError(
+        loc,
+        'experimental imperative syntax requires --experimental-imperative',
+    )
 
 def parse(program_text: str,
           trace: "bool | VerboseLevel" = False,
           error_expected: bool = False,
           experimental_imperative: bool | None = None) -> "list[Statement]":
-  global token_list, current_position, check_closest_kwd
+  global token_list, current_position, check_closest_kwd, experimental_imperative_enabled
+  previous_experimental_imperative = experimental_imperative_enabled
+  if experimental_imperative is None:
+    experimental_imperative = get_experimental_imperative()
+  experimental_imperative_enabled = experimental_imperative
   try:
-    if experimental_imperative is None:
-      experimental_imperative = get_experimental_imperative()
-    if experimental_imperative:
-      reject_unimplemented_imperative_syntax(program_text, get_filename())
     assert lark_parser is not None, "init_parser() must be called before parse()"
     lexed = lark_parser.lex(program_text)
     token_list = []
@@ -149,7 +158,8 @@ def parse(program_text: str,
       except ParseError as e:
         if not check_closest_kwd:
           check_closest_kwd = True
-          parse(program_text, trace, error_expected)
+          parse(program_text, trace, error_expected,
+                experimental_imperative=experimental_imperative)
         else:
           raise e
       except Exception as e:
@@ -166,6 +176,7 @@ def parse(program_text: str,
     # suggestions. The CLI never noticed because each invocation is
     # a fresh process.
     check_closest_kwd = False
+    experimental_imperative_enabled = previous_experimental_imperative
 
 
 def parse_identifier() -> str:
@@ -1712,9 +1723,97 @@ def parse_define(visibility: str) -> Statement:
     raise ParseError(meta_from_tokens(start_token, previous_token()), "Unexpected error while parsing:\n\t" \
       + str(e))
 
+def parse_frame_expr() -> FrameTerm | FrameField | FrameFootprint | FrameEmpty:
+  require_experimental_imperative(meta_from_tokens(current_token(), current_token()))
+  start = current_token()
+  if current_token().type == 'LBRACE':
+    advance()
+    consume_token('RBRACE', 'closing "}"', context='after empty frame')
+    return FrameEmpty(meta_from_tokens(start, previous_token()))
+  if current_token().value == 'footprint' and current_position + 1 < len(token_list) \
+     and next_token().type == 'LPAR':
+    advance()
+    consume_token('LPAR', '"("', context='after "footprint"')
+    subject = parse_term()
+    consume_token('RPAR', 'closing ")"', context='after footprint subject')
+    return FrameFootprint(meta_from_tokens(start, previous_token()), subject)
+
+  subject = parse_term()
+  if not end_of_file() and current_token().type == 'DOT':
+    advance()
+    field = parse_identifier()
+    return FrameField(meta_from_tokens(start, previous_token()),
+                      subject, field)
+  return FrameTerm(meta_from_tokens(start, previous_token()), subject)
+
+def parse_frame_list() -> list[FrameTerm | FrameField | FrameFootprint | FrameEmpty]:
+  frames = [parse_frame_expr()]
+  while not end_of_file() and current_token().type == 'COMMA':
+    advance()
+    frames.append(parse_frame_expr())
+  return frames
+
+def parse_proc_param() -> ProcParam:
+  require_experimental_imperative(meta_from_tokens(current_token(), current_token()))
+  start = current_token()
+  ghost = False
+  if current_token().value == 'ghost':
+    ghost = True
+    advance()
+  name = parse_identifier()
+  consume_token('COLON', '":"', context='after proc parameter name')
+  typ = parse_type()
+  return ProcParam(meta_from_tokens(start, previous_token()), name, typ, ghost)
+
+def parse_proc_param_list() -> list[ProcParam]:
+  if current_token().type == 'RPAR':
+    return []
+  params = [parse_proc_param()]
+  while not end_of_file() and current_token().type == 'COMMA':
+    advance()
+    params.append(parse_proc_param())
+  return params
+
+def parse_proc_spec() -> ProcSpec:
+  require_experimental_imperative(meta_from_tokens(current_token(), current_token()))
+  start = current_token()
+  if current_token().value not in ('reads', 'modifies'):
+    raise ParseError(meta_from_tokens(current_token(), current_token()),
+                     'expected proc spec, not\n\t' + quote(current_token().value))
+  keyword = cast(str, current_token().value)
+  advance()
+  frames = parse_frame_list()
+  return ProcSpec(meta_from_tokens(start, previous_token()), keyword, frames)
+
+def parse_proc_specs() -> list[ProcSpec]:
+  specs: list[ProcSpec] = []
+  while not end_of_file() and current_token().value in ('reads', 'modifies'):
+    specs.append(parse_proc_spec())
+  return specs
+
+def parse_proc_decl(visibility: str) -> Statement:
+  require_experimental_imperative(meta_from_tokens(current_token(), current_token()))
+  start = current_token()
+  advance()
+  name = parse_identifier()
+  typarams = parse_type_parameters()
+  consume_token('LPAR', '"("', context='after proc name')
+  params = parse_proc_param_list()
+  consume_token('RPAR', '")"', context='after proc parameters')
+  return_type = None
+  if not end_of_file() and current_token().type == 'ARROW':
+    advance()
+    return_type = parse_type()
+  specs = parse_proc_specs()
+  consume_token('LBRACE', '"{"', context='after proc header and specs')
+  consume_token('RBRACE', '"}"', context='after empty proc body')
+  return ProcDecl(meta_from_tokens(start, previous_token()), name, typarams,
+                  params, return_type, specs, visibility=visibility)
+
 statement_keywords = {'assert', 'define', 'import', 'inductive', 'print',
                       'theorem', 'lemma', 'postulate', 'predicate', 'recursive',
-                      'relation', 'fun', 'trace', 'type', 'union', 'view' }
+                      'relation', 'fun', 'trace', 'type', 'union', 'view',
+                      'proc'}
 
 def parse_statement() -> Statement:
   if end_of_file():
@@ -1738,6 +1837,9 @@ def parse_statement() -> Statement:
 
   elif token.type == 'RECURSIVE':
     return parse_recursive_function(visibility)
+
+  elif token.value == 'proc':
+    return parse_proc_decl(visibility)
 
   elif token.type == 'UNION':
     return parse_union(visibility)
@@ -1906,8 +2008,12 @@ def parse_type() -> Type:
     advance()
     elt_type = parse_type()
     consume_token('RSQB', 'closing "]"')
-    return ArrayType(meta_from_tokens(token, previous_token()),
-                     elt_type)
+    if not end_of_file() and current_token().value == '!':
+      require_experimental_imperative(meta_from_tokens(current_token(), current_token()))
+      advance()
+      return MutableArrayType(meta_from_tokens(token, previous_token()),
+                              elt_type)
+    return ArrayType(meta_from_tokens(token, previous_token()), elt_type)
   elif token.type == 'LPAR':
     start_token = current_token()
     advance()

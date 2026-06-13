@@ -3,13 +3,15 @@ from abstract_syntax import (
     ApplyDefsGoal, ArrayGet, ArrayType, Assert, Associative, Auto,
     Bool, BoolType, Call, Cases, Conditional, Constructor,
     Define, EvaluateFact, EvaluateGoal, Export, FunCase, FunctionType,
-    GenRecFun, Generic, Hole, IfThen, ImpIntro, Import,
+    FrameEmpty, FrameField, FrameFootprint, FrameTerm, GenRecFun, Generic,
+    Hole, IfThen, ImpIntro, Import,
     IndCase, Induction, Inductive, IntType, Lambda, MakeArray,
-    Mark, Module, ModusPonens, Omitted, Or, PAndElim,
+    Mark, Module, ModusPonens, MutableArrayType, Omitted, Or, PAndElim,
     PAnnot, PExtensionality, PHelpUse, PHole, PInjective, PLet,
     PRecall, PReflexive, PSorry, PSymmetric, PTLetNew, PTransitive,
     PTrue, PTuple, PVar, PatternBool, PatternCons, PatternTerm,
-    Postulate, Predicate, Print, RecFun, RewriteFact, RewriteGoal,
+    Postulate, Predicate, Print, ProcDecl, ProcParam, ProcSpec, RecFun,
+    RewriteFact, RewriteGoal,
     Rule, RuleInduction, RuleInductionCase, RuleInversion, SimplifyFact,
     SimplifyGoal, Some, SomeElim, SomeIntro, Statement, Suffices, Switch,
     SwitchCase, SwitchProof, SwitchProofCase, TAnnote, TLet, Term, TermInst,
@@ -24,7 +26,6 @@ from lark.tree import Meta
 from typing import Any, TypeAlias as TypingTypeAlias, cast
 from flags import VerboseLevel, get_experimental_imperative
 from error import ParseError, lark_unexpected_chars_to_parse_error
-from imperative_syntax import reject_unimplemented_imperative_syntax
 
 filename: str = '???'
 
@@ -52,6 +53,14 @@ def get_deduce_directory() -> str:
 ##################################################
 
 lark_parser = None
+experimental_imperative_enabled = False
+
+def _require_experimental_imperative(meta: Meta) -> None:
+    if not experimental_imperative_enabled:
+        raise ParseError(
+            meta,
+            'experimental imperative syntax requires --experimental-imperative',
+        )
 
 def init_parser() -> None:
   global lark_parser
@@ -289,6 +298,10 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
     elif e.data == 'array_type':
       elt_type = parse_tree_to_ast(e.children[0], e)
       return ArrayType(e.meta, elt_type)
+    elif e.data == 'mutable_array_type':
+      _require_experimental_imperative(e.meta)
+      elt_type = parse_tree_to_ast(e.children[0], e)
+      return MutableArrayType(e.meta, elt_type)
     elif e.data == 'type_type':
       return TypeType(e.meta)
     elif e.data == 'function_type':
@@ -306,6 +319,55 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
     elif e.data == 'type_inst':
       return TypeInst(e.meta, Var(e.meta, None, _token_text(e, 0)),
                       parse_tree_to_list(e.children[1], e))
+    # imperative parser-only shapes
+    elif e.data == 'frame_term':
+        _require_experimental_imperative(e.meta)
+        return FrameTerm(e.meta, parse_tree_to_ast(e.children[0], e))
+    elif e.data == 'frame_field':
+        _require_experimental_imperative(e.meta)
+        return FrameField(e.meta,
+                          parse_tree_to_ast(e.children[0], e),
+                          parse_tree_to_ast(e.children[1], e))
+    elif e.data == 'frame_footprint':
+        _require_experimental_imperative(e.meta)
+        return FrameFootprint(e.meta, parse_tree_to_ast(e.children[0], e))
+    elif e.data == 'frame_empty':
+        _require_experimental_imperative(e.meta)
+        return FrameEmpty(e.meta)
+    elif e.data == 'proc_param':
+        _require_experimental_imperative(e.meta)
+        return ProcParam(e.meta,
+                         parse_tree_to_ast(e.children[0], e),
+                         parse_tree_to_ast(e.children[1], e),
+                         False)
+    elif e.data == 'ghost_proc_param':
+        _require_experimental_imperative(e.meta)
+        return ProcParam(e.meta,
+                         parse_tree_to_ast(e.children[0], e),
+                         parse_tree_to_ast(e.children[1], e),
+                         True)
+    elif e.data == 'proc_return':
+        _require_experimental_imperative(e.meta)
+        return parse_tree_to_ast(e.children[0], e)
+    elif e.data == 'proc_reads':
+        _require_experimental_imperative(e.meta)
+        return ProcSpec(e.meta, 'reads',
+                        parse_tree_to_list(e.children[0], e))
+    elif e.data == 'proc_modifies':
+        _require_experimental_imperative(e.meta)
+        return ProcSpec(e.meta, 'modifies',
+                        parse_tree_to_list(e.children[0], e))
+    elif e.data == 'proc_decl':
+        _require_experimental_imperative(e.meta)
+        visibility = parse_tree_to_ast(e.children[0], e)
+        statement = ProcDecl(e.meta,
+                             parse_tree_to_ast(e.children[1], e),
+                             parse_tree_to_list(e.children[2], e),
+                             parse_tree_to_list(e.children[3], e),
+                             parse_tree_to_ast(e.children[4], e),
+                             parse_tree_to_list(e.children[5], e))
+        set_visibility(statement, visibility)
+        return statement
     # terms
     elif e.data == 'define_term':
         return TLet(e.meta, None, _token_text(e, 0),
@@ -954,11 +1016,12 @@ def parse(program_text: str,
           trace: "bool | VerboseLevel" = False,
           error_expected: bool = False,
           experimental_imperative: bool | None = None) -> "list[Statement]":
+  global experimental_imperative_enabled
+  previous_experimental_imperative = experimental_imperative_enabled
+  if experimental_imperative is None:
+      experimental_imperative = get_experimental_imperative()
+  experimental_imperative_enabled = experimental_imperative
   try:    
-    if experimental_imperative is None:
-        experimental_imperative = get_experimental_imperative()
-    if experimental_imperative:
-        reject_unimplemented_imperative_syntax(program_text, get_filename())
     # if trace:
     #     print('lexing!')
     # lexed = lark_parser.lex(program_text)
@@ -1031,4 +1094,6 @@ def parse(program_text: str,
                  + "(The error may be immediately before this token.)"
                  + hint)
           raise ParseError(meta, msg)
+  finally:
+      experimental_imperative_enabled = previous_experimental_imperative
         

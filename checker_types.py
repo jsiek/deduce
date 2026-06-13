@@ -42,6 +42,7 @@ from abstract_syntax import (
     Lambda,
     MakeArray,
     Mark,
+    MutableArrayType,
     Omitted,
     Or,
     OverloadType,
@@ -797,6 +798,8 @@ def check_type(typ: TypeExpr, env: Env, arity_required: bool = True) -> TypeExpr
       return GenericUnknownInst(loc, check_type(inner_typ, env, arity_required=False))
     case ArrayType(loc, elt_type):
       return ArrayType(loc, check_type(elt_type, env))
+    case MutableArrayType(loc, elt_type):
+      return MutableArrayType(loc, check_type(elt_type, env))
     case _:
       internal_error(typ.location, 'error in check_type: unhandled type ' + repr(typ) + ' ' + str(type(typ)))
 
@@ -812,6 +815,8 @@ def type_first_letter(typ: TypeExpr) -> str:
       return 't'
     case FunctionType(_, _, _, _):
       return 'f'
+    case MutableArrayType(_, _):
+      return 'm'
     case TypeInst(_, typ, _):
       return type_first_letter(typ)
     case GenericUnknownInst(_, typ):
@@ -1503,6 +1508,8 @@ def check_strict_positivity(
       check_strict_positivity(return_type, union_name, env, forbidden)
     case ArrayType(_, elt_ty):
       check_strict_positivity(elt_ty, union_name, env, forbidden)
+    case MutableArrayType(_, elt_ty):
+      check_strict_positivity(elt_ty, union_name, env, forbidden)
     case _:
       pass
 
@@ -1547,6 +1554,8 @@ def infer_param_polarities(union_decl: Union, env: Env) -> None:
           walk(t, '-')
         walk(return_type, current)
       case ArrayType(_, elt_ty):
+        walk(elt_ty, current)
+      case MutableArrayType(_, elt_ty):
         walk(elt_ty, current)
       case _:
         pass

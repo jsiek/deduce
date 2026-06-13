@@ -427,8 +427,8 @@ be used.
 `--experimental-imperative`
 
 Enables parser support for experimental imperative syntax under
-development. This flag is intended for parser fixtures and design work;
-ordinary Deduce files do not need it.
+development. This currently covers parse-only syntax for mutable-array
+types and procedure frame clauses; verifier support is not implemented.
 
 `--recursive-directories` or `-r`
 

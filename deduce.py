@@ -3,9 +3,9 @@ from flags import (
     add_import_directory,
     init_import_directories,
     set_check_imports,
+    set_experimental_imperative,
     set_quiet_mode,
     set_recursive_descent,
-    set_experimental_imperative,
     set_unique_names,
     set_verbose,
 )

@@ -87,8 +87,8 @@ from abstract_syntax import (
 from error import ErrorSink
 from flags import (
     get_experimental_imperative,
-    get_verbose,
     get_debugger,
+    get_verbose,
     set_debugger,
 )
 from proof_checker import check_deduce, uniquify_deduce
