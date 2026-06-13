@@ -21,10 +21,9 @@ Per-category flags (combinable):
     --errors       ``test/should-error`` (RD only, ``.err`` diff).
     --warns        ``test/should-warn`` (RD only, ``.warn`` diff): files
                    that must validate AND emit specific warning text.
-    --equiv        Parse ``lib/``, ``test/should-validate/``, and most of
-                   ``test/should-error/`` with both parsers and compare
-                   structural ASTs. Known historical divergences and
-                   parser-error fixtures are allowlisted so CI catches new
+    --equiv        Parse a curated grammar-coverage corpus with both parsers
+                   and compare structural ASTs. Known historical divergences
+                   and parser-error fixtures are allowlisted so CI catches new
                    drift. Also round-trip representative ASTs through the
                    pretty-printer and both parsers.
 
@@ -36,8 +35,8 @@ Standalone modes (mutually exclusive with the above):
                        user-facing diagnostics; LALR is checked for accepted
                        syntax and AST shape by ``--equiv`` instead.
     --examples         ``examples/`` worked-example proofs (RD only).
-                       LALR/RD parity is already covered by ``--equiv`` for
-                       ``lib/`` + ``should-validate/``; here we just need to
+                       LALR/RD parity is already covered by ``--equiv`` for a
+                       representative grammar corpus; here we just need to
                        catch regressions in the examples themselves.
     --regenerate-errors      Regenerate every ``test/should-error/*.err``.
     --generate-error <path>  Regenerate one ``.err`` fixture.
@@ -191,10 +190,9 @@ SHOULD_ERROR_PARSER_EQUIV_SKIP = frozenset({
 })
 
 
-# Pretty-printer/parser round-trip coverage for accepted syntax. Keep this
-# curated until the existing pretty-printer is parse-preserving for the whole
-# corpus; broad parser equivalence above still covers every checked-in lib and
-# should-validate file.
+# Pretty-printer/parser round-trip coverage for accepted syntax. This is also
+# the backbone of the parser-equivalence CI corpus below; keep it curated by
+# grammar construct instead of letting runtime grow with every checked-in proof.
 PARSER_ROUND_TRIP_FILES = (
     "./test/should-validate/theorem_true.pf",
     "./test/should-validate/function1.pf",
@@ -319,6 +317,30 @@ PARSER_ROUND_TRIP_FILES = (
     # ModusPonens pretty-printing (`arbitrary ... assume ...` needs
     # separators/braces when used after `apply ... to`).
     "./test/should-validate/apply_to_intro_roundtrip.pf",
+)
+
+
+PARSER_EQUIV_FILES = PARSER_ROUND_TRIP_FILES + (
+    # Small representative stdlib modules. Avoid large semantic proof corpora
+    # such as BigO; parser equivalence only needs surface-syntax coverage.
+    "./lib/Base.pf",
+    "./lib/List.pf",
+    "./lib/Nat.pf",
+    "./lib/UInt.pf",
+    "./lib/Int.pf",
+    "./lib/Set.pf",
+    # Warning and later-phase error fixtures add syntax that is not always
+    # present in validating examples while staying much smaller than the full
+    # should-error directory sweep.
+    "./test/should-warn/replace_auto_handled_922.pf",
+    "./test/should-error/advice_and.pf",
+    "./test/should-error/import_using_unknown.pf",
+    "./test/should-error/opaque_define_use_in_theorem.pf",
+    "./test/should-error/overload_return_type.pf",
+    "./test/should-error/predicate_negative_position.pf",
+    "./test/should-error/private_import1.pf",
+    "./test/should-error/recursive_import_one.pf",
+    "./test/should-error/replace_match_failure.pf",
 )
 
 
@@ -540,6 +562,10 @@ def _map_or_serial(
         return list(ex.map(fn, tasks, chunksize=chunksize))
 
 
+def _parser_workers(workers: int, task_count: int) -> int:
+    return min(workers, task_count, 8)
+
+
 def run_lib_parallel(workers: int) -> list[tuple[str, str, str]]:
     """``lib/*.pf`` × both parsers with no shared cache."""
     files = list_pf(LIB_DIR)
@@ -668,67 +694,103 @@ def _pretty_print_program(ast: Iterable[object]) -> str:
     return "".join(chunks)
 
 
-def run_parser_equivalence() -> list[tuple[str, str, str]]:
-    """Compare RD and LALR ASTs for accepted syntax.
+def _worker_parser_equivalence(
+    path: str,
+) -> tuple[str, bool, str, bool]:
+    try:
+        rd_ast = _canonical_ast(
+            _parse_for_equivalence(path, recursive_descent=True)
+        )
+        lalr_ast = _canonical_ast(
+            _parse_for_equivalence(path, recursive_descent=False)
+        )
+    except Exception as exc:
+        return path, False, f"{type(exc).__name__}: {exc}", False
 
-    Covers ``lib/``, ``test/should-validate/``, ``test/should-warn/``,
-    and most of ``test/should-error/``. ``should-error`` files fail in
-    later phases, so their ASTs are still meaningful surface-syntax
-    samples; the ``SHOULD_ERROR_PARSER_EQUIV_SKIP`` baseline excludes
-    the fixtures where at least one parser rejects at parse time today.
+    if rd_ast == lalr_ast:
+        if path in PARSER_EQUIV_EXPECTED_DIVERGENCES:
+            return path, False, "listed as a divergence but now matches", False
+        return path, True, "", False
+
+    if path in PARSER_EQUIV_EXPECTED_DIVERGENCES:
+        return path, True, "", True
+    return path, False, "RD and LALR ASTs differ", False
+
+
+def run_parser_equivalence(workers: int) -> list[tuple[str, str, str]]:
+    """Compare RD and LALR ASTs for parseable syntax.
+
+    Covers a curated corpus spanning stdlib, accepted, warning, and
+    later-phase error fixtures. ``should-error`` files fail in later phases,
+    so their ASTs are still meaningful surface-syntax samples; the
+    ``SHOULD_ERROR_PARSER_EQUIV_SKIP`` baseline excludes the fixtures where
+    at least one parser rejects at parse time today.
 
     ``test/parse`` remains RD-only because those fixtures intentionally lock
     down beginner-facing RD diagnostics, while the LALR parser is kept as an
     executable grammar spec.
     """
-    # ``--site`` generates ``doc_*.pf`` files into ``test/should-validate``.
-    # They are already validated with both parsers by the site mode itself;
-    # keep this drift baseline focused on checked-in should-validate files.
-    pass_files = [
-        f for f in list_pf(PASS_DIR)
-        if not Path(f).name.startswith("doc_")
-    ]
-    should_error_files = [
-        f for f in list_pf(ERROR_DIR)
-        if f not in SHOULD_ERROR_PARSER_EQUIV_SKIP
-    ]
-    files = (list_pf(LIB_DIR) + pass_files + list_pf(WARN_DIR)
-             + should_error_files)
+    files = tuple(dict.fromkeys(
+        PARSER_EQUIV_FILES + tuple(sorted(PARSER_EQUIV_EXPECTED_DIVERGENCES))
+    ))
     failures: list[tuple[str, str, str]] = []
     seen_divergences: set[str] = set()
-    for path in files:
-        try:
-            rd_ast = _canonical_ast(
-                _parse_for_equivalence(path, recursive_descent=True)
-            )
-            lalr_ast = _canonical_ast(
-                _parse_for_equivalence(path, recursive_descent=False)
-            )
-        except Exception as exc:
-            failures.append((path, "parser-equivalence",
-                             f"{type(exc).__name__}: {exc}"))
-            continue
-
-        if rd_ast == lalr_ast:
-            if path in PARSER_EQUIV_EXPECTED_DIVERGENCES:
-                failures.append((path, "parser-equivalence",
-                                 "listed as a divergence but now matches"))
-            continue
-
-        if path in PARSER_EQUIV_EXPECTED_DIVERGENCES:
+    for path, ok, msg, expected_diverged in _map_or_serial(
+        _parser_workers(workers, len(files)),
+        _worker_parser_equivalence,
+        files,
+        1,
+    ):
+        if expected_diverged:
             seen_divergences.add(path)
-        else:
+        if not ok:
             failures.append((path, "parser-equivalence",
-                             "RD and LALR ASTs differ"))
+                             msg))
 
     failures.extend(_check_should_error_skip_set())
 
-    stale = PARSER_EQUIV_EXPECTED_DIVERGENCES - seen_divergences - {
-        f for f in files if f in PARSER_EQUIV_EXPECTED_DIVERGENCES
-    }
+    stale = PARSER_EQUIV_EXPECTED_DIVERGENCES - seen_divergences - set(files)
     for path in sorted(stale):
         failures.append((path, "parser-equivalence",
                          "expected divergence path no longer exists"))
+    return failures
+
+
+def _worker_parser_round_trip(path: str) -> list[tuple[str, str, str]]:
+    failures: list[tuple[str, str, str]] = []
+    for source_rd in (True, False):
+        source_label = "RD" if source_rd else "LALR"
+        try:
+            original = _parse_for_equivalence(
+                path, recursive_descent=source_rd
+            )
+            pretty_source = _pretty_print_program(original)
+            original_ast = _canonical_ast(original)
+        except Exception as exc:
+            failures.append((path, "parser-roundtrip",
+                             f"{source_label} source parse/print: "
+                             f"{type(exc).__name__}: {exc}"))
+            continue
+
+        for roundtrip_rd in (True, False):
+            roundtrip_label = "RD" if roundtrip_rd else "LALR"
+            try:
+                reparsed = _parse_text_for_equivalence(
+                    path + f"<{source_label}-roundtrip-{roundtrip_label}>",
+                    pretty_source,
+                    recursive_descent=roundtrip_rd,
+                )
+            except Exception as exc:
+                failures.append((path, "parser-roundtrip",
+                                 f"{source_label} pretty source failed "
+                                 f"with {roundtrip_label}: "
+                                 f"{type(exc).__name__}: {exc}"))
+                continue
+
+            if _canonical_ast(reparsed) != original_ast:
+                failures.append((path, "parser-roundtrip",
+                                 f"{source_label} pretty source changed "
+                                 f"when parsed with {roundtrip_label}"))
     return failures
 
 
@@ -764,43 +826,16 @@ def _check_should_error_skip_set() -> list[tuple[str, str, str]]:
     return failures
 
 
-def run_parser_round_trip() -> list[tuple[str, str, str]]:
+def run_parser_round_trip(workers: int) -> list[tuple[str, str, str]]:
     """Pretty-print representative ASTs and re-parse with both parsers."""
     failures: list[tuple[str, str, str]] = []
-    for path in PARSER_ROUND_TRIP_FILES:
-        for source_rd in (True, False):
-            source_label = "RD" if source_rd else "LALR"
-            try:
-                original = _parse_for_equivalence(
-                    path, recursive_descent=source_rd
-                )
-                pretty_source = _pretty_print_program(original)
-                original_ast = _canonical_ast(original)
-            except Exception as exc:
-                failures.append((path, "parser-roundtrip",
-                                 f"{source_label} source parse/print: "
-                                 f"{type(exc).__name__}: {exc}"))
-                continue
-
-            for roundtrip_rd in (True, False):
-                roundtrip_label = "RD" if roundtrip_rd else "LALR"
-                try:
-                    reparsed = _parse_text_for_equivalence(
-                        path + f"<{source_label}-roundtrip-{roundtrip_label}>",
-                        pretty_source,
-                        recursive_descent=roundtrip_rd,
-                    )
-                except Exception as exc:
-                    failures.append((path, "parser-roundtrip",
-                                     f"{source_label} pretty source failed "
-                                     f"with {roundtrip_label}: "
-                                     f"{type(exc).__name__}: {exc}"))
-                    continue
-
-                if _canonical_ast(reparsed) != original_ast:
-                    failures.append((path, "parser-roundtrip",
-                                     f"{source_label} pretty source changed "
-                                     f"when parsed with {roundtrip_label}"))
+    for file_failures in _map_or_serial(
+        _parser_workers(workers, len(PARSER_ROUND_TRIP_FILES)),
+        _worker_parser_round_trip,
+        PARSER_ROUND_TRIP_FILES,
+        1,
+    ):
+        failures.extend(file_failures)
     return failures
 
 
@@ -1221,11 +1256,11 @@ def main(argv: list[str]) -> int:
 
     if flags["equiv"]:
         print("\n=== parser equivalence (RD vs LALR ASTs) ===")
-        _, fails = time_section("lib + should-validate + should-error",
-                                run_parser_equivalence)
+        _, fails = time_section("curated grammar corpus",
+                                lambda: run_parser_equivalence(workers))
         total_failures.extend(fails)
         _, fails = time_section("pretty-print round trip",
-                                run_parser_round_trip)
+                                lambda: run_parser_round_trip(workers))
         total_failures.extend(fails)
 
     return _report(total_failures, total_t0)
