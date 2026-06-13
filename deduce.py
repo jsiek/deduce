@@ -5,6 +5,7 @@ from flags import (
     set_check_imports,
     set_quiet_mode,
     set_recursive_descent,
+    set_experimental_imperative,
     set_unique_names,
     set_verbose,
 )
@@ -146,6 +147,8 @@ Options:
   --no-stdlib               do not auto-include the standard library
   --recursive-descent       use the recursive descent parser (default)
   --lalr                    use the Lark LALR parser
+  --experimental-imperative enable parser support for experimental
+                            imperative syntax
   -r, --recursive-directories
                             descend into subdirectories of supplied paths
   --quiet                   suppress informational output
@@ -233,6 +236,8 @@ if __name__ == "__main__":
             set_recursive_descent(True)
         elif argument == '--lalr':
             set_recursive_descent(False)
+        elif argument == '--experimental-imperative':
+            set_experimental_imperative(True)
         elif argument == '--quiet':
             set_quiet_mode(True)
         elif argument == '--trace':

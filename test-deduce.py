@@ -104,7 +104,11 @@ sys.setrecursionlimit(10000)
 sys.argv = [str(REPO_ROOT / "deduce.py")] + sys.argv[1:]
 
 from abstract_syntax import add_import_directory, init_import_directories
-from flags import set_quiet_mode, set_recursive_descent
+from flags import (
+    set_experimental_imperative,
+    set_quiet_mode,
+    set_recursive_descent,
+)
 from lsp.library import check_file, reset_prelude_cache
 import parser as _equiv_lark_parser
 import rec_desc_parser as _equiv_rd_parser
@@ -794,6 +798,70 @@ def run_cli_test() -> list[tuple[str, str, str]]:
             cli_path, "cli",
             f"unexpected stdout:\n{cp.stdout[:500]}",
         ))
+
+    help_cp = subprocess.run(
+        [sys.executable, "deduce.py", "--help"],
+        capture_output=True, text=True,
+    )
+    if help_cp.returncode != 0:
+        failures.append((
+            "deduce.py --help", "cli",
+            f"exit {help_cp.returncode}\nstderr: {help_cp.stderr[:500]}\n"
+            f"stdout: {help_cp.stdout[:500]}",
+        ))
+    elif "--experimental-imperative" not in help_cp.stdout:
+        failures.append((
+            "deduce.py --help", "cli",
+            "--experimental-imperative missing from help output",
+        ))
+    return failures
+
+
+def run_experimental_imperative_parser_test() -> list[tuple[str, str, str]]:
+    source = "module Test\nproc p() {}\n"
+    failures: list[tuple[str, str, str]] = []
+    try:
+        for recursive_descent in (True, False):
+            parser_label = "recursive-descent" if recursive_descent else "lalr"
+            set_recursive_descent(recursive_descent)
+
+            set_experimental_imperative(False)
+            disabled = check_file(
+                "__experimental_proc__.pf", content=source, prelude=(),
+            )
+            if disabled.ok:
+                failures.append((
+                    "__experimental_proc__.pf", parser_label,
+                    "proc syntax unexpectedly parsed with the flag disabled",
+                ))
+            elif "experimental imperative parser path" in (
+                disabled.error_message or ""
+            ):
+                failures.append((
+                    "__experimental_proc__.pf", parser_label,
+                    "disabled flag still reached the experimental parser path",
+                ))
+
+            set_experimental_imperative(True)
+            enabled = check_file(
+                "__experimental_proc__.pf", content=source, prelude=(),
+            )
+            if enabled.ok:
+                failures.append((
+                    "__experimental_proc__.pf", parser_label,
+                    "proc syntax unexpectedly parsed before Proc AST support",
+                ))
+            elif "experimental imperative parser path reached" not in (
+                enabled.error_message or ""
+            ):
+                failures.append((
+                    "__experimental_proc__.pf", parser_label,
+                    "enabled flag did not reach the experimental parser path:\n"
+                    f"{(enabled.error_message or '')[:500]}",
+                ))
+    finally:
+        set_experimental_imperative(False)
+        set_recursive_descent(True)
     return failures
 
 
@@ -1037,6 +1105,11 @@ def main(argv: list[str]) -> int:
         print("\n=== --cli: deduce.py CLI sanity check ===")
         _, fails = time_section(
             "deduce.py --no-stdlib theorem_true.pf", run_cli_test
+        )
+        total_failures.extend(fails)
+        _, fails = time_section(
+            "experimental imperative parser flag",
+            run_experimental_imperative_parser_test,
         )
         total_failures.extend(fails)
 
