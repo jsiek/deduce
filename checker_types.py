@@ -222,20 +222,6 @@ def _term_bijective_view_for_source_type(
     return view, source_ty, target_ty
   return None
 
-def _switch_pattern_could_match_alts(
-    pat: Pattern, alts: list[Constructor]
-) -> bool:
-  if not isinstance(pat, PatternCons):
-    return False
-  constr = pat.constructor
-  if isinstance(constr, OverloadedVar):
-    candidates = constr.resolved_names
-  elif isinstance(constr, VarRef):
-    candidates = [constr.get_name()]
-  else:
-    return False
-  return any(alt.name in candidates for alt in alts)
-
 def _switch_subject_via_bijective_view(
     loc: Meta,
     new_subject: Term,
@@ -250,8 +236,8 @@ def _switch_subject_via_bijective_view(
     return None
   view, _, target_ty = view_match
   target_union = lookup_union(loc, target_ty, env)
-  if not any(_switch_pattern_could_match_alts(c.pattern,
-                                              target_union.alternatives)
+  if not any(switch_pattern_could_match_alts(c.pattern,
+                                             target_union.alternatives)
              for c in cases):
     return None
   checked_view = type_check_term(

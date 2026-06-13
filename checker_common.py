@@ -50,7 +50,7 @@ from abstract_syntax import (
     OverloadType, OverloadedVar, PAndElim, PAnnot, PExtensionality, PHelpUse,
     PHole, PInjective, PLet, PRecall, PReflexive, PSorry,
     PSymmetric, PTLetNew, PTransitive, PTrue, PTuple, PVar,
-    PatternBool, PatternCons, PatternTerm, Postulate, Predicate, Print,
+    Pattern, PatternBool, PatternCons, PatternTerm, Postulate, Predicate, Print,
     ProofBinding, RecFun, ResolvedVar, RewriteFact, RewriteGoal, Rule,
     RuleInduction, RuleInversion, SimplifyFact, SimplifyGoal, Some,
     SomeElim, SomeIntro, Statement, Suffices, Switch, SwitchCase, SwitchProof,
@@ -98,3 +98,23 @@ from flags import (
 )
 from pathlib import Path
 import style
+
+
+def switch_pattern_could_match_alts(
+    pat: Pattern, alts: list[Constructor]
+) -> bool:
+  """Return whether a switch pattern could name one of a union's constructors.
+
+  This is a heuristic used when deciding whether switch cases target a union's
+  direct constructors or a public view exposed for that union.
+  """
+  if not isinstance(pat, PatternCons):
+    return False
+  constr = pat.constructor
+  if isinstance(constr, OverloadedVar):
+    candidates = constr.resolved_names
+  elif isinstance(constr, VarRef):
+    candidates = [constr.get_name()]
+  else:
+    return False
+  return any(alt.name in candidates for alt in alts)

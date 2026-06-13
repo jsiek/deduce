@@ -705,26 +705,6 @@ def _custom_induction_expected_cases(conjuncts: list[Formula]) -> str:
 def _custom_induction_case_hint(conjunct: Formula) -> str:
   return gen_conjunct_advice(conjunct, [], []).replace('\t\t', '\t')
 
-def _switch_pattern_could_match_alts(pat: Pattern, alts: list[Constructor]) -> bool:
-  """Heuristic: would ``pat`` plausibly match one of the union ``alts``?
-
-  Used to detect whether a ``switch`` case is targeting the union's
-  underlying constructors or the type's public (custom-induction) view.
-  Patterns that are not :class:`PatternCons` (e.g. ``with m. 1 + m`` /
-  numeric literal pseudo-patterns) never match constructors, and a
-  :class:`PatternCons` matches when any candidate name overlaps with an
-  alt name."""
-  if not isinstance(pat, PatternCons):
-    return False
-  constr = pat.constructor
-  if isinstance(constr, OverloadedVar):
-    candidates = constr.resolved_names
-  elif isinstance(constr, VarRef):
-    candidates = [constr.get_name()]
-  else:
-    return False
-  return any(alt.name in candidates for alt in alts)
-
 def _proof_view_callable(loc: Meta, name: str, type_args: list[Type]) -> Term:
   rator: Term = ResolvedVar(loc, None, name)
   if type_args:
@@ -1839,7 +1819,7 @@ def _check_proof_of_induction(proof: Induction, formula: CheckedFormula, env: En
   if view_match is not None:
     view, source_ty, view_target_ty, view_type_args = view_match
     view_alts = lookup_union(loc, view_target_ty, env).alternatives
-    if any(_switch_pattern_could_match_alts(c.pattern, view_alts)
+    if any(switch_pattern_could_match_alts(c.pattern, view_alts)
            for c in cases):
       _check_induction_via_view(loc, typ, cast(All, formula), cases, view,
                                 source_ty, view_target_ty, view_type_args,
@@ -1994,7 +1974,7 @@ def _check_proof_of_switch(proof: SwitchProof, formula: CheckedFormula, env: Env
           if view_match is not None:
             view, _, view_target_ty, view_type_args = view_match
             view_alts = lookup_union(loc, view_target_ty, env).alternatives
-            if any(_switch_pattern_could_match_alts(c.pattern, view_alts)
+            if any(switch_pattern_could_match_alts(c.pattern, view_alts)
                    for c in cases):
               _check_switch_via_view(loc, new_subject, formula, cases, ty,
                                      view, view_target_ty, view_type_args,
@@ -2009,7 +1989,7 @@ def _check_proof_of_switch(proof: SwitchProof, formula: CheckedFormula, env: Env
           # `case 0` / `case with m. 1 + m`.
           custom_ind = env.get_inductive(ty)
           if custom_ind is not None and any(
-              not _switch_pattern_could_match_alts(c.pattern, alts)
+              not switch_pattern_could_match_alts(c.pattern, alts)
               for c in cases):
             _check_switch_via_custom_induction(loc, new_subject, formula,
                                                cases, ty, custom_ind, env)
