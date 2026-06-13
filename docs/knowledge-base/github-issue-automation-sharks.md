@@ -41,6 +41,9 @@ issue in its own `tmux` window and its own Git worktree under:
 /var/tmp/jsiek/codex-github-issue/worktrees/<run-id>
 ```
 
+The `issue-manager` window is the supervisor, not a Codex chat session. Codex
+chat sessions are in dynamically named `issue-...` windows.
+
 Codex runs with interactive approvals:
 
 ```bash
@@ -204,7 +207,7 @@ make tests
 List the supervisor windows:
 
 ```bash
-ssh sharks-codex 'tmux list-windows -t codex-github-issue'
+ssh sharks-codex 'tmux list-windows -t codex-github-issue -F "#{window_index}:#{window_name}:#{window_active}:#{pane_title}"'
 ```
 
 Attach to the supervisor:
@@ -213,26 +216,37 @@ Attach to the supervisor:
 ssh -t sharks-codex /u/jsiek/.codex/remote-automations/github-issue/interactive.sh
 ```
 
-Attach directly to the `issue-manager` window:
+Attach directly to the `issue-manager` supervisor window:
 
 ```bash
 ssh -t sharks-codex 'tmux attach -t codex-github-issue:issue-manager'
 ```
 
+This window is useful for watching the issue loop, stopping the supervisor, or
+diagnosing why a new issue did not start. It is not a Codex chat session.
+
+Attach directly to a Codex chat window by first listing windows, then choosing
+one of the dynamically named `issue-...` windows:
+
+```bash
+ssh -t sharks-codex 'tmux attach -t codex-github-issue:<ISSUE_WINDOW_NAME>'
+```
+
 If you are already attached to the `codex-github-issue` tmux session, switch to
-the `issue-manager` window with the tmux window list:
+the desired window with the tmux window list:
 
 ```text
 Ctrl-b w
 ```
 
-Then select `issue-manager` and press Enter. You can also jump by window name:
+Select `issue-manager` for the supervisor, or an `issue-...` window for a Codex
+chat, and press Enter. You can also jump by window name:
 
 ```text
 Ctrl-b '
 ```
 
-Type `issue-manager` and press Enter.
+Type `issue-manager` or the `issue-...` window name and press Enter.
 
 Follow up on a PR:
 
