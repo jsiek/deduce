@@ -294,6 +294,9 @@ PARSER_ROUND_TRIP_FILES = (
     # Remaining issue #931 AST-drift fixes:
     "./test/should-validate/custom_induction.pf",     # `with xs. term` pattern
     "./test/should-validate/theorem_false2.pf",       # `replace p | q in ...`
+    # `Associative.__str__` must preserve the grammar's `in` keyword and
+    # operator identifier spelling.
+    "./test/should-validate/associative_roundtrip.pf",
 )
 
 

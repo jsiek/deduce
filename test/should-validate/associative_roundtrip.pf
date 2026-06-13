@@ -1,0 +1,12 @@
+union AssocItem {
+  assoc_item
+}
+
+fun operator ⊝(x:AssocItem, y:AssocItem) {
+  x
+}
+
+postulate assoc_custom: all x:AssocItem, y:AssocItem, z:AssocItem.
+  (x ⊝ y) ⊝ z = x ⊝ (y ⊝ z)
+
+associative operator ⊝ in AssocItem
