@@ -1774,9 +1774,32 @@ def parse_proc_param_list() -> list[ProcParam]:
     params.append(parse_proc_param())
   return params
 
+def parse_proc_spec_label() -> str | None:
+  if current_token().type == 'IDENT' and next_token().type == 'COLON':
+    label = parse_identifier()
+    consume_token('COLON', '":"', context='after proc spec label')
+    return label
+  return None
+
 def parse_proc_spec() -> ProcSpec:
   require_experimental_imperative(meta_from_tokens(current_token(), current_token()))
   start = current_token()
+  if current_token().value == 'requires':
+    advance()
+    value = parse_term()
+    return ProcSpec(meta_from_tokens(start, previous_token()), 'requires',
+                    value)
+  if current_token().value == 'ensures':
+    advance()
+    label = parse_proc_spec_label()
+    value = parse_term()
+    return ProcSpec(meta_from_tokens(start, previous_token()), 'ensures',
+                    value, label)
+  if current_token().value == 'decreases':
+    advance()
+    value = parse_term()
+    return ProcSpec(meta_from_tokens(start, previous_token()), 'decreases',
+                    value)
   if current_token().value not in ('reads', 'modifies'):
     raise ParseError(meta_from_tokens(current_token(), current_token()),
                      'expected proc spec, not\n\t' + quote(current_token().value))
@@ -1787,7 +1810,8 @@ def parse_proc_spec() -> ProcSpec:
 
 def parse_proc_specs() -> list[ProcSpec]:
   specs: list[ProcSpec] = []
-  while not end_of_file() and current_token().value in ('reads', 'modifies'):
+  while not end_of_file() and current_token().value in (
+      'requires', 'ensures', 'reads', 'modifies', 'decreases'):
     specs.append(parse_proc_spec())
   return specs
 
@@ -1858,6 +1882,9 @@ def parse_statement() -> Statement:
 
   elif token.type == 'VIEW':
     return parse_view_decl(visibility)
+
+  elif token.type == 'PROC':
+    return parse_proc_decl(visibility)
 
   elif token.type == 'ASSERT':
     while_parsing = 'while parsing assert\n' \

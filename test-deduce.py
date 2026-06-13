@@ -144,6 +144,14 @@ proc touch<T>(a: [T]!, xs: [List<T>]!, i: T, ghost p: T) -> [T]!
 }
 """
 
+EXPERIMENTAL_IMPERATIVE_FILES = frozenset({
+    "./test/should-error/proc_declarations.pf",
+})
+
+
+def _uses_experimental_imperative(path: str) -> bool:
+    return path in EXPERIMENTAL_IMPERATIVE_FILES
+
 
 # Current parser-equivalence baseline. These files parse successfully with
 # both parsers but produce structurally different ASTs today. Keeping the
@@ -317,6 +325,11 @@ PARSER_ROUND_TRIP_FILES = (
     # ModusPonens pretty-printing (`arbitrary ... assume ...` needs
     # separators/braces when used after `apply ... to`).
     "./test/should-validate/apply_to_intro_roundtrip.pf",
+    # Parser/AST-only imperative procedure declarations. The checker
+    # intentionally rejects these until the verifier exists, but both parsers
+    # must agree on the AST and the pretty-printer must preserve the header and
+    # repeated specification clauses.
+    "./test/should-error/proc_declarations.pf",
 )
 
 
@@ -453,12 +466,16 @@ def _check_against_err(f: str) -> tuple[str, bool, str]:
     if not os.path.isfile(err_file):
         return (f, False, "missing .pf.err fixture")
     set_recursive_descent(True)
+    set_experimental_imperative(_uses_experimental_imperative(f))
     set_quiet_mode(True)
     buf = io.StringIO()
-    with contextlib.redirect_stdout(buf):
-        result = check_file(f, prewarm_modules=_WORKER_PREWARM)
-        if not result.ok:
-            print(result.error_message)
+    try:
+        with contextlib.redirect_stdout(buf):
+            result = check_file(f, prewarm_modules=_WORKER_PREWARM)
+            if not result.ok:
+                print(result.error_message)
+    finally:
+        set_experimental_imperative(False)
     if result.ok:
         return (f, False, "expected error but file was valid")
     actual = buf.getvalue()
@@ -664,7 +681,8 @@ def _parse_for_equivalence(
 ) -> list[object]:
     with open(path, encoding="utf-8") as f:
         return _parse_text_for_equivalence(
-            path, f.read(), recursive_descent=recursive_descent
+            path, f.read(), recursive_descent=recursive_descent,
+            experimental_imperative=_uses_experimental_imperative(path),
         )
 
 
@@ -779,6 +797,7 @@ def _worker_parser_round_trip(path: str) -> list[tuple[str, str, str]]:
                     path + f"<{source_label}-roundtrip-{roundtrip_label}>",
                     pretty_source,
                     recursive_descent=roundtrip_rd,
+                    experimental_imperative=_uses_experimental_imperative(path),
                 )
             except Exception as exc:
                 failures.append((path, "parser-roundtrip",
@@ -1005,12 +1024,16 @@ def _capture_err_output(path: str) -> str:
     final ``result.error_message`` line.
     """
     set_recursive_descent(True)
+    set_experimental_imperative(_uses_experimental_imperative(path))
     set_quiet_mode(True)
     buf = io.StringIO()
-    with contextlib.redirect_stdout(buf):
-        result = check_file(path, prewarm_modules=_WORKER_PREWARM)
-        if not result.ok:
-            print(result.error_message)
+    try:
+        with contextlib.redirect_stdout(buf):
+            result = check_file(path, prewarm_modules=_WORKER_PREWARM)
+            if not result.ok:
+                print(result.error_message)
+    finally:
+        set_experimental_imperative(False)
     return buf.getvalue()
 
 

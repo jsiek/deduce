@@ -349,6 +349,19 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
     elif e.data == 'proc_return':
         _require_experimental_imperative(e.meta)
         return parse_tree_to_ast(e.children[0], e)
+    elif e.data == 'proc_requires':
+        _require_experimental_imperative(e.meta)
+        return ProcSpec(e.meta, 'requires',
+                        parse_tree_to_ast(e.children[0], e))
+    elif e.data == 'proc_ensures':
+        _require_experimental_imperative(e.meta)
+        return ProcSpec(e.meta, 'ensures',
+                        parse_tree_to_ast(e.children[0], e))
+    elif e.data == 'proc_ensures_labeled':
+        _require_experimental_imperative(e.meta)
+        return ProcSpec(e.meta, 'ensures',
+                        parse_tree_to_ast(e.children[1], e),
+                        parse_tree_to_ast(e.children[0], e))
     elif e.data == 'proc_reads':
         _require_experimental_imperative(e.meta)
         return ProcSpec(e.meta, 'reads',
@@ -357,6 +370,10 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
         _require_experimental_imperative(e.meta)
         return ProcSpec(e.meta, 'modifies',
                         parse_tree_to_list(e.children[0], e))
+    elif e.data == 'proc_decreases':
+        _require_experimental_imperative(e.meta)
+        return ProcSpec(e.meta, 'decreases',
+                        parse_tree_to_ast(e.children[0], e))
     elif e.data == 'proc_decl':
         _require_experimental_imperative(e.meta)
         visibility = parse_tree_to_ast(e.children[0], e)
@@ -931,7 +948,7 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
                              parse_tree_to_optional_identifier(e.children[8]))
         set_visibility(statement, visibility)
         return statement
-        
+
     # term definition
     elif e.data == 'define':
         visibility = parse_tree_to_ast(e.children[0], e)

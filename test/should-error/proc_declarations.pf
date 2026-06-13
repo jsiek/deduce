@@ -1,0 +1,22 @@
+public proc identity<T>(x: T, ghost witness: T) -> T
+  requires x = x
+  requires witness = witness
+  reads x
+  reads witness
+  modifies x
+  modifies witness
+  decreases x
+  decreases witness
+  ensures result_self: result = result
+  ensures x = x
+{
+}
+
+private proc no_return(x: bool)
+  ensures x = x
+{
+}
+
+opaque proc hidden()
+{
+}
