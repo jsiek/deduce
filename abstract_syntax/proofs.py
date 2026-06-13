@@ -85,14 +85,18 @@ class PLet(Proof):
   because: Proof
   body: Proof
 
+  def _proved_str(self) -> str:
+      proved = str(self.proved)
+      return '(' + proved + ')' if isinstance(self.proved, TLet) else proved
+
   def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
-      return indent*' ' + 'have ' + base_name(self.label) + ': ' + str(self.proved) + ' by {\n' \
+      return indent*' ' + 'have ' + base_name(self.label) + ': ' + self._proved_str() + ' by {\n' \
           + self.because.pretty_print(indent+2) + '\n' \
           + indent*' ' + '}\n' \
           + maybe_pretty_print(self.body, indent)
   
   def __str__(self) -> str:
-      return 'have ' + base_name(self.label) + ': ' + str(self.proved) \
+      return 'have ' + base_name(self.label) + ': ' + self._proved_str() \
         + ' by ' + str(self.because) + (' ' + str(self.body) if self.body else '')
 
   def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> PLet:
