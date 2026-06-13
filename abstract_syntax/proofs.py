@@ -209,10 +209,39 @@ class ModusPonens(Proof):
   arg: Proof
 
   def pretty_print(self, indent: int) -> str:
-      return str(self)
+      return indent*' ' + 'apply ' \
+          + _proof_arg_str(self.implication, indent) \
+          + ' to ' + _proof_arg_str(self.arg, indent)
 
   def __str__(self) -> str:
       return 'apply ' + str(self.implication) + ' to ' + str(self.arg)
+
+def _proof_arg_str(proof: Proof, indent: int) -> str:
+  if _proof_arg_needs_block(proof):
+    body = proof.pretty_print(indent + 2).rstrip()
+    return '{\n' + body + '\n' + indent*' ' + '}'
+  return str(proof)
+
+def _proof_arg_needs_block(proof: Proof) -> bool:
+  return isinstance(proof, (
+    AllIntro,
+    ImpIntro,
+    SomeIntro,
+    SomeElim,
+    PLet,
+    PTLetNew,
+    PAnnot,
+    Suffices,
+    Cases,
+    PInjective,
+    PExtensionality,
+    Induction,
+    RuleInduction,
+    RuleInversion,
+    SwitchProof,
+    ApplyDefsGoal,
+    RewriteGoal,
+  ))
 
 @dataclass
 class ImpIntro(Proof):
