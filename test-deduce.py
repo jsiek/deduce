@@ -315,6 +315,10 @@ PARSER_ROUND_TRIP_FILES = (
     # `Associative.__str__` must preserve the grammar's `in` keyword and
     # operator identifier spelling.
     "./test/should-validate/associative_roundtrip.pf",
+    # Proof arguments with statement bodies must not be flattened by
+    # ModusPonens pretty-printing (`arbitrary ... assume ...` needs
+    # separators/braces when used after `apply ... to`).
+    "./test/should-validate/apply_to_intro_roundtrip.pf",
 )
 
 

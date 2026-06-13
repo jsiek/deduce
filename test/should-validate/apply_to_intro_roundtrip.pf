@@ -1,0 +1,8 @@
+theorem apply_to_intro_roundtrip:
+  if (if (all x:bool. if x = x then x = x) then true) then true
+proof
+  assume prem
+  apply prem to arbitrary x:bool
+    assume same: x = x
+    same
+end
