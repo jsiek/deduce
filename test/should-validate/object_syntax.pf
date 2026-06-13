@@ -1,0 +1,12 @@
+module ObjectSyntax
+
+type Ref<T> = T
+
+public object Root
+
+private object Empty {}
+
+opaque object Node<T> {
+  var data : T
+  ghost var peer : Ref<Node<T>>
+}

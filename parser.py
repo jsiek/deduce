@@ -6,10 +6,10 @@ from abstract_syntax import (
     FrameEmpty, FrameField, FrameFootprint, FrameTerm, GenRecFun, Generic,
     Hole, IfThen, ImpIntro, Import,
     IndCase, Induction, Inductive, IntType, Lambda, MakeArray,
-    Mark, Module, ModusPonens, MutableArrayType, Omitted, Or, PAndElim,
-    PAnnot, PExtensionality, PHelpUse, PHole, PInjective, PLet,
-    PRecall, PReflexive, PSorry, PSymmetric, PTLetNew, PTransitive,
-    PTrue, PTuple, PVar, PatternBool, PatternCons, PatternTerm,
+    Mark, Module, ModusPonens, MutableArrayType, ObjectDecl, ObjectField,
+    Omitted, Or, PAndElim, PAnnot, PExtensionality, PHelpUse, PHole,
+    PInjective, PLet, PRecall, PReflexive, PSorry, PSymmetric, PTLetNew,
+    PTransitive, PTrue, PTuple, PVar, PatternBool, PatternCons, PatternTerm,
     Postulate, Predicate, Print, ProcDecl, ProcParam, ProcSpec, RecFun,
     RewriteFact, RewriteGoal,
     Rule, RuleInduction, RuleInductionCase, RuleInversion, SimplifyFact,
@@ -269,6 +269,12 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
     elif e.data == 'logical_not':
        subject = parse_tree_to_ast(e.children[0], e)
        return IfThen(e.meta, None, subject, Bool(e.meta, None, False))
+    elif e.data == 'rejected_new_object' or e.data == 'rejected_new_term':
+        raise ParseError(
+            e.meta,
+            "`new` allocation syntax is only available in imperative "
+            "statement right-hand sides",
+        )
     elif e.data == 'all_formula':
         vars = parse_tree_to_list(e.children[0], e)
         body = parse_tree_to_ast(e.children[1], e)
@@ -803,6 +809,25 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
                               parse_tree_to_ast(e.children[3], e))
         set_visibility(statement, visibility)
         return statement
+
+    elif e.data == 'object_declaration':
+        visibility = parse_tree_to_ast(e.children[0], e)
+        body = parse_tree_to_ast(e.children[3], e)
+        statement = ObjectDecl(e.meta, _token_text(e, 1),
+                               parse_tree_to_list(e.children[2], e),
+                               body)
+        set_visibility(statement, visibility)
+        return statement
+    elif e.data == 'object_field':
+        return ObjectField(e.meta, parse_tree_to_ast(e.children[0], e),
+                           parse_tree_to_ast(e.children[1], e))
+    elif e.data == 'ghost_object_field':
+        return ObjectField(e.meta, parse_tree_to_ast(e.children[0], e),
+                           parse_tree_to_ast(e.children[1], e), True)
+    elif e.data == 'no_object_body':
+        return None
+    elif e.data == 'object_body':
+        return parse_tree_to_list(e.children[0], e)
 
     # predicate / relation definitions
     elif e.data == 'predicate_declaration' or e.data == 'relation_declaration':

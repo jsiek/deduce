@@ -103,6 +103,8 @@ identifier: IDENT              -> identifier
     | "∅"                                         -> emptyset_literal
     | ".0."                                        -> emptyset_literal
     | "not" atomic_term                                -> logical_not
+    | "new" IDENT type_params_opt "(" term_list ")"    -> rejected_new_object
+    | "new"                                            -> rejected_new_term
     | identifier                                   -> term_var
     | "@" atomic_term "<" type_list ">"                -> term_inst
     | "array" "(" term ")"                         -> make_array
@@ -320,7 +322,16 @@ identifier: IDENT              -> identifier
 
 ?constructor_list: constructor                             -> single
     | constructor constructor_list                         -> push
-    
+
+?object_field: "var" identifier ":" type                    -> object_field
+    | "ghost" "var" identifier ":" type                     -> ghost_object_field
+
+?object_field_list:                                        -> empty
+    | object_field object_field_list                        -> push
+
+?object_body_opt:                                          -> no_object_body
+    | "{" object_field_list "}"                             -> object_body
+
 ?visibility:            -> default
     | "public"          -> public
     | "private"         -> private
@@ -389,6 +400,7 @@ identifier: IDENT              -> identifier
 
 ?statement: visibility "union" IDENT type_params_opt "{" constructor_list "}" -> union
  | visibility "type" IDENT type_params_opt "=" type -> type_alias
+ | visibility "object" IDENT type_params_opt object_body_opt -> object_declaration
  | visibility "predicate" identifier type_params_opt ":" type "{" predicate_rule_list "}" -> predicate_declaration
  | visibility "relation"  identifier type_params_opt ":" type "{" predicate_rule_list "}" -> relation_declaration
  | visibility "recursive" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> recursive_function

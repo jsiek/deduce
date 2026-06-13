@@ -280,6 +280,7 @@ PARSER_ROUND_TRIP_FILES = (
     "./test/should-validate/ListTests.pf",         # operator-call rator: `(f ∘ g)(x)`
     "./test/should-validate/function_type_paren.pf",  # multi-arg `fn` types
     "./test/should-validate/relation_operator_name.pf",  # `relation operator <op>`
+    "./test/should-validate/object_syntax.pf",    # object decls + fields
     # `Omitted.__str__` previously returned `--`, which neither parser
     # accepts; the surface form is `__` (or `─`). Covers `suffices __ by …`.
     "./test/should-validate/suffices_implies_omitted.pf",
@@ -903,6 +904,7 @@ def run_cli_test() -> list[tuple[str, str, str]]:
 
 
 def run_experimental_imperative_parser_test() -> list[tuple[str, str, str]]:
+    pure_new_source = "module Test\ndefine x = new Node()\n"
     failures: list[tuple[str, str, str]] = []
     path = "__experimental_imperative__.pf"
     try:
@@ -970,6 +972,24 @@ def run_experimental_imperative_parser_test() -> list[tuple[str, str, str]]:
                     path, label,
                     "expected unsupported-proc diagnostic, got:\n"
                     f"{(checked.error_message or '')[:500]}",
+                ))
+
+            pure_new = check_file(
+                "__experimental_new__.pf", content=pure_new_source,
+                prelude=(),
+            )
+            if pure_new.ok:
+                failures.append((
+                    "__experimental_new__.pf", label,
+                    "`new` unexpectedly parsed as a pure term",
+                ))
+            elif "allocation syntax is only available" not in (
+                pure_new.error_message or ""
+            ):
+                failures.append((
+                    "__experimental_new__.pf", label,
+                    "`new` pure-term rejection had unexpected diagnostic:\n"
+                    f"{(pure_new.error_message or '')[:500]}",
                 ))
     finally:
         set_experimental_imperative(False)

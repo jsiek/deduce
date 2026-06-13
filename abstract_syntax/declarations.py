@@ -3,8 +3,8 @@
 Scope: every dataclass node that can appear at the top level of a ``.pf``
 file, together with the bookkeeping that supports them across imports.
 This covers the ``Declaration`` family (``Theorem``, ``Postulate``,
-``Predicate``, ``Union``, ``TypeAlias``, ``RecFun``, ``GenRecFun``, ``ViewRecFun``,
-``ViewDecl``, ``Define``, ``Import``) and the non-``Declaration``
+``Predicate``, ``Union``, ``TypeAlias``, ``ObjectDecl``, ``RecFun``,
+``GenRecFun``, ``ViewRecFun``, ``ViewDecl``, ``Define``, ``Import``) and the non-``Declaration``
 statements (``Auto``, ``Inductive``, ``Module``, ``Export``,
 ``Associative``, ``Trace``, ``Assert``, ``Print``). Their AST helpers
 (``Constructor``, ``Rule``, ``FunCase``) also live here because they only
@@ -581,6 +581,87 @@ class TypeAlias(Declaration):
       shown_name = self.name
       params = '<' + ','.join(self.type_params) + '>' if self.type_params else ''
       return 'type ' + shown_name + params + ' = ' + str(self.body)
+    return base_name(self.name)
+
+
+@dataclass
+class ObjectField(AST):
+  name: str
+  typ: Type
+  ghost: bool = False
+
+  def uniquify(
+      self,
+      env: object,
+      ctx: object,
+  ) -> ObjectField:
+    env_map = cast(UniquifyEnv, env)
+    uniq_ctx = cast(UniquifyContext, ctx)
+    return ObjectField(self.location, self.name,
+                       self.typ.uniquify(env_map, uniq_ctx), self.ghost)
+
+  def pretty_print(self, indent: int) -> str:
+    return indent * ' ' + ('ghost ' if self.ghost else '') \
+      + 'var ' + base_name(self.name) + ' : ' + str(self.typ)
+
+  def __str__(self) -> str:
+    return self.pretty_print(0)
+
+
+@dataclass
+class ObjectDecl(Declaration):
+  type_params: List[str]
+  fields: Optional[List[ObjectField]] = None
+
+  def reduce(self, env: object) -> Self:
+    return self
+
+  def uniquify(self, env: object, ctx: object) -> ObjectDecl:
+    env_map = cast(UniquifyEnv, env)
+    uniq_ctx = cast(UniquifyContext, ctx)
+    if self.name in env_map.keys():
+      user_error(self.location, "object names may not be overloaded")
+    new_name = generate_name(self.name, uniq_ctx)
+    env_map[self.name] = [new_name]
+    env_map['no overload'][self.name] = 'object'
+
+    body_env = copy_dict(env_map)
+    new_type_params = [generate_name(t, uniq_ctx) for t in self.type_params]
+    for old, new in zip(self.type_params, new_type_params):
+      extend(body_env, old, new, self.location)
+    new_fields = None if self.fields is None \
+      else [field.uniquify(body_env, uniq_ctx) for field in self.fields]
+    return ObjectDecl(self.location, new_name, new_type_params, new_fields,
+                      visibility=self.visibility)
+
+  def collect_exports(
+      self,
+      export_env: UniquifyEnv,
+      importing_module: str,
+  ) -> None:
+    if self.visibility == 'private' and importing_module != get_current_module():
+      return
+    export_env[base_name(self.name)] = [self.name]
+
+  def substitute(self, sub: object) -> Self:
+    return self
+
+  def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
+    header = self.visibility_prefix() + 'object ' + base_name(self.name) \
+        + ('<' + ','.join([base_name(t) for t in self.type_params]) + '>' if self.type_params else '')
+    if self.fields is None:
+      return indent * ' ' + header + '\n'
+    if len(self.fields) == 0:
+      return indent * ' ' + header + ' {}\n'
+    body = '\n'.join([field.pretty_print(indent + 2)
+                      for field in self.fields])
+    return indent * ' ' + header + ' {\n' + body + '\n' \
+      + indent * ' ' + '}\n'
+
+  def __str__(self) -> str:
+    if get_verbose():
+      params = '<' + ','.join(self.type_params) + '>' if self.type_params else ''
+      return 'object ' + self.name + params
     return base_name(self.name)
   
   
