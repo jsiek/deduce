@@ -1177,9 +1177,9 @@ class Associative(Statement):
   typeof: Type
 
   def __str__(self) -> str:
-    return 'associative ' + str(self.op) \
-      + ('<' + ','.join(self.type_params) + '>' if len(self.type_params) > 0 else '') \
-      + ' ' + str(self.typeof)
+    op_name = complete_name(self.op.get_name()) if isinstance(self.op, VarRef) else str(self.op)
+    type_params = ' <' + ','.join(self.type_params) + '>' if len(self.type_params) > 0 else ''
+    return 'associative ' + op_name + type_params + ' in ' + str(self.typeof)
 
   def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> Associative:
     new_op = self.op.uniquify(env, ctx)
