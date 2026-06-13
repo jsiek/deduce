@@ -106,6 +106,18 @@ def set_recursive_descent(b: bool) -> None:
   global recursive_descent
   recursive_descent = b
 
+# flag for experimental imperative syntax
+
+experimental_imperative: bool = False
+
+def get_experimental_imperative() -> bool:
+  global experimental_imperative
+  return experimental_imperative
+
+def set_experimental_imperative(b: bool) -> None:
+  global experimental_imperative
+  experimental_imperative = b
+
 # flag for quiet mode (primarily for testing errors)
 
 quiet_mode: bool = False

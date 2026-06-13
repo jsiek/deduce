@@ -22,8 +22,9 @@ import re
 from lark import Lark, Token, Tree, exceptions
 from lark.tree import Meta
 from typing import Any, TypeAlias as TypingTypeAlias, cast
-from flags import VerboseLevel
+from flags import VerboseLevel, get_experimental_imperative
 from error import ParseError, lark_unexpected_chars_to_parse_error
+from imperative_syntax import reject_unimplemented_imperative_syntax
 
 filename: str = '???'
 
@@ -951,8 +952,13 @@ def parse_program_tree(parse_tree: Tree[Token]) -> list[Statement]:
 
 def parse(program_text: str,
           trace: "bool | VerboseLevel" = False,
-          error_expected: bool = False) -> "list[Statement]":
+          error_expected: bool = False,
+          experimental_imperative: bool | None = None) -> "list[Statement]":
   try:    
+    if experimental_imperative is None:
+        experimental_imperative = get_experimental_imperative()
+    if experimental_imperative:
+        reject_unimplemented_imperative_syntax(program_text, get_filename())
     # if trace:
     #     print('lexing!')
     # lexed = lark_parser.lex(program_text)

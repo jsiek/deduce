@@ -25,7 +25,8 @@ from abstract_syntax import (
 from lark import Lark, Token, exceptions
 from lark.tree import Meta
 from error import ParseError, error_header, lark_unexpected_chars_to_parse_error
-from flags import VerboseLevel
+from flags import VerboseLevel, get_experimental_imperative
+from imperative_syntax import reject_unimplemented_imperative_syntax
 from edit_distance import closest_keyword, edit_distance
 
 filename: str = '???'
@@ -116,9 +117,14 @@ check_closest_kwd = False
 
 def parse(program_text: str,
           trace: "bool | VerboseLevel" = False,
-          error_expected: bool = False) -> "list[Statement]":
+          error_expected: bool = False,
+          experimental_imperative: bool | None = None) -> "list[Statement]":
   global token_list, current_position, check_closest_kwd
   try:
+    if experimental_imperative is None:
+      experimental_imperative = get_experimental_imperative()
+    if experimental_imperative:
+      reject_unimplemented_imperative_syntax(program_text, get_filename())
     assert lark_parser is not None, "init_parser() must be called before parse()"
     lexed = lark_parser.lex(program_text)
     token_list = []

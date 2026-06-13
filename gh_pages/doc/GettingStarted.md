@@ -424,6 +424,12 @@ Tells Deduce to use the recursive descent (default) parser. If
 `--lalr` is also supplied, then only the recursive descent parser will
 be used.
 
+`--experimental-imperative`
+
+Enables parser support for experimental imperative syntax under
+development. This flag is intended for parser fixtures and design work;
+ordinary Deduce files do not need it.
+
 `--recursive-directories` or `-r`
 
 Instead of only processing files in the specified directories, Deduce

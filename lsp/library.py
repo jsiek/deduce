@@ -85,7 +85,12 @@ from abstract_syntax import (
     get_uniquified_modules,
 )
 from error import ErrorSink
-from flags import get_verbose, get_debugger, set_debugger
+from flags import (
+    get_experimental_imperative,
+    get_verbose,
+    get_debugger,
+    set_debugger,
+)
 from proof_checker import check_deduce, uniquify_deduce
 
 
@@ -338,8 +343,10 @@ def _check_file_impl(
         # cached entry may have been produced by the *other* parser,
         # and the whole point of the explicit choice is to actually
         # run that parser on this file.
+        experimental_imperative = get_experimental_imperative()
         use_cache = (
             parser is None
+            and not experimental_imperative
             and (content is None or _content_matches_file(filename, content))
         )
         if use_cache and module_name in cached:
@@ -362,14 +369,16 @@ def _check_file_impl(
                 _rd_parser.set_filename(filename)
                 _rd_parser.init_parser()
                 ast = _rd_parser.parse(
-                    program_text, trace=get_verbose(), error_expected=False
+                    program_text, trace=get_verbose(), error_expected=False,
+                    experimental_imperative=experimental_imperative,
                 )
             else:
                 _lark_parser.set_deduce_directory(deduce_dir)
                 _lark_parser.set_filename(filename)
                 _lark_parser.init_parser()
                 ast = _lark_parser.parse(
-                    program_text, trace=get_verbose(), error_expected=False
+                    program_text, trace=get_verbose(), error_expected=False,
+                    experimental_imperative=experimental_imperative,
                 )
 
             if len(prelude) > 0:
