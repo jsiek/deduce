@@ -132,10 +132,21 @@ class ProcParam(AST):
 @dataclass
 class ProcSpec(AST):
   keyword: str
-  frames: List[FrameExpr]
+  value: Term | List[FrameExpr]
+  label: Optional[str] = None
 
   def __str__(self) -> str:
-    return self.keyword + ' ' + ', '.join(str(f) for f in self.frames)
+    if isinstance(self.value, list):
+      value = ', '.join(str(t) for t in self.value)
+    else:
+      value = str(self.value)
+    label = ''
+    if self.label is not None:
+      label = base_name(self.label) + ': '
+    return self.keyword + ' ' + label + value
+
+  def pretty_print(self, indent: int) -> str:
+    return indent * ' ' + str(self)
 
 @dataclass
 class ProcDecl(Declaration):
@@ -193,6 +204,9 @@ class ProcDecl(Declaration):
         if self.return_type is not None
         else None
     )
+    if new_return_type is not None:
+      overwrite(proc_env, 'result', generate_name('result', uniq_ctx),
+                self.location)
     new_specs = [spec.uniquify(proc_env, uniq_ctx) for spec in self.specs]
     return ProcDecl(self.location, new_name, new_type_params, new_params,
                     new_return_type, new_specs, visibility=self.visibility)

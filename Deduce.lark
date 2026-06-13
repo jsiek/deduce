@@ -374,8 +374,12 @@ identifier: IDENT              -> identifier
 ?proc_return_opt:                                  -> nothing
     | "->" type                                    -> proc_return
 
-?proc_spec: "reads" frame_list                     -> proc_reads
+?proc_spec: "requires" term                        -> proc_requires
+    | "ensures" identifier ":" term                -> proc_ensures_labeled
+    | "ensures" term                               -> proc_ensures
+    | "reads" frame_list                           -> proc_reads
     | "modifies" frame_list                        -> proc_modifies
+    | "decreases" term                             -> proc_decreases
 
 ?proc_spec_list:                                   -> empty
     | proc_spec proc_spec_list                     -> push
