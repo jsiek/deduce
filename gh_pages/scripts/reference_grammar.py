@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Check strict Reference.md grammar fragments against Deduce.lark.
 
-Reference.md contains many small, user-facing syntax snippets. Only fenced
-blocks marked ``deduce-grammar`` are part of this strict check; unmarked
-blocks may stay simplified while they are migrated.
+Reference.md and ImperativeReference.md contain many small, user-facing
+syntax snippets. Only fenced blocks marked ``deduce-grammar`` are part of
+this strict check; unmarked blocks may stay simplified while they are
+migrated.
 """
 
 from __future__ import annotations
@@ -15,7 +16,10 @@ import sys
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-REFERENCE_MD = REPO_ROOT / "gh_pages" / "doc" / "Reference.md"
+REFERENCE_MDS = (
+    REPO_ROOT / "gh_pages" / "doc" / "Reference.md",
+    REPO_ROOT / "gh_pages" / "doc" / "ImperativeReference.md",
+)
 DEDUCE_LARK = REPO_ROOT / "Deduce.lark"
 
 RULE_RE = re.compile(r"^\s*\??([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.*)$")
@@ -187,40 +191,42 @@ def format_alternatives(alternatives: set[str]) -> str:
 
 def main() -> int:
     lark_rules = expand_passthrough_alternatives(parse_lark_rules(DEDUCE_LARK))
-    blocks = extract_marked_blocks(REFERENCE_MD)
     failures: list[str] = []
+    total_checked = 0
 
-    if not blocks:
-        failures.append("Reference.md has no ```deduce-grammar blocks to check")
-
-    for block in blocks:
-        for rule, documented in block.productions.items():
-            expected = lark_rules.get(rule)
-            if expected is None:
-                failures.append(
-                    f"{REFERENCE_MD}:{block.line}: rule {rule!r} is not in Deduce.lark"
-                )
-                continue
-            if rule in SUBSET_RULES:
-                matches = documented <= expected
-            else:
-                matches = documented == expected
-            if not matches:
-                missing = expected - documented
-                extra = documented - expected
-                parts = [f"{REFERENCE_MD}:{block.line}: rule {rule!r} differs"]
-                if missing and rule not in SUBSET_RULES:
-                    parts.append("  Missing from Reference.md:\n" + format_alternatives(missing))
-                if extra:
-                    parts.append("  Not present in Deduce.lark:\n" + format_alternatives(extra))
-                failures.append("\n".join(parts))
+    for ref_md in REFERENCE_MDS:
+        blocks = extract_marked_blocks(ref_md)
+        if not blocks:
+            failures.append(f"{ref_md.name} has no ```deduce-grammar blocks to check")
+            continue
+        for block in blocks:
+            for rule, documented in block.productions.items():
+                total_checked += 1
+                expected = lark_rules.get(rule)
+                if expected is None:
+                    failures.append(
+                        f"{ref_md}:{block.line}: rule {rule!r} is not in Deduce.lark"
+                    )
+                    continue
+                if rule in SUBSET_RULES:
+                    matches = documented <= expected
+                else:
+                    matches = documented == expected
+                if not matches:
+                    missing = expected - documented
+                    extra = documented - expected
+                    parts = [f"{ref_md}:{block.line}: rule {rule!r} differs"]
+                    if missing and rule not in SUBSET_RULES:
+                        parts.append(f"  Missing from {ref_md.name}:\n" + format_alternatives(missing))
+                    if extra:
+                        parts.append("  Not present in Deduce.lark:\n" + format_alternatives(extra))
+                    failures.append("\n".join(parts))
 
     if failures:
         print("\n\n".join(failures), file=sys.stderr)
         return 1
 
-    checked = sum(len(block.productions) for block in blocks)
-    print(f"Checked {checked} Reference.md grammar rule(s) against Deduce.lark.")
+    print(f"Checked {total_checked} reference grammar rule(s) against Deduce.lark.")
     return 0
 
 

@@ -23,18 +23,13 @@ A deduce file contains a list of statements. Each statement can be one of:
 8. [Import](./Reference.md#import-statement)
 9. [Assert](./Reference.md#assert-statement)
 10. [Print](./Reference.md#print-statement)
-11. [Object](./Reference.md#object-statement)
-12. [Observer](./Reference.md#observer-statement) (experimental)
-13. [Procedure](./Reference.md#procedure-statement) (experimental)
 
-The `observer` and `proc` forms, the mutable array type `[T]!`, and
-frame expressions (`{}`, `footprint(...)`, field, and bare-term
-frames) belong to the Phase 1 imperative-verification surface tracked
-by issue #854. They are parser/AST only today: enabling them requires
-`--experimental-imperative`, and the checker rejects every procedure
-and observer until later phases land. Object declarations parse
-without the flag but their fields likewise have no proof semantics
-yet.
+Deduce also has an experimental imperative surface — `proc`,
+`observer`, `object`, mutable arrays `[T]!`, and frame expressions —
+documented separately in the
+[Experimental Imperative Reference](./ImperativeReference.md). Those
+forms are parser/AST only today and most require
+`--experimental-imperative`.
 
 ## Proofs
 
