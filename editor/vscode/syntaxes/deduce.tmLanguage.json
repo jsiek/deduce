@@ -91,6 +91,11 @@
           "comment": "Built-in operators / forms",
           "name": "keyword.other.deduce",
           "match": "\\b(fn|array)\\b"
+        },
+        {
+          "comment": "Experimental imperative surface (Phase 1, issue #854): parser/AST only.",
+          "name": "keyword.other.imperative.deduce",
+          "match": "\\b(proc|observer|object|ghost|var|requires|ensures|reads|modifies|decreases|footprint|new)\\b"
         }
       ]
     },

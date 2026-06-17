@@ -24,6 +24,13 @@ A deduce file contains a list of statements. Each statement can be one of:
 9. [Assert](./Reference.md#assert-statement)
 10. [Print](./Reference.md#print-statement)
 
+Deduce also has an experimental imperative surface — `proc`,
+`observer`, `object`, mutable arrays `[T]!`, and frame expressions —
+documented separately in the
+[Experimental Imperative Reference](./ImperativeReference.md). Those
+forms are parser/AST only today and most require
+`--experimental-imperative`.
+
 ## Proofs
 
 In Deduce, one must give a reason for why a theorem is true, and the reason is given by a proof. Proofs are constructed using the rules of logic together with ways to organize proofs by working backwards from the goal, or forwards from the assumptions.

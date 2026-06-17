@@ -1,6 +1,6 @@
 # Imperative verification plan
 
-Tracking issue: TBD.
+Tracking issue: #854.
 
 **Status:** design draft. Nothing in this document is implemented yet. The
 examples are proposed surface syntax and future acceptance tests.

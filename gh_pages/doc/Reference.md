@@ -15,6 +15,13 @@ by CI. Unmarked grammar blocks may intentionally use a simplified
 presentation while they are migrated to the strict check.
 -->
 
+Deduce's experimental imperative surface (`proc`, `observer`,
+`object`, mutable arrays `[T]!`, and frame expressions) is documented
+separately in the
+[Experimental Imperative Reference](./ImperativeReference.md). Those
+forms are parser/AST only today and most require
+`--experimental-imperative`.
+
 ## Contents
 
 - [Add](#add)
