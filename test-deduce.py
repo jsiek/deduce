@@ -348,6 +348,17 @@ PARSER_ROUND_TRIP_FILES = (
     # in even for a top-level `simplify` whose body needed indentation.
     "./lib/IntMult.pf",
     "./test/should-validate/cases_in_simplify_roundtrip.pf",
+    # `not X` (`IfThen(_, _, _, Bool false)`) had no entry in
+    # `precedence`, so an outer infix operator like `=` would print
+    # `(not (P and Q)) = (not P or not Q)` as `not (P and Q) = ...`,
+    # which reparses with `=` inside `not` (since the parser's `NOT`
+    # branch consumes `parse_term_equal`). Covers De Morgan's laws
+    # which were the original lib/Base.pf drift.
+    "./test/should-validate/not_paren_roundtrip.pf",
+    # lib/Base.pf round-trips cleanly once the `not X` precedence
+    # case is added (`not_and`, `not_or`, `double_neg` were the three
+    # drift sites).
+    "./lib/Base.pf",
     # Parser/AST-only imperative procedure declarations. The checker
     # intentionally rejects these until the verifier exists, but both parsers
     # must agree on the AST and the pretty-printer must preserve the header and
@@ -363,7 +374,6 @@ PARSER_ROUND_TRIP_FILES = (
 PARSER_EQUIV_FILES = PARSER_ROUND_TRIP_FILES + (
     # Small representative stdlib modules. Avoid large semantic proof corpora
     # such as BigO; parser equivalence only needs surface-syntax coverage.
-    "./lib/Base.pf",
     "./lib/List.pf",
     "./lib/Nat.pf",
     "./lib/UInt.pf",
