@@ -417,7 +417,7 @@ class PTuple(Proof):
       return str(self)
 
   def __str__(self) -> str:
-    return ', '.join([str(arg) for arg in self.args])
+    return ', '.join(_proof_list_item_str(arg) for arg in self.args)
 
 def extract_tuple(pf: Proof) -> List[Proof]:
     match pf:
@@ -788,6 +788,43 @@ class EvaluateFact(Proof):
   def __str__(self) -> str:
     return 'evaluate in ' + str(self.subject)
 
+def _proof_tail_is_term_greedy(p: Proof) -> bool:
+  """Whether the printed form of ``p`` ends with a term that can
+  greedily consume following separators or keywords at term-parse
+  level. The canonical case is ``PRecall``'s trailing
+  ``parse_nonempty_term_list`` -- it swallows outer commas across
+  ``recall`` items, and the embedded ``parse_term`` happily reads
+  ``in`` (a compare-level operator) and ``|`` (an add-level operator
+  aliased to ``∪``). Any proof shape that just prepends a keyword to a
+  sub-proof inherits the same greediness when that sub-proof is itself
+  greedy, so recurse through the trailing sub-proof.
+  """
+  while True:
+    if isinstance(p, PRecall):
+      return True
+    if isinstance(p, PSymmetric):
+      p = p.body
+    elif isinstance(p, PTransitive):
+      p = p.second
+    elif isinstance(p, PHelpUse):
+      p = p.proof
+    else:
+      return False
+
+
+def _proof_list_item_str(p: Proof) -> str:
+  """String form of a proof when it appears as an element of a
+  ``,``- or ``|``-separated proof list, or just before a context-
+  introducing keyword such as the ``in`` of ``replace ... in ...``.
+  Wraps proofs whose printed form is term-greedy in parens so
+  ``LPAR proof RPAR`` fences the outer separator. The wrapping is a
+  no-op for the parser, so the canonical AST is unaffected.
+  """
+  if _proof_tail_is_term_greedy(p):
+    return '(' + str(p) + ')'
+  return str(p)
+
+
 @dataclass
 class SimplifyGoal(Proof):
   body: Proof
@@ -796,7 +833,8 @@ class SimplifyGoal(Proof):
   def __str__(self) -> str:
       head = 'simplify'
       if self.givens:
-        head += ' with ' + ' | '.join([str(p) for p in self.givens])
+        head += ' with ' + ' | '.join(
+            _proof_list_item_str(p) for p in self.givens)
       return head + '\n' + str(self.body)
 
 
@@ -811,7 +849,8 @@ class SimplifyFact(Proof):
   def __str__(self) -> str:
     head = 'simplify'
     if self.givens:
-      head += ' with ' + ' | '.join([str(p) for p in self.givens])
+      head += ' with ' + ' | '.join(
+          _proof_list_item_str(p) for p in self.givens)
     return head + ' in ' + str(self.subject)
 
 @dataclass
@@ -844,11 +883,12 @@ class RewriteGoal(Proof):
 
   def pretty_print(self, indent: int) -> str:
       return indent*' ' + 'replace ' \
-        + ' | '.join([str(eqn) for eqn in self.equations]) + '\n' \
-        + maybe_pretty_print(self.body, indent)
+        + ' | '.join(_proof_list_item_str(eqn) for eqn in self.equations) \
+        + '\n' + maybe_pretty_print(self.body, indent)
 
   def __str__(self) -> str:
-      return 'replace ' + '|'.join([str(eqn) for eqn in self.equations]) \
+      return 'replace ' \
+        + '|'.join(_proof_list_item_str(eqn) for eqn in self.equations) \
         + '\n' + str(self.body)
 
 @dataclass
@@ -857,5 +897,6 @@ class RewriteFact(Proof):
   equations: List[Proof]
 
   def __str__(self) -> str:
-      return 'replace ' + ' | '.join([str(eqn) for eqn in self.equations]) \
+      return 'replace ' \
+        + ' | '.join(_proof_list_item_str(eqn) for eqn in self.equations) \
         + ' in ' + str(self.subject)
