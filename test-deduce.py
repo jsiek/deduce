@@ -341,6 +341,13 @@ PARSER_ROUND_TRIP_FILES = (
     "./lib/NatLess.pf",
     "./lib/UIntLess.pf",
     "./test/should-validate/recall_list_roundtrip.pf",
+    # `Cases.__str__` was missing (the dataclass repr leaked through any
+    # `__str__`-cascading body chain — `simplify ... \n` + `str(body)`,
+    # `expand ... ` + `str(body)`, `replace ... \n` + `str(body)`).
+    # `SimplifyGoal` was also missing `pretty_print`, so the cascade kicked
+    # in even for a top-level `simplify` whose body needed indentation.
+    "./lib/IntMult.pf",
+    "./test/should-validate/cases_in_simplify_roundtrip.pf",
     # Parser/AST-only imperative procedure declarations. The checker
     # intentionally rejects these until the verifier exists, but both parsers
     # must agree on the AST and the pretty-printer must preserve the header and

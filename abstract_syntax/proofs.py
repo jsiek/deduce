@@ -190,7 +190,13 @@ class Cases(Proof):
             + indent*' ' + '}'
           )
       return '\n'.join(lines) + '\n'
-      
+
+  def __str__(self) -> str:
+      parts = ['cases ' + str(self.subject)]
+      for (label, frm, body) in self.cases:
+          parts.append(self._case_header(label, frm) + ' { ' + str(body) + ' }')
+      return ' '.join(parts)
+
   def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> Cases:
     new_subject = self.subject.uniquify(env, ctx)
     new_cases = []
@@ -830,12 +836,19 @@ class SimplifyGoal(Proof):
   body: Proof
   givens: List[Proof]
 
-  def __str__(self) -> str:
+  def _head(self) -> str:
       head = 'simplify'
       if self.givens:
         head += ' with ' + ' | '.join(
             _proof_list_item_str(p) for p in self.givens)
-      return head + '\n' + str(self.body)
+      return head
+
+  def pretty_print(self, indent: int) -> str:
+      return indent*' ' + self._head() + '\n' \
+        + maybe_pretty_print(self.body, indent)
+
+  def __str__(self) -> str:
+      return self._head() + '\n' + str(self.body)
 
 
 @dataclass

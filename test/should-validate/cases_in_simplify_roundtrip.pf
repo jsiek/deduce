@@ -1,0 +1,27 @@
+// Round-trip fixture: a `cases` proof embedded inside the body of
+// `simplify` / `replace` exercises both Cases.__str__ and
+// SimplifyGoal.pretty_print. Before the fix, the cascading __str__
+// dropped indentation and Cases fell back to a Python dataclass repr.
+
+theorem cases_in_simplify_roundtrip: all P:bool, Q:bool.
+  if (P or Q) then (P or Q)
+proof
+  arbitrary P:bool, Q:bool
+  assume prem
+  simplify with prem
+  cases prem
+  case lp: P { lp }
+  case rq: Q { rq }
+end
+
+theorem cases_in_replace_roundtrip: all P:bool, Q:bool, R:bool.
+  if R = (P or Q) then if (P or Q) then R
+proof
+  arbitrary P:bool, Q:bool, R:bool
+  assume eq
+  assume prem
+  replace eq
+  cases prem
+  case lp: P { lp }
+  case rq: Q { rq }
+end
