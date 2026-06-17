@@ -327,6 +327,20 @@ PARSER_ROUND_TRIP_FILES = (
     # ModusPonens pretty-printing (`arbitrary ... assume ...` needs
     # separators/braces when used after `apply ... to`).
     "./test/should-validate/apply_to_intro_roundtrip.pf",
+    # `PRecall`'s textual tail (`recall <fact1>, <fact2>, ...`) is
+    # greedy at the term parser level. When it appears as an element
+    # of a `|`-separated proof list (`simplify with`, `replace`), a
+    # `,`-separated proof tuple (`apply ... to A, B`), or just before
+    # an `in` keyword (`replace ... in ...`), it must be parenthesized
+    # so the outer separator/keyword isn't consumed by the inner
+    # `parse_nonempty_term_list` / `parse_term`. Also covers proofs
+    # that delegate to a trailing `PRecall` (`symmetric recall ...`).
+    # Adds the four `lib/` files that round-tripped after the fix:
+    "./lib/IntAddSub.pf",
+    "./lib/Maps.pf",
+    "./lib/NatLess.pf",
+    "./lib/UIntLess.pf",
+    "./test/should-validate/recall_list_roundtrip.pf",
     # Parser/AST-only imperative procedure declarations. The checker
     # intentionally rejects these until the verifier exists, but both parsers
     # must agree on the AST and the pretty-printer must preserve the header and

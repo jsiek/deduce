@@ -1,0 +1,45 @@
+// Exercises the pretty-printer parenthesization of `PRecall` (and the
+// proofs that delegate to a trailing `PRecall`, such as `symmetric`)
+// when they appear in `|`-separated proof lists, `,`-separated proof
+// tuples, or just before a context-introducing keyword such as the
+// `in` of `replace ... in ...`.
+//
+// `recall <fact1>, <fact2>, ...` is term-greedy at the parser level —
+// `parse_term`'s add-level operators include `|` (aliased to `∪`) and
+// its compare-level operators include `in`, and the embedded
+// `parse_nonempty_term_list` is `,`-greedy. So a pretty-printer that
+// omitted the source parens would re-parse as something else (or fail
+// outright on a `recall` that appears where a term is expected).
+
+import UInt
+
+theorem recall_replace_pipe:
+  all x:UInt, y:UInt. if x = 1 then if y = 2 then x + y = 1 + 2
+proof
+  arbitrary x:UInt, y:UInt
+  assume x1
+  assume y2
+  replace (recall x = 1) | (recall y = 2).
+end
+
+theorem recall_tuple_in_apply:
+  all P: fn UInt, UInt -> bool, x:UInt, y:UInt.
+    if (all a:UInt, b:UInt. if a = x then if b = y then P(a, b))
+    then P(x, y)
+proof
+  arbitrary P: fn UInt, UInt -> bool, x:UInt, y:UInt
+  assume H
+  have xx: x = x by .
+  have yy: y = y by .
+  apply H[x, y] to (recall x = x), (recall y = y)
+end
+
+theorem recall_replace_symmetric_in:
+  all k:UInt, j:UInt, P: fn UInt -> bool.
+    if k = j then if P(j) then P(k)
+proof
+  arbitrary k:UInt, j:UInt, P: fn UInt -> bool
+  assume kj
+  assume pj
+  replace symmetric (recall k = j) in recall P(j)
+end
