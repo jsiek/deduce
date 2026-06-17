@@ -1,0 +1,65 @@
+// even_double.pf
+//
+// A classic introductory functional-programming example (in the spirit
+// of the "evenb (double n) = true" exercise from Software Foundations):
+// define the doubling function and a boolean evenness test on the
+// natural numbers, then prove that doubling always yields an even
+// number, and that doubling agrees with addition (double(n) = n + n).
+//
+// Both proofs are by induction on n. The evenness proof relies on the
+// fact that `evenb` flips on every successor, so two successors cancel
+// out via boolean double-negation (`double_neg` from the prelude).
+
+// double(n) = 2 * n, defined directly so that each successor adds two.
+recursive double(Nat) -> Nat {
+  double(zero) = zero
+  double(suc(n)) = suc(suc(double(n)))
+}
+
+// evenb(n) is true exactly when n is even. It flips on each successor.
+recursive evenb(Nat) -> bool {
+  evenb(zero) = true
+  evenb(suc(n)) = not evenb(n)
+}
+
+// Quick tests of the definitions.
+assert double(ℕ4) = ℕ8
+assert evenb(ℕ6)
+assert not evenb(ℕ7)
+
+// Doubling agrees with addition.
+theorem double_add: all n:Nat. double(n) = n + n
+proof
+  induction Nat
+  case zero {
+    expand double.
+  }
+  case suc(n') assume IH: double(n') = n' + n' {
+    // suc(n') + suc(n') reduces (on the left) to suc(n' + suc(n')),
+    // and add_suc turns n' + suc(n') into suc(n' + n').
+    have step: suc(n') + suc(n') = suc(suc(n' + n'))
+      by equations
+           suc(n') + suc(n') = suc(n' + suc(n'))   by expand operator+.
+                         ... = suc(suc(n' + n'))    by replace add_suc.
+    equations
+      double(suc(n')) = suc(suc(double(n')))   by expand double.
+                  ... = suc(suc(n' + n'))       by replace IH.
+                  ... = suc(n') + suc(n')       by symmetric step
+  }
+end
+
+// Doubling any natural number yields an even number.
+theorem evenb_double: all n:Nat. evenb(double(n)) = true
+proof
+  induction Nat
+  case zero {
+    expand double | evenb.
+  }
+  case suc(n') assume IH: evenb(double(n')) = true {
+    equations
+      evenb(double(suc(n'))) = evenb(suc(suc(double(n'))))   by expand double.
+                         ... = not (not evenb(double(n')))   by expand evenb | evenb.
+                         ... = evenb(double(n'))             by double_neg[evenb(double(n'))]
+                         ... = true                          by IH
+  }
+end
