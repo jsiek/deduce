@@ -395,6 +395,14 @@ identifier: IDENT              -> identifier
 ?proc_spec_list:                                   -> empty
     | proc_spec proc_spec_list                     -> push
 
+?observer_reads: "reads" frame_list                -> observer_reads
+
+?observer_reads_list:                              -> empty
+    | observer_reads observer_reads_list           -> push
+
+?observer_body_opt:                                -> no_observer_body
+    | "{" term "}"                                 -> observer_body
+
 ?view_inverse_opt:                                 -> no_view_inverse
     | "inverse" identifier                         -> view_inverse
 
@@ -407,6 +415,7 @@ identifier: IDENT              -> identifier
  | visibility "fun" identifier type_params_opt "(" variable_list ")" "{" term "}" -> fun
  | visibility "recfun" identifier type_params_opt "(" variable_list ")" "->" type "measure" term "of" type "{" term "}" "terminates" proof -> general_recursive_function
  | visibility "proc" identifier type_params_opt "(" proc_param_list ")" proc_return_opt proc_spec_list "{" "}" -> proc_decl
+ | visibility "observer" identifier type_params_opt "(" proc_param_list ")" "->" type observer_reads_list observer_body_opt -> observer_decl
  | visibility "view" IDENT type_params_opt "{" "source" type "target" type "into" identifier "out" identifier "roundtrip" identifier view_inverse_opt "}" -> view_declaration
  | definition
  | "associative" identifier type_params_opt "in" type -> associative_declaration

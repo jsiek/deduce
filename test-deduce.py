@@ -146,6 +146,7 @@ proc touch<T>(a: [T]!, xs: [List<T>]!, i: T, ghost p: T) -> [T]!
 
 EXPERIMENTAL_IMPERATIVE_FILES = frozenset({
     "./test/should-error/proc_declarations.pf",
+    "./test/should-error/observer_declarations.pf",
 })
 
 
@@ -331,6 +332,10 @@ PARSER_ROUND_TRIP_FILES = (
     # must agree on the AST and the pretty-printer must preserve the header and
     # repeated specification clauses.
     "./test/should-error/proc_declarations.pf",
+    # Parser/AST-only imperative observer declarations. Checker rejection is
+    # intentional; both parsers must agree on the AST and the pretty-printer
+    # must preserve repeated `reads` clauses and the optional body.
+    "./test/should-error/observer_declarations.pf",
 )
 
 
