@@ -3,8 +3,9 @@
 Scope: every dataclass node that can appear at the top level of a ``.pf``
 file, together with the bookkeeping that supports them across imports.
 This covers the ``Declaration`` family (``Theorem``, ``Postulate``,
-``Predicate``, ``Union``, ``TypeAlias``, ``ObjectDecl``, ``RecFun``,
-``GenRecFun``, ``ViewRecFun``, ``ViewDecl``, ``Define``, ``Import``) and the non-``Declaration``
+``Predicate``, ``Union``, ``TypeAlias``, ``ObjectDecl``, ``ObserverDecl``,
+``RecFun``, ``GenRecFun``, ``ViewRecFun``, ``ViewDecl``, ``Define``,
+``Import``) and the non-``Declaration``
 statements (``Auto``, ``Inductive``, ``Module``, ``Export``,
 ``Associative``, ``Trace``, ``Assert``, ``Print``). Their AST helpers
 (``Constructor``, ``Rule``, ``FunCase``) also live here because they only
@@ -663,8 +664,91 @@ class ObjectDecl(Declaration):
       params = '<' + ','.join(self.type_params) + '>' if self.type_params else ''
       return 'object ' + self.name + params
     return base_name(self.name)
-  
-  
+
+
+@dataclass
+class ObserverDecl(Declaration):
+  type_params: List[str]
+  params: List[ProcParam]
+  return_type: Type
+  reads: List[List[FrameExpr]]
+  body: Optional[Term] = None
+
+  def reduce(self, env: object) -> Self:
+    return self
+
+  def substitute(self, sub: object) -> Self:
+    return self
+
+  def uniquify(self, env: object, ctx: object) -> ObserverDecl:
+    env_map = cast(UniquifyEnv, env)
+    uniq_ctx = cast(UniquifyContext, ctx)
+    if self.name in env_map.keys():
+      user_error(self.location,
+                 "observer names may not be overloaded: "
+                 + base_name(self.name))
+    new_name = generate_name(self.name, uniq_ctx)
+    overwrite(env_map, self.name, new_name, self.location)
+    env_map['no overload'][self.name] = 'observer'
+
+    body_env = copy_dict(env_map)
+    new_type_params = [generate_name(t, uniq_ctx) for t in self.type_params]
+    for (old, new) in zip(self.type_params, new_type_params):
+      overwrite(body_env, old, new, self.location)
+
+    new_params = []
+    for param in self.params:
+      new_typ = param.typ.uniquify(body_env, uniq_ctx)
+      new_param_name = generate_name(param.name, uniq_ctx)
+      overwrite(body_env, param.name, new_param_name, param.location)
+      new_params.append(ProcParam(param.location, new_param_name,
+                                  new_typ, param.ghost))
+
+    new_return_type = self.return_type.uniquify(body_env, uniq_ctx)
+    new_reads = [
+      [frame.uniquify(body_env, uniq_ctx) for frame in clause]
+      for clause in self.reads
+    ]
+    new_body = (self.body.uniquify(body_env, uniq_ctx)
+                if self.body is not None else None)
+    return ObserverDecl(self.location, new_name, new_type_params,
+                        new_params, new_return_type, new_reads,
+                        new_body, visibility=self.visibility)
+
+  def collect_exports(
+      self,
+      export_env: UniquifyEnv,
+      importing_module: str,
+  ) -> None:
+    if self.visibility == 'private' and importing_module != get_current_module():
+      return
+    export_env[base_name(self.name)] = [self.name]
+
+  def __str__(self) -> str:
+    if get_verbose():
+      shown_name = self.name
+      typarams = self.type_params
+    else:
+      shown_name = base_name(self.name)
+      typarams = [base_name(t) for t in self.type_params]
+    header = self.visibility_prefix() + 'observer ' + shown_name
+    if typarams:
+      header += '<' + ','.join(typarams) + '>'
+    header += '(' + ', '.join(str(p) for p in self.params) + ')'
+    header += ' -> ' + str(self.return_type)
+    lines = [header]
+    for clause in self.reads:
+      lines.append('  reads ' + ', '.join(str(f) for f in clause))
+    s = '\n'.join(lines)
+    if self.body is not None:
+      s += '\n{\n  ' + str(self.body) + '\n}'
+    return s
+
+  def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
+    return indent * ' ' \
+      + str(self).replace('\n', '\n' + indent * ' ').rstrip() + '\n'
+
+
 @dataclass
 class FunCase(AST):
   rator: Term

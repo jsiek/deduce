@@ -11,7 +11,8 @@ from abstract_syntax import (
     FrameFootprint, FrameTerm, FunCase, FunctionType,
     GenRecFun, Generic, Hole, IfThen, ImpIntro, Import,
     IndCase, Induction, Inductive, Lambda, MakeArray, Mark,
-    Module, ModusPonens, MutableArrayType, ObjectDecl, ObjectField, Omitted,
+    Module, ModusPonens, MutableArrayType, ObjectDecl, ObjectField,
+    ObserverDecl, Omitted,
     Or, PAndElim, PAnnot, PExtensionality, PHelpUse, PHole, PInjective, PLet,
     PRecall, PReflexive, PSorry, PSymmetric, PTLetNew, PTransitive, PTrue,
     PTuple, PVar, Pattern, PatternBool, PatternCons, PatternTerm, Postulate,
@@ -1886,7 +1887,38 @@ def parse_proc_decl(visibility: str) -> Statement:
   return ProcDecl(meta_from_tokens(start, previous_token()), name, typarams,
                   params, return_type, specs, visibility=visibility)
 
+def parse_observer_reads_list() -> list[list[FrameTerm | FrameField | FrameFootprint | FrameEmpty]]:
+  clauses: list[list[FrameTerm | FrameField | FrameFootprint | FrameEmpty]] = []
+  while not end_of_file() and current_token().value == 'reads':
+    require_experimental_imperative(
+        meta_from_tokens(current_token(), current_token()))
+    advance()
+    clauses.append(parse_frame_list())
+  return clauses
+
+def parse_observer_decl(visibility: str) -> Statement:
+  require_experimental_imperative(meta_from_tokens(current_token(), current_token()))
+  start = current_token()
+  advance()
+  name = parse_identifier()
+  typarams = parse_type_parameters()
+  consume_token('LPAR', '"("', context='after observer name')
+  params = parse_proc_param_list()
+  consume_token('RPAR', '")"', context='after observer parameters')
+  consume_token('ARROW', '"->"', context='after observer parameters')
+  return_type = parse_type()
+  reads = parse_observer_reads_list()
+  body = None
+  if not end_of_file() and current_token().type == 'LBRACE':
+    advance()
+    body = parse_term()
+    consume_token('RBRACE', '"}"', context='after observer body')
+  return ObserverDecl(meta_from_tokens(start, previous_token()), name,
+                      typarams, params, return_type, reads, body,
+                      visibility=visibility)
+
 statement_keywords = {'assert', 'define', 'import', 'inductive', 'object',
+                      'observer',
                       'print',
                       'theorem', 'lemma', 'postulate', 'predicate', 'recursive',
                       'relation', 'fun', 'trace', 'type', 'union', 'view',
@@ -1926,6 +1958,9 @@ def parse_statement() -> Statement:
 
   elif token.type == 'OBJECT':
     return parse_object(visibility)
+
+  elif token.type == 'OBSERVER':
+    return parse_observer_decl(visibility)
 
   elif token.type == 'PREDICATE':
     return parse_predicate(visibility, 'predicate')

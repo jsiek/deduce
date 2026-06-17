@@ -7,7 +7,7 @@ from abstract_syntax import (
     Hole, IfThen, ImpIntro, Import,
     IndCase, Induction, Inductive, IntType, Lambda, MakeArray,
     Mark, Module, ModusPonens, MutableArrayType, ObjectDecl, ObjectField,
-    Omitted, Or, PAndElim, PAnnot, PExtensionality, PHelpUse, PHole,
+    ObserverDecl, Omitted, Or, PAndElim, PAnnot, PExtensionality, PHelpUse, PHole,
     PInjective, PLet, PRecall, PReflexive, PSorry, PSymmetric, PTLetNew,
     PTransitive, PTrue, PTuple, PVar, PatternBool, PatternCons, PatternTerm,
     Postulate, Predicate, Print, ProcDecl, ProcParam, ProcSpec, RecFun,
@@ -389,6 +389,26 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
                              parse_tree_to_list(e.children[3], e),
                              parse_tree_to_ast(e.children[4], e),
                              parse_tree_to_list(e.children[5], e))
+        set_visibility(statement, visibility)
+        return statement
+    elif e.data == 'observer_reads':
+        _require_experimental_imperative(e.meta)
+        return parse_tree_to_list(e.children[0], e)
+    elif e.data == 'observer_body':
+        _require_experimental_imperative(e.meta)
+        return parse_tree_to_ast(e.children[0], e)
+    elif e.data == 'no_observer_body':
+        return None
+    elif e.data == 'observer_decl':
+        _require_experimental_imperative(e.meta)
+        visibility = parse_tree_to_ast(e.children[0], e)
+        statement = ObserverDecl(e.meta,
+                                 parse_tree_to_ast(e.children[1], e),
+                                 parse_tree_to_list(e.children[2], e),
+                                 parse_tree_to_list(e.children[3], e),
+                                 parse_tree_to_ast(e.children[4], e),
+                                 parse_tree_to_list(e.children[5], e),
+                                 parse_tree_to_ast(e.children[6], e))
         set_visibility(statement, visibility)
         return statement
     # terms

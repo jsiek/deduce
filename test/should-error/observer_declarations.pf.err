@@ -1,0 +1,1 @@
+./test/should-error/observer_declarations.pf:3.8-10.2: imperative observer declarations are not supported yet: all_zero

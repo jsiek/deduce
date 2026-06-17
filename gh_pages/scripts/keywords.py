@@ -86,6 +86,7 @@ known_tokens = {
     'NOT': 'keyword',
     'NAT': 'keyword',
     'OBJECT': 'keyword',
+    'OBSERVER': 'keyword',
     'OBTAIN': 'keyword',
     'OF': 'keyword',
     'OPAQUE': 'keyword',

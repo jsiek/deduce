@@ -1,0 +1,18 @@
+type Ref<T> = T
+
+public observer all_zero<T>(a: [T]!, i: T, ghost limit: T) -> bool
+  reads a
+  reads a[i]
+  reads footprint(a)
+  reads {}
+{
+  true
+}
+
+private observer ref_holder<T>(r: Ref<T>) -> bool
+  reads r
+
+opaque observer hidden_no_body() -> bool
+  reads {}
+
+observer default_visibility() -> bool

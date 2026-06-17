@@ -23,7 +23,7 @@ from abstract_syntax import (
     Call, Conditional, Constructor, Declaration, Define, Env, Export,
     Formula, FunCase, FunctionType, GenRecFun, Generic, GenericUnknownInst,
     Hole, IfThen, Import, Inductive, Lambda, MakeArray, Module, ObjectDecl,
-    ObjectField, Omitted, Or, OverloadType, OverloadedVar, PSorry, PVar,
+    ObjectField, ObserverDecl, Omitted, Or, OverloadType, OverloadedVar, PSorry, PVar,
     PatternBool, PatternCons, Postulate, Predicate, Print, ProcDecl, RecFun,
     ResolvedVar, Rule, Some,
     Statement, Switch, SwitchCase, TAnnote, TLet, Term, TermInst, Theorem,
@@ -77,6 +77,10 @@ def process_declaration_visibility(decl: Declaration, env: Env,
   match decl:
     case ProcDecl(loc, name, _, _, _, _):
       user_error(loc, 'imperative proc declarations are not supported yet: '
+                 + base_name(name))
+
+    case ObserverDecl(loc, name, _, _, _, _, _):
+      user_error(loc, 'imperative observer declarations are not supported yet: '
                  + base_name(name))
 
     case Define(loc, name, ty, body):
