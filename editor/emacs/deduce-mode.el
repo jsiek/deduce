@@ -238,7 +238,12 @@ by `electric-indent-mode' on RET."
     "if" "then" "else" "all" "some" "in"
     "not" "and" "or" "iff"
     ;; built-in operators / forms
-    "fn" "array")
+    "fn" "array"
+    ;; experimental imperative surface (Phase 1, issue #854 — parser/AST
+    ;; only; the checker rejects these until later phases land).
+    "proc" "observer" "object" "ghost" "var"
+    "requires" "ensures" "reads" "modifies" "decreases"
+    "footprint" "new")
   "Deduce keywords highlighted with `font-lock-keyword-face'.")
 
 (defconst deduce-mode--constants
