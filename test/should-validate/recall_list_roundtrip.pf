@@ -11,6 +11,8 @@
 // omitted the source parens would re-parse as something else (or fail
 // outright on a `recall` that appears where a term is expected).
 
+import UInt
+
 theorem recall_replace_pipe:
   all x:UInt, y:UInt. if x = 1 then if y = 2 then x + y = 1 + 2
 proof
