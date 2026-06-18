@@ -1322,7 +1322,8 @@ class Import(Declaration):
     return ''
 
   def __str__(self) -> str:
-    return 'import ' + self.name + self._filter_clause_str()
+    prefix = 'public ' if self.visibility == 'public' else ''
+    return prefix + 'import ' + self.name + self._filter_clause_str()
 
   def pretty_print(self, indent: int) -> str:
     return indent*' '  + str(self) + '\n'
