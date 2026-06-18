@@ -1,0 +1,43 @@
+// product.pf
+//
+// A classic intro-to-functional-programming function: the product of
+// all the elements of a list of numbers.
+//
+//     product :: [Int] -> Int
+//     product []     = 1
+//     product (x:xs) = x * product xs
+//
+// We define `product` over `List<UInt>` and prove that it is a
+// homomorphism from (List<UInt>, ++) to (UInt, *):
+//
+//   product(xs ++ ys) = product(xs) * product(ys)
+//
+// This is the multiplicative twin of the standard `length_append`
+// theorem in the List library.
+
+import UInt
+import List
+
+recursive product(List<UInt>) -> UInt {
+  product(empty) = 1
+  product(node(x, xs)) = x * product(xs)
+}
+
+assert product([2, 3, 4]) = 24
+assert product(@[]<UInt>) = 1
+assert product([5]) = 5
+
+theorem product_append: all xs:List<UInt>, ys:List<UInt>.
+  product(xs ++ ys) = product(xs) * product(ys)
+proof
+  induction List<UInt>
+  case empty {
+    arbitrary ys:List<UInt>
+    expand product | operator++.
+  }
+  case node(x, xs') assume IH: (all ys:List<UInt>. product(xs' ++ ys) = product(xs') * product(ys)) {
+    arbitrary ys:List<UInt>
+    expand product | operator++
+    replace IH.
+  }
+end
