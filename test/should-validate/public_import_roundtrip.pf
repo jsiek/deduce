@@ -1,0 +1,3 @@
+public import PublicImportNat
+
+assert (zero : Nat) = (zero : Nat)

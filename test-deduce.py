@@ -224,6 +224,7 @@ PARSER_ROUND_TRIP_FILES = (
     "./test/should-validate/relation_basic.pf",    # `relation` declaration
     "./test/should-validate/opaque_define.pf",     # `opaque` visibility
     "./test/should-validate/import_using.pf",      # `import ... using ...`
+    "./test/should-validate/public_import_roundtrip.pf",  # `public import` prefix
     "./test/should-validate/auto_conditional.pf",  # `auto` + `postulate` decl
     "./test/should-validate/recall1.pf",           # `recall` proof
     "./test/should-validate/simplify1.pf",         # `simplify` proof
