@@ -970,6 +970,15 @@ def precedence(trm: Term) -> int | None:
         return prefix_precedence.get(op_name, None)
       else:
         return None
+    case IfThen(_, _, _, Bool(_, _, False)):
+      # `not X` (and the `X ≠ Y` sugar that desugars to `not (X = Y)`)
+      # bind looser than every infix operator in the parser: the `NOT`
+      # branch of `parse_term_hi` consumes `parse_term_equal`, so the
+      # printed `not X = Y` reparses as `not (X = Y)`. Returning a
+      # precedence strictly less than every `infix_precedence` value
+      # makes `op_arg_str` parenthesize a `not X` operand of `=`, `<`,
+      # `+`, etc. so the original `(not X) = Y` shape round-trips.
+      return 0
     case _:
       return None
 

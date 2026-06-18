@@ -1,0 +1,28 @@
+// Regression coverage for the pretty-printer's handling of `not X`
+// (encoded as `IfThen(_, _, _, Bool false)`) as an operand of `=` and
+// other infix operators. In both parsers, `not` binds *looser* than
+// `=` (the `NOT` branch of `parse_term_hi` consumes
+// `parse_term_equal`), so the printer must parenthesize a `not X`
+// argument of `=`. De Morgan's laws are the canonical witness: their
+// stated equation `(not (P and Q)) = ((not P) or (not Q))` would
+// otherwise reparse as `not ((P and Q) = ((not P) or (not Q)))`.
+
+theorem not_paren_and: all P:bool, Q:bool.
+  (not (P and Q)) = ((not P) or (not Q))
+proof
+  arbitrary P:bool, Q:bool
+  switch P {
+    case true { . }
+    case false { . }
+  }
+end
+
+theorem not_paren_or: all P:bool, Q:bool.
+  (not (P or Q)) = ((not P) and (not Q))
+proof
+  arbitrary P:bool, Q:bool
+  switch P {
+    case true { . }
+    case false { . }
+  }
+end
