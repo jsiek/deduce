@@ -1,0 +1,50 @@
+// Regression coverage for the pretty-printer's handling of the `∅` set
+// literal. The parser (both RD and LALR) desugars `∅` to
+// `Call(Var('empty_set'), [])`, but `Call(char_fun, [Lambda(_, false)])`
+// used to be re-sugared back to `∅` by the pretty-printer. That
+// direction-mismatch collapsed the expanded body form back onto the
+// source-level `empty_set()` call, so any term that carried the
+// `char_fun(λx:T{false})` shape (in particular the body of `empty_set`
+// itself and any explicit `@char_fun<T>(λ_{false})` witnesses) drifted
+// on round-trip. Refs #988 category (c).
+
+opaque union Set<T> {
+  char_fun(fn (T) -> bool)
+}
+
+opaque fun rep<T>(S : Set<T>) {
+  switch S {
+    case char_fun(f) { f }
+  }
+}
+
+opaque fun empty_set<T>() {
+  char_fun(λx:T{false})
+}
+
+opaque fun operator ∈ <T>(x : T, S : Set<T>) {
+  rep(S)(x)
+}
+
+theorem empty_no_members: all T:type. all x:T.
+  not (x ∈ ∅)
+proof
+  arbitrary T:type, x:T
+  suppose x_in_empty: x ∈ ∅
+  evaluate in x_in_empty
+end
+
+theorem empty_no_members_ascii: all T:type. all x:T.
+  not (x in .0.)
+proof
+  arbitrary T:type, x:T
+  suppose x_in_empty: x in .0.
+  evaluate in x_in_empty
+end
+
+theorem empty_set_expansion: all T:type.
+  @empty_set<T>() = @char_fun<T>(λ_:T{false})
+proof
+  arbitrary T:type
+  expand empty_set.
+end

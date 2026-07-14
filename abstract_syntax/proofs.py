@@ -315,6 +315,24 @@ class AllIntro(Proof):
     else:
       self.body = new_body
     
+def _postfix_base_str(p: Proof) -> str:
+  """Printed form of ``p`` as the base of a postfix ``[...]`` / ``<...>``
+  step. Wraps ``p`` in parens unless its printed form ends in a
+  self-contained token that ``parse_proof_med`` treats as a single unit
+  before applying the postfix. Names (``PVar``) and prior ``AllElim`` /
+  ``AllElimTypes`` chains (which already end in ``]`` / ``>``) qualify.
+  Anything whose printed form ends with a trailing ``parse_proof``
+  -consumable sub-proof (``conjunct N of P``, ``apply I to A``, ``expand
+  D in P``, ``replace E in P``, ``symmetric P``, ``transitive P Q``,
+  ``evaluate in P``, ``simplify with G in P``, …) does NOT qualify:
+  the postfix would nest inside that sub-proof instead of wrapping the
+  original ``p``.
+  """
+  if isinstance(p, (PVar, AllElim, AllElimTypes)):
+    return str(p)
+  return '(' + str(p) + ')'
+
+
 @dataclass
 class AllElimTypes(Proof):
   univ: Proof
@@ -329,11 +347,10 @@ class AllElimTypes(Proof):
 
   def __str__(self) -> str:
     s, e = self.pos
-    res = str(self.univ)
     if s == 0:
-      res += f"<{self.arg}"
+      res = _postfix_base_str(self.univ) + f"<{self.arg}"
     else:
-      res += f", {self.arg}"
+      res = str(self.univ) + f", {self.arg}"
 
     if s + 1 == e:
       res += ">"
@@ -354,11 +371,10 @@ class AllElim(Proof):
 
   def __str__(self) -> str:
     s, e = self.pos
-    res = str(self.univ)
     if s == 0:
-      res += f"[{self.arg}"
+      res = _postfix_base_str(self.univ) + f"[{self.arg}"
     else:
-      res += f", {self.arg}"
+      res = str(self.univ) + f", {self.arg}"
 
     if s + 1 == e:
       res += "]"
@@ -795,18 +811,36 @@ class EvaluateFact(Proof):
     return 'evaluate in ' + str(self.subject)
 
 def _proof_tail_is_term_greedy(p: Proof) -> bool:
-  """Whether the printed form of ``p`` ends with a term that can
-  greedily consume following separators or keywords at term-parse
-  level. The canonical case is ``PRecall``'s trailing
-  ``parse_nonempty_term_list`` -- it swallows outer commas across
-  ``recall`` items, and the embedded ``parse_term`` happily reads
-  ``in`` (a compare-level operator) and ``|`` (an add-level operator
-  aliased to ``∪``). Any proof shape that just prepends a keyword to a
-  sub-proof inherits the same greediness when that sub-proof is itself
-  greedy, so recurse through the trailing sub-proof.
+  """Whether the printed form of ``p`` can greedily consume a following
+  ``,`` / ``|`` separator or ``in`` keyword at parse time.
+
+  Two mechanisms produce this. ``PRecall``'s trailing
+  ``parse_nonempty_term_list`` swallows outer commas across ``recall``
+  items, and the embedded ``parse_term`` happily reads ``in`` (a
+  compare-level operator) and ``|`` (an add-level operator aliased to
+  ``∪``). The remaining shapes end with a trailing sub-proof that the
+  parser reads with ``parse_proof()`` — whose ``parse_finishing_proof``
+  layer loops on COMMA to build ``PTuple``s — so ``foo, bar`` gets
+  folded into that inner sub-proof instead of the outer proof list.
+  ``apply I to A, B`` reparsing as one ``ModusPonens`` whose arg is a
+  ``PTuple``, and ``conjunct 0 of prem, X`` reparsing as one
+  ``PAndElim`` whose subject is a ``PTuple``, are both instances.
+
+  Any proof shape that just prepends a keyword to a sub-proof inherits
+  the same greediness when that sub-proof is itself greedy, so recurse
+  through the trailing sub-proof.
   """
   while True:
-    if isinstance(p, PRecall):
+    if isinstance(p, (
+        PRecall,
+        ModusPonens,
+        PAndElim,
+        PAnnot,
+        EvaluateFact,
+        ApplyDefsFact,
+        SimplifyFact,
+        RewriteFact,
+    )):
       return True
     if isinstance(p, PSymmetric):
       p = p.body

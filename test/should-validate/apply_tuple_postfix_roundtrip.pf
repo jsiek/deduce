@@ -1,0 +1,48 @@
+// Regression coverage for the pretty-printer's handling of proof forms
+// whose parse rule ends with a ``parse_proof()`` call — the
+// ``parse_finishing_proof`` layer loops on COMMA to build ``PTuple``s,
+// so an outer comma-list drifts if the item ends in one of these
+// forms without an intervening paren fence. And symmetrically, when an
+// ``AllElim`` postfix (``[...]`` / ``<...>``) is applied to such a
+// form, the postfix nests inside the trailing sub-proof instead of
+// wrapping the original base.
+//
+// Covers #988 categories (b) and (d):
+//   * ``apply f to a, apply g to b`` — ``PTuple([ModusPonens, ModusPonens])``
+//   * ``conjunct 0 of prem, conjunct 1 of prem`` — ``PTuple([PAndElim, PAndElim])``
+//   * ``(conjunct 0 of prem)[x]`` — ``AllElim(PAndElim(...), x)``
+//   * ``(apply IH to h)[k]`` — ``AllElim(ModusPonens, k)`` shape
+
+theorem apply_tuple_roundtrip: all P:bool, Q:bool.
+  if (if P then Q) and (if Q then P) and P and Q
+  then Q and P
+proof
+  arbitrary P:bool, Q:bool
+  assume prem: (if P then Q) and (if Q then P) and P and Q
+  have PQ: if P then Q  by conjunct 0 of prem
+  have QP: if Q then P  by conjunct 1 of prem
+  have hp: P  by conjunct 2 of prem
+  have hq: Q  by conjunct 3 of prem
+  conclude Q and P
+    by (apply PQ to hp), (apply QP to hq)
+end
+
+theorem conjunct_tuple_roundtrip: all P:bool, Q:bool.
+  if P and Q
+  then Q and P
+proof
+  arbitrary P:bool, Q:bool
+  assume prem: P and Q
+  conclude Q and P
+    by (conjunct 1 of prem), (conjunct 0 of prem)
+end
+
+theorem allelim_postfix_of_conjunct: all P: fn bool -> bool, Q: fn bool -> bool.
+  if (all x:bool. P(x)) and (all x:bool. Q(x))
+  then P(true) and Q(false)
+proof
+  arbitrary P: fn bool -> bool, Q: fn bool -> bool
+  assume prem: (all x:bool. P(x)) and (all x:bool. Q(x))
+  conclude P(true) and Q(false)
+    by (conjunct 0 of prem)[true], (conjunct 1 of prem)[false]
+end
