@@ -213,6 +213,7 @@ end
 EXPERIMENTAL_IMPERATIVE_FILES = frozenset({
     "./test/should-error/proc_declarations.pf",
     "./test/should-error/observer_declarations.pf",
+    "./test/should-error/resource_declarations.pf",
 })
 
 
@@ -460,6 +461,11 @@ PARSER_ROUND_TRIP_FILES = (
     # intentional; both parsers must agree on the AST and the pretty-printer
     # must preserve repeated `reads` clauses and the optional body.
     "./test/should-error/observer_declarations.pf",
+    # Parser/AST-only separation-resource declarations (#854 Phase 1h). Checker
+    # rejection is intentional; both parsers must agree on the AST and the
+    # pretty-printer must round-trip the `emp`, `**`, and `|->` connectives and
+    # the `p.f` field-access address form.
+    "./test/should-error/resource_declarations.pf",
     # `import M using ... | operator≲` stored the operator name bare (`≲`),
     # but a using/hiding list only accepts an operator behind the `operator`
     # keyword, so `Import._filter_clause_str` must print `operator ≲`.

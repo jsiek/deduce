@@ -1,0 +1,52 @@
+// Phase 1h (issue #854): separation-resource surface syntax. Parser/AST only
+// -- the checker rejects the first `resource` declaration before any
+// resource-aware proof checking, so this file lives in should-error. The point
+// of the fixture is that every form below PARSES, that the recursive-descent
+// and LALR parsers agree on the AST, and that the pretty-printer round-trips
+// the `emp`, `**`, and `|->` connectives (see PARSER_ROUND_TRIP_FILES).
+
+type Ref<T> = T
+type Cell<T> = T
+
+// A function-application address for a points-to, e.g. `array_cell(a, i) |-> v`.
+fun array_cell(a: bool, i: bool) { a }
+
+// Public resource with a points-to body over a field-access address `p.value`.
+public resource cell<T>(p: Ref<Cell<T>>, v: T) { p.value |-> v }
+
+// Private resource whose body is a separating conjunction of two points-to
+// assertions. `**` is left-associative and binds looser than `|->`, so this is
+// `(p.value |-> x) ** (q.value |-> y)`.
+private resource two_cells<T>(p: Ref<Cell<T>>, q: Ref<Cell<T>>, x: T, y: T) {
+  p.value |-> x ** q.value |-> y
+}
+
+// Opaque resource; body mixes `emp` with an ordinary `if` formula.
+opaque resource maybe_empty(b: bool) { if b then emp else emp }
+
+// Default-visibility resource with a function-application address and `emp`.
+resource header(a: bool, i: bool) { array_cell(a, i) |-> true ** emp }
+
+// Bodyless resources (with and without type parameters).
+resource bodyless(p: bool)
+
+public resource bodyless_generic<T>(p: Ref<Cell<T>>)
+
+// Combinations with ordinary and/or/if formulas. `**` binds tighter than `and`
+// and `or`, so this parses as `((p |-> v) ** emp) and ((v |-> p) or emp)`.
+resource combos(p: bool, v: bool) {
+  (p |-> v ** emp) and (v |-> p or emp)
+}
+
+// Resource formula syntax also appears in ordinary formula positions. These
+// statements parse and uniquify; they are never reached by the checker because
+// the resource declarations above are rejected first.
+assert all p:bool, v:bool. (p |-> v) ** emp
+assert emp
+
+theorem resource_formula_in_theorem:
+  all p:bool, q:bool, x:bool, y:bool.
+  if (p |-> x ** q |-> y) then (q |-> y ** p |-> x)
+proof
+  sorry
+end

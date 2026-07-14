@@ -7,7 +7,7 @@ from abstract_syntax import (
     All, AllElim, AllElimTypes, AllIntro, And, ApplyDefsFact,
     ApplyDefsGoal, ArrayGet, ArrayType, Assert, Associative, Auto,
     Bool, BoolType, Call, Cases, Conditional, Constructor,
-    Define, EvaluateFact, EvaluateGoal, Export, FrameEmpty, FrameField,
+    Define, Emp, EvaluateFact, EvaluateGoal, Export, FieldAccess, FrameEmpty,
     FrameFootprint, FrameTerm, FunCase, FunctionType,
     GenRecFun, Generic, Hole, IfThen, ImpIntro, Import,
     ImpAssert, ImpAssign, ImpAssume, ImpCall, ImpCallExpr, ImpIf, ImpReturn,
@@ -17,11 +17,12 @@ from abstract_syntax import (
     ObserverDecl, Omitted,
     Or, PAndElim, PAnnot, PExtensionality, PHelpUse, PHole, PInjective, PLet,
     PRecall, PReflexive, PSorry, PSymmetric, PTLetNew, PTransitive, PTrue,
-    PTuple, PVar, Pattern, PatternBool, PatternCons, PatternTerm, Postulate,
+    PointsTo, PTuple, PVar, Pattern, PatternBool, PatternCons, PatternTerm,
+    Postulate,
     PostconditionRef, Predicate, Print, ProcDecl, ProcParam, ProcProofEntry,
-    ProcSpec, Proof, RecFun,
+    ProcSpec, Proof, RecFun, ResourceDecl,
     RewriteFact, RewriteGoal, Rule, RuleInduction, RuleInductionCase,
-    RuleInversion, SimplifyFact, SimplifyGoal, Some, SomeElim, SomeIntro,
+    RuleInversion, SepConj, SimplifyFact, SimplifyGoal, Some, SomeElim, SomeIntro,
     Statement, Suffices, Switch, SwitchCase, SwitchProof, SwitchProofCase,
     TAnnote, TLet, Term, TermInst,
     Theorem, Trace, Type, TypeAlias, TypeInst, TypeType, Union, Var, ViewDecl,
@@ -298,6 +299,11 @@ def parse_term_hi() -> Term:
     meta = meta_from_tokens(token, token)
     return Call(meta, None, Var(meta, None, 'empty_set'), [])
 
+  elif token.type == 'EMP':
+    require_experimental_imperative(meta_from_tokens(token, token))
+    advance()
+    return Emp(meta_from_tokens(token, token), None)
+
   elif token.type == 'FUN' or token.type == 'Λ':
     advance()
     type_params = parse_type_parameters()
@@ -493,6 +499,15 @@ def parse_postfix_chain(term: Term, start_token: Token) -> Term:
       except Exception as e:
         raise ParseError(meta_from_tokens(bracket_token, previous_token()),
                          "Unexpected error while parsing:\n\t" + str(e))
+    elif tt == 'FIELDACCESS':
+      # Field access `subject.field` (#854 Phase 1h). The FIELDACCESS token
+      # carries its leading `.`; the field name drops it.
+      require_experimental_imperative(meta_from_tokens(current_token(),
+                                                       current_token()))
+      field = current_token().value[1:]
+      advance()
+      term = FieldAccess(meta_from_tokens(start_token, previous_token()),
+                         None, term, field)
     else:
       break
   return term
@@ -599,9 +614,38 @@ def parse_term_equal() -> Term:
                   Var(meta, None, opr), [term,right])
   return term
 
-def parse_term_logic() -> Term:
+def parse_term_pointsto() -> Term:
+  # `lhs |-> rhs` (experimental imperative layer, #854 Phase 1h).
+  # Non-associative: the operands are equality-level terms, matching the LALR
+  # grammar. A field-access address like `p.f` is an ordinary atomic term
+  # parsed by `parse_postfix_chain`, so no special handling is needed here.
   token = current_token()
   term = parse_term_equal()
+  if (not end_of_file()) and current_token().value == '|->':
+    require_experimental_imperative(meta_from_tokens(current_token(),
+                                                     current_token()))
+    advance()
+    right = parse_term_equal()
+    return PointsTo(meta_from_tokens(token, previous_token()), None,
+                    term, right)
+  return term
+
+def parse_term_sep() -> Term:
+  # Separating conjunction `**`, left-associative (#854 Phase 1h).
+  token = current_token()
+  term = parse_term_pointsto()
+  while (not end_of_file()) and current_token().value == '**':
+    require_experimental_imperative(meta_from_tokens(current_token(),
+                                                     current_token()))
+    advance()
+    right = parse_term_pointsto()
+    term = SepConj(meta_from_tokens(token, previous_token()), None,
+                   term, right)
+  return term
+
+def parse_term_logic() -> Term:
+  token = current_token()
+  term = parse_term_sep()
   while (not end_of_file()) and (current_token().type == 'AND'
                                  or current_token().type == 'OR'):
     opr = current_token().type
@@ -1779,7 +1823,7 @@ def parse_define(visibility: str) -> Statement:
     raise ParseError(meta_from_tokens(start_token, previous_token()), "Unexpected error while parsing:\n\t" \
       + str(e))
 
-def parse_frame_expr() -> FrameTerm | FrameField | FrameFootprint | FrameEmpty:
+def parse_frame_expr() -> FrameTerm | FrameFootprint | FrameEmpty:
   require_experimental_imperative(meta_from_tokens(current_token(), current_token()))
   start = current_token()
   if current_token().type == 'LBRACE':
@@ -1794,15 +1838,12 @@ def parse_frame_expr() -> FrameTerm | FrameField | FrameFootprint | FrameEmpty:
     consume_token('RPAR', 'closing ")"', context='after footprint subject')
     return FrameFootprint(meta_from_tokens(start, previous_token()), subject)
 
+  # A field-access subject like `a.f` is an ordinary term (FieldAccess), so
+  # `parse_term` already consumes it; there is no separate frame-field node.
   subject = parse_term()
-  if not end_of_file() and current_token().type == 'DOT':
-    advance()
-    field = parse_identifier()
-    return FrameField(meta_from_tokens(start, previous_token()),
-                      subject, field)
   return FrameTerm(meta_from_tokens(start, previous_token()), subject)
 
-def parse_frame_list() -> list[FrameTerm | FrameField | FrameFootprint | FrameEmpty]:
+def parse_frame_list() -> list[FrameTerm | FrameFootprint | FrameEmpty]:
   frames = [parse_frame_expr()]
   while not end_of_file() and current_token().type == 'COMMA':
     advance()
@@ -1927,9 +1968,9 @@ def parse_imp_lvalue() -> LValueVar | LValueIndex | LValueField:
     index = parse_term()
     consume_token('RSQB', 'closing "]"', context='after array index of assignment')
     return LValueIndex(meta_from_tokens(start, previous_token()), name, index)
-  if not end_of_file() and current_token().type == 'DOT':
+  if not end_of_file() and current_token().type == 'FIELDACCESS':
+    field = current_token().value[1:]
     advance()
-    field = parse_identifier()
     return LValueField(meta_from_tokens(start, previous_token()), name, field)
   return LValueVar(meta_from_tokens(start, previous_token()), name)
 
@@ -1963,25 +2004,26 @@ def parse_imp_var(ghost: bool) -> ImpVar:
 def parse_imp_proof() -> Proof:
   # Parse the proof supplied after `by` in an imperative proof clause. A
   # qualified call-postcondition reference (`h.valid_post`) is signalled by an
-  # identifier immediately followed by `.`; anything else is an ordinary proof
-  # expression (which also covers a bare proof-slot label, parsed as a `PVar`).
+  # identifier immediately glued to a field access (`.valid_post`, one
+  # FIELDACCESS token); anything else is an ordinary proof expression (which
+  # also covers a bare proof-slot label, parsed as a `PVar`).
   if current_token().type == 'IDENT' and not end_of_file() \
      and current_position + 1 < len(token_list) \
-     and next_token().type == 'DOT':
+     and next_token().type == 'FIELDACCESS':
     start = current_token()
     subject = parse_identifier()
-    consume_token('DOT', '"."', context='in postcondition reference')
-    field = parse_identifier()
+    field = current_token().value[1:]
+    advance()  # consume FIELDACCESS
     return PostconditionRef(meta_from_tokens(start, previous_token()),
                             subject, field)
   return parse_proof(allow_missing=False)
 
-def parse_loop_specs() -> tuple[list[Term], list[FrameTerm | FrameField
+def parse_loop_specs() -> tuple[list[Term], list[FrameTerm
                                                   | FrameFootprint | FrameEmpty],
                                 Optional[Term], Optional[Proof],
                                 Optional[Proof], Optional[Proof]]:
   invariants: list[Term] = []
-  modifies: list[FrameTerm | FrameField | FrameFootprint | FrameEmpty] = []
+  modifies: list[FrameTerm | FrameFootprint | FrameEmpty] = []
   decreases: Optional[Term] = None
   decreases_proof: Optional[Proof] = None
   established: Optional[Proof] = None
@@ -2075,8 +2117,8 @@ def parse_imp_stmt() -> ImpStmt:
   rhs = parse_imp_rhs()
   return ImpAssign(meta_from_tokens(start, previous_token()), lhs, rhs)
 
-def parse_observer_reads_list() -> list[list[FrameTerm | FrameField | FrameFootprint | FrameEmpty]]:
-  clauses: list[list[FrameTerm | FrameField | FrameFootprint | FrameEmpty]] = []
+def parse_observer_reads_list() -> list[list[FrameTerm | FrameFootprint | FrameEmpty]]:
+  clauses: list[list[FrameTerm | FrameFootprint | FrameEmpty]] = []
   while not end_of_file() and current_token().value == 'reads':
     require_experimental_imperative(
         meta_from_tokens(current_token(), current_token()))
@@ -2105,12 +2147,29 @@ def parse_observer_decl(visibility: str) -> Statement:
                       typarams, params, return_type, reads, body,
                       visibility=visibility)
 
+def parse_resource_decl(visibility: str) -> Statement:
+  require_experimental_imperative(meta_from_tokens(current_token(), current_token()))
+  start = current_token()
+  advance()
+  name = parse_identifier()
+  typarams = parse_type_parameters()
+  consume_token('LPAR', '"("', context='after resource name')
+  params = parse_proc_param_list()
+  consume_token('RPAR', '")"', context='after resource parameters')
+  body = None
+  if not end_of_file() and current_token().type == 'LBRACE':
+    advance()
+    body = parse_term()
+    consume_token('RBRACE', '"}"', context='after resource body')
+  return ResourceDecl(meta_from_tokens(start, previous_token()), name,
+                      typarams, params, body, visibility=visibility)
+
 statement_keywords = {'assert', 'define', 'import', 'inductive', 'object',
                       'observer',
                       'print',
                       'theorem', 'lemma', 'postulate', 'predicate', 'recursive',
                       'relation', 'fun', 'trace', 'type', 'union', 'view',
-                      'proc'}
+                      'proc', 'resource'}
 
 def parse_statement() -> Statement:
   if end_of_file():
@@ -2149,6 +2208,9 @@ def parse_statement() -> Statement:
 
   elif token.type == 'OBSERVER':
     return parse_observer_decl(visibility)
+
+  elif token.type == 'RESOURCE':
+    return parse_resource_decl(visibility)
 
   elif token.type == 'PREDICATE':
     return parse_predicate(visibility, 'predicate')

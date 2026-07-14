@@ -1921,6 +1921,66 @@ class IfThen(Formula):
       print('reduce ' + str(self) + '\n\t==> ' + str(ret))
     return ret
 
+################ Resource (separation-logic) formulas ###########
+#
+# Parser/AST only (experimental imperative layer, issue #854 Phase 1h).
+# These nodes carry the separation-resource surface syntax -- `emp`, the
+# separating conjunction `P ** Q`, the points-to `lhs |-> rhs`, and the
+# field-access address form `p.f` used on the left of a points-to. They
+# are gated behind `--experimental-imperative` at parse time and rejected
+# before proof checking; there is no ownership accounting, separating-
+# conjunction proof rule, or resource folding here. The default `uniquify`
+# / `substitute` / `reduce` walkers recurse into the ordinary `Term`
+# subparts, so bound variables inside a resource formula still resolve.
+
+@dataclass
+class FieldAccess(Term):
+  # `subject.field`, only reachable as the address of a points-to today.
+  subject: Term
+  field: str
+
+  def __str__(self) -> str:
+    return str(self.subject) + '.' + base_name(self.field)
+
+@dataclass
+class Emp(Formula):
+  # The empty-heap resource assertion, written `emp`.
+
+  def __eq__(self, other: object) -> bool:
+    return isinstance(other, Emp)
+
+  def __str__(self) -> str:
+    return 'emp'
+
+@dataclass
+class PointsTo(Formula):
+  # `address |-> value`: the single-cell resource assertion.
+  address: Term
+  value: Term
+
+  def __eq__(self, other: object) -> bool:
+    if not isinstance(other, PointsTo):
+      return False
+    return self.address == other.address and self.value == other.value
+
+  def __str__(self) -> str:
+    return '(' + str(self.address) + ' |-> ' + str(self.value) + ')'
+
+@dataclass
+class SepConj(Formula):
+  # `left ** right`: separating conjunction. Left-associative, so
+  # `a ** b ** c` nests as `SepConj(SepConj(a, b), c)`.
+  left: Formula
+  right: Formula
+
+  def __eq__(self, other: object) -> bool:
+    if not isinstance(other, SepConj):
+      return False
+    return self.left == other.left and self.right == other.right
+
+  def __str__(self) -> str:
+    return '(' + str(self.left) + ' ** ' + str(self.right) + ')'
+
 @dataclass
 class All(Formula):
   var: Tuple[str,Type]
