@@ -27,7 +27,6 @@ flag. The exceptions are noted per-section.
 ```deduce-grammar
 frame_expr ::= "{" "}"
 frame_expr ::= "footprint" "(" term ")"
-frame_expr ::= term "." identifier
 frame_expr ::= term
 frame_list ::= frame_expr
 frame_list ::= frame_expr "," frame_list
@@ -184,8 +183,8 @@ imp_rhs ::= "call" term
 imp_rhs ::= "call" term "as" identifier
 imp_lvalue ::= identifier
 imp_lvalue ::= identifier "[" term "]"
-imp_lvalue ::= identifier "." identifier
-imp_proof ::= IDENT "." identifier
+imp_lvalue ::= identifier FIELDACCESS
+imp_proof ::= IDENT FIELDACCESS
 imp_proof ::= proof
 loop_spec_list ::= ε
 loop_spec_list ::= loop_spec loop_spec_list
