@@ -396,6 +396,14 @@ identifier: IDENT              -> identifier
 ?proc_spec_list:                                   -> empty
     | proc_spec proc_spec_list                     -> push
 
+?proc_proof_opt:                                   -> empty
+    | "proof" proc_proof_entry_list "end"          -> proc_proof
+
+?proc_proof_entry_list: proc_proof_entry           -> single
+    | proc_proof_entry proc_proof_entry_list       -> push
+
+proc_proof_entry: identifier "{" proof "}"         -> proc_proof_entry
+
 ?observer_reads: "reads" frame_list                -> observer_reads
 
 ?observer_reads_list:                              -> empty
@@ -413,23 +421,41 @@ imp_block: "{" imp_stmt_list "}"                   -> imp_block
     | identifier "[" term "]"                      -> lvalue_index
     | identifier "." identifier                    -> lvalue_field
 
+// The proof supplied after `by` in an imperative proof clause: either a
+// qualified call-postcondition reference (`h.valid_post`) or an ordinary
+// proof expression (which also covers a bare proof-slot label).
+?imp_proof: IDENT "." identifier                   -> post_ref
+    | proof
+
+// A `var`/assignment right-hand side: a labelled call expression or a term.
+?imp_rhs: "call" term "as" identifier              -> call_rhs_as
+    | "call" term                                  -> call_rhs
+    | term
+
 ?loop_spec: "invariant" term                       -> loop_invariant
     | "modifies" frame_list                        -> loop_modifies
+    | "established" "by" imp_proof                  -> loop_established
+    | "preserved" "by" imp_proof                   -> loop_preserved
+    | "decreases" term "by" imp_proof              -> loop_decreases_by
     | "decreases" term                             -> loop_decreases
 
 ?loop_spec_list:                                   -> empty
     | loop_spec loop_spec_list                     -> push
 
-?imp_stmt: "var" identifier ":" type ":=" term     -> imp_var_annot
-    | "var" identifier ":=" term                   -> imp_var
-    | "ghost" "var" identifier ":" type ":=" term  -> imp_ghost_var_annot
-    | "ghost" "var" identifier ":=" term           -> imp_ghost_var
-    | imp_lvalue ":=" term                          -> imp_assign
+?imp_stmt: "var" identifier ":" type ":=" imp_rhs  -> imp_var_annot
+    | "var" identifier ":=" imp_rhs                -> imp_var
+    | "ghost" "var" identifier ":" type ":=" imp_rhs -> imp_ghost_var_annot
+    | "ghost" "var" identifier ":=" imp_rhs        -> imp_ghost_var
+    | imp_lvalue ":=" imp_rhs                       -> imp_assign
     | "if" term imp_block "else" imp_block          -> imp_if_else
     | "if" term imp_block                           -> imp_if
     | "while" term loop_spec_list imp_block         -> imp_while
+    | "assert" term "by" imp_proof                  -> imp_assert_by
     | "assert" term                                 -> imp_assert
     | "assume" term                                 -> imp_assume
+    | "call" term "as" identifier "by" imp_proof    -> imp_call_as_by
+    | "call" term "as" identifier                   -> imp_call_as
+    | "call" term "by" imp_proof                    -> imp_call_by
     | "call" term                                   -> imp_call
     | "return" term                                 -> imp_return
 
@@ -444,7 +470,7 @@ imp_block: "{" imp_stmt_list "}"                   -> imp_block
  | visibility "recursive" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> recursive_function
  | visibility "fun" identifier type_params_opt "(" variable_list ")" "{" term "}" -> fun
  | visibility "recfun" identifier type_params_opt "(" variable_list ")" "->" type "measure" term "of" type "{" term "}" "terminates" proof -> general_recursive_function
- | visibility "proc" identifier type_params_opt "(" proc_param_list ")" proc_return_opt proc_spec_list imp_block -> proc_decl
+ | visibility "proc" identifier type_params_opt "(" proc_param_list ")" proc_return_opt proc_spec_list imp_block proc_proof_opt -> proc_decl
  | visibility "observer" identifier type_params_opt "(" proc_param_list ")" "->" type observer_reads_list observer_body_opt -> observer_decl
  | visibility "view" IDENT type_params_opt "{" "source" type "target" type "into" identifier "out" identifier "roundtrip" identifier view_inverse_opt "}" -> view_declaration
  | definition

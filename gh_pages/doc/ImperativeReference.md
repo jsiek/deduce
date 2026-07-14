@@ -113,7 +113,7 @@ rejects them until the imperative verifier exists.
 ## Procedure (Statement)
 
 ```deduce-grammar
-statement ::= visibility "proc" identifier type_params_opt "(" proc_param_list ")" proc_return_opt proc_spec_list imp_block
+statement ::= visibility "proc" identifier type_params_opt "(" proc_param_list ")" proc_return_opt proc_spec_list imp_block proc_proof_opt
 proc_param_list ::= ε
 proc_param_list ::= proc_param
 proc_param_list ::= proc_param "," proc_param_list
@@ -163,26 +163,38 @@ clauses use the [Frame Expression](#frame-expression) grammar.
 imp_block ::= "{" imp_stmt_list "}"
 imp_stmt_list ::= ε
 imp_stmt_list ::= imp_stmt imp_stmt_list
-imp_stmt ::= "var" identifier ":" type ":=" term
-imp_stmt ::= "var" identifier ":=" term
-imp_stmt ::= "ghost" "var" identifier ":" type ":=" term
-imp_stmt ::= "ghost" "var" identifier ":=" term
-imp_stmt ::= imp_lvalue ":=" term
+imp_stmt ::= "var" identifier ":" type ":=" imp_rhs
+imp_stmt ::= "var" identifier ":=" imp_rhs
+imp_stmt ::= "ghost" "var" identifier ":" type ":=" imp_rhs
+imp_stmt ::= "ghost" "var" identifier ":=" imp_rhs
+imp_stmt ::= imp_lvalue ":=" imp_rhs
 imp_stmt ::= "if" term imp_block "else" imp_block
 imp_stmt ::= "if" term imp_block
 imp_stmt ::= "while" term loop_spec_list imp_block
 imp_stmt ::= "assert" term
+imp_stmt ::= "assert" term "by" imp_proof
 imp_stmt ::= "assume" term
 imp_stmt ::= "call" term
+imp_stmt ::= "call" term "as" identifier
+imp_stmt ::= "call" term "by" imp_proof
+imp_stmt ::= "call" term "as" identifier "by" imp_proof
 imp_stmt ::= "return" term
+imp_rhs ::= term
+imp_rhs ::= "call" term
+imp_rhs ::= "call" term "as" identifier
 imp_lvalue ::= identifier
 imp_lvalue ::= identifier "[" term "]"
 imp_lvalue ::= identifier "." identifier
+imp_proof ::= IDENT "." identifier
+imp_proof ::= proof
 loop_spec_list ::= ε
 loop_spec_list ::= loop_spec loop_spec_list
 loop_spec ::= "invariant" term
 loop_spec ::= "modifies" frame_list
+loop_spec ::= "established" "by" imp_proof
+loop_spec ::= "preserved" "by" imp_proof
 loop_spec ::= "decreases" term
+loop_spec ::= "decreases" term "by" imp_proof
 ```
 
 A procedure body is a brace-delimited sequence of imperative
@@ -192,10 +204,40 @@ assignment target is a local variable, a mutable array cell `a[i]`, or a
 field `p.f`. An imperative `if` uses braces rather than the `then`/`else`
 of the pure `if` term, so pure conditional terms are unaffected inside a
 procedure body. A `while` loop carries repeated `invariant`, `modifies`,
-and `decreases` annotations before its body. The `assert`, `assume`,
-`call`, and `return` statements take an ordinary term or formula. Proof
-clauses on these constructs (for example `assert P by p`) are a later
-parser phase and are not accepted yet.
+`established by`, `preserved by`, and `decreases` annotations before its
+body. The `assert`, `assume`, `call`, and `return` statements take an
+ordinary term or formula.
+
+### Proof clauses, proof slots, and call labels
+
+Verification points may carry an explicit proof after `by`: `assert P by
+p`, `call f(args) by p`, and a loop's `established by p`, `preserved by
+q`, and `decreases d by r`. A proof clause (`imp_proof`) is either an
+ordinary Deduce proof expression — which also covers a bare proof-slot
+label such as `loop_init` — or a qualified call-postcondition reference
+such as `h.valid_post`.
+
+A `call` may bind a call label with `as h`, exposing the callee's
+labelled postconditions as `h.<label>` facts for later proof clauses. A
+call used as a `var`/assignment right-hand side (`var x := call f(args)
+as h`) may bind a label the same way.
+
+Long proofs move out of line into a procedure's optional `proof ... end`
+block, one `label { proof }` entry per proof slot named by a `by label`
+clause:
+
+```deduce-grammar
+statement ::= visibility "proc" identifier type_params_opt "(" proc_param_list ")" proc_return_opt proc_spec_list imp_block proc_proof_opt
+proc_proof_opt ::= ε
+proc_proof_opt ::= "proof" proc_proof_entry_list "end"
+proc_proof_entry_list ::= proc_proof_entry
+proc_proof_entry_list ::= proc_proof_entry proc_proof_entry_list
+proc_proof_entry ::= identifier "{" proof "}"
+```
+
+This is parser/AST only: proof-slot goal generation, ambiguity checking
+between theorem names and slot labels, and tying `h.valid_post` to a
+call label all land with the verifier in a later phase.
 
 <!--
 ```{.deduce^file=ImperativeReference.pf}

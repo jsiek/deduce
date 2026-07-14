@@ -40,3 +40,47 @@ private proc no_return(x: bool)
 opaque proc hidden()
 {
 }
+
+// Proof clauses, proof slots, and call labels (Phase 1e). Parser/AST only;
+// the checker still rejects the procedure above before reaching this one.
+proc driver(n: bool)
+  requires n = n
+  ensures n = n
+{
+  var flag : bool := n
+  var got := call identity(flag, flag) as hcall
+  got := call identity(n, n)
+  call no_return(flag) as hn
+  call no_return(flag) by trivial_call
+  call no_return(flag) as hn2 by hn.done_post
+  while flag = n
+    invariant flag = flag
+    established by loop_start
+    preserved by loop_keep[n]
+    decreases n by loop_dec
+  {
+    call no_return(flag)
+    flag := n
+  }
+  assert flag = flag by loop_done
+  assert n = n by .
+  assert n = n by hcall.result_post
+}
+proof
+  loop_start {
+    .
+  }
+  loop_keep {
+    arbitrary x:bool
+    .
+  }
+  loop_dec {
+    .
+  }
+  loop_done {
+    .
+  }
+  trivial_call {
+    .
+  }
+end

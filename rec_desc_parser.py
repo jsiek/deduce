@@ -10,15 +10,16 @@ from abstract_syntax import (
     Define, EvaluateFact, EvaluateGoal, Export, FrameEmpty, FrameField,
     FrameFootprint, FrameTerm, FunCase, FunctionType,
     GenRecFun, Generic, Hole, IfThen, ImpIntro, Import,
-    ImpAssert, ImpAssign, ImpAssume, ImpCall, ImpIf, ImpReturn, ImpStmt,
-    ImpVar, ImpWhile, LValueField, LValueIndex, LValueVar,
+    ImpAssert, ImpAssign, ImpAssume, ImpCall, ImpCallExpr, ImpIf, ImpReturn,
+    ImpStmt, ImpVar, ImpWhile, LValueField, LValueIndex, LValueVar,
     IndCase, Induction, Inductive, Lambda, MakeArray, Mark,
     Module, ModusPonens, MutableArrayType, ObjectDecl, ObjectField,
     ObserverDecl, Omitted,
     Or, PAndElim, PAnnot, PExtensionality, PHelpUse, PHole, PInjective, PLet,
     PRecall, PReflexive, PSorry, PSymmetric, PTLetNew, PTransitive, PTrue,
     PTuple, PVar, Pattern, PatternBool, PatternCons, PatternTerm, Postulate,
-    Predicate, Print, ProcDecl, ProcParam, ProcSpec, Proof, RecFun,
+    PostconditionRef, Predicate, Print, ProcDecl, ProcParam, ProcProofEntry,
+    ProcSpec, Proof, RecFun,
     RewriteFact, RewriteGoal, Rule, RuleInduction, RuleInductionCase,
     RuleInversion, SimplifyFact, SimplifyGoal, Some, SomeElim, SomeIntro,
     Statement, Suffices, Switch, SwitchCase, SwitchProof, SwitchProofCase,
@@ -1885,8 +1886,30 @@ def parse_proc_decl(visibility: str) -> Statement:
     return_type = parse_type()
   specs = parse_proc_specs()
   body = parse_imp_block(context='after proc header and specs')
+  proof_block = parse_proc_proof_block()
   return ProcDecl(meta_from_tokens(start, previous_token()), name, typarams,
-                  params, return_type, specs, body, visibility=visibility)
+                  params, return_type, specs, body, proof_block,
+                  visibility=visibility)
+
+def parse_proc_proof_entry() -> ProcProofEntry:
+  start = current_token()
+  label = parse_identifier()
+  consume_token('LBRACE', '"{"', context='after proof-slot label')
+  proof = parse_proof()
+  consume_token('RBRACE', '"}"', context='at end of proof-slot body')
+  return ProcProofEntry(meta_from_tokens(start, previous_token()), label, proof)
+
+def parse_proc_proof_block() -> list[ProcProofEntry]:
+  # Optional out-of-line `proof <entry>* end` block after a proc body. Each
+  # entry is `label { proof }`.
+  if end_of_file() or current_token().type != 'PROOF':
+    return []
+  advance()  # consume "proof"
+  entries: list[ProcProofEntry] = []
+  while not end_of_file() and current_token().type != 'END':
+    entries.append(parse_proc_proof_entry())
+  consume_token('END', '"end"', context='at end of proc proof block')
+  return entries
 
 def parse_imp_block(context: str) -> list[ImpStmt]:
   consume_token('LBRACE', '"{"', context=context)
@@ -1910,6 +1933,20 @@ def parse_imp_lvalue() -> LValueVar | LValueIndex | LValueField:
     return LValueField(meta_from_tokens(start, previous_token()), name, field)
   return LValueVar(meta_from_tokens(start, previous_token()), name)
 
+def parse_imp_rhs() -> Term | ImpCallExpr:
+  # A `var`/assignment right-hand side is either a `call f(..)` expression
+  # (optionally labelled with `as h`) or an ordinary term.
+  if current_token().value == 'call':
+    start = current_token()
+    advance()
+    call = parse_term()
+    label = None
+    if not end_of_file() and current_token().type == 'AS':
+      advance()
+      label = parse_identifier()
+    return ImpCallExpr(meta_from_tokens(start, previous_token()), call, label)
+  return parse_term()
+
 def parse_imp_var(ghost: bool) -> ImpVar:
   start = current_token()
   advance()  # consume "var"
@@ -1919,27 +1956,57 @@ def parse_imp_var(ghost: bool) -> ImpVar:
     advance()
     type_annot = parse_type()
   consume_token('ASSIGN', '":="', context='after variable name of "var"')
-  rhs = parse_term()
+  rhs = parse_imp_rhs()
   return ImpVar(meta_from_tokens(start, previous_token()), name, type_annot,
                 rhs, ghost)
 
+def parse_imp_proof() -> Proof:
+  # Parse the proof supplied after `by` in an imperative proof clause. A
+  # qualified call-postcondition reference (`h.valid_post`) is signalled by an
+  # identifier immediately followed by `.`; anything else is an ordinary proof
+  # expression (which also covers a bare proof-slot label, parsed as a `PVar`).
+  if current_token().type == 'IDENT' and not end_of_file() \
+     and current_position + 1 < len(token_list) \
+     and next_token().type == 'DOT':
+    start = current_token()
+    subject = parse_identifier()
+    consume_token('DOT', '"."', context='in postcondition reference')
+    field = parse_identifier()
+    return PostconditionRef(meta_from_tokens(start, previous_token()),
+                            subject, field)
+  return parse_proof(allow_missing=False)
+
 def parse_loop_specs() -> tuple[list[Term], list[FrameTerm | FrameField
                                                   | FrameFootprint | FrameEmpty],
-                                Optional[Term]]:
+                                Optional[Term], Optional[Proof],
+                                Optional[Proof], Optional[Proof]]:
   invariants: list[Term] = []
   modifies: list[FrameTerm | FrameField | FrameFootprint | FrameEmpty] = []
   decreases: Optional[Term] = None
+  decreases_proof: Optional[Proof] = None
+  established: Optional[Proof] = None
+  preserved: Optional[Proof] = None
   while not end_of_file() and current_token().value in (
-      'invariant', 'modifies', 'decreases'):
+      'invariant', 'modifies', 'decreases', 'established', 'preserved'):
     keyword = current_token().value
     advance()
     if keyword == 'invariant':
       invariants.append(parse_term())
     elif keyword == 'modifies':
       modifies.extend(parse_frame_list())
+    elif keyword == 'established':
+      consume_token('BY', '"by"', context='after "established"')
+      established = parse_imp_proof()
+    elif keyword == 'preserved':
+      consume_token('BY', '"by"', context='after "preserved"')
+      preserved = parse_imp_proof()
     else:
       decreases = parse_term()
-  return invariants, modifies, decreases
+      if not end_of_file() and current_token().type == 'BY':
+        advance()
+        decreases_proof = parse_imp_proof()
+  return invariants, modifies, decreases, established, preserved, \
+      decreases_proof
 
 def parse_imp_stmt() -> ImpStmt:
   require_experimental_imperative(
@@ -1970,25 +2037,42 @@ def parse_imp_stmt() -> ImpStmt:
   if tok.value == 'while':
     advance()
     cond = parse_term()
-    invariants, modifies, decreases = parse_loop_specs()
+    invariants, modifies, decreases, established, preserved, decreases_proof \
+        = parse_loop_specs()
     body = parse_imp_block(context='after "while" loop header')
     return ImpWhile(meta_from_tokens(start, previous_token()), cond,
-                    invariants, modifies, decreases, body)
+                    invariants, modifies, decreases, body, established,
+                    preserved, decreases_proof)
   if tok.value == 'assert':
     advance()
-    return ImpAssert(meta_from_tokens(start, previous_token()), parse_term())
+    formula = parse_term()
+    proof = None
+    if not end_of_file() and current_token().type == 'BY':
+      advance()
+      proof = parse_imp_proof()
+    return ImpAssert(meta_from_tokens(start, previous_token()), formula, proof)
   if tok.value == 'assume':
     advance()
     return ImpAssume(meta_from_tokens(start, previous_token()), parse_term())
   if tok.value == 'call':
     advance()
-    return ImpCall(meta_from_tokens(start, previous_token()), parse_term())
+    call = parse_term()
+    label = None
+    if not end_of_file() and current_token().type == 'AS':
+      advance()
+      label = parse_identifier()
+    proof = None
+    if not end_of_file() and current_token().type == 'BY':
+      advance()
+      proof = parse_imp_proof()
+    return ImpCall(meta_from_tokens(start, previous_token()), call, label,
+                   proof)
   if tok.value == 'return':
     advance()
     return ImpReturn(meta_from_tokens(start, previous_token()), parse_term())
   lhs = parse_imp_lvalue()
   consume_token('ASSIGN', '":="', context='after assignment target')
-  rhs = parse_term()
+  rhs = parse_imp_rhs()
   return ImpAssign(meta_from_tokens(start, previous_token()), lhs, rhs)
 
 def parse_observer_reads_list() -> list[list[FrameTerm | FrameField | FrameFootprint | FrameEmpty]]:
