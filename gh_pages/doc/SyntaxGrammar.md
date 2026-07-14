@@ -25,8 +25,9 @@ A deduce file contains a list of statements. Each statement can be one of:
 10. [Print](./Reference.md#print-statement)
 
 Deduce also has an experimental imperative surface — `proc`,
-`observer`, `object`, mutable arrays `[T]!`, and frame expressions —
-documented separately in the
+`observer`, `object`, `resource`, mutable arrays `[T]!`, imperative
+procedure bodies with proof slots, and separation-resource formulas
+(`emp`, `**`, `|->`) — documented separately in the
 [Experimental Imperative Reference](./ImperativeReference.md). Those
 forms are parser/AST only today and most require
 `--experimental-imperative`.

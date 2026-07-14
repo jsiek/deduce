@@ -1,14 +1,14 @@
-const prims = ['(?:[0-9])+', 'true', 'false', '∅', '\\.0\\.', '0']
+const prims = ['(?:[0-9])+', 'true', 'false', '∅', '\\.0\\.', 'emp', '0']
 
 const whitespaces = ['(?:[ \t\x0c\r\n])+']
 
 const types = ['fn', 'bool', 'type']
 
-const keywords = ['[ℕ](?:[0-9])+', '[\\-\\+∸*%&equals;≠&lt;&gt;≤≥&amp;∘∪∩⊆∈⨄⊝\\^≲≈]', 'and', 'or', 'in', 'case', 'not', 'fun', 'generic', 'switch', 'all', 'some', 'define', 'if', 'then', 'else', 'suppose', 'assume', 'by', 'proof', 'end', 'conclude', 'apply', 'to', 'contradict', 'conjunct', 'of', 'cases', 'induction', 'rule', 'inversion', 'expand', 'replace', 'evaluate', 'simplify', 'for', 'equations', 'recall', 'reflexive', 'symmetric', 'transitive', 'help', 'sorry', 'with', 'arbitrary', 'choose', 'show', 'extensionality', 'have', 'injective', 'obtain', 'where', 'from', 'stop', 'suffices', 'theorem', 'lemma', 'postulate', 'public', 'private', 'opaque', 'union', 'predicate', 'relation', 'recursive', 'recfun', 'view', 'source', 'target', 'into', 'out', 'roundtrip', 'measure', 'terminates', 'import', 'using', 'hiding', 'export', 'assert', 'print', 'associative', 'auto', 'module', 'trace', 'inductive']
+const keywords = ['[ℕ](?:[0-9])+', '[\\-\\+∸*%&equals;≠&lt;&gt;≤≥&amp;∘∪∩⊆∈⨄⊝\\^≲≈]', 'and', 'or', 'in', 'case', 'not', 'fun', 'generic', 'switch', 'all', 'some', 'define', 'if', 'then', 'else', 'suppose', 'assume', 'by', 'proof', 'end', 'conclude', 'apply', 'to', 'contradict', 'conjunct', 'of', 'cases', 'induction', 'rule', 'inversion', 'expand', 'replace', 'evaluate', 'simplify', 'for', 'equations', 'recall', 'reflexive', 'symmetric', 'transitive', 'help', 'sorry', 'with', 'arbitrary', 'choose', 'show', 'extensionality', 'have', 'injective', 'obtain', 'where', 'from', 'stop', 'suffices', 'theorem', 'lemma', 'postulate', 'public', 'private', 'opaque', 'union', 'predicate', 'relation', 'recursive', 'recfun', 'view', 'source', 'target', 'into', 'out', 'roundtrip', 'measure', 'terminates', 'import', 'using', 'hiding', 'export', 'assert', 'print', 'associative', 'auto', 'module', 'trace', 'inductive', 'object', 'proc', 'observer', 'resource', 'ghost', 'var', 'requires', 'ensures', 'reads', 'modifies', 'footprint', 'invariant', 'decreases', 'established', 'preserved', 'while', 'call', 'as', 'return', 'new', 'inverse']
 
 const idents = ["(?:[A-Z]|[a-z]|_)(?:(?:[₀₁₂₃₄₅₆₇₈₉!?']|[A-Z]|[a-z]|[0-9]|_))*"]
 
-const operators = ['\\-&gt;', 'iff', '&lt;&equals;&gt;', '⇔', ':', '&equals;', '≠', '&sol;&equals;', '&lt;', '&gt;', '≤', '&lt;&equals;', '≥', '&gt;&equals;', '⊆', '\\(&equals;', '∈', '≲', '≈', '\\+', '∪', '\\|', '∩', '\\&amp;', '⨄', '\\.\\+\\.', '\\+\\+', '\\-', '∸', '\\.\\-\\.', '⊝', '&sol;', '%', '\\*', '∘', '\\.o\\.', '\\^', '\\{', '\\}', 'operator', '@', 'array', '\\(', '\\)', '\\[', '\\]', 'λ', '\\.', '&semi;', '\\?', '─', '__', '\\#', ',', '\\.\\.\\.', '\\$']
+const operators = ['\\-&gt;', 'iff', '&lt;&equals;&gt;', '⇔', ':', '&equals;', '≠', '&sol;&equals;', '&lt;', '&gt;', '≤', '&lt;&equals;', '≥', '&gt;&equals;', '⊆', '\\(&equals;', '∈', '≲', '≈', '\\+', '∪', '\\|', '∩', '\\&amp;', '⨄', '\\.\\+\\.', '\\+\\+', '\\-', '∸', '\\.\\-\\.', '⊝', '&sol;', '%', '\\*', '∘', '\\.o\\.', '\\^', '\\{', '\\}', 'operator', '@', 'array', '\\(', '\\)', '\\[', '\\]', 'λ', '\\.', '&semi;', '\\?', '─', '__', '\\#', ',', '\\.\\.\\.', '\\$', '!', '\\*\\*', '\\|\\-&gt;', ':&equals;']
 
 const comments = ['&sol;&sol;[^\n]*', '\\&sol;\\*(\\*(?!\\&sol;)|[^*])*\\*\\&sol;']
 
