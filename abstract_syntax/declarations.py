@@ -137,6 +137,24 @@ def _pretty_block(stmts: List['ImpStmt'], indent: int) -> str:
   return '{\n' + lines + '\n' + indent * ' ' + '}'
 
 @dataclass
+class PostconditionRef(Proof):
+  # A qualified call-postcondition reference such as `h.valid_post`, used
+  # inside a proof clause (`by h.valid_post`). `subject` is a prior call
+  # label (`call f(..) as h`) and `field` names one of the callee's
+  # labelled postconditions. Parser/AST only: the names are not resolved
+  # here -- tying `subject` to its call label and `field` to a labelled
+  # postcondition is a later verifier phase. The default `_map_children`
+  # uniquify leaves both (plain string) fields untouched.
+  subject: str
+  field: str
+
+  def pretty_print(self, indent: int) -> str:
+    return base_name(self.subject) + '.' + base_name(self.field)
+
+  def __str__(self) -> str:
+    return base_name(self.subject) + '.' + base_name(self.field)
+
+@dataclass
 class ImpStmt(AST):
   def pretty_print(self, indent: int) -> str:
     return indent * ' ' + str(self)
@@ -165,10 +183,24 @@ class LValueField(AST):
     return base_name(self.subject) + '.' + base_name(self.field)
 
 @dataclass
+class ImpCallExpr(AST):
+  # A `call f(args)` used as the right-hand side of a `var`/assignment,
+  # optionally introducing a call label with `as h`. Distinct from the
+  # `ImpCall` statement form: this one produces a value.
+  call: Term
+  label: Optional[str] = None
+
+  def __str__(self) -> str:
+    result = 'call ' + str(self.call)
+    if self.label is not None:
+      result += ' as ' + base_name(self.label)
+    return result
+
+@dataclass
 class ImpVar(ImpStmt):
   name: str
   type_annot: Optional[Type]
-  rhs: Term
+  rhs: Term | ImpCallExpr
   ghost: bool = False
 
   def __str__(self) -> str:
@@ -179,7 +211,7 @@ class ImpVar(ImpStmt):
 @dataclass
 class ImpAssign(ImpStmt):
   lhs: LValueVar | LValueIndex | LValueField
-  rhs: Term
+  rhs: Term | ImpCallExpr
 
   def __str__(self) -> str:
     return str(self.lhs) + ' := ' + str(self.rhs)
@@ -208,6 +240,9 @@ class ImpWhile(ImpStmt):
   modifies: List[FrameExpr]
   decreases: Optional[Term]
   body: List['ImpStmt']
+  established: Optional[Proof] = None
+  preserved: Optional[Proof] = None
+  decreases_proof: Optional[Proof] = None
 
   def pretty_print(self, indent: int) -> str:
     pad = indent * ' '
@@ -218,8 +253,15 @@ class ImpWhile(ImpStmt):
     if self.modifies:
       lines.append(spec_pad + 'modifies '
                    + ', '.join(str(f) for f in self.modifies))
+    if self.established is not None:
+      lines.append(spec_pad + 'established by ' + str(self.established))
+    if self.preserved is not None:
+      lines.append(spec_pad + 'preserved by ' + str(self.preserved))
     if self.decreases is not None:
-      lines.append(spec_pad + 'decreases ' + str(self.decreases))
+      decreases_line = spec_pad + 'decreases ' + str(self.decreases)
+      if self.decreases_proof is not None:
+        decreases_line += ' by ' + str(self.decreases_proof)
+      lines.append(decreases_line)
     header = '\n'.join(lines)
     return header + '\n' + pad + _pretty_block(self.body, indent)
 
@@ -229,9 +271,13 @@ class ImpWhile(ImpStmt):
 @dataclass
 class ImpAssert(ImpStmt):
   formula: Term
+  proof: Optional[Proof] = None
 
   def __str__(self) -> str:
-    return 'assert ' + str(self.formula)
+    result = 'assert ' + str(self.formula)
+    if self.proof is not None:
+      result += ' by ' + str(self.proof)
+    return result
 
 @dataclass
 class ImpAssume(ImpStmt):
@@ -243,9 +289,16 @@ class ImpAssume(ImpStmt):
 @dataclass
 class ImpCall(ImpStmt):
   call: Term
+  label: Optional[str] = None
+  proof: Optional[Proof] = None
 
   def __str__(self) -> str:
-    return 'call ' + str(self.call)
+    result = 'call ' + str(self.call)
+    if self.label is not None:
+      result += ' as ' + base_name(self.label)
+    if self.proof is not None:
+      result += ' by ' + str(self.proof)
+    return result
 
 @dataclass
 class ImpReturn(ImpStmt):
@@ -271,13 +324,33 @@ def _uniquify_lvalue(lv: LValueVar | LValueIndex | LValueField,
     return LValueField(lv.location, _resolve_local(lv.subject, env), lv.field)
   return LValueVar(lv.location, _resolve_local(lv.name, env))
 
+def _uniquify_imp_rhs(rhs: Term | ImpCallExpr, env: UniquifyEnv,
+                      ctx: UniquifyContext) -> Term | ImpCallExpr:
+  # A `var`/assignment right-hand side is either an ordinary term or a
+  # `call f(..) as h` expression. For the call form, resolve the call
+  # term's subparts but leave the label as-is (see the proof-clause note
+  # in `ProcDecl.uniquify`).
+  if isinstance(rhs, ImpCallExpr):
+    return ImpCallExpr(rhs.location, rhs.call.uniquify(env, ctx), rhs.label)
+  return rhs.uniquify(env, ctx)
+
+def _uniquify_imp_proof(proof: Optional[Proof], env: UniquifyEnv,
+                        ctx: UniquifyContext) -> Optional[Proof]:
+  # A `by` proof clause. Uniquify it so its embedded term/type subparts are
+  # resolved (no pre-uniquify `Var` may survive). Bare proof-slot labels
+  # resolve because `ProcDecl.uniquify` pre-binds the out-of-line proof-block
+  # labels; `PostconditionRef` (`h.valid_post`) carries plain-string names
+  # that the default walker leaves alone -- tying them to a call label is a
+  # later verifier phase.
+  return proof.uniquify(env, ctx) if proof is not None else None
+
 def _uniquify_imp_stmt(s: ImpStmt, env: UniquifyEnv,
                        ctx: UniquifyContext) -> ImpStmt:
   # `env` is the enclosing block's environment; a `var` declaration mutates
   # it so later statements in the same block see the binding. Nested blocks
   # receive a copy so their locals do not leak outward.
   if isinstance(s, ImpVar):
-    new_rhs = s.rhs.uniquify(env, ctx)
+    new_rhs = _uniquify_imp_rhs(s.rhs, env, ctx)
     new_type = (s.type_annot.uniquify(env, ctx)
                 if s.type_annot is not None else None)
     new_name = generate_name(s.name, ctx)
@@ -285,7 +358,7 @@ def _uniquify_imp_stmt(s: ImpStmt, env: UniquifyEnv,
     return ImpVar(s.location, new_name, new_type, new_rhs, s.ghost)
   if isinstance(s, ImpAssign):
     return ImpAssign(s.location, _uniquify_lvalue(s.lhs, env, ctx),
-                     s.rhs.uniquify(env, ctx))
+                     _uniquify_imp_rhs(s.rhs, env, ctx))
   if isinstance(s, ImpIf):
     new_cond = s.cond.uniquify(env, ctx)
     then_body = _uniquify_imp_block(s.then_body, copy_dict(env), ctx)
@@ -300,13 +373,18 @@ def _uniquify_imp_stmt(s: ImpStmt, env: UniquifyEnv,
                      if s.decreases is not None else None)
     body = _uniquify_imp_block(s.body, copy_dict(env), ctx)
     return ImpWhile(s.location, new_cond, new_invariants, new_modifies,
-                    new_decreases, body)
+                    new_decreases, body,
+                    _uniquify_imp_proof(s.established, env, ctx),
+                    _uniquify_imp_proof(s.preserved, env, ctx),
+                    _uniquify_imp_proof(s.decreases_proof, env, ctx))
   if isinstance(s, ImpAssert):
-    return ImpAssert(s.location, s.formula.uniquify(env, ctx))
+    return ImpAssert(s.location, s.formula.uniquify(env, ctx),
+                     _uniquify_imp_proof(s.proof, env, ctx))
   if isinstance(s, ImpAssume):
     return ImpAssume(s.location, s.formula.uniquify(env, ctx))
   if isinstance(s, ImpCall):
-    return ImpCall(s.location, s.call.uniquify(env, ctx))
+    return ImpCall(s.location, s.call.uniquify(env, ctx), s.label,
+                   _uniquify_imp_proof(s.proof, env, ctx))
   if isinstance(s, ImpReturn):
     return ImpReturn(s.location, s.value.uniquify(env, ctx))
   return s
@@ -345,12 +423,29 @@ class ProcSpec(AST):
     return indent * ' ' + str(self)
 
 @dataclass
+class ProcProofEntry(AST):
+  # One `label { proof }` entry of a procedure's out-of-line `proof ... end`
+  # block. The label is the proof-slot name cited by a `by label` clause
+  # somewhere in the procedure; the proof is an ordinary Deduce proof.
+  label: str
+  proof: Proof
+
+  def pretty_print(self, indent: int) -> str:
+    pad = indent * ' '
+    return pad + base_name(self.label) + ' {\n' \
+      + self.proof.pretty_print(indent + 2) + '\n' + pad + '}'
+
+  def __str__(self) -> str:
+    return self.pretty_print(0)
+
+@dataclass
 class ProcDecl(Declaration):
   type_params: List[str]
   params: List[ProcParam]
   return_type: Optional[Type]
   specs: List[ProcSpec]
   body: List[ImpStmt] = field(default_factory=list)
+  proof_block: List[ProcProofEntry] = field(default_factory=list)
 
   def __str__(self) -> str:
     return self.pretty_print(0)
@@ -372,7 +467,12 @@ class ProcDecl(Declaration):
     if self.specs:
       header += '\n' + '\n'.join(spec.pretty_print(indent + 2)
                                  for spec in self.specs)
-    return header + '\n' + pad + _pretty_block(self.body, indent)
+    result = header + '\n' + pad + _pretty_block(self.body, indent)
+    if self.proof_block:
+      entries = '\n'.join(entry.pretty_print(indent + 2)
+                          for entry in self.proof_block)
+      result += '\n' + pad + 'proof\n' + entries + '\n' + pad + 'end'
+    return result
 
   def uniquify(self, env: object, ctx: object) -> ProcDecl:
     env_map = cast(UniquifyEnv, env)
@@ -406,13 +506,27 @@ class ProcDecl(Declaration):
       overwrite(proc_env, 'result', generate_name('result', uniq_ctx),
                 self.location)
     new_specs = [spec.uniquify(proc_env, uniq_ctx) for spec in self.specs]
-    # Phase 1d is parser/AST only: uniquify resolves the body's term
-    # subparts (so no pre-uniquify `Var` nodes leak past this pass) and
-    # alpha-renames local `var` bindings, but there is no assignment
-    # semantics, frame checking, or loop verification here.
-    new_body = _uniquify_imp_block(self.body, copy_dict(proc_env), uniq_ctx)
+    # Parser/AST only: uniquify resolves the body's term subparts (so no
+    # pre-uniquify `Var` nodes leak past this pass) and alpha-renames local
+    # `var` bindings, but there is no assignment semantics, frame checking, or
+    # loop verification here. The out-of-line `proof ... end` block's slot
+    # labels are pre-bound so bare `by label` references in the body resolve;
+    # this is alpha-renaming only. Deciding whether a bare `by name` is a slot
+    # label or a theorem, generating proof-slot goals, and tying
+    # `h.valid_post` to a call label are all later verifier phases (#854).
+    body_env = copy_dict(proc_env)
+    new_labels = [generate_name(entry.label, uniq_ctx)
+                  for entry in self.proof_block]
+    for entry, new_label in zip(self.proof_block, new_labels):
+      overwrite(body_env, entry.label, new_label, entry.location)
+    new_body = _uniquify_imp_block(self.body, copy_dict(body_env), uniq_ctx)
+    new_proof_block = [
+        ProcProofEntry(entry.location, new_label,
+                       entry.proof.uniquify(copy_dict(body_env), uniq_ctx))
+        for entry, new_label in zip(self.proof_block, new_labels)
+    ]
     return ProcDecl(self.location, new_name, new_type_params, new_params,
-                    new_return_type, new_specs, new_body,
+                    new_return_type, new_specs, new_body, new_proof_block,
                     visibility=self.visibility)
 
   def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:

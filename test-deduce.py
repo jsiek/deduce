@@ -143,6 +143,12 @@ proc touch<T>(a: [T]!, xs: [List<T>]!, i: T, ghost p: T) -> [T]!
 {
 }
 
+proc give<T>(v: T) -> T
+  ensures result_post: result = result
+{
+  return v
+}
+
 proc body_forms<T>(a: [T]!, i: T, n: T, ghost g: T) -> T
   requires n = n
   modifies a
@@ -164,17 +170,44 @@ proc body_forms<T>(a: [T]!, i: T, n: T, ghost g: T) -> T
       invariant x = x
       invariant y = y
       modifies a, a[i]
-      decreases n
+      established by loop_init
+      preserved by loop_step[a, i]
+      decreases n by loop_dec
     {
       x := y
       call touch(a, a, i, g)
     }
   }
-  assert x = x
+  assert x = x by loop_exit
+  assert y = y by .
   assume y = y
   call touch(a, a, i, g)
+  call touch(a, a, i, g) as h
+  call touch(a, a, i, g) by touch_pre
+  call touch(a, a, i, g) as h2 by h.valid_post
+  var r := call give(n) as hr
+  x := call give(g)
+  assert x = x by hr.result_post
   return x
 }
+proof
+  loop_init {
+    .
+  }
+  loop_step {
+    arbitrary p:T
+    .
+  }
+  loop_dec {
+    .
+  }
+  loop_exit {
+    .
+  }
+  touch_pre {
+    .
+  }
+end
 """
 
 EXPERIMENTAL_IMPERATIVE_FILES = frozenset({
