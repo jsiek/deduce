@@ -75,7 +75,7 @@ def process_declaration_visibility(decl: Declaration, env: Env,
                                    downstream_needs_checking: list[bool]
                                    ) -> tuple[Statement, Env]:
   match decl:
-    case ProcDecl(loc, name, _, _, _, _):
+    case ProcDecl(loc, name, _, _, _, _, _):
       user_error(loc, 'imperative proc declarations are not supported yet: '
                  + base_name(name))
 

@@ -10,6 +10,26 @@ public proc identity<T>(x: T, ghost witness: T) -> T
   ensures result_self: result = result
   ensures x = x
 {
+  var a : T := x
+  var b := witness
+  ghost var c : T := x
+  ghost var d := witness
+  a := b
+  if a = b {
+    a := x
+  } else {
+    b := x
+  }
+  while a = b
+    invariant a = a
+    modifies a, b
+    decreases x
+  {
+    a := b
+  }
+  assert a = a
+  assume b = b
+  return a
 }
 
 private proc no_return(x: bool)

@@ -5,6 +5,8 @@ from abstract_syntax import (
     Define, EvaluateFact, EvaluateGoal, Export, FunCase, FunctionType,
     FrameEmpty, FrameField, FrameFootprint, FrameTerm, GenRecFun, Generic,
     Hole, IfThen, ImpIntro, Import,
+    ImpAssert, ImpAssign, ImpAssume, ImpCall, ImpIf, ImpReturn, ImpVar,
+    ImpWhile, LValueField, LValueIndex, LValueVar,
     IndCase, Induction, Inductive, IntType, Lambda, MakeArray,
     Mark, Module, ModusPonens, MutableArrayType, ObjectDecl, ObjectField,
     ObserverDecl, Omitted, Or, PAndElim, PAnnot, PExtensionality, PHelpUse, PHole,
@@ -388,9 +390,92 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
                              parse_tree_to_list(e.children[2], e),
                              parse_tree_to_list(e.children[3], e),
                              parse_tree_to_ast(e.children[4], e),
-                             parse_tree_to_list(e.children[5], e))
+                             parse_tree_to_list(e.children[5], e),
+                             parse_tree_to_ast(e.children[6], e))
         set_visibility(statement, visibility)
         return statement
+    # imperative procedure bodies (parser/AST only)
+    elif e.data == 'imp_block':
+        _require_experimental_imperative(e.meta)
+        return parse_tree_to_list(e.children[0], e)
+    elif e.data == 'lvalue_var':
+        return LValueVar(e.meta, parse_tree_to_ast(e.children[0], e))
+    elif e.data == 'lvalue_index':
+        return LValueIndex(e.meta,
+                           parse_tree_to_ast(e.children[0], e),
+                           parse_tree_to_ast(e.children[1], e))
+    elif e.data == 'lvalue_field':
+        return LValueField(e.meta,
+                           parse_tree_to_ast(e.children[0], e),
+                           parse_tree_to_ast(e.children[1], e))
+    elif e.data == 'loop_invariant':
+        return ('invariant', parse_tree_to_ast(e.children[0], e))
+    elif e.data == 'loop_modifies':
+        return ('modifies', parse_tree_to_list(e.children[0], e))
+    elif e.data == 'loop_decreases':
+        return ('decreases', parse_tree_to_ast(e.children[0], e))
+    elif e.data == 'imp_var':
+        _require_experimental_imperative(e.meta)
+        return ImpVar(e.meta, parse_tree_to_ast(e.children[0], e), None,
+                      parse_tree_to_ast(e.children[1], e), False)
+    elif e.data == 'imp_var_annot':
+        _require_experimental_imperative(e.meta)
+        return ImpVar(e.meta, parse_tree_to_ast(e.children[0], e),
+                      parse_tree_to_ast(e.children[1], e),
+                      parse_tree_to_ast(e.children[2], e), False)
+    elif e.data == 'imp_ghost_var':
+        _require_experimental_imperative(e.meta)
+        return ImpVar(e.meta, parse_tree_to_ast(e.children[0], e), None,
+                      parse_tree_to_ast(e.children[1], e), True)
+    elif e.data == 'imp_ghost_var_annot':
+        _require_experimental_imperative(e.meta)
+        return ImpVar(e.meta, parse_tree_to_ast(e.children[0], e),
+                      parse_tree_to_ast(e.children[1], e),
+                      parse_tree_to_ast(e.children[2], e), True)
+    elif e.data == 'imp_assign':
+        _require_experimental_imperative(e.meta)
+        return ImpAssign(e.meta,
+                         parse_tree_to_ast(e.children[0], e),
+                         parse_tree_to_ast(e.children[1], e))
+    elif e.data == 'imp_if':
+        _require_experimental_imperative(e.meta)
+        return ImpIf(e.meta,
+                     parse_tree_to_ast(e.children[0], e),
+                     parse_tree_to_ast(e.children[1], e),
+                     None)
+    elif e.data == 'imp_if_else':
+        _require_experimental_imperative(e.meta)
+        return ImpIf(e.meta,
+                     parse_tree_to_ast(e.children[0], e),
+                     parse_tree_to_ast(e.children[1], e),
+                     parse_tree_to_ast(e.children[2], e))
+    elif e.data == 'imp_while':
+        _require_experimental_imperative(e.meta)
+        cond = parse_tree_to_ast(e.children[0], e)
+        invariants: list[Any] = []
+        modifies: list[Any] = []
+        decreases = None
+        for kind, value in parse_tree_to_list(e.children[1], e):
+            if kind == 'invariant':
+                invariants.append(value)
+            elif kind == 'modifies':
+                modifies.extend(value)
+            else:
+                decreases = value
+        body = parse_tree_to_ast(e.children[2], e)
+        return ImpWhile(e.meta, cond, invariants, modifies, decreases, body)
+    elif e.data == 'imp_assert':
+        _require_experimental_imperative(e.meta)
+        return ImpAssert(e.meta, parse_tree_to_ast(e.children[0], e))
+    elif e.data == 'imp_assume':
+        _require_experimental_imperative(e.meta)
+        return ImpAssume(e.meta, parse_tree_to_ast(e.children[0], e))
+    elif e.data == 'imp_call':
+        _require_experimental_imperative(e.meta)
+        return ImpCall(e.meta, parse_tree_to_ast(e.children[0], e))
+    elif e.data == 'imp_return':
+        _require_experimental_imperative(e.meta)
+        return ImpReturn(e.meta, parse_tree_to_ast(e.children[0], e))
     elif e.data == 'observer_reads':
         _require_experimental_imperative(e.meta)
         return parse_tree_to_list(e.children[0], e)

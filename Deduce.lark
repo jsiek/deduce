@@ -18,6 +18,7 @@ WS: /[ \t\f\r\n]/+
 LINECOMMENT: "//" /[^\n]*/ 
 COMMENT: /\/\*(\*(?!\/)|[^*])*\*\//
 ARROW: "->"
+ASSIGN: ":="
 
 ?term:  iff_term
 
@@ -403,6 +404,35 @@ identifier: IDENT              -> identifier
 ?observer_body_opt:                                -> no_observer_body
     | "{" term "}"                                 -> observer_body
 
+imp_block: "{" imp_stmt_list "}"                   -> imp_block
+
+?imp_stmt_list:                                    -> empty
+    | imp_stmt imp_stmt_list                       -> push
+
+?imp_lvalue: identifier                            -> lvalue_var
+    | identifier "[" term "]"                      -> lvalue_index
+    | identifier "." identifier                    -> lvalue_field
+
+?loop_spec: "invariant" term                       -> loop_invariant
+    | "modifies" frame_list                        -> loop_modifies
+    | "decreases" term                             -> loop_decreases
+
+?loop_spec_list:                                   -> empty
+    | loop_spec loop_spec_list                     -> push
+
+?imp_stmt: "var" identifier ":" type ":=" term     -> imp_var_annot
+    | "var" identifier ":=" term                   -> imp_var
+    | "ghost" "var" identifier ":" type ":=" term  -> imp_ghost_var_annot
+    | "ghost" "var" identifier ":=" term           -> imp_ghost_var
+    | imp_lvalue ":=" term                          -> imp_assign
+    | "if" term imp_block "else" imp_block          -> imp_if_else
+    | "if" term imp_block                           -> imp_if
+    | "while" term loop_spec_list imp_block         -> imp_while
+    | "assert" term                                 -> imp_assert
+    | "assume" term                                 -> imp_assume
+    | "call" term                                   -> imp_call
+    | "return" term                                 -> imp_return
+
 ?view_inverse_opt:                                 -> no_view_inverse
     | "inverse" identifier                         -> view_inverse
 
@@ -414,7 +444,7 @@ identifier: IDENT              -> identifier
  | visibility "recursive" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> recursive_function
  | visibility "fun" identifier type_params_opt "(" variable_list ")" "{" term "}" -> fun
  | visibility "recfun" identifier type_params_opt "(" variable_list ")" "->" type "measure" term "of" type "{" term "}" "terminates" proof -> general_recursive_function
- | visibility "proc" identifier type_params_opt "(" proc_param_list ")" proc_return_opt proc_spec_list "{" "}" -> proc_decl
+ | visibility "proc" identifier type_params_opt "(" proc_param_list ")" proc_return_opt proc_spec_list imp_block -> proc_decl
  | visibility "observer" identifier type_params_opt "(" proc_param_list ")" "->" type observer_reads_list observer_body_opt -> observer_decl
  | visibility "view" IDENT type_params_opt "{" "source" type "target" type "into" identifier "out" identifier "roundtrip" identifier view_inverse_opt "}" -> view_declaration
  | definition
