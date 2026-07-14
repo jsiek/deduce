@@ -248,7 +248,7 @@ end
 ## And (logical conjunction)
 
 ```deduce-grammar
-logical_term ::= logical_term "and" equality_term
+logical_term ::= logical_term "and" sep_term
 ```
 
 The formula `P and Q` is true when both `P` and `Q` are true.
@@ -1904,7 +1904,7 @@ implement and names the corresponding public Lark rules.
 ## Or  (logical disjunction)
 
 ```deduce-grammar
-logical_term ::= logical_term "or" equality_term
+logical_term ::= logical_term "or" sep_term
 ```
 
 The formula `P or Q` is true when either `P` is true or `Q` is true.

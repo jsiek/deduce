@@ -13,12 +13,25 @@ OPERATOR: /[\-\+∸*%=≠<>≤≥&∘∪∩⊆∈⨄⊝\^≲≈]/
 // appear as modifiers on a preceding letter (matches the previous rule).
 NAMED_HOLE.2: "?" /[^\W\dλ₀₁₂₃₄₅₆₇₈₉]/ /([^\Wλ]|[₀₁₂₃₄₅₆₇₈₉!?'])*/
 IDENT: /[^\W\dλ₀₁₂₃₄₅₆₇₈₉]/ /([^\Wλ]|[₀₁₂₃₄₅₆₇₈₉!?'])*/
+// A `.` glued directly (no whitespace) to an identifier is a field access,
+// e.g. `p.value` or `h.valid_post`. Keeping it a single terminal (higher
+// priority than the bare `.` DOT) is what lets field access coexist with
+// the proof-terminating `.`: `show F .` keeps `.` as DOT, while `p.f` is one
+// FIELDACCESS token. Used by frame fields, imperative lvalues/postcondition
+// refs, and points-to addresses (#854). The trailing `(?!\.)` keeps the ASCII
+// circ operator `.o.` from being mis-lexed as the field access `.o` + `.`.
+FIELDACCESS.2: "." /[^\W\dλ₀₁₂₃₄₅₆₇₈₉]/ /([^\Wλ]|[₀₁₂₃₄₅₆₇₈₉!?'])*/ /(?!\.)/
 NEWLINE: (/\r/? /\n/)+
 WS: /[ \t\f\r\n]/+
 LINECOMMENT: "//" /[^\n]*/ 
 COMMENT: /\/\*(\*(?!\/)|[^*])*\*\//
 ARROW: "->"
 ASSIGN: ":="
+// Separation-resource operators (experimental imperative layer, #854
+// Phase 1h). Named terminals so adding them does not renumber the
+// anonymous-terminal series that keywords.py mirrors.
+SEPCONJ: "**"
+POINTSTO: "|->"
 
 ?term:  iff_term
 
@@ -27,9 +40,21 @@ ASSIGN: ":="
     | iff_term "⇔" logical_term                            -> iff_formula
     | logical_term
 
-?logical_term: logical_term "and" equality_term                    -> and_formula
-    | logical_term "or" equality_term                      -> or_formula
+?logical_term: logical_term "and" sep_term                    -> and_formula
+    | logical_term "or" sep_term                      -> or_formula
     | logical_term ":" type                           -> annote_type
+    | sep_term
+
+// Separating conjunction `**` (left-associative, looser than `|->` but
+// tighter than `and`/`or`) and points-to `|->` (non-associative). A
+// field-access address such as `p.f` is an ordinary atomic term
+// (`field_access`), so the points-to left operand needs no special rule.
+// All three are gated behind --experimental-imperative in the transformer
+// (#854 Phase 1h).
+?sep_term: sep_term "**" pointsto_term             -> sep_conj
+    | pointsto_term
+
+?pointsto_term: equality_term "|->" equality_term                  -> points_to
     | equality_term
 
 ?equality_term: equality_term "=" comparison_term  -> equal
@@ -103,6 +128,7 @@ identifier: IDENT              -> identifier
     | "false"                                      -> false_literal
     | "∅"                                         -> emptyset_literal
     | ".0."                                        -> emptyset_literal
+    | "emp"                                        -> emp_resource
     | "not" atomic_term                                -> logical_not
     | "new" IDENT type_params_opt "(" term_list ")"    -> rejected_new_object
     | "new"                                            -> rejected_new_term
@@ -111,6 +137,7 @@ identifier: IDENT              -> identifier
     | "array" "(" term ")"                         -> make_array
     | atomic_term "(" term_list ")"                    -> call
     | atomic_term "[" term "]"                         -> array_get
+    | atomic_term FIELDACCESS                          -> field_access
     | "λ" type_params_opt variable_list "{" term "}"    -> lambda
     | "fun" type_params_opt variable_list "{" term "}"  -> lambda
     | "generic" identifier_list "{" term "}"            -> generic
@@ -370,7 +397,6 @@ identifier: IDENT              -> identifier
 
 ?frame_expr: "{" "}"                               -> frame_empty
     | "footprint" "(" term ")"                     -> frame_footprint
-    | term "." identifier                          -> frame_field
     | term                                         -> frame_term
 
 ?frame_list: frame_expr                            -> single
@@ -412,6 +438,9 @@ proc_proof_entry: identifier "{" proof "}"         -> proc_proof_entry
 ?observer_body_opt:                                -> no_observer_body
     | "{" term "}"                                 -> observer_body
 
+?resource_body_opt:                                -> no_resource_body
+    | "{" term "}"                                 -> resource_body
+
 imp_block: "{" imp_stmt_list "}"                   -> imp_block
 
 ?imp_stmt_list:                                    -> empty
@@ -419,12 +448,12 @@ imp_block: "{" imp_stmt_list "}"                   -> imp_block
 
 ?imp_lvalue: identifier                            -> lvalue_var
     | identifier "[" term "]"                      -> lvalue_index
-    | identifier "." identifier                    -> lvalue_field
+    | identifier FIELDACCESS                       -> lvalue_field
 
 // The proof supplied after `by` in an imperative proof clause: either a
 // qualified call-postcondition reference (`h.valid_post`) or an ordinary
 // proof expression (which also covers a bare proof-slot label).
-?imp_proof: IDENT "." identifier                   -> post_ref
+?imp_proof: IDENT FIELDACCESS                      -> post_ref
     | proof
 
 // A `var`/assignment right-hand side: a labelled call expression or a term.
@@ -472,6 +501,7 @@ imp_block: "{" imp_stmt_list "}"                   -> imp_block
  | visibility "recfun" identifier type_params_opt "(" variable_list ")" "->" type "measure" term "of" type "{" term "}" "terminates" proof -> general_recursive_function
  | visibility "proc" identifier type_params_opt "(" proc_param_list ")" proc_return_opt proc_spec_list imp_block proc_proof_opt -> proc_decl
  | visibility "observer" identifier type_params_opt "(" proc_param_list ")" "->" type observer_reads_list observer_body_opt -> observer_decl
+ | visibility "resource" identifier type_params_opt "(" proc_param_list ")" resource_body_opt -> resource_decl
  | visibility "view" IDENT type_params_opt "{" "source" type "target" type "into" identifier "out" identifier "roundtrip" identifier view_inverse_opt "}" -> view_declaration
  | definition
  | "associative" identifier type_params_opt "in" type -> associative_declaration

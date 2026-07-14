@@ -25,7 +25,7 @@ from abstract_syntax import (
     Hole, IfThen, Import, Inductive, Lambda, MakeArray, Module, ObjectDecl,
     ObjectField, ObserverDecl, Omitted, Or, OverloadType, OverloadedVar, PSorry, PVar,
     PatternBool, PatternCons, Postulate, Predicate, Print, ProcDecl, RecFun,
-    ResolvedVar, Rule, Some,
+    ResolvedVar, ResourceDecl, Rule, Some,
     Statement, Switch, SwitchCase, TAnnote, TLet, Term, TermInst, Theorem,
     Trace, Type, TypeAlias, TypeInst, TypeType, Union, Var, VarRef, VerboseLevel,
     ViewDecl, ViewRecFun, alpha_equiv, base_name, callable_name,
@@ -81,6 +81,10 @@ def process_declaration_visibility(decl: Declaration, env: Env,
 
     case ObserverDecl(loc, name, _, _, _, _, _):
       user_error(loc, 'imperative observer declarations are not supported yet: '
+                 + base_name(name))
+
+    case ResourceDecl(loc, name, _, _, _):
+      user_error(loc, 'imperative resource declarations are not supported yet: '
                  + base_name(name))
 
     case Define(loc, name, ty, body):

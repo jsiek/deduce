@@ -1,0 +1,1 @@
+./test/should-error/resource_declarations.pf:15.8-15.65: imperative resource declarations are not supported yet: cell

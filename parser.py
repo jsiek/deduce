@@ -2,8 +2,9 @@ from abstract_syntax import (
     All, AllElim, AllElimTypes, AllIntro, And, ApplyDefsFact,
     ApplyDefsGoal, ArrayGet, ArrayType, Assert, Associative, Auto,
     Bool, BoolType, Call, Cases, Conditional, Constructor,
-    Define, EvaluateFact, EvaluateGoal, Export, FunCase, FunctionType,
-    FrameEmpty, FrameField, FrameFootprint, FrameTerm, GenRecFun, Generic,
+    Define, Emp, EvaluateFact, EvaluateGoal, Export, FieldAccess, FunCase,
+    FunctionType,
+    FrameEmpty, FrameFootprint, FrameTerm, GenRecFun, Generic,
     Hole, IfThen, ImpIntro, Import,
     ImpAssert, ImpAssign, ImpAssume, ImpCall, ImpCallExpr, ImpIf, ImpReturn,
     ImpVar, ImpWhile, LValueField, LValueIndex, LValueVar,
@@ -12,10 +13,10 @@ from abstract_syntax import (
     ObserverDecl, Omitted, Or, PAndElim, PAnnot, PExtensionality, PHelpUse, PHole,
     PInjective, PLet, PRecall, PReflexive, PSorry, PSymmetric, PTLetNew,
     PTransitive, PTrue, PTuple, PVar, PatternBool, PatternCons, PatternTerm,
-    PostconditionRef, Postulate, Predicate, Print, ProcDecl, ProcParam,
-    ProcProofEntry, ProcSpec, RecFun,
+    PointsTo, PostconditionRef, Postulate, Predicate, Print, ProcDecl,
+    ProcParam, ProcProofEntry, ProcSpec, RecFun, ResourceDecl,
     RewriteFact, RewriteGoal,
-    Rule, RuleInduction, RuleInductionCase, RuleInversion, SimplifyFact,
+    Rule, RuleInduction, RuleInductionCase, RuleInversion, SepConj, SimplifyFact,
     SimplifyGoal, Some, SomeElim, SomeIntro, Statement, Suffices, Switch,
     SwitchCase, SwitchProof, SwitchProofCase, TAnnote, TLet, Term, TermInst,
     Theorem, Trace, Proof, TypeAlias, TypeInst, TypeType, Union, Var,
@@ -92,6 +93,10 @@ def _token_child(tree: Tree[Token], index: int) -> Token:
 
 def _token_text(tree: Tree[Token], index: int) -> str:
     return str(_token_child(tree, index).value)
+
+def _field_name(tree: Tree[Token], index: int) -> str:
+    # A FIELDACCESS token carries its leading `.`; the field name drops it.
+    return str(_token_child(tree, index).value)[1:]
 
 def parse_tree_to_str_list(e: ParseNode) -> list[str]:
     e = _expect_tree(e)
@@ -274,6 +279,24 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
     elif e.data == 'logical_not':
        subject = parse_tree_to_ast(e.children[0], e)
        return IfThen(e.meta, None, subject, Bool(e.meta, None, False))
+    elif e.data == 'emp_resource':
+        _require_experimental_imperative(e.meta)
+        return Emp(e.meta, None)
+    elif e.data == 'sep_conj':
+        _require_experimental_imperative(e.meta)
+        return SepConj(e.meta, None,
+                       parse_tree_to_ast(e.children[0], e),
+                       parse_tree_to_ast(e.children[1], e))
+    elif e.data == 'points_to':
+        _require_experimental_imperative(e.meta)
+        return PointsTo(e.meta, None,
+                        parse_tree_to_ast(e.children[0], e),
+                        parse_tree_to_ast(e.children[1], e))
+    elif e.data == 'field_access':
+        _require_experimental_imperative(e.meta)
+        return FieldAccess(e.meta, None,
+                           parse_tree_to_ast(e.children[0], e),
+                           _field_name(e, 1))
     elif e.data == 'rejected_new_object' or e.data == 'rejected_new_term':
         raise ParseError(
             e.meta,
@@ -334,11 +357,6 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
     elif e.data == 'frame_term':
         _require_experimental_imperative(e.meta)
         return FrameTerm(e.meta, parse_tree_to_ast(e.children[0], e))
-    elif e.data == 'frame_field':
-        _require_experimental_imperative(e.meta)
-        return FrameField(e.meta,
-                          parse_tree_to_ast(e.children[0], e),
-                          parse_tree_to_ast(e.children[1], e))
     elif e.data == 'frame_footprint':
         _require_experimental_imperative(e.meta)
         return FrameFootprint(e.meta, parse_tree_to_ast(e.children[0], e))
@@ -416,7 +434,7 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
     elif e.data == 'lvalue_field':
         return LValueField(e.meta,
                            parse_tree_to_ast(e.children[0], e),
-                           parse_tree_to_ast(e.children[1], e))
+                           _field_name(e, 1))
     elif e.data == 'loop_invariant':
         return ('invariant', parse_tree_to_ast(e.children[0], e))
     elif e.data == 'loop_modifies':
@@ -434,7 +452,7 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
         _require_experimental_imperative(e.meta)
         return PostconditionRef(e.meta,
                                 _token_text(e, 0),
-                                parse_tree_to_ast(e.children[1], e))
+                                _field_name(e, 1))
     elif e.data == 'call_rhs':
         _require_experimental_imperative(e.meta)
         return ImpCallExpr(e.meta, parse_tree_to_ast(e.children[0], e), None)
@@ -555,6 +573,21 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
                                  parse_tree_to_ast(e.children[4], e),
                                  parse_tree_to_list(e.children[5], e),
                                  parse_tree_to_ast(e.children[6], e))
+        set_visibility(statement, visibility)
+        return statement
+    elif e.data == 'resource_body':
+        _require_experimental_imperative(e.meta)
+        return parse_tree_to_ast(e.children[0], e)
+    elif e.data == 'no_resource_body':
+        return None
+    elif e.data == 'resource_decl':
+        _require_experimental_imperative(e.meta)
+        visibility = parse_tree_to_ast(e.children[0], e)
+        statement = ResourceDecl(e.meta,
+                                 parse_tree_to_ast(e.children[1], e),
+                                 parse_tree_to_list(e.children[2], e),
+                                 parse_tree_to_list(e.children[3], e),
+                                 parse_tree_to_ast(e.children[4], e))
         set_visibility(statement, visibility)
         return statement
     # terms
