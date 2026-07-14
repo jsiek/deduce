@@ -12,10 +12,9 @@ constructor stacks the language uses for its literals. Covers:
   * Lists (``empty``/``node``): ``mkEmpty``/``mkNode``,
     ``listToNodeList``, ``isNodeList``, ``nodeListToList``,
     ``nodeListToString``.
-  * Empty set, equation shape (``mkEqual``, ``split_equation``,
-    ``is_equation``, ``equation_vars``), and small constructor-name
-    predicates (``is_constructor``, ``constr_name``,
-    ``constructor_conflict``).
+  * Equation shape (``mkEqual``, ``split_equation``, ``is_equation``,
+    ``equation_vars``) and small constructor-name predicates
+    (``is_constructor``, ``constr_name``, ``constructor_conflict``).
 
 Goes here:
   * a new literal form whose surface syntax desugars to a constructor
@@ -722,12 +721,3 @@ def listToNodeList(loc: Meta, lst: Sequence[Term]) -> Term:
   else:
     return mkNode(loc, lst[0], listToNodeList(loc, lst[1:]))
 
-def isEmptySet(t: Term) -> bool:
-  match t:
-    case Call(_, _, fun,
-              [Lambda(_, _, _, Bool(_, _, False))]) \
-              if (name := callable_name(fun)) is not None \
-              and base_name(name) == 'char_fun':
-      return True
-    case _:
-      return False

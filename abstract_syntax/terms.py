@@ -45,7 +45,6 @@ if TYPE_CHECKING:
         getZero,
         intToNat,
         isDeduceInt,
-        isEmptySet,
         isLitNat,
         isLitUInt,
         isNat,
@@ -1177,8 +1176,6 @@ class Call(Term):
       node_list = nodeListToString(self)
       assert node_list is not None
       return '[' + node_list[:-2] + ']'
-    elif isEmptySet(self) and not get_verbose():
-      return '∅'
     else:
       rator_str = str(self.rator)
       # The parser parses a Call's rator at the `parse_array_get` level,

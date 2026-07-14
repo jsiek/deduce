@@ -37,7 +37,6 @@ def test_issue_586_abstract_syntax_function_parameters_are_annotated() -> None:
         (ast.mkEmpty, {"loc"}),
         (ast.mkNode, {"loc", "arg", "ls"}),
         (ast.listToNodeList, {"loc", "lst"}),
-        (ast.isEmptySet, {"t"}),
         (ast.type_params_str, {"type_params"}),
     ]
 

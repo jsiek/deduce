@@ -360,6 +360,31 @@ PARSER_ROUND_TRIP_FILES = (
     # case is added (`not_and`, `not_or`, `double_neg` were the three
     # drift sites).
     "./lib/Base.pf",
+    # `Call.__str__` used to re-sugar `Call(char_fun, [Lambda(_, false)])`
+    # back to `∅` (`isEmptySet` matched the expanded `empty_set` body),
+    # but both parsers desugar `∅` to `Call(Var('empty_set'), [])`. So the
+    # `char_fun(λx{false})` shape drifted whenever it appeared as the body
+    # of `empty_set` itself or in `@char_fun<T>(λ_{false})` witnesses.
+    # Refs #988 category (c).
+    "./test/should-validate/empty_set_roundtrip.pf",
+    # `_proof_list_item_str` used to parenthesize only the ``PRecall``
+    # trailing-term-list shape and its ``symmetric`` / ``transitive`` /
+    # ``help`` recursion. But every proof whose parse rule ends with a
+    # ``parse_proof()`` call is comma-greedy at the tail: ``apply I to
+    # A``, ``conjunct N of P``, ``expand D in P``, ``replace E in P``,
+    # ``simplify with G in P``, ``evaluate in P``, ``conclude C by P``.
+    # ``PTuple([ModusPonens, ModusPonens])`` therefore drifted to one
+    # ``ModusPonens`` whose arg is a ``PTuple``, and same for
+    # ``PAndElim`` etc.  Symmetrically, ``AllElim`` / ``AllElimTypes``
+    # printed their ``univ`` unparenthesized so the postfix ``[...]`` /
+    # ``<...>`` nested inside a trailing sub-proof instead of wrapping
+    # the ``univ``. Refs #988 categories (b) and (d).
+    "./test/should-validate/apply_tuple_postfix_roundtrip.pf",
+    # lib/ modules now round-trip once (b), (c), (d) are all fixed.
+    # ``Set.pf`` exercises the ``∅`` and ``(conjunct N of P)[x]`` shapes;
+    # ``UIntAdd.pf`` exercises the ``apply f to a, apply g to b`` tuple.
+    "./lib/Set.pf",
+    "./lib/UIntAdd.pf",
     # Parser/AST-only imperative procedure declarations. The checker
     # intentionally rejects these until the verifier exists, but both parsers
     # must agree on the AST and the pretty-printer must preserve the header and
@@ -379,7 +404,6 @@ PARSER_EQUIV_FILES = PARSER_ROUND_TRIP_FILES + (
     "./lib/Nat.pf",
     "./lib/UInt.pf",
     "./lib/Int.pf",
-    "./lib/Set.pf",
     # Warning and later-phase error fixtures add syntax that is not always
     # present in validating examples while staying much smaller than the full
     # should-error directory sweep.
