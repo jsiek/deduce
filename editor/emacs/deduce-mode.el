@@ -241,13 +241,17 @@ by `electric-indent-mode' on RET."
     "fn" "array"
     ;; experimental imperative surface (Phase 1, issue #854 — parser/AST
     ;; only; the checker rejects these until later phases land).
-    "proc" "observer" "object" "ghost" "var"
+    "proc" "observer" "object" "resource" "ghost" "var"
     "requires" "ensures" "reads" "modifies" "decreases"
-    "footprint" "new")
+    "footprint" "invariant" "established" "preserved" "while"
+    "call" "as" "return" "new")
   "Deduce keywords highlighted with `font-lock-keyword-face'.")
 
 (defconst deduce-mode--constants
-  '("true" "false")
+  '("true" "false"
+    ;; experimental imperative surface (Phase 1, issue #854): the empty
+    ;; resource `emp'.
+    "emp")
   "Deduce literal constants highlighted with `font-lock-constant-face'.")
 
 (defconst deduce-mode--types

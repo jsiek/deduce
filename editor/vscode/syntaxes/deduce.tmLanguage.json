@@ -95,7 +95,12 @@
         {
           "comment": "Experimental imperative surface (Phase 1, issue #854): parser/AST only.",
           "name": "keyword.other.imperative.deduce",
-          "match": "\\b(proc|observer|object|ghost|var|requires|ensures|reads|modifies|decreases|footprint|new)\\b"
+          "match": "\\b(proc|observer|object|resource|ghost|var|requires|ensures|reads|modifies|decreases|footprint|invariant|established|preserved|while|call|as|return|new|emp)\\b"
+        },
+        {
+          "comment": "Experimental imperative operators (Phase 1, issue #854): separating conjunction, points-to, assignment.",
+          "name": "keyword.operator.imperative.deduce",
+          "match": "\\*\\*|\\|->|:="
         }
       ]
     },

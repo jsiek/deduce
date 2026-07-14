@@ -6,10 +6,10 @@ design is described in
 and tracked by [issue #854](https://github.com/jsiek/deduce/issues/854).
 
 **Status:** Phase 1 (parser/AST only). The grammar entries below are
-recognized by both parsers, the pretty-printer round-trips them, and
-import/export plumbing accepts the new declaration names. The
+recognized by both parsers and the pretty-printer round-trips them. The
 imperative verifier itself does not exist yet — the checker rejects
-every `proc` and `observer` declaration until later phases land.
+every `proc`, `observer`, and `resource` declaration until later phases
+land.
 
 Most of the surface lives behind the `--experimental-imperative`
 flag. The exceptions are noted per-section.
@@ -21,6 +21,8 @@ flag. The exceptions are noted per-section.
 - [Object (Statement)](#object-statement)
 - [Observer (Statement)](#observer-statement)
 - [Procedure (Statement)](#procedure-statement)
+- [Resource (Statement)](#resource-statement)
+- [Resource Formulas](#resource-formulas)
 
 ## Frame Expression
 
@@ -237,6 +239,58 @@ proc_proof_entry ::= identifier "{" proof "}"
 This is parser/AST only: proof-slot goal generation, ambiguity checking
 between theorem names and slot labels, and tying `h.valid_post` to a
 call label all land with the verifier in a later phase.
+
+## Resource (Statement)
+
+```deduce-grammar
+statement ::= visibility "resource" identifier type_params_opt "(" proc_param_list ")" resource_body_opt
+resource_body_opt ::= ε
+resource_body_opt ::= "{" term "}"
+```
+
+A `resource` declares a named separation-logic predicate over mutable
+state. Its parameters reuse the [Procedure](#procedure-statement)
+parameter grammar. The optional body, when present, is a
+[resource formula](#resource-formulas) describing the heap ownership the
+resource stands for; a bodyless resource is an abstract predicate whose
+definition is supplied elsewhere.
+
+```deduce
+resource list_seg(p: Node, q: Node)
+{
+  p = q ** emp
+  or (p ≠ q ** p |-> q ** list_seg(q, q))
+}
+```
+
+Resource declarations require `--experimental-imperative`. The checker
+rejects them until the imperative verifier exists.
+
+## Resource Formulas
+
+```deduce-grammar
+atomic_term ::= "emp"
+sep_term ::= sep_term "**" pointsto_term
+sep_term ::= pointsto_term
+pointsto_term ::= equality_term "|->" equality_term
+pointsto_term ::= equality_term
+```
+
+Resource formulas extend the ordinary term grammar with three
+separation-logic connectives, gated behind `--experimental-imperative`:
+
+- `emp` is the empty resource — a heap owning no locations.
+- `p ** q` is the *separating conjunction*: the heap splits into two
+  disjoint parts, one satisfying `p` and the other `q`. It is
+  left-associative, looser than `|->` but tighter than `and`/`or`.
+- `a |-> b` is the *points-to* assertion: a heap owning exactly the
+  single cell at address `a`, holding value `b`. It is non-associative,
+  so `a |-> b |-> c` must be parenthesized. A field-access address such
+  as `p.f` is an ordinary atomic term, so it needs no extra syntax on
+  the left of `|->`.
+
+These connectives parse into ordinary `Term` nodes; they have no proof
+rules or runtime meaning yet.
 
 <!--
 ```{.deduce^file=ImperativeReference.pf}
