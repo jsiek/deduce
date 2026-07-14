@@ -1,0 +1,6 @@
+// A bodyless object declaration with no type parameters, appearing as the
+// final statement of the file, exercises the recursive-descent parser at
+// end-of-file: `parse_type_parameters` used to call `current_token()` with
+// no EOF guard, so `object Empty` at EOF raised "Expected a token" under RD
+// while LALR accepted it. Regression coverage for that parser divergence.
+object Empty

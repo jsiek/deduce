@@ -2288,7 +2288,7 @@ def parse_statement() -> Statement:
           'expected a statement, not\n\t' + token.value)
 
 def parse_type_parameters() -> list[str]:
-  if current_token().type == 'LESSTHAN':
+  if not end_of_file() and current_token().type == 'LESSTHAN':
       advance()
       ident_list = parse_ident_list()
       consume_token('MORETHAN', '>', context='after type parameters of "fn"')
