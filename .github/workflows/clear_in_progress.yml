@@ -1,0 +1,41 @@
+name: Clear "in progress" when a routine PR closes
+
+# The deduce-runner routine labels an issue "in progress" when it starts work,
+# but nothing removes that label afterward. When the routine's PR is merged or
+# closed, drop "in progress" from every issue the PR references, so the issue is
+# selectable again (for partial/umbrella work) and doesn't linger as in progress.
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  issues: write
+
+jobs:
+  clear-in-progress:
+    # Only routine branches carry this label convention.
+    if: startsWith(github.event.pull_request.head.ref, 'routine/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove "in progress" from referenced issues
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          # Passed via env (not inline ${{ }}) so PR-authored text can't inject shell.
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          set -e
+          # Every #N mentioned in the title or body (closing keyword or plain "Refs #N").
+          nums=$(printf '%s\n%s\n' "$PR_TITLE" "$PR_BODY" | grep -oE '#[0-9]+' | tr -d '#' | sort -un || true)
+          [ -n "$nums" ] || { echo "No issue references in this PR."; exit 0; }
+          for n in $nums; do
+            # `gh issue view` on a PR number errors out (PRs/issues share numbering);
+            # the guard below simply finds no label and skips those.
+            if gh issue view "$n" --repo "$REPO" --json labels --jq '.labels[].name' 2>/dev/null \
+                 | grep -qx 'in progress'; then
+              gh issue edit "$n" --repo "$REPO" --remove-label 'in progress'
+              echo "Removed 'in progress' from #$n."
+            fi
+          done
