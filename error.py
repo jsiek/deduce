@@ -1,4 +1,5 @@
 import contextlib
+from dataclasses import dataclass
 from typing import Iterator, List, NoReturn, Optional, TYPE_CHECKING
 
 from lark.tree import Meta
@@ -162,7 +163,53 @@ def incomplete_error(location: Meta, msg: str, *,
   exc.env = env
   raise exc
 
+@dataclass
+class WarningRecord:
+  """A single ``warning()`` emission captured by an active warning sink.
+
+  Mirrors the ``(location, message_body)`` shape ``Diagnostic`` sub-
+  classes attach post-construction, so ``lsp.query.check`` can render
+  a warning entry with the same helpers it uses for errors.
+  """
+
+  location: Meta
+  message_body: str
+
+
+# When set, ``warning()`` records into this list *instead of* printing.
+# ``lsp.library.check_file(collect_errors=True)`` installs a sink for
+# the duration of one run so ``lsp.query.check`` can surface warnings
+# as ``Severity.WARNING`` diagnostics (issue #991). The CLI leaves this
+# ``None``, so ``deduce.py`` keeps printing warnings verbatim.
+_active_warning_sink: Optional[List[WarningRecord]] = None
+
+
+def set_active_warning_sink(
+    sink: Optional[List[WarningRecord]],
+) -> Optional[List[WarningRecord]]:
+  """Install ``sink`` as the active warning sink and return the
+  previously installed sink (so callers can restore it on exit
+  the way ``check_file`` does in its try/finally)."""
+  global _active_warning_sink
+  prev = _active_warning_sink
+  _active_warning_sink = sink
+  return prev
+
+
+def get_active_warning_sink() -> Optional[List[WarningRecord]]:
+  return _active_warning_sink
+
+
 def warning(location: Meta, msg: str) -> None:
+  sink = _active_warning_sink
+  if sink is not None:
+    # A caller (``lsp.library.check_file(collect_errors=True)``)
+    # asked to capture warnings instead of printing them. Skipping
+    # the print also keeps stdout clean for the stdio-based LSP
+    # server, where any extra bytes on stdout corrupt the JSON-RPC
+    # framing.
+    sink.append(WarningRecord(location=location, message_body=msg))
+    return
   print(error_header(location) + msg)
 
 def wrap_user_error(inner: BaseException, context: str) -> UserError:

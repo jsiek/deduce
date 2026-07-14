@@ -44,7 +44,7 @@ import os
 import sys
 import threading
 import traceback as _traceback
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from types import ModuleType
 from typing import TYPE_CHECKING, Optional, Sequence, cast
@@ -84,7 +84,7 @@ from abstract_syntax import (
     get_recursive_descent,
     get_uniquified_modules,
 )
-from error import ErrorSink
+from error import ErrorSink, WarningRecord, set_active_warning_sink
 from flags import (
     get_experimental_imperative,
     get_debugger,
@@ -144,6 +144,11 @@ class CheckResult:
     # exceptions like ``InternalError``. Typed as ``BaseException`` so
     # both shapes flow through unchanged.
     errors: Optional[list[BaseException]] = None
+    # ``warning()`` emissions captured during this run. Only populated
+    # when ``check_file`` was called with ``collect_errors=True`` (the
+    # LSP/MCP path); the CLI leaves this empty because warnings were
+    # printed to stdout in the usual way.
+    warnings: list[WarningRecord] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.errors is None:
@@ -415,9 +420,21 @@ def _check_file_impl(
         # Var.resolved_names. On failure the variable retains the
         # post-uniquify ast for best-effort partial info.
         sink = ErrorSink() if collect_errors else None
-        typechecked_ast = check_deduce(
-            ast, module_name, True, list(tracing_functions), error_sink=sink
+        # Capture warnings alongside errors when the caller opted into
+        # collect-errors mode. ``lsp.query.check`` uses this to surface
+        # style hints (e.g. the auto-rule ``replace`` advice) as
+        # WARNING-severity diagnostics. Issue #991.
+        warning_sink: Optional[list[WarningRecord]] = (
+            [] if collect_errors else None
         )
+        prev_warning_sink = set_active_warning_sink(warning_sink)
+        try:
+            typechecked_ast = check_deduce(
+                ast, module_name, True, list(tracing_functions), error_sink=sink
+            )
+        finally:
+            set_active_warning_sink(prev_warning_sink)
+        captured_warnings = list(warning_sink) if warning_sink is not None else []
         if sink is not None and sink.errors:
             # collect-errors mode: at least one statement failed but
             # the pipeline kept running. Surface the full list while
@@ -432,6 +449,7 @@ def _check_file_impl(
                 module_name=module_name,
                 ast=typechecked_ast,
                 errors=list(sink.errors),
+                warnings=captured_warnings,
             )
         return CheckResult(
             ok=True,
@@ -440,6 +458,7 @@ def _check_file_impl(
             exception=None,
             module_name=module_name,
             ast=typechecked_ast,
+            warnings=captured_warnings,
         )
     except Exception as e:
         # ``DebuggerQuit`` is control flow (the user typed ``quit`` or

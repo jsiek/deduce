@@ -54,7 +54,7 @@ from checker_types import (
 )
 from error import (
     Diagnostic, ErrorSink, MatchFailed, error_header, get_active_sink,
-    internal_error, set_active_sink, user_error,
+    get_active_warning_sink, internal_error, set_active_sink, user_error,
 )
 from flags import (
     get_check_imports, get_debugger, get_quiet_mode,
@@ -1485,6 +1485,11 @@ def _check_deduce_body(ast: list[Statement], module_name: str, modified: bool,
         try:
           _sink = get_active_sink()
           pre_n = len(_sink) if _sink is not None else 0
+          # Warning sink is separate from the error sink; track its
+          # size the same way so we can skip caching when a warning
+          # fired (see below). Issue #991.
+          _wsink = get_active_warning_sink()
+          pre_wn = len(_wsink) if _wsink is not None else 0
           # Phase 5 / Step 21: when a debugger is attached, every
           # ``check_proofs`` call must run its hooks -- a cache hit
           # would silently skip the trap.  Re-check unconditionally;
@@ -1502,9 +1507,16 @@ def _check_deduce_body(ast: list[Statement], module_name: str, modified: bool,
             check_proofs(s, env)
             # Don't cache if check_proofs absorbed errors into the
             # sink -- next run must re-check so the diagnostic is
-            # re-emitted.
+            # re-emitted. Same rule applies when a warning fired:
+            # ``lsp.query.check`` surfaces warnings as diagnostics
+            # (issue #991), so a cache hit that silently skipped the
+            # warning-emitting statement would drop the diagnostic on
+            # every subsequent run.
             _sink2 = get_active_sink()
-            if _sink2 is None or len(_sink2) == pre_n:
+            _wsink2 = get_active_warning_sink()
+            errors_absorbed = _sink2 is not None and len(_sink2) != pre_n
+            warnings_emitted = _wsink2 is not None and len(_wsink2) != pre_wn
+            if not errors_absorbed and not warnings_emitted:
               _stmt_cache[key] = True
             _record_miss("check_proofs")
         except Diagnostic as e:

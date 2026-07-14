@@ -60,6 +60,7 @@ if TYPE_CHECKING:
         ResolvedVar, Some, Statement, Term, Type,
     )
     from abstract_syntax import Union as UnionDecl
+    from error import WarningRecord
 
 
 __all__ = [
@@ -614,17 +615,27 @@ def check(
         path, content=content, prelude=prelude,
         collect_errors=True, parser=parser,
     )
-    if result.ok:
-        return []
-
-    if result.errors:
-        return [
-            _diagnostic_from_exception(exc, str_fallback=str(exc))
-            for exc in result.errors
-        ]
-    # Fallback: parse/uniquify failure (raised before check_deduce
-    # ever ran, so the sink stayed empty). Single-diagnostic path.
-    return [_diagnostic_from_exception(result.exception, str_fallback=result.error_message)]
+    diagnostics: list[Diagnostic] = []
+    if not result.ok:
+        if result.errors:
+            diagnostics.extend(
+                _diagnostic_from_exception(exc, str_fallback=str(exc))
+                for exc in result.errors
+            )
+        else:
+            # Fallback: parse/uniquify failure (raised before
+            # check_deduce ever ran, so the sink stayed empty).
+            diagnostics.append(
+                _diagnostic_from_exception(
+                    result.exception, str_fallback=result.error_message,
+                )
+            )
+    # Warnings — style hints, "unfinished proof" from ``sorry``, etc.
+    # Surfaced with ``Severity.WARNING`` alongside errors so the
+    # MCP/LSP diagnostic list matches what ``deduce.py`` prints. See
+    # issue #991.
+    diagnostics.extend(_diagnostic_from_warning(w) for w in result.warnings)
+    return diagnostics
 
 
 def _diagnostic_from_exception(
@@ -677,6 +688,28 @@ def _diagnostic_from_exception(
 
     return Diagnostic(
         severity=Severity.ERROR, range=rng, message=body, goal=goal
+    )
+
+
+def _diagnostic_from_warning(warning: "WarningRecord") -> Diagnostic:
+    """Build a ``Severity.WARNING`` Diagnostic from a captured warning.
+
+    Uses the same range-from-location logic as
+    :func:`_diagnostic_from_exception`. Warnings without an attached
+    location (rare, only from callers that pass an empty ``Meta``)
+    collapse to the file-start sentinel range.
+    """
+    sentinel = Range(Position(1, 1), Position(1, 1))
+    location = warning.location
+    if location is not None and not getattr(location, "empty", True):
+        rng = Range(
+            start=Position(location.line, location.column),
+            end=Position(location.end_line, location.end_column),
+        )
+    else:
+        rng = sentinel
+    return Diagnostic(
+        severity=Severity.WARNING, range=rng, message=warning.message_body,
     )
 
 
