@@ -354,3 +354,141 @@ def test_check_includes_traceback_for_unstructured_exception(
     assert "_boom" in msg, (
         f"expected the offending frame name in the traceback, got: {msg!r}"
     )
+
+
+# --------------------------------------------------------------------------
+# Warning-severity diagnostics (issue #991)
+# --------------------------------------------------------------------------
+#
+# ``deduce.py`` prints style warnings (e.g. "this ``replace`` argument
+# is handled automatically by an auto rule -- drop it") through
+# ``error.warning`` -> stdout. ``lsp.query.check`` used to swallow
+# those, so anyone using ``mcp__deduce__check_file`` never saw them.
+# ``check`` now captures warnings alongside errors and returns each as
+# a ``Diagnostic`` with ``Severity.WARNING``.
+
+
+def test_check_returns_warning_severity_for_style_warnings() -> None:
+    """A file with a redundant ``replace`` argument produces a
+    WARNING-severity diagnostic, not an error, and the file is still
+    valid (no ERROR diagnostics)."""
+    from lsp.mcp_server import _prelude_for
+
+    src = (
+        "import UInt\n"
+        "import List\n"
+        "\n"
+        "recursive product(List<UInt>) -> UInt {\n"
+        "  product(empty) = 1\n"
+        "  product(node(x, xs)) = x * product(xs)\n"
+        "}\n"
+        "\n"
+        "theorem product_one: all xs:List<UInt>.\n"
+        "  product(xs ++ empty) = product(xs)\n"
+        "proof\n"
+        "  induction List<UInt>\n"
+        "  case empty {\n"
+        "    conclude product(empty ++ empty) = product(empty)\n"
+        "    by expand product | operator++.\n"
+        "  }\n"
+        "  case node(x, xs') assume IH: (product(xs' ++ empty) = product(xs')) {\n"
+        "    expand product | operator++\n"
+        "    replace IH | uint_one_mult.\n"
+        "  }\n"
+        "end\n"
+    )
+    prelude = _prelude_for("test.pf")
+    diags = check("test.pf", src, prelude=prelude)
+
+    errors = [d for d in diags if d.severity is Severity.ERROR]
+    assert errors == [], (
+        f"expected no ERROR diagnostics, got: {[e.message for e in errors]}"
+    )
+
+    warnings = [d for d in diags if d.severity is Severity.WARNING]
+    assert len(warnings) >= 1, (
+        f"expected at least one WARNING diagnostic (redundant "
+        f"``uint_one_mult`` handled by an auto rule), got 0. All "
+        f"diagnostics: {[(d.severity.value, d.message) for d in diags]}"
+    )
+    # The warning identifies which ``replace`` argument was redundant.
+    assert any("uint_one_mult" in w.message for w in warnings), (
+        f"expected a warning mentioning ``uint_one_mult``, got: "
+        f"{[w.message for w in warnings]}"
+    )
+    # And the warning must anchor at the location the CLI prints
+    # (the ``uint_one_mult`` token, not the file-start sentinel).
+    for w in warnings:
+        assert w.range.start.line != 1 or w.range.start.column != 1, (
+            f"warning collapsed to sentinel range: {w}"
+        )
+
+
+def test_check_captured_warnings_do_not_reach_stdout(capsys) -> None:
+    """Once a warning is captured for a diagnostic, it must not also
+    leak to stdout — the stdio-based LSP server would otherwise
+    corrupt its JSON-RPC framing."""
+    from lsp.mcp_server import _prelude_for
+
+    src = (
+        "import UInt\n"
+        "import List\n"
+        "\n"
+        "recursive product(List<UInt>) -> UInt {\n"
+        "  product(empty) = 1\n"
+        "  product(node(x, xs)) = x * product(xs)\n"
+        "}\n"
+        "\n"
+        "theorem product_one: all xs:List<UInt>.\n"
+        "  product(xs ++ empty) = product(xs)\n"
+        "proof\n"
+        "  induction List<UInt>\n"
+        "  case empty {\n"
+        "    conclude product(empty ++ empty) = product(empty)\n"
+        "    by expand product | operator++.\n"
+        "  }\n"
+        "  case node(x, xs') assume IH: (product(xs' ++ empty) = product(xs')) {\n"
+        "    expand product | operator++\n"
+        "    replace IH | uint_one_mult.\n"
+        "  }\n"
+        "end\n"
+    )
+    prelude = _prelude_for("test.pf")
+    capsys.readouterr()  # drain any prior output
+    diags = check("test.pf", src, prelude=prelude)
+    captured = capsys.readouterr()
+    assert any(d.severity is Severity.WARNING for d in diags), (
+        f"expected at least one warning diagnostic, got "
+        f"{[(d.severity.value, d.message[:80]) for d in diags]}"
+    )
+    # The warning message text must NOT appear on stdout — the sink
+    # captured it, so the print path in ``error.warning`` is skipped.
+    assert "uint_one_mult" not in captured.out, (
+        f"warning text leaked to stdout while a sink was active:\n"
+        f"{captured.out!r}"
+    )
+
+
+def test_check_valid_file_with_warning_still_reports_warning() -> None:
+    """When the file has no errors, ``result.ok`` is True but a
+    captured warning must still appear in the diagnostics list —
+    otherwise the LSP client never gets to render it."""
+    from lsp.mcp_server import _prelude_for
+
+    src = (
+        "theorem t: true\n"
+        "proof\n"
+        "  sorry\n"
+        "end\n"
+    )
+    prelude = _prelude_for("test.pf")
+    diags = check("test.pf", src, prelude=prelude)
+    warnings = [d for d in diags if d.severity is Severity.WARNING]
+    assert warnings, (
+        f"expected at least one WARNING (``sorry`` -> unfinished "
+        f"proof), got: {[(d.severity.value, d.message) for d in diags]}"
+    )
+    assert any("unfinished proof" in w.message for w in warnings), (
+        f"expected an 'unfinished proof' warning from ``sorry``; got: "
+        f"{[w.message for w in warnings]}"
+    )
