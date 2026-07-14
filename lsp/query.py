@@ -3936,9 +3936,11 @@ def _insert_lemma_template(
     forall-instantiation suffix: when the unifier resolved every
     all-bound variable of the lemma, the splice writes
     ``name[t1, ..., tN]`` instead of bare ``name`` so the resulting
-    ``apply ... to ?`` (or ``conclude``/``replace``) elaborates with
-    the right inner subgoal. Empty tuple ``()`` means either no
-    forall to instantiate, or the unifier didn't resolve all vars.
+    ``apply ... to ?`` (or ``conclude``) elaborates with the right
+    inner subgoal. Empty tuple ``()`` means either no forall to
+    instantiate, or the unifier didn't resolve all vars. The
+    ``rewrite_subterm`` (``replace``) tier is the exception: it always
+    drops the suffix so the rewrite engine pattern-matches (issue #734).
     """
     name_inst = f"{name}[{', '.join(instantiations)}]" if instantiations else name
     if tier == "full":
@@ -3951,7 +3953,10 @@ def _insert_lemma_template(
     if tier == "premises_remain":
         return f"apply {name_inst} to ?"
     if tier == "rewrite_subterm":
-        return f"replace {name_inst}"
+        # No instantiation suffix: ``replace`` pattern-matches the
+        # equation across the goal, so a fixed ``[t1, ..., tN]`` splice
+        # would only narrow the rewrite to one instance (issue #734).
+        return f"replace {name}"
     if tier == "disjunctive_split":
         return f"cases {name_inst}"
     return name
