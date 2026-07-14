@@ -476,6 +476,13 @@ PARSER_ROUND_TRIP_FILES = (
     # reparse. Covers the pattern (`size(empty(b)) = ...`) and term
     # (`flip(empty(b)) = empty(b)`) occurrences.
     "./test/should-error/induction2.pf",
+    # A bodyless `object` with no type parameters, as the final statement of
+    # the file, hit EOF inside `parse_type_parameters`, which called
+    # `current_token()` with no end-of-file guard. RD raised "Expected a
+    # token, got end of file" while LALR accepted it, so the pretty-printed
+    # `object Empty` at EOF did not reparse under RD. Fixed by guarding the
+    # `LESSTHAN` lookahead with `not end_of_file()`.
+    "./test/should-validate/object_bodyless_eof.pf",
 )
 
 
