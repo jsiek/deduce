@@ -1315,10 +1315,13 @@ class Import(Declaration):
   hiding: Optional[List[str]] = None    # blacklist; None means no blacklist
 
   def _filter_clause_str(self) -> str:
+    # Operator names are stored bare (`≲`), but the parser only accepts
+    # them in a using/hiding list behind the `operator` keyword, so print
+    # them with `complete_name` to keep the clause reparseable.
     if self.using is not None:
-      return ' using ' + ' | '.join(self.using)
+      return ' using ' + ' | '.join(complete_name(n) for n in self.using)
     if self.hiding is not None:
-      return ' hiding ' + ' | '.join(self.hiding)
+      return ' hiding ' + ' | '.join(complete_name(n) for n in self.hiding)
     return ''
 
   def __str__(self) -> str:

@@ -321,7 +321,8 @@ class PatternCons(Pattern):
 
   def __str__(self) -> str:
       if len(self.parameters) > 0:
-        return str(self.constructor) \
+        ctor = applied_head_str(self.constructor) or str(self.constructor)
+        return ctor \
           + '(' + ', '.join([base_name(p) for p in self.parameters]) + ')'
       else:
         return str(self.constructor)
@@ -934,6 +935,25 @@ def is_var_operator(trm: Term) -> bool:
   # through `is_operator_callable`, which would loop on TermInst(Var(...)).
   return isinstance(trm, VarRef) and is_operator_name(trm.get_name())
 
+def applied_head_str(rator: Term) -> Optional[str]:
+  """Printed name of a var that *heads an application* (a `Call` with
+  arguments, or a `PatternCons` with parameters), or `None` if `rator`
+  is not such a var. The `empty` -> `[]` list-nil sugar (`Var.__str__`
+  et al.) must be suppressed here: `empty` applied to arguments is a
+  user constructor that merely shares the name of `List`'s nil, and
+  `[](x)` does not reparse. Only the sugar differs from the ordinary
+  var spelling in the non-unique, non-verbose mode where it fires, so
+  outside that mode `str(rator)` is already correct and this returns
+  `None`."""
+  if not isinstance(rator, VarRef) or get_unique_names() or get_verbose():
+    return None
+  name = rator.get_name()
+  if base_name(name) != 'empty':
+    return None
+  if is_var_operator(rator):
+    return 'operator ' + name2str(name)
+  return name2str(name)
+
 def is_operator_callable(trm: Term | RecFun | GenRecFun) -> bool:
   name = callable_name(trm)
   return name is not None and is_operator_name(name)
@@ -1177,7 +1197,7 @@ class Call(Term):
       assert node_list is not None
       return '[' + node_list[:-2] + ']'
     else:
-      rator_str = str(self.rator)
+      rator_str = applied_head_str(self.rator) or str(self.rator)
       # The parser parses a Call's rator at the `parse_array_get` level,
       # which only accepts atoms, array accesses, and chained calls. An
       # operator-call rator (e.g. `f ∘ g`) must be parenthesized so the

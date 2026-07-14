@@ -394,6 +394,16 @@ PARSER_ROUND_TRIP_FILES = (
     # intentional; both parsers must agree on the AST and the pretty-printer
     # must preserve repeated `reads` clauses and the optional body.
     "./test/should-error/observer_declarations.pf",
+    # `import M using ... | operator≲` stored the operator name bare (`≲`),
+    # but a using/hiding list only accepts an operator behind the `operator`
+    # keyword, so `Import._filter_clause_str` must print `operator ≲`.
+    "./test/prelude/import_using_prelude.pf",
+    # A user constructor named `empty` (here `Tree.empty(bool)`) shares the
+    # base name of `List`'s nil, so the `empty` -> `[]` display sugar fired
+    # even in applied positions: `empty(b)` printed `[](b)`, which does not
+    # reparse. Covers the pattern (`size(empty(b)) = ...`) and term
+    # (`flip(empty(b)) = empty(b)`) occurrences.
+    "./test/should-error/induction2.pf",
 )
 
 
