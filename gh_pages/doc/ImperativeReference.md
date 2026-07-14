@@ -113,7 +113,7 @@ rejects them until the imperative verifier exists.
 ## Procedure (Statement)
 
 ```deduce-grammar
-statement ::= visibility "proc" identifier type_params_opt "(" proc_param_list ")" proc_return_opt proc_spec_list "{" "}"
+statement ::= visibility "proc" identifier type_params_opt "(" proc_param_list ")" proc_return_opt proc_spec_list imp_block
 proc_param_list ::= ε
 proc_param_list ::= proc_param
 proc_param_list ::= proc_param "," proc_param_list
@@ -146,13 +146,56 @@ proc swap(a: [UInt]!, i: UInt, j: UInt)
   ensures a[i] = old(a[j])
   ensures a[j] = old(a[i])
 {
+  var tmp : UInt := a[i]
+  a[i] := a[j]
+  a[j] := tmp
 }
 ```
 
-Procedure declarations require `--experimental-imperative`. Only an
-empty body is accepted today and the checker rejects every procedure
-until the imperative verifier exists. Frame clauses use the
-[Frame Expression](#frame-expression) grammar.
+Procedure declarations require `--experimental-imperative`. The checker
+rejects every procedure until the imperative verifier exists, so a
+procedure body is parsed but not yet type-checked or verified. Frame
+clauses use the [Frame Expression](#frame-expression) grammar.
+
+## Procedure Body (Statement Block)
+
+```deduce-grammar
+imp_block ::= "{" imp_stmt_list "}"
+imp_stmt_list ::= ε
+imp_stmt_list ::= imp_stmt imp_stmt_list
+imp_stmt ::= "var" identifier ":" type ":=" term
+imp_stmt ::= "var" identifier ":=" term
+imp_stmt ::= "ghost" "var" identifier ":" type ":=" term
+imp_stmt ::= "ghost" "var" identifier ":=" term
+imp_stmt ::= imp_lvalue ":=" term
+imp_stmt ::= "if" term imp_block "else" imp_block
+imp_stmt ::= "if" term imp_block
+imp_stmt ::= "while" term loop_spec_list imp_block
+imp_stmt ::= "assert" term
+imp_stmt ::= "assume" term
+imp_stmt ::= "call" term
+imp_stmt ::= "return" term
+imp_lvalue ::= identifier
+imp_lvalue ::= identifier "[" term "]"
+imp_lvalue ::= identifier "." identifier
+loop_spec_list ::= ε
+loop_spec_list ::= loop_spec loop_spec_list
+loop_spec ::= "invariant" term
+loop_spec ::= "modifies" frame_list
+loop_spec ::= "decreases" term
+```
+
+A procedure body is a brace-delimited sequence of imperative
+statements. Local variables are introduced with `var` (or `ghost var`
+for specification-only values) and an optional type annotation. An
+assignment target is a local variable, a mutable array cell `a[i]`, or a
+field `p.f`. An imperative `if` uses braces rather than the `then`/`else`
+of the pure `if` term, so pure conditional terms are unaffected inside a
+procedure body. A `while` loop carries repeated `invariant`, `modifies`,
+and `decreases` annotations before its body. The `assert`, `assume`,
+`call`, and `return` statements take an ordinary term or formula. Proof
+clauses on these constructs (for example `assert P by p`) are a later
+parser phase and are not accepted yet.
 
 <!--
 ```{.deduce^file=ImperativeReference.pf}

@@ -142,6 +142,39 @@ proc touch<T>(a: [T]!, xs: [List<T>]!, i: T, ghost p: T) -> [T]!
   modifies a[i]
 {
 }
+
+proc body_forms<T>(a: [T]!, i: T, n: T, ghost g: T) -> T
+  requires n = n
+  modifies a
+{
+  var x : T := n
+  var y := a[i]
+  ghost var z : T := g
+  ghost var w := g
+  x := n
+  a[i] := a[n]
+  a.header := x
+  if x = x {
+    x := y
+  }
+  if x = y {
+    x := n
+  } else {
+    while x = x
+      invariant x = x
+      invariant y = y
+      modifies a, a[i]
+      decreases n
+    {
+      x := y
+      call touch(a, a, i, g)
+    }
+  }
+  assert x = x
+  assume y = y
+  call touch(a, a, i, g)
+  return x
+}
 """
 
 EXPERIMENTAL_IMPERATIVE_FILES = frozenset({

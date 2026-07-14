@@ -120,6 +120,201 @@ class FrameEmpty(FrameExpr):
   def __str__(self) -> str:
     return '{}'
 
+################ Imperative procedure bodies ####################
+#
+# Parser/AST only (experimental imperative layer, issue #854 Phase 1d).
+# These nodes represent the statements inside a `proc` body. They are
+# rejected before proof checking -- there is no assignment semantics,
+# frame checking, or loop verification here. All expression subparts are
+# ordinary `Term`/`Formula` ASTs.
+
+def _pretty_block(stmts: List['ImpStmt'], indent: int) -> str:
+  # Render a `{ ... }` imperative block. Whitespace is cosmetic -- the
+  # lexer ignores it -- so the point is only to reparse identically.
+  if not stmts:
+    return '{\n' + indent * ' ' + '}'
+  lines = '\n'.join(s.pretty_print(indent + 2) for s in stmts)
+  return '{\n' + lines + '\n' + indent * ' ' + '}'
+
+@dataclass
+class ImpStmt(AST):
+  def pretty_print(self, indent: int) -> str:
+    return indent * ' ' + str(self)
+
+@dataclass
+class LValueVar(AST):
+  name: str
+
+  def __str__(self) -> str:
+    return base_name(self.name)
+
+@dataclass
+class LValueIndex(AST):
+  array: str
+  index: Term
+
+  def __str__(self) -> str:
+    return base_name(self.array) + '[' + str(self.index) + ']'
+
+@dataclass
+class LValueField(AST):
+  subject: str
+  field: str
+
+  def __str__(self) -> str:
+    return base_name(self.subject) + '.' + base_name(self.field)
+
+@dataclass
+class ImpVar(ImpStmt):
+  name: str
+  type_annot: Optional[Type]
+  rhs: Term
+  ghost: bool = False
+
+  def __str__(self) -> str:
+    prefix = 'ghost var ' if self.ghost else 'var '
+    annot = ': ' + str(self.type_annot) if self.type_annot is not None else ''
+    return prefix + base_name(self.name) + annot + ' := ' + str(self.rhs)
+
+@dataclass
+class ImpAssign(ImpStmt):
+  lhs: LValueVar | LValueIndex | LValueField
+  rhs: Term
+
+  def __str__(self) -> str:
+    return str(self.lhs) + ' := ' + str(self.rhs)
+
+@dataclass
+class ImpIf(ImpStmt):
+  cond: Term
+  then_body: List['ImpStmt']
+  else_body: Optional[List['ImpStmt']] = None
+
+  def pretty_print(self, indent: int) -> str:
+    pad = indent * ' '
+    result = pad + 'if ' + str(self.cond) + ' ' \
+        + _pretty_block(self.then_body, indent)
+    if self.else_body is not None:
+      result += ' else ' + _pretty_block(self.else_body, indent)
+    return result
+
+  def __str__(self) -> str:
+    return self.pretty_print(0)
+
+@dataclass
+class ImpWhile(ImpStmt):
+  cond: Term
+  invariants: List[Term]
+  modifies: List[FrameExpr]
+  decreases: Optional[Term]
+  body: List['ImpStmt']
+
+  def pretty_print(self, indent: int) -> str:
+    pad = indent * ' '
+    spec_pad = (indent + 2) * ' '
+    lines = [pad + 'while ' + str(self.cond)]
+    for inv in self.invariants:
+      lines.append(spec_pad + 'invariant ' + str(inv))
+    if self.modifies:
+      lines.append(spec_pad + 'modifies '
+                   + ', '.join(str(f) for f in self.modifies))
+    if self.decreases is not None:
+      lines.append(spec_pad + 'decreases ' + str(self.decreases))
+    header = '\n'.join(lines)
+    return header + '\n' + pad + _pretty_block(self.body, indent)
+
+  def __str__(self) -> str:
+    return self.pretty_print(0)
+
+@dataclass
+class ImpAssert(ImpStmt):
+  formula: Term
+
+  def __str__(self) -> str:
+    return 'assert ' + str(self.formula)
+
+@dataclass
+class ImpAssume(ImpStmt):
+  formula: Term
+
+  def __str__(self) -> str:
+    return 'assume ' + str(self.formula)
+
+@dataclass
+class ImpCall(ImpStmt):
+  call: Term
+
+  def __str__(self) -> str:
+    return 'call ' + str(self.call)
+
+@dataclass
+class ImpReturn(ImpStmt):
+  value: Term
+
+  def __str__(self) -> str:
+    return 'return ' + str(self.value)
+
+def _resolve_local(name: str, env: UniquifyEnv) -> str:
+  # Resolve an assignment-target name to its unique binding when one is in
+  # scope. Assignment targets are plain strings (not `Var` nodes), so this
+  # is best-effort: field names and not-yet-supported globals stay as-is.
+  names = env.get(name)
+  return names[0] if names else name
+
+def _uniquify_lvalue(lv: LValueVar | LValueIndex | LValueField,
+                     env: UniquifyEnv,
+                     ctx: UniquifyContext) -> LValueVar | LValueIndex | LValueField:
+  if isinstance(lv, LValueIndex):
+    return LValueIndex(lv.location, _resolve_local(lv.array, env),
+                       lv.index.uniquify(env, ctx))
+  if isinstance(lv, LValueField):
+    return LValueField(lv.location, _resolve_local(lv.subject, env), lv.field)
+  return LValueVar(lv.location, _resolve_local(lv.name, env))
+
+def _uniquify_imp_stmt(s: ImpStmt, env: UniquifyEnv,
+                       ctx: UniquifyContext) -> ImpStmt:
+  # `env` is the enclosing block's environment; a `var` declaration mutates
+  # it so later statements in the same block see the binding. Nested blocks
+  # receive a copy so their locals do not leak outward.
+  if isinstance(s, ImpVar):
+    new_rhs = s.rhs.uniquify(env, ctx)
+    new_type = (s.type_annot.uniquify(env, ctx)
+                if s.type_annot is not None else None)
+    new_name = generate_name(s.name, ctx)
+    overwrite(env, s.name, new_name, s.location)
+    return ImpVar(s.location, new_name, new_type, new_rhs, s.ghost)
+  if isinstance(s, ImpAssign):
+    return ImpAssign(s.location, _uniquify_lvalue(s.lhs, env, ctx),
+                     s.rhs.uniquify(env, ctx))
+  if isinstance(s, ImpIf):
+    new_cond = s.cond.uniquify(env, ctx)
+    then_body = _uniquify_imp_block(s.then_body, copy_dict(env), ctx)
+    else_body = (_uniquify_imp_block(s.else_body, copy_dict(env), ctx)
+                 if s.else_body is not None else None)
+    return ImpIf(s.location, new_cond, then_body, else_body)
+  if isinstance(s, ImpWhile):
+    new_cond = s.cond.uniquify(env, ctx)
+    new_invariants = [inv.uniquify(env, ctx) for inv in s.invariants]
+    new_modifies = [f.uniquify(env, ctx) for f in s.modifies]
+    new_decreases = (s.decreases.uniquify(env, ctx)
+                     if s.decreases is not None else None)
+    body = _uniquify_imp_block(s.body, copy_dict(env), ctx)
+    return ImpWhile(s.location, new_cond, new_invariants, new_modifies,
+                    new_decreases, body)
+  if isinstance(s, ImpAssert):
+    return ImpAssert(s.location, s.formula.uniquify(env, ctx))
+  if isinstance(s, ImpAssume):
+    return ImpAssume(s.location, s.formula.uniquify(env, ctx))
+  if isinstance(s, ImpCall):
+    return ImpCall(s.location, s.call.uniquify(env, ctx))
+  if isinstance(s, ImpReturn):
+    return ImpReturn(s.location, s.value.uniquify(env, ctx))
+  return s
+
+def _uniquify_imp_block(stmts: List[ImpStmt], env: UniquifyEnv,
+                        ctx: UniquifyContext) -> List[ImpStmt]:
+  return [_uniquify_imp_stmt(s, env, ctx) for s in stmts]
+
 @dataclass
 class ProcParam(AST):
   name: str
@@ -155,27 +350,29 @@ class ProcDecl(Declaration):
   params: List[ProcParam]
   return_type: Optional[Type]
   specs: List[ProcSpec]
+  body: List[ImpStmt] = field(default_factory=list)
 
   def __str__(self) -> str:
+    return self.pretty_print(0)
+
+  def pretty_print(self, indent: int) -> str:
     if get_verbose():
       shown_name = self.name
       typarams = self.type_params
     else:
       shown_name = base_name(self.name)
       typarams = [base_name(t) for t in self.type_params]
-    header = self.visibility_prefix() + 'proc ' + shown_name
+    pad = indent * ' '
+    header = pad + self.visibility_prefix() + 'proc ' + shown_name
     if typarams:
       header += '<' + ','.join(typarams) + '>'
     header += '(' + ', '.join(str(p) for p in self.params) + ')'
     if self.return_type is not None:
       header += ' -> ' + str(self.return_type)
-    if not self.specs:
-      return header + ' {\n}'
-    spec_lines = '\n'.join('  ' + str(spec) for spec in self.specs)
-    return header + '\n' + spec_lines + '\n{\n}'
-
-  def pretty_print(self, indent: int) -> str:
-    return indent*' ' + str(self).replace('\n', '\n' + indent*' ').rstrip()
+    if self.specs:
+      header += '\n' + '\n'.join(spec.pretty_print(indent + 2)
+                                 for spec in self.specs)
+    return header + '\n' + pad + _pretty_block(self.body, indent)
 
   def uniquify(self, env: object, ctx: object) -> ProcDecl:
     env_map = cast(UniquifyEnv, env)
@@ -209,8 +406,14 @@ class ProcDecl(Declaration):
       overwrite(proc_env, 'result', generate_name('result', uniq_ctx),
                 self.location)
     new_specs = [spec.uniquify(proc_env, uniq_ctx) for spec in self.specs]
+    # Phase 1d is parser/AST only: uniquify resolves the body's term
+    # subparts (so no pre-uniquify `Var` nodes leak past this pass) and
+    # alpha-renames local `var` bindings, but there is no assignment
+    # semantics, frame checking, or loop verification here.
+    new_body = _uniquify_imp_block(self.body, copy_dict(proc_env), uniq_ctx)
     return ProcDecl(self.location, new_name, new_type_params, new_params,
-                    new_return_type, new_specs, visibility=self.visibility)
+                    new_return_type, new_specs, new_body,
+                    visibility=self.visibility)
 
   def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
     if self.visibility != 'private' or importing_module == get_current_module():

@@ -10,6 +10,8 @@ from abstract_syntax import (
     Define, EvaluateFact, EvaluateGoal, Export, FrameEmpty, FrameField,
     FrameFootprint, FrameTerm, FunCase, FunctionType,
     GenRecFun, Generic, Hole, IfThen, ImpIntro, Import,
+    ImpAssert, ImpAssign, ImpAssume, ImpCall, ImpIf, ImpReturn, ImpStmt,
+    ImpVar, ImpWhile, LValueField, LValueIndex, LValueVar,
     IndCase, Induction, Inductive, Lambda, MakeArray, Mark,
     Module, ModusPonens, MutableArrayType, ObjectDecl, ObjectField,
     ObserverDecl, Omitted,
@@ -1882,10 +1884,112 @@ def parse_proc_decl(visibility: str) -> Statement:
     advance()
     return_type = parse_type()
   specs = parse_proc_specs()
-  consume_token('LBRACE', '"{"', context='after proc header and specs')
-  consume_token('RBRACE', '"}"', context='after empty proc body')
+  body = parse_imp_block(context='after proc header and specs')
   return ProcDecl(meta_from_tokens(start, previous_token()), name, typarams,
-                  params, return_type, specs, visibility=visibility)
+                  params, return_type, specs, body, visibility=visibility)
+
+def parse_imp_block(context: str) -> list[ImpStmt]:
+  consume_token('LBRACE', '"{"', context=context)
+  stmts: list[ImpStmt] = []
+  while not end_of_file() and current_token().type != 'RBRACE':
+    stmts.append(parse_imp_stmt())
+  consume_token('RBRACE', '"}"', context='at end of imperative block')
+  return stmts
+
+def parse_imp_lvalue() -> LValueVar | LValueIndex | LValueField:
+  start = current_token()
+  name = parse_identifier()
+  if not end_of_file() and current_token().type == 'LSQB':
+    advance()
+    index = parse_term()
+    consume_token('RSQB', 'closing "]"', context='after array index of assignment')
+    return LValueIndex(meta_from_tokens(start, previous_token()), name, index)
+  if not end_of_file() and current_token().type == 'DOT':
+    advance()
+    field = parse_identifier()
+    return LValueField(meta_from_tokens(start, previous_token()), name, field)
+  return LValueVar(meta_from_tokens(start, previous_token()), name)
+
+def parse_imp_var(ghost: bool) -> ImpVar:
+  start = current_token()
+  advance()  # consume "var"
+  name = parse_identifier()
+  type_annot = None
+  if not end_of_file() and current_token().type == 'COLON':
+    advance()
+    type_annot = parse_type()
+  consume_token('ASSIGN', '":="', context='after variable name of "var"')
+  rhs = parse_term()
+  return ImpVar(meta_from_tokens(start, previous_token()), name, type_annot,
+                rhs, ghost)
+
+def parse_loop_specs() -> tuple[list[Term], list[FrameTerm | FrameField
+                                                  | FrameFootprint | FrameEmpty],
+                                Optional[Term]]:
+  invariants: list[Term] = []
+  modifies: list[FrameTerm | FrameField | FrameFootprint | FrameEmpty] = []
+  decreases: Optional[Term] = None
+  while not end_of_file() and current_token().value in (
+      'invariant', 'modifies', 'decreases'):
+    keyword = current_token().value
+    advance()
+    if keyword == 'invariant':
+      invariants.append(parse_term())
+    elif keyword == 'modifies':
+      modifies.extend(parse_frame_list())
+    else:
+      decreases = parse_term()
+  return invariants, modifies, decreases
+
+def parse_imp_stmt() -> ImpStmt:
+  require_experimental_imperative(
+      meta_from_tokens(current_token(), current_token()))
+  start = current_token()
+  tok = current_token()
+  if tok.value == 'var':
+    return parse_imp_var(False)
+  if tok.value == 'ghost':
+    advance()  # consume "ghost"
+    if current_token().value != 'var':
+      raise ParseError(meta_from_tokens(current_token(), current_token()),
+                       'expected "var" after "ghost", not\n\t'
+                       + quote(current_token().value))
+    result = parse_imp_var(True)
+    return ImpVar(meta_from_tokens(start, previous_token()), result.name,
+                  result.type_annot, result.rhs, True)
+  if tok.value == 'if':
+    advance()
+    cond = parse_term()
+    then_body = parse_imp_block(context='after condition of "if"')
+    else_body = None
+    if not end_of_file() and current_token().value == 'else':
+      advance()
+      else_body = parse_imp_block(context='after "else"')
+    return ImpIf(meta_from_tokens(start, previous_token()), cond,
+                 then_body, else_body)
+  if tok.value == 'while':
+    advance()
+    cond = parse_term()
+    invariants, modifies, decreases = parse_loop_specs()
+    body = parse_imp_block(context='after "while" loop header')
+    return ImpWhile(meta_from_tokens(start, previous_token()), cond,
+                    invariants, modifies, decreases, body)
+  if tok.value == 'assert':
+    advance()
+    return ImpAssert(meta_from_tokens(start, previous_token()), parse_term())
+  if tok.value == 'assume':
+    advance()
+    return ImpAssume(meta_from_tokens(start, previous_token()), parse_term())
+  if tok.value == 'call':
+    advance()
+    return ImpCall(meta_from_tokens(start, previous_token()), parse_term())
+  if tok.value == 'return':
+    advance()
+    return ImpReturn(meta_from_tokens(start, previous_token()), parse_term())
+  lhs = parse_imp_lvalue()
+  consume_token('ASSIGN', '":="', context='after assignment target')
+  rhs = parse_term()
+  return ImpAssign(meta_from_tokens(start, previous_token()), lhs, rhs)
 
 def parse_observer_reads_list() -> list[list[FrameTerm | FrameField | FrameFootprint | FrameEmpty]]:
   clauses: list[list[FrameTerm | FrameField | FrameFootprint | FrameEmpty]] = []
