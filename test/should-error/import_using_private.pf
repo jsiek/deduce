@@ -1,0 +1,4 @@
+// A `using` filter that names a private (non-exported) declaration must be
+// rejected the same way an unknown name is (issue #1011). `Sign` is a
+// `private union` in test-imports/Private.pf, so it is not exported here.
+import Private using Sign

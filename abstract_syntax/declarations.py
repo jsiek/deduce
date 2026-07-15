@@ -1728,10 +1728,27 @@ class Import(Declaration):
       return name in using
     return name not in cast(List[str], hiding)
 
-  def _validate_filter(self, new_ast: List[Statement]) -> None:
+  def _validate_filter(self, new_ast: List[Statement],
+                       importing_module: str) -> None:
     if self.using is None and self.hiding is None:
       return
-    exported = {n for n in (_stmt_primary_name(s) for s in new_ast) if n is not None}
+    # Build the set of names actually exported to the importing module by
+    # replaying collect_exports over the module body. A statement's primary
+    # name counts only when that statement contributes at least one visible
+    # name to the importer, so private (non-exported) declarations are
+    # rejected the same way an unknown name is. `module`/`import` statements
+    # thread the current-module context exactly as the real export loop does,
+    # so we restore it before returning.
+    saved_module = get_current_module()
+    exported: set[str] = set()
+    for s in new_ast:
+      name = _stmt_primary_name(s)
+      probe: UniquifyEnv = {'no overload': {}}
+      s.collect_exports(probe, importing_module)
+      if name is not None and any(
+          k != 'no overload' and not k.startswith('__module__') for k in probe):
+        exported.add(name)
+    set_current_module(saved_module)
     requested = self.using if self.using is not None else self.hiding
     assert requested is not None
     for name in requested:
@@ -1752,36 +1769,41 @@ class Import(Declaration):
     if get_verbose() == VerboseLevel.CURR_ONLY:
       set_verbose(VerboseLevel.NONE)
 
-    global uniquified_modules
-    if self.name in uniquified_modules.keys():
-      new_ast = uniquified_modules[self.name]
-    else:
-      filename = find_file(self.location, self.name)
-      file = open(filename, 'r', encoding="utf-8")
-      src = file.read()
-      file.close()
-      if get_recursive_descent():
-        from rec_desc_parser import get_filename, set_filename, parse
+    # Restore the module/verbose globals even if an error (e.g. a bad
+    # using/hiding filter) aborts the import, so a later top-level check
+    # sharing this process does not inherit a stale current module.
+    try:
+      global uniquified_modules
+      if self.name in uniquified_modules.keys():
+        new_ast = uniquified_modules[self.name]
       else:
-        from parser import get_filename, set_filename, parse
-      old_filename = get_filename()
-      set_filename(filename)
-      parsed_ast = parse(src, trace=False)
-      set_filename(old_filename)
-      new_ast = uniquify_deduce(parsed_ast, ctx)
-      uniquified_modules[self.name] = new_ast
+        filename = find_file(self.location, self.name)
+        file = open(filename, 'r', encoding="utf-8")
+        src = file.read()
+        file.close()
+        if get_recursive_descent():
+          from rec_desc_parser import get_filename, set_filename, parse
+        else:
+          from parser import get_filename, set_filename, parse
+        old_filename = get_filename()
+        set_filename(filename)
+        parsed_ast = parse(src, trace=False)
+        set_filename(old_filename)
+        new_ast = uniquify_deduce(parsed_ast, ctx)
+        uniquified_modules[self.name] = new_ast
 
-    env['__module__' + self.name] = None
-    if get_verbose():
-        print('collecting exports from ' + self.name + ' for import to ' + importing_module + '\n')
-    self._validate_filter(new_ast)
-    for stmt in new_ast:
-      if self._filter_admits(stmt):
-        stmt.collect_exports(env, importing_module)
-    set_verbose(old_verbose)
-    if get_verbose():
-      print('\tuniquify finished import ' + self.name)
-    set_current_module(importing_module)
+      env['__module__' + self.name] = None
+      if get_verbose():
+          print('collecting exports from ' + self.name + ' for import to ' + importing_module + '\n')
+      self._validate_filter(new_ast, importing_module)
+      for stmt in new_ast:
+        if self._filter_admits(stmt):
+          stmt.collect_exports(env, importing_module)
+      if get_verbose():
+        print('\tuniquify finished import ' + self.name)
+    finally:
+      set_verbose(old_verbose)
+      set_current_module(importing_module)
     return Import(self.location, self.name, new_ast,
                   visibility=self.visibility,
                   using=self.using, hiding=self.hiding)
