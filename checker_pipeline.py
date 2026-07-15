@@ -75,17 +75,8 @@ def process_declaration_visibility(decl: Declaration, env: Env,
                                    downstream_needs_checking: list[bool]
                                    ) -> tuple[Statement, Env]:
   match decl:
-    case ProcDecl(loc, name, _, _, _, _, _):
-      user_error(loc, 'imperative proc declarations are not supported yet: '
-                 + base_name(name))
-
-    case ObserverDecl(loc, name, _, _, _, _, _):
-      user_error(loc, 'imperative observer declarations are not supported yet: '
-                 + base_name(name))
-
-    case ResourceDecl(loc, name, _, _, _):
-      user_error(loc, 'imperative resource declarations are not supported yet: '
-                 + base_name(name))
+    case ProcDecl() | ObserverDecl() | ResourceDecl():
+      return decl, env
 
     case Define(loc, name, ty, body):
       if ty == None:
@@ -291,6 +282,7 @@ def process_declaration_visibility(decl: Declaration, env: Env,
 
           ast2 = []
           assert ast is not None
+          check_exported_contract_visibility(ast)
           for s in ast:
             new_s, env = process_declaration(s, env, module_chain, needs_checking)
             ast2.append(new_s)
@@ -852,9 +844,12 @@ def type_check_stmt(stmt: Statement, env: Env,
     case ViewDecl():
       return stmt
 
-    case ObjectDecl():
+    case ObjectDecl() | ProcDecl() | ObserverDecl() | ResourceDecl():
+      # Phase 1 imperative declarations (issue #854): recognized for module
+      # boundaries and tooling, but their bodies and specs are not verified
+      # here -- pass them through unchanged.
       return stmt
-    
+
     case Trace(loc, var):
       var_ty = env.get_type_of_term_var(var)
       match var_ty:
@@ -870,9 +865,6 @@ def type_check_stmt(stmt: Statement, env: Env,
     case TypeAlias():
       return stmt
 
-    case ObjectDecl():
-      return stmt
-  
     case Export(loc, name):
         return stmt
     
@@ -954,9 +946,9 @@ def collect_env(stmt: Statement, env: Env) -> Env:
     case TypeAlias():
       return env
 
-    case ObjectDecl():
+    case ObjectDecl() | ProcDecl() | ObserverDecl() | ResourceDecl():
       return env
-          
+
     case Theorem(loc, name, frm, _, _):
       return env.declare_proof_var(loc, name, frm)
 
@@ -1230,7 +1222,7 @@ def check_proofs(stmt: Statement, env: Env) -> None:
     case TypeAlias():
       pass
 
-    case ObjectDecl():
+    case ObjectDecl() | ProcDecl() | ObserverDecl() | ResourceDecl():
       pass
 
     case ViewDecl():
@@ -1314,6 +1306,70 @@ def check_proofs(stmt: Statement, env: Env) -> None:
   if _dbg is not None:
     _dbg.after_statement(stmt, env)
 
+def _referenced_names(node: object) -> set[str]:
+  # Collect every resolved name referenced anywhere inside `node` by walking
+  # its dataclass fields (the same generic traversal as
+  # checker_logic._ast_mentions_any, but gathering names instead of testing
+  # membership). Used by the exported-contract visibility check.
+  names: set[str] = set()
+  seen: set[int] = set()
+  stack: list[object] = [node]
+  while stack:
+    n = stack.pop()
+    if isinstance(n, (list, tuple)):
+      stack.extend(n)
+      continue
+    if isinstance(n, dict):
+      stack.extend(n.values())
+      continue
+    nid = id(n)
+    if nid in seen:
+      continue
+    seen.add(nid)
+    if isinstance(n, OverloadedVar):
+      names.update(n.resolved_names)
+    elif isinstance(n, VarRef):
+      names.add(n.get_name())
+    if hasattr(n, '__dict__'):
+      for v in vars(n).values():
+        if v is not None and not isinstance(v, (str, int, float, bool)):
+          stack.append(v)
+  return names
+
+def check_exported_contract_visibility(ast: List[Statement]) -> None:
+  # Phase 1 module-boundary check (issue #854/#968). An exported imperative
+  # contract may only mention names that are themselves visible to importing
+  # modules. A `private` declaration in the same module resolves fine
+  # internally but is dropped from the module's exports, so exposing it in a
+  # public `proc`/`observer` contract would leave importers unable to state or
+  # use that contract. We reject it here rather than letting importers hit a
+  # confusing "undefined name" later. The declaration body stays hidden, so a
+  # private name used only in a body (not the contract) is fine.
+  private: dict[str, str] = {}
+  for s in ast:
+    if isinstance(s, Declaration) and s.visibility == 'private':
+      private[s.name] = base_name(s.name)
+  if not private:
+    return
+  for s in ast:
+    match s:
+      case ProcDecl() if s.visibility != 'private':
+        contract: list[object] = [*s.params, *s.specs]
+        if s.return_type is not None:
+          contract.append(s.return_type)
+        kind = 'proc'
+      case ObserverDecl() if s.visibility != 'private':
+        contract = [*s.params, s.return_type, *s.reads]
+        kind = 'observer'
+      case _:
+        continue
+    for ref in sorted(_referenced_names(contract) & private.keys()):
+      user_error(s.location,
+                 'exported ' + kind + " '" + base_name(s.name)
+                 + "' mentions the private name '" + private[ref]
+                 + "' in its contract; a public contract may only mention "
+                 + 'names visible to importing modules.')
+
 def check_deduce(ast: List[Statement], module_name: str, modified: bool,
                  tracing_functions: List[str],
                  error_sink: Optional[ErrorSink] = None) -> List[Statement]:
@@ -1373,6 +1429,11 @@ def _check_deduce_body(ast: list[Statement], module_name: str, modified: bool,
   # ``ast2_pairs`` collects (post-decl AST, hash) pairs only for
   # statements whose declaration phase succeeded; failed statements
   # are dropped here so they don't show up in later phases.
+  try:
+    check_exported_contract_visibility(ast)
+  except Diagnostic as e:
+    _collect_diagnostic(e)
+
   ast2_pairs = []
   for s in ast:
     sh = _hash_ast(s)

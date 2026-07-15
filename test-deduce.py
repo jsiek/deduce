@@ -220,9 +220,14 @@ end
 """
 
 EXPERIMENTAL_IMPERATIVE_FILES = frozenset({
-    "./test/should-error/proc_declarations.pf",
-    "./test/should-error/observer_declarations.pf",
+    "./test/should-validate/proc_declarations.pf",
+    "./test/should-validate/observer_declarations.pf",
+    "./test/should-validate/imperative_import.pf",
     "./test/should-error/resource_declarations.pf",
+    "./test/should-error/imperative_import_unknown.pf",
+    "./test/should-error/imperative_import_field.pf",
+    "./test/should-error/imperative_export_private_contract.pf",
+    "./test/test-imports/ImpExports.pf",
 })
 
 
@@ -461,19 +466,19 @@ PARSER_ROUND_TRIP_FILES = (
     # ``UIntAdd.pf`` exercises the ``apply f to a, apply g to b`` tuple.
     "./lib/Set.pf",
     "./lib/UIntAdd.pf",
-    # Parser/AST-only imperative procedure declarations. The checker
-    # intentionally rejects these until the verifier exists, but both parsers
-    # must agree on the AST and the pretty-printer must preserve the header and
-    # repeated specification clauses.
-    "./test/should-error/proc_declarations.pf",
-    # Parser/AST-only imperative observer declarations. Checker rejection is
-    # intentional; both parsers must agree on the AST and the pretty-printer
-    # must preserve repeated `reads` clauses and the optional body.
-    "./test/should-error/observer_declarations.pf",
-    # Parser/AST-only separation-resource declarations (#854 Phase 1h). Checker
-    # rejection is intentional; both parsers must agree on the AST and the
-    # pretty-printer must round-trip the `emp`, `**`, and `|->` connectives and
-    # the `p.f` field-access address form.
+    # Imperative procedure declarations (recognized in Phase 1i, #968; bodies
+    # not verified). Both parsers must agree on the AST and the pretty-printer
+    # must preserve the header and repeated specification clauses.
+    "./test/should-validate/proc_declarations.pf",
+    # Imperative observer declarations. Both parsers must agree on the AST and
+    # the pretty-printer must preserve repeated `reads` clauses and the optional
+    # body.
+    "./test/should-validate/observer_declarations.pf",
+    # Separation-resource declarations (#854 Phase 1h). The declarations are
+    # recognized (Phase 1i) but the file stays in should-error because resource
+    # formulas have no term semantics; both parsers must agree on the AST and
+    # the pretty-printer must round-trip the `emp`, `**`, and `|->` connectives
+    # and the `p.f` field-access address form.
     "./test/should-error/resource_declarations.pf",
     # `import M using ... | operator≲` stored the operator name bare (`≲`),
     # but a using/hiding list only accepts an operator behind the `operator`
@@ -587,7 +592,11 @@ def _worker_validate(task: tuple[str, bool]) -> tuple[str, bool, str, str]:
     f, recursive_descent = task
     set_recursive_descent(recursive_descent)
     label = "recursive-descent" if recursive_descent else "lalr"
-    result = check_file(f, prewarm_modules=_WORKER_PREWARM)
+    set_experimental_imperative(_uses_experimental_imperative(f))
+    try:
+        result = check_file(f, prewarm_modules=_WORKER_PREWARM)
+    finally:
+        set_experimental_imperative(False)
     return (f, result.ok, label, result.error_message or "")
 
 
@@ -1149,20 +1158,17 @@ def run_experimental_imperative_parser_test() -> list[tuple[str, str, str]]:
             label = "recursive-descent" if recursive_descent else "lalr"
             set_recursive_descent(recursive_descent)
             set_experimental_imperative(True)
+            # Phase 1i (issue #968): proc/observer/resource declarations are
+            # recognized as first-class for module boundaries and tooling.
+            # Their bodies and specs are not verified yet (Phase 2+), so a file
+            # that only declares them checks successfully.
             checked = check_file(path, content=IMPERATIVE_SYNTAX_SOURCE,
                                  prelude=())
-            if checked.ok:
+            if not checked.ok:
                 failures.append((
                     path, label,
-                    "imperative proc unexpectedly checked successfully",
-                ))
-            elif "imperative proc declarations are not supported yet" not in (
-                checked.error_message or ""
-            ):
-                failures.append((
-                    path, label,
-                    "expected unsupported-proc diagnostic, got:\n"
-                    f"{(checked.error_message or '')[:500]}",
+                    "imperative declarations should now be recognized, "
+                    f"but checking failed:\n{(checked.error_message or '')[:500]}",
                 ))
 
             pure_new = check_file(

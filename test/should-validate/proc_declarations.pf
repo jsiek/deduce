@@ -1,3 +1,7 @@
+// Procedure declarations, specs, imperative bodies, proof clauses, proof
+// slots, and call labels. Phase 1i (issue #968) recognizes proc declarations
+// as first-class for module boundaries and tooling, so this file validates;
+// the bodies and specs are not verified yet (Phase 2 adds the verifier).
 public proc identity<T>(x: T, ghost witness: T) -> T
   requires x = x
   requires witness = witness
@@ -41,8 +45,10 @@ opaque proc hidden()
 {
 }
 
-// Proof clauses, proof slots, and call labels (Phase 1e). Parser/AST only;
-// the checker still rejects the procedure above before reaching this one.
+// Proof clauses, proof slots, and call labels (Phase 1e). Phase 1i (issue
+// #968) recognizes proc declarations as first-class for module boundaries and
+// tooling, so this file validates; the bodies below are not verified yet
+// (Phase 2 adds the verifier).
 proc driver(n: bool)
   requires n = n
   ensures n = n

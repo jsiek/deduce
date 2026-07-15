@@ -1,0 +1,3 @@
+// Phase 1i (issue #968): an import `using` filter rejects a name the module
+// does not declare, the same way it rejects any unknown name.
+import ImpExports using no_such_proc

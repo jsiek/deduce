@@ -86,6 +86,55 @@ def test_list_symbols_collects_all_top_level_kinds() -> None:
     assert by_name["p1"].signature.startswith("p1:")
 
 
+def test_list_symbols_includes_imperative_declarations() -> None:
+    # Phase 1i (issue #968): proc/observer/object/resource declarations show
+    # up in the outline like any other top-level declaration.
+    from flags import set_experimental_imperative
+
+    src = (
+        "object Box<T> {\n"                    # line 1: object
+        "  var data : T\n"
+        "}\n"
+        "\n"
+        "proc do_nothing(x: bool)\n"           # line 5: proc
+        "  ensures x = x\n"
+        "{\n"
+        "}\n"
+        "\n"
+        "observer peek(x: bool) -> bool\n"     # line 10: observer
+        "  reads x\n"
+        "{\n"
+        "  x\n"
+        "}\n"
+        "\n"
+        "resource cell(p: bool, v: bool)\n"    # line 16: resource
+    )
+    set_experimental_imperative(True)
+    try:
+        syms = list_symbols("test.pf", src)
+    finally:
+        set_experimental_imperative(False)
+    by_name = {s.name: s for s in syms}
+
+    assert set(by_name) == {"Box", "do_nothing", "peek", "cell"}
+    assert by_name["Box"].kind is SymbolKind.OBJECT
+    assert by_name["do_nothing"].kind is SymbolKind.PROC
+    assert by_name["peek"].kind is SymbolKind.OBSERVER
+    assert by_name["cell"].kind is SymbolKind.RESOURCE
+
+    assert by_name["Box"].signature.startswith("object Box")
+    assert by_name["do_nothing"].signature.startswith("proc do_nothing")
+    assert by_name["peek"].signature.startswith("observer peek")
+    assert by_name["cell"].signature.startswith("resource cell")
+
+    # User-visible names only (no .NNN uniquify suffix leaks into signatures).
+    assert ".uniquify" not in by_name["do_nothing"].signature
+    assert by_name["Box"].location.range.start.line == 1
+    assert by_name["do_nothing"].location.range.start.line == 5
+    assert by_name["peek"].location.range.start.line == 10
+    assert by_name["cell"].location.range.start.line == 16
+
+
 def test_list_symbols_returns_empty_on_parse_error() -> None:
     # Truncated source: parser error before any declaration is built.
     src = "theorem t: true\nproof\n"

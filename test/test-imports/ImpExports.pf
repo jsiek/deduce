@@ -1,0 +1,24 @@
+// Auxiliary module for the imperative import/export tests (issue #968).
+// Exports one of each imperative declaration form so an importing module can
+// filter and re-export them by name. The `private` proc is intentionally not
+// exported.
+module ImpExports
+
+public object Box {
+  var data : bool
+}
+
+public observer peek(b: bool) -> bool
+  reads b
+
+public proc reset(x: bool)
+  ensures x = x
+{
+}
+
+public resource owns(x: bool)
+
+private proc secret(x: bool)
+  ensures x = x
+{
+}

@@ -1,0 +1,13 @@
+// Phase 1i (issue #968): an exported imperative contract may only mention
+// names that are visible to importing modules. Here a public `proc` requires a
+// `private` resource, which importers could never state or satisfy, so it is
+// rejected at the module boundary.
+module PrivateContract
+
+private resource rep(x: bool)
+
+public proc op(x: bool)
+  requires rep(x)
+  ensures x = x
+{
+}

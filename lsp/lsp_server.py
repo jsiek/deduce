@@ -230,6 +230,10 @@ _SYMBOL_KIND_MAP: dict[_query.SymbolKind, lsp_types.SymbolKind] = {
     _query.SymbolKind.PREDICATE: lsp_types.SymbolKind.Function,
     _query.SymbolKind.POSTULATE: lsp_types.SymbolKind.Function,
     _query.SymbolKind.IMPORT: lsp_types.SymbolKind.Module,
+    _query.SymbolKind.OBJECT: lsp_types.SymbolKind.Class,
+    _query.SymbolKind.PROC: lsp_types.SymbolKind.Method,
+    _query.SymbolKind.OBSERVER: lsp_types.SymbolKind.Function,
+    _query.SymbolKind.RESOURCE: lsp_types.SymbolKind.Struct,
     _query.SymbolKind.OTHER: lsp_types.SymbolKind.Variable,
 }
 

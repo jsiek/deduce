@@ -160,6 +160,10 @@ def test_symbol_kinds_cover_top_level_forms():
         "predicate",
         "postulate",
         "import",
+        "object",
+        "proc",
+        "observer",
+        "resource",
         "other",
     }
     assert {k.value for k in SymbolKind} == expected

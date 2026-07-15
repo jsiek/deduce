@@ -1,3 +1,6 @@
+// Observer declarations with read frames. Phase 1i (issue #968) recognizes
+// them as first-class for module boundaries and tooling, so this file
+// validates; the read frames and bodies are not verified yet (Phase 2/3).
 type Ref<T> = T
 
 public observer all_zero<T>(a: [T]!, i: T, ghost limit: T) -> bool
