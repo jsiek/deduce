@@ -145,6 +145,10 @@ class SymbolKind(Enum):
     PREDICATE = "predicate"
     POSTULATE = "postulate"
     IMPORT = "import"
+    OBJECT = "object"
+    PROC = "proc"
+    OBSERVER = "observer"
+    RESOURCE = "resource"
     OTHER = "other"
 
 
@@ -1754,9 +1758,13 @@ def _symbol_info_for(stmt: "Statement", path: str) -> Optional[SymbolInfo]:
         Define,
         GenRecFun,
         Import,
+        ObjectDecl,
+        ObserverDecl,
         Postulate,
         Predicate,
+        ProcDecl,
         RecFun,
+        ResourceDecl,
         Theorem,
         Union,
         base_name,
@@ -1807,6 +1815,40 @@ def _symbol_info_for(stmt: "Statement", path: str) -> Optional[SymbolInfo]:
     elif isinstance(stmt, Import):
         kind = SymbolKind.IMPORT
         signature = f"import {stmt.name}"
+    elif isinstance(stmt, ObjectDecl):
+        kind = SymbolKind.OBJECT
+        typarams = (
+            f"<{', '.join(base_name(t) for t in stmt.type_params)}>"
+            if stmt.type_params else ""
+        )
+        signature = f"object {base_name(stmt.name)}{typarams}"
+    elif isinstance(stmt, ProcDecl):
+        kind = SymbolKind.PROC
+        typarams = (
+            f"<{', '.join(base_name(t) for t in stmt.type_params)}>"
+            if stmt.type_params else ""
+        )
+        params = ", ".join(str(p) for p in stmt.params)
+        ret = f" -> {stmt.return_type}" if stmt.return_type is not None else ""
+        signature = f"proc {base_name(stmt.name)}{typarams}({params}){ret}"
+    elif isinstance(stmt, ObserverDecl):
+        kind = SymbolKind.OBSERVER
+        typarams = (
+            f"<{', '.join(base_name(t) for t in stmt.type_params)}>"
+            if stmt.type_params else ""
+        )
+        params = ", ".join(str(p) for p in stmt.params)
+        signature = (
+            f"observer {base_name(stmt.name)}{typarams}({params}) -> {stmt.return_type}"
+        )
+    elif isinstance(stmt, ResourceDecl):
+        kind = SymbolKind.RESOURCE
+        typarams = (
+            f"<{', '.join(base_name(t) for t in stmt.type_params)}>"
+            if stmt.type_params else ""
+        )
+        params = ", ".join(str(p) for p in stmt.params)
+        signature = f"resource {base_name(stmt.name)}{typarams}({params})"
     elif isinstance(stmt, Auto):
         # Auto declares an auto-rewrite rule and doesn't introduce a
         # named symbol of its own; skip it from the outline.

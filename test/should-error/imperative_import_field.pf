@@ -1,0 +1,4 @@
+// Phase 1i (issue #968): an object's fields are not top-level exported names,
+// so they cannot be selected in an import `using` filter. `data` is a field of
+// the exported `Box` object in ImpExports, not a declaration of its own.
+import ImpExports using data

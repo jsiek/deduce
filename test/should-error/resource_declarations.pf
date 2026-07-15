@@ -1,9 +1,11 @@
-// Phase 1h (issue #854): separation-resource surface syntax. Parser/AST only
-// -- the checker rejects the first `resource` declaration before any
-// resource-aware proof checking, so this file lives in should-error. The point
-// of the fixture is that every form below PARSES, that the recursive-descent
-// and LALR parsers agree on the AST, and that the pretty-printer round-trips
-// the `emp`, `**`, and `|->` connectives (see PARSER_ROUND_TRIP_FILES).
+// Phase 1h (issue #854): separation-resource surface syntax. The resource
+// *declarations* below are now recognized (Phase 1i, issue #968) as first-class
+// for module boundaries -- their bodies are not checked. This file stays in
+// should-error because resource *formulas* (`emp`, `**`, `|->`) have no term
+// semantics yet, so the `assert`/`theorem` uses below (in ordinary term
+// positions) are rejected. The fixture still pins that every form PARSES, that
+// the recursive-descent and LALR parsers agree on the AST, and that the
+// pretty-printer round-trips the connectives (see PARSER_ROUND_TRIP_FILES).
 
 type Ref<T> = T
 type Cell<T> = T

@@ -1,0 +1,1 @@
+./test/should-error/imperative_export_private_contract.pf:9.8-13.2: exported proc 'op' mentions the private name 'rep' in its contract; a public contract may only mention names visible to importing modules.

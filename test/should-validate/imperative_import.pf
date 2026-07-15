@@ -1,0 +1,4 @@
+// Phase 1i (issue #968): a module can public-import another module and select
+// its exported imperative declarations (object, observer, proc, resource) by
+// name in a `using` filter. `public import` re-exports them transitively.
+public import ImpExports using Box | peek | reset | owns
