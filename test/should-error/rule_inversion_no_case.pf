@@ -1,0 +1,16 @@
+// Companion to `rule_induction_no_case.pf` for `rule inversion`: an empty
+// case list parses under both parsers (the recursive-descent parser used to
+// reject it at parse time, diverging from the LALR `rule_ind_case*` grammar),
+// and the missing rule cases are reported by the checker.
+
+import UInt
+
+predicate even : fn UInt -> bool {
+  ev0   : even(0)
+  ev_ss : all n : UInt. if even(n) then even(n + 2)
+}
+
+theorem even_inv : all n : UInt. if even(n) then even(n)
+proof
+  rule inversion even
+end

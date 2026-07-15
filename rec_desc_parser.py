@@ -1376,10 +1376,10 @@ def parse_rule_induction() -> Proof:
     while current_token().type == 'CASE':
       c = parse_rule_induction_case()
       cases.append(c)
-    if not cases:
-      raise ParseError(meta_from_tokens(start_token, previous_token()),
-                       'rule ' + keyword_msg
-                       + ' needs at least one "case" branch')
+    # An empty case list is accepted at parse time (matching the LALR
+    # grammar's `rule_ind_case*`); `_check_rule_induction_or_inversion`
+    # reports the missing rule cases with a semantic diagnostic. See the
+    # `induction_case_list` comment in Deduce.lark.
     meta = meta_from_tokens(start_token, previous_token())
     if is_inv:
       return RuleInversion(meta, hyp_name, cases)

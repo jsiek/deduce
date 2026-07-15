@@ -1,0 +1,18 @@
+// `rule induction <pred>` with no `case` branches parses under both
+// parsers (the LALR grammar's `rule_ind_case*` and the recursive-descent
+// parser both accept an empty case list); the missing rule cases are then
+// reported as a semantic diagnostic by the checker, not as a parse error.
+// Previously the recursive-descent parser rejected the empty case list at
+// parse time, diverging from LALR.
+
+import UInt
+
+predicate even : fn UInt -> bool {
+  ev0   : even(0)
+  ev_ss : all n : UInt. if even(n) then even(n + 2)
+}
+
+theorem even_self : all n : UInt. if even(n) then even(n)
+proof
+  rule induction even
+end
