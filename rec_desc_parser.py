@@ -27,7 +27,7 @@ from abstract_syntax import (
     TAnnote, TLet, Term, TermInst,
     Theorem, Trace, Type, TypeAlias, TypeInst, TypeType, Union, Var, ViewDecl,
     count_marks, extract_and, extract_or, extract_tuple, get_default_mark_LHS,
-    intToNat, listToNodeList, mkEqualVar, mkIntLit, mkUIntLit, remove_mark,
+    listToNodeList, mkEqualVar, mkIntLit, mkLitNat, mkUIntLit, remove_mark,
 )
 from lark import Lark, Token, exceptions
 from lark.tree import Meta
@@ -260,8 +260,7 @@ def parse_term_hi() -> Term:
   elif token.type == 'NAT' or token.value == '0':
     advance()
     meta = meta_from_tokens(token,token)
-    return Call(meta, None, Var(meta, None, 'lit'),
-                [intToNat(meta, int(token.value[1:]))])
+    return mkLitNat(meta, int(token.value[1:]))
 
   elif token.type == 'PLUS':
     advance()

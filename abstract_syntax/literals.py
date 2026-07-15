@@ -304,26 +304,22 @@ def intToUInt(loc: Meta, n: int, bzero: str = 'bzero',
     else:
         return uint_inc(loc, intToUInt(loc, n - 1, bzero, dubinc, incdub, uint_ty))
     
-def mkZero(loc: Meta, zname: str | bool = 'zero',
-           ty: Type | None = None) -> VarRef:
-  # Use OverloadedVar when the name is already uniquified (contains
-  # '.'), otherwise a pre-uniquify Var. Fast-arithmetic call sites
+def _resolved_or_var(loc: Meta, ty: Type | None, name: str) -> VarRef:
+  # A ``ResolvedVar`` when ``name`` is already uniquified (contains a
+  # '.'), otherwise a pre-uniquify ``Var``. Fast-arithmetic call sites
   # in the type checker pass uniquified names extracted from the
   # existing AST; parser call sites pass the bare source name.
-  zname = str(zname)
-  if '.' in zname:
-    return ResolvedVar(loc, ty, zname)
-  return Var(loc, ty, zname)
+  if '.' in name:
+    return ResolvedVar(loc, ty, name)
+  return Var(loc, ty, name)
+
+def mkZero(loc: Meta, zname: str | bool = 'zero',
+           ty: Type | None = None) -> VarRef:
+  return _resolved_or_var(loc, ty, str(zname))
 
 def mkSuc(loc: Meta, arg: Term, sname: str | bool = 'suc',
           ty: Type | None = None) -> Call:
-  sname = str(sname)
-  rator: VarRef
-  if '.' in sname:
-    rator = ResolvedVar(loc, None, sname)
-  else:
-    rator = Var(loc, None, sname)
-  return Call(loc, ty, rator, [arg])
+  return Call(loc, ty, _resolved_or_var(loc, None, str(sname)), [arg])
 
 def intToNat(
     loc: Meta,
@@ -526,11 +522,7 @@ def try_fast_lit_nat_arith(loc: Meta, rator: Term, args: list[Term],
     return None
   inner = intToNat(loc, result_int, zname=zero_name,
                    sname=suc_name or 'suc')
-  if '.' in lit_name:
-    lit_var: Term = ResolvedVar(loc, None, lit_name)
-  else:
-    lit_var = Var(loc, None, lit_name)
-  return Call(loc, ty, lit_var, [inner])
+  return Call(loc, ty, _resolved_or_var(loc, None, lit_name), [inner])
 
 def _same_numeric_literal(t1: AST, t2: AST) -> bool:
   if not isinstance(t1, Term) or not isinstance(t2, Term):
@@ -581,10 +573,13 @@ def formulas_equal_modulo_numeric_literals(frm1: AST, frm2: AST) -> bool:
     case _:
       return False
 
+def mkLitNat(loc: Meta, num: int) -> Term:
+    # The ``lit(ℕnum)`` surface form shared by the parsers' Nat literals
+    # and the Nat payload of a UInt literal (below).
+    return Call(loc, None, Var(loc, None, 'lit'), [intToNat(loc, num)])
+
 def mkUIntLit(loc: Meta, num: int) -> Term:
-    return Call(loc, None, Var(loc, None, 'fromNat'),
-                [Call(loc, None, Var(loc, None, 'lit'),
-                      [intToNat(loc, num)])])
+    return Call(loc, None, Var(loc, None, 'fromNat'), [mkLitNat(loc, num)])
   
 def mkPos(loc: Meta, arg: Term) -> Term:
   return Call(loc, None, Var(loc, None, 'pos'), [arg])

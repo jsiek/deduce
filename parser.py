@@ -21,8 +21,8 @@ from abstract_syntax import (
     SwitchCase, SwitchProof, SwitchProofCase, TAnnote, TLet, Term, TermInst,
     Theorem, Trace, Proof, TypeAlias, TypeInst, TypeType, Union, Var,
     ViewDecl, count_marks, extract_and, extract_or, extract_tuple,
-    get_default_mark_LHS, intToNat, listToNodeList, mkEqualVar, mkIntLit,
-    mkUIntLit, remove_mark,
+    get_default_mark_LHS, listToNodeList, mkEqualVar, mkIntLit,
+    mkLitNat, mkUIntLit, remove_mark,
 )
 import re
 from lark import Lark, Token, Tree, exceptions
@@ -625,8 +625,7 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
         num = int(_token_text(e, 0))
         return mkUIntLit(e.meta, num)
     elif e.data == 'nat':
-        return Call(e.meta, None, Var(e.meta, None, 'lit'),
-                    [intToNat(e.meta, int(_token_text(e, 0)[1:]))])
+        return mkLitNat(e.meta, int(_token_text(e, 0)[1:]))
     elif e.data == 'pos_int':
         return mkIntLit(e.meta, int(_token_text(e, 0)), 'PLUS')
     elif e.data == 'neg_int':
