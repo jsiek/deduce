@@ -1,0 +1,300 @@
+module Int
+
+import UInt
+import Base
+import IntDefs
+import IntAddSub
+import IntMult
+import IntLess
+import IntAbs
+import IntDiv
+
+/*
+  Integer modulo and the quotient/remainder story for `Int`.
+
+  `Int /` is defined in `IntDefs.pf` as
+
+      n / m = (sign(n) * sign(m)) * (abs(n) / abs(m))
+
+  i.e. the *truncated* convention: the quotient rounds toward zero and the
+  remainder takes the sign of the dividend. `%` is defined to match, so that
+  the division identity `(n / m) * m + (n % m) = n` holds:
+
+      n % m = sign(n) * (abs(n) % abs(m))
+
+  (This is the truncated / T-division convention. Lean's `ediv` / `emod`
+  use the Euclidean convention, which agrees on nonnegative dividends but
+  differs in sign on negative ones; see issue #720.)
+
+  The four `pos`/`negsuc` case lemmas below mirror `div_pos_pos` etc. in
+  `IntDiv.pf`, reducing each quadrant to the corresponding `UInt` remainder.
+*/
+
+opaque fun operator %(n : Int, m : Int) {
+  sign(n) * (abs(n) % abs(m))
+}
+
+// Both operands nonnegative: take the remainder as UInts.
+theorem mod_pos_pos: all au:UInt, bu:UInt.
+  pos(au) % pos(bu) = pos(au % bu)
+proof
+  arbitrary au:UInt, bu:UInt
+  show #pos(au) % pos(bu)# = pos(au % bu)
+  expand operator%
+  replace sign_pos | mult_pos_uint.
+end
+
+auto mod_pos_pos
+
+// Nonnegative dividend, negative divisor: remainder still has the dividend's sign.
+theorem mod_pos_negsuc: all au:UInt, bu:UInt.
+  pos(au) % negsuc(bu) = pos(au % (1 + bu))
+proof
+  arbitrary au:UInt, bu:UInt
+  show #pos(au) % negsuc(bu)# = pos(au % (1 + bu))
+  expand operator%
+  replace sign_pos | mult_pos_uint.
+end
+
+auto mod_pos_negsuc
+
+// Negative dividend, nonnegative divisor: remainder is nonpositive.
+theorem mod_negsuc_pos: all au:UInt, bu:UInt.
+  negsuc(au) % pos(bu) = - pos((1 + au) % bu)
+proof
+  arbitrary au:UInt, bu:UInt
+  show #negsuc(au) % pos(bu)# = - pos((1 + au) % bu)
+  expand operator%
+  replace sign_negsuc | mult_neg_uint.
+end
+
+auto mod_negsuc_pos
+
+// Both operands negative: remainder is nonpositive.
+theorem mod_negsuc_negsuc: all au:UInt, bu:UInt.
+  negsuc(au) % negsuc(bu) = - pos((1 + au) % (1 + bu))
+proof
+  arbitrary au:UInt, bu:UInt
+  show #negsuc(au) % negsuc(bu)# = - pos((1 + au) % (1 + bu))
+  expand operator%
+  replace sign_negsuc | mult_neg_uint.
+end
+
+auto mod_negsuc_negsuc
+
+// The quotient and remainder reconstruct the dividend (division algorithm).
+theorem int_div_mod: all n:Int, m:Int.
+  if not (m = +0)
+  then (n / m) * m + (n % m) = n
+proof
+  arbitrary n:Int, m:Int
+  switch m {
+    case pos(bu) {
+      assume prem: not (pos(bu) = +0)
+      have bu_pos: 0 < bu by {
+        have nz: not (bu = 0) by {
+          assume buz: bu = 0
+          conclude false by apply prem to (replace buz.)
+        }
+        apply uint_not_zero_pos to nz
+      }
+      switch n {
+        case pos(au) {
+          have dm: (au / bu) * bu + au % bu = au
+            by apply uint_div_mod[au, bu] to bu_pos
+          replace mult_pos_pos | add_pos_pos | dm.
+        }
+        case negsuc(au) {
+          have dm: ((1 + au) / bu) * bu + (1 + au) % bu = 1 + au
+            by apply uint_div_mod[1 + au, bu] to bu_pos
+          equations
+            (- pos((1 + au) / bu)) * pos(bu) + (- pos((1 + au) % bu))
+                = -(pos((1 + au) / bu) * pos(bu)) + (- pos((1 + au) % bu))
+                    by replace symmetric dist_neg_mult[pos((1 + au) / bu), pos(bu)].
+            ... = - pos(((1 + au) / bu) * bu) + (- pos((1 + au) % bu))
+                    by replace mult_pos_pos.
+            ... = -(pos(((1 + au) / bu) * bu) + pos((1 + au) % bu))
+                    by symmetric neg_distr_add[pos(((1 + au) / bu) * bu), pos((1 + au) % bu)]
+            ... = - pos(((1 + au) / bu) * bu + (1 + au) % bu)
+                    by replace add_pos_pos.
+            ... = - pos(1 + au)   by replace dm.
+            ... = negsuc(au)      by neg_pos[au]
+        }
+      }
+    }
+    case negsuc(bu) {
+      have obu: 0 < 1 + bu by uint_zero_less_one_add[bu]
+      switch n {
+        case pos(au) {
+          have dm: (au / (1 + bu)) * (1 + bu) + au % (1 + bu) = au
+            by apply uint_div_mod[au, 1 + bu] to obu
+          have qeq: (au / (1 + bu)) + (au / (1 + bu)) * bu
+                    = (au / (1 + bu)) * (1 + bu)
+            by replace uint_dist_mult_add[au / (1 + bu), 1, bu].
+          equations
+            (- pos(au / (1 + bu))) * negsuc(bu) + pos(au % (1 + bu))
+                = -(pos(au / (1 + bu)) * negsuc(bu)) + pos(au % (1 + bu))
+                    by replace symmetric dist_neg_mult[pos(au / (1 + bu)), negsuc(bu)].
+            ... = -(- pos((au / (1 + bu)) + (au / (1 + bu)) * bu)) + pos(au % (1 + bu))
+                    by replace mult_pos_negsuc.
+            ... = pos((au / (1 + bu)) + (au / (1 + bu)) * bu) + pos(au % (1 + bu))
+                    by replace neg_involutive.
+            ... = pos((au / (1 + bu)) + (au / (1 + bu)) * bu + au % (1 + bu))
+                    by replace add_pos_pos.
+            ... = pos((au / (1 + bu)) * (1 + bu) + au % (1 + bu))
+                    by replace qeq.
+            ... = pos(au)   by replace dm.
+        }
+        case negsuc(au) {
+          have dm: ((1 + au) / (1 + bu)) * (1 + bu) + (1 + au) % (1 + bu) = 1 + au
+            by apply uint_div_mod[1 + au, 1 + bu] to obu
+          have qeq: ((1 + au) / (1 + bu)) + ((1 + au) / (1 + bu)) * bu
+                    = ((1 + au) / (1 + bu)) * (1 + bu)
+            by replace uint_dist_mult_add[(1 + au) / (1 + bu), 1, bu].
+          equations
+            pos((1 + au) / (1 + bu)) * negsuc(bu) + (- pos((1 + au) % (1 + bu)))
+                = - pos(((1 + au) / (1 + bu)) + ((1 + au) / (1 + bu)) * bu)
+                  + (- pos((1 + au) % (1 + bu)))
+                    by replace mult_pos_negsuc.
+            ... = -(pos(((1 + au) / (1 + bu)) + ((1 + au) / (1 + bu)) * bu)
+                    + pos((1 + au) % (1 + bu)))
+                    by symmetric neg_distr_add[pos(((1 + au) / (1 + bu)) + ((1 + au) / (1 + bu)) * bu), pos((1 + au) % (1 + bu))]
+            ... = - pos(((1 + au) / (1 + bu)) + ((1 + au) / (1 + bu)) * bu + (1 + au) % (1 + bu))
+                    by replace add_pos_pos.
+            ... = - pos(((1 + au) / (1 + bu)) * (1 + bu) + (1 + au) % (1 + bu))
+                    by replace qeq.
+            ... = - pos(1 + au)   by replace dm.
+            ... = negsuc(au)      by neg_pos[au]
+        }
+      }
+    }
+  }
+end
+
+// Absolute value commutes with modulo, mirroring `int_abs_div`.
+theorem int_abs_mod: all x:Int, y:Int. abs(x % y) = abs(x) % abs(y)
+proof
+  arbitrary x:Int, y:Int
+  switch x {
+    case pos(au) {
+      switch y {
+        case pos(bu) { . }
+        case negsuc(bu) { . }
+      }
+    }
+    case negsuc(au) {
+      switch y {
+        case pos(bu) { replace abs_neg. }
+        case negsuc(bu) { replace abs_neg. }
+      }
+    }
+  }
+end
+
+// The remainder is strictly smaller in magnitude than a nonzero divisor.
+theorem int_mod_less_abs: all n:Int, m:Int.
+  if not (m = +0) then abs(n % m) < abs(m)
+proof
+  arbitrary n:Int, m:Int
+  assume prem: not (m = +0)
+  have mpos: 0 < abs(m) by {
+    have nz: not (abs(m) = 0) by {
+      assume az: abs(m) = 0
+      conclude false
+        by apply prem to (apply int_abs_eq_zero_implies_zero[m] to az)
+    }
+    apply uint_not_zero_pos to nz
+  }
+  replace int_abs_mod[n, m]
+  apply uint_mod_less_divisor[abs(n), abs(m)] to mpos
+end
+
+// Reconstruction: an integer is its sign times its magnitude.
+lemma int_sign_mult_abs: all x:Int. sign(x) * abs(x) = x
+proof
+  arbitrary x:Int
+  switch x {
+    case pos(n) { replace sign_pos | mult_pos_uint. }
+    case negsuc(n) { replace sign_negsuc | mult_neg_uint | neg_pos. }
+  }
+end
+
+// When the dividend is smaller in magnitude, the remainder is the dividend.
+theorem int_mod_small: all n:Int, m:Int.
+  if abs(n) < abs(m) then n % m = n
+proof
+  arbitrary n:Int, m:Int
+  assume prem: abs(n) < abs(m)
+  have h: abs(n) % abs(m) = abs(n) by apply uint_mod_small[abs(n), abs(m)] to prem
+  show #n % m# = n
+  expand operator%
+  replace h
+  int_sign_mult_abs[n]
+end
+
+// Anything divides evenly into itself: the self-remainder is zero.
+theorem int_mod_self: all n:Int. n % n = +0
+proof
+  arbitrary n:Int
+  switch n {
+    case pos(au) { replace uint_mod_self_zero. }
+    case negsuc(au) { replace uint_mod_self_zero | neg_zero. }
+  }
+end
+
+// Modulo by one is always zero.
+theorem int_mod_one: all n:Int. n % +1 = +0
+proof
+  arbitrary n:Int
+  switch n {
+    case pos(au) { replace uint_mod_one. }
+    case negsuc(au) { replace uint_mod_one | neg_zero. }
+  }
+end
+
+// Division by one is the identity.
+theorem int_div_one: all n:Int. n / +1 = n
+proof
+  arbitrary n:Int
+  switch n {
+    case pos(au) { replace uint_div_one. }
+    case negsuc(au) { replace uint_div_one | neg_pos. }
+  }
+end
+
+// Truncated division by zero yields zero (following `UInt`).
+theorem int_div_zero: all n:Int. n / +0 = +0
+proof
+  arbitrary n:Int
+  switch n {
+    case pos(au) { replace uint_div_zero. }
+    case negsuc(au) { replace uint_div_zero | neg_zero. }
+  }
+end
+
+// Zero divided by anything is zero.
+theorem int_zero_div: all m:Int. +0 / m = +0
+proof
+  arbitrary m:Int
+  have zd: all x:UInt. 0 / x = 0 by {
+    arbitrary x:UInt
+    have d: x = 0 or 0 < x by uint_zero_or_positive[x]
+    cases d
+    case xz { replace xz  uint_div_zero[0] }
+    case xp { apply uint_zero_div[x] to xp }
+  }
+  switch m {
+    case pos(bu) { replace zd. }
+    case negsuc(bu) { replace zd | neg_zero. }
+  }
+end
+
+// Zero modulo anything is zero.
+theorem int_zero_mod: all m:Int. +0 % m = +0
+proof
+  arbitrary m:Int
+  switch m {
+    case pos(bu) { replace uint_zero_mod. }
+    case negsuc(bu) { replace uint_zero_mod. }
+  }
+end
