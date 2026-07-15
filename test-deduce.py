@@ -41,8 +41,10 @@ Standalone modes (mutually exclusive with the above):
     --equiv-full       Pretty-print → reparse round-trip over EVERY
                        accepted-syntax ``.pf`` file (``lib/``,
                        ``test/should-validate``, ``example.pf``,
-                       ``test/should-warn``, ``test/prelude``, ``examples/``)
-                       with both parsers. This is the opt-in full-corpus audit
+                       ``test/should-warn``, ``test/prelude``, ``examples/``,
+                       and the ``test/should-error`` fixtures both parsers
+                       accept at parse time) with both parsers. This is the
+                       opt-in full-corpus audit
                        from issue #931 -- broader than the curated
                        ``PARSER_ROUND_TRIP_FILES`` set that ``--equiv`` runs in
                        CI, and intentionally NOT part of the default sweep so
@@ -1029,18 +1031,32 @@ def run_parser_round_trip(workers: int) -> list[tuple[str, str, str]]:
 
 
 # Accepted-syntax directories swept by the opt-in ``--equiv-full`` audit.
-# ``test/should-error`` and ``test/parse`` are excluded on purpose: those
-# fixtures are meant to fail (at parse time or later), so round-tripping them
-# is not meaningful. This is the full-corpus counterpart to the curated
-# ``PARSER_ROUND_TRIP_FILES`` set (issue #931).
+# ``test/parse`` is excluded on purpose: those fixtures are deliberately
+# malformed and RD-only, so round-tripping them is not meaningful.
+# ``test/should-error`` files are meant to fail, but most fail in a *later*
+# phase (type/proof check) while parsing cleanly under both parsers -- their
+# surface syntax is a legitimate round-trip subject and exercises constructs
+# the validating corpus may not. Those are folded in below; the ones that at
+# least one parser rejects at parse time are the ``SHOULD_ERROR_PARSER_EQUIV_
+# SKIP`` baseline and stay out (the ``--equiv`` staleness check shrinks that
+# set as parsers converge). This is the full-corpus counterpart to the curated
+# ``PARSER_ROUND_TRIP_FILES`` set (issues #931, #473).
 FULL_ROUND_TRIP_DIRS = (LIB_DIR, PASS_DIR, WARN_DIR, PRELUDE_DIR, EXAMPLES_DIR)
 
 
 def full_round_trip_files() -> tuple[str, ...]:
-    """Every accepted-syntax ``.pf`` file, deduped and order-preserving."""
+    """Every accepted-syntax ``.pf`` file, deduped and order-preserving.
+
+    Includes ``test/should-error`` fixtures that both parsers accept at parse
+    time (i.e. everything except the ``SHOULD_ERROR_PARSER_EQUIV_SKIP``
+    baseline), since those round-trip meaningfully even though they fail a
+    later semantic phase.
+    """
     files: list[str] = []
     for d in FULL_ROUND_TRIP_DIRS:
         files.extend(list_pf(d))
+    files.extend(p for p in list_pf(ERROR_DIR)
+                 if p not in SHOULD_ERROR_PARSER_EQUIV_SKIP)
     files.append(f"./{EXAMPLE_FILE.as_posix()}")
     return tuple(dict.fromkeys(files))
 
