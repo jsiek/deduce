@@ -207,6 +207,21 @@ proof
   fwd, bwd
 end
 
+// Divisibility is antisymmetric up to absolute value: mutual divisibility
+// pins down the magnitude, but not the sign (e.g. `+3` and `-3` divide each
+// other). Lifts `uint_divides_antisymmetric` through `int_divides_iff_abs`.
+theorem int_divides_antisymmetric: all a:Int, b:Int.
+  if divides(a, b) and divides(b, a) then abs(a) = abs(b)
+proof
+  arbitrary a:Int, b:Int
+  assume prem
+  have ab: divides(abs(a), abs(b))
+    by apply (conjunct 0 of int_divides_iff_abs[a, b]) to conjunct 0 of prem
+  have ba: divides(abs(b), abs(a))
+    by apply (conjunct 0 of int_divides_iff_abs[b, a]) to conjunct 1 of prem
+  apply uint_divides_antisymmetric[abs(a), abs(b)] to ab, ba
+end
+
 // Greatest common divisor on Int, defined through `UInt.gcd` on
 // absolute values. The result is wrapped as `pos` so the gcd is always
 // nonnegative.

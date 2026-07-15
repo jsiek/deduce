@@ -146,3 +146,71 @@ assert abs(+12 / +5) = abs(+12) / abs(+5)
 assert abs(-12 / +5) = abs(-12) / abs(+5)
 assert abs(+12 / -5) = abs(+12) / abs(-5)
 assert abs(-12 / -5) = abs(-12) / abs(-5)
+
+// === Modulo and the division algorithm (Issue #720) ===
+
+// Truncated remainder: the sign follows the dividend, |remainder| < |divisor|.
+assert +7 % +2 = +1
+assert +7 % -2 = +1       // sign follows dividend (positive)
+assert -7 % +2 = -1       // sign follows dividend (negative)
+assert -7 % -2 = -1
+assert +6 % +2 = +0       // exact division leaves no remainder
+assert +6 % +4 = +2
+assert +0 % +5 = +0
+assert +5 % +1 = +0
+
+// Each constructor pair reduces to the corresponding UInt remainder.
+theorem mod_pos_pos_sample: all au:UInt, bu:UInt.
+  pos(au) % pos(bu) = pos(au % bu)
+proof
+  mod_pos_pos
+end
+
+theorem mod_negsuc_negsuc_sample: all au:UInt, bu:UInt.
+  negsuc(au) % negsuc(bu) = - pos((1 + au) % (1 + bu))
+proof
+  mod_negsuc_negsuc
+end
+
+// The division algorithm: quotient and remainder reconstruct the dividend.
+theorem int_div_mod_sample: all n:Int, m:Int.
+  if not (m = +0) then (n / m) * m + (n % m) = n
+proof
+  int_div_mod
+end
+
+// The remainder is strictly smaller in magnitude than a nonzero divisor.
+theorem int_mod_less_abs_sample: all n:Int, m:Int.
+  if not (m = +0) then abs(n % m) < abs(m)
+proof
+  int_mod_less_abs
+end
+
+// Absolute value commutes with modulo.
+assert abs(+12 % +5) = abs(+12) % abs(+5)
+assert abs(-12 % +5) = abs(-12) % abs(+5)
+assert abs(+12 % -5) = abs(+12) % abs(-5)
+assert abs(-12 % -5) = abs(-12) % abs(-5)
+
+// Small-dividend, self, one, and zero laws.
+theorem int_mod_small_sample: all n:Int, m:Int.
+  if abs(n) < abs(m) then n % m = n
+proof
+  int_mod_small
+end
+
+assert (- +3) % +5 = - +3     // |−3| < |5|, so the remainder is the dividend
+assert +9 % +9 = +0           // int_mod_self
+assert (- +9) % (- +9) = +0
+assert +9 % +1 = +0           // int_mod_one
+assert +9 / +1 = +9           // int_div_one
+assert +9 / +0 = +0           // int_div_zero policy
+assert +0 / +9 = +0           // int_zero_div
+assert +0 % +9 = +0           // int_zero_mod
+
+// Divisibility antisymmetry pins down magnitude but not sign.
+theorem int_divides_antisymmetric_sample: all a:Int, b:Int.
+  if divides(a, b) and divides(b, a) then abs(a) = abs(b)
+proof
+  int_divides_antisymmetric
+end
