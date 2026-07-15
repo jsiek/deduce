@@ -44,9 +44,11 @@ Standalone modes (mutually exclusive with the above):
                        accepted-syntax ``.pf`` file (``lib/``,
                        ``test/should-validate``, ``example.pf``,
                        ``test/should-warn``, ``test/prelude``, ``examples/``,
-                       and the ``test/should-error`` fixtures both parsers
-                       accept at parse time) with both parsers. This is the
-                       opt-in full-corpus audit
+                       ``test/test-imports``, ``test/compile``, the
+                       ``tools/claude_fill_hole/examples`` hole fixtures, and
+                       the ``test/should-error`` fixtures both parsers accept
+                       at parse time) with both parsers. This is the opt-in
+                       full-corpus audit
                        from issue #931 -- broader than the curated
                        ``PARSER_ROUND_TRIP_FILES`` set that ``--equiv`` runs in
                        CI, and intentionally NOT part of the default sweep so
@@ -137,6 +139,8 @@ PRELUDE_DIR = Path("test/prelude")
 IMPORTS_DIR = Path("test/test-imports")
 PARSE_DIR = Path("test/parse")
 EXAMPLES_DIR = Path("examples")
+COMPILE_DIR = Path("test/compile")
+HOLE_FILL_EXAMPLES_DIR = Path("tools/claude_fill_hole/examples")
 EXAMPLE_FILE = Path("example.pf")
 
 IMPERATIVE_SYNTAX_SOURCE = """\
@@ -1045,16 +1049,34 @@ def run_parser_round_trip(workers: int) -> list[tuple[str, str, str]]:
 
 # Accepted-syntax directories swept by the opt-in ``--equiv-full`` audit.
 # ``test/parse`` is excluded on purpose: those fixtures are deliberately
-# malformed and RD-only, so round-tripping them is not meaningful.
+# malformed and RD-only, so round-tripping them is not meaningful. Everything
+# else with ``.pf`` files is in scope so the audit lives up to its "every
+# accepted-syntax file" promise (issues #931, #473):
+#
+#   * ``test/test-imports`` -- auxiliary modules the ``should-validate`` /
+#     ``should-error`` suites import as ``--dir`` inputs (cross-module import,
+#     export, and visibility forms); accepted modules in their own right even
+#     though no top-level test checks them directly.
+#   * ``test/compile`` -- the compilation-test inputs (nested subdirectories),
+#     which must parse and check to be compiled.
+#   * ``tools/claude_fill_hole/examples`` -- hole-fill fixtures exercising the
+#     ``?`` / ``help`` hole syntax.
+#
 # ``test/should-error`` files are meant to fail, but most fail in a *later*
 # phase (type/proof check) while parsing cleanly under both parsers -- their
 # surface syntax is a legitimate round-trip subject and exercises constructs
-# the validating corpus may not. Those are folded in below; the ones that at
-# least one parser rejects at parse time are the ``SHOULD_ERROR_PARSER_EQUIV_
-# SKIP`` baseline and stay out (the ``--equiv`` staleness check shrinks that
-# set as parsers converge). This is the full-corpus counterpart to the curated
-# ``PARSER_ROUND_TRIP_FILES`` set (issues #931, #473).
-FULL_ROUND_TRIP_DIRS = (LIB_DIR, PASS_DIR, WARN_DIR, PRELUDE_DIR, EXAMPLES_DIR)
+# the validating corpus may not. Those are folded in by ``full_round_trip_files``
+# below; the ones that at least one parser rejects at parse time are the
+# ``SHOULD_ERROR_PARSER_EQUIV_SKIP`` baseline and stay out (the ``--equiv``
+# staleness check shrinks that set as parsers converge). This is the full-corpus
+# counterpart to the curated ``PARSER_ROUND_TRIP_FILES`` set.
+FULL_ROUND_TRIP_DIRS = (LIB_DIR, PASS_DIR, WARN_DIR, PRELUDE_DIR, EXAMPLES_DIR,
+                        IMPORTS_DIR, COMPILE_DIR, HOLE_FILL_EXAMPLES_DIR)
+
+
+def list_pf_recursive(d: Path) -> list[str]:
+    """Like ``list_pf`` but descends into subdirectories (e.g. ``test/compile``)."""
+    return sorted(f"./{p.as_posix()}" for p in d.rglob("*.pf"))
 
 
 def full_round_trip_files() -> tuple[str, ...]:
@@ -1067,7 +1089,7 @@ def full_round_trip_files() -> tuple[str, ...]:
     """
     files: list[str] = []
     for d in FULL_ROUND_TRIP_DIRS:
-        files.extend(list_pf(d))
+        files.extend(list_pf_recursive(d))
     files.extend(p for p in list_pf(ERROR_DIR)
                  if p not in SHOULD_ERROR_PARSER_EQUIV_SKIP)
     files.append(f"./{EXAMPLE_FILE.as_posix()}")
