@@ -1,4 +1,0 @@
-theorem t : false
-proof
-  rule induction P
-end

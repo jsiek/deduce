@@ -1376,10 +1376,6 @@ def parse_rule_induction() -> Proof:
     while current_token().type == 'CASE':
       c = parse_rule_induction_case()
       cases.append(c)
-    if not cases:
-      raise ParseError(meta_from_tokens(start_token, previous_token()),
-                       'rule ' + keyword_msg
-                       + ' needs at least one "case" branch')
     meta = meta_from_tokens(start_token, previous_token())
     if is_inv:
       return RuleInversion(meta, hyp_name, cases)

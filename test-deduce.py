@@ -514,6 +514,8 @@ PARSER_EQUIV_FILES = PARSER_ROUND_TRIP_FILES + (
     "./test/should-error/private_import1.pf",
     "./test/should-error/recursive_import_one.pf",
     "./test/should-error/replace_match_failure.pf",
+    "./test/should-error/rule_induction_empty_cases.pf",
+    "./test/should-error/rule_inversion_empty_cases.pf",
 )
 
 

@@ -1,0 +1,16 @@
+// An empty `rule induction` case list must PARSE under both parsers
+// (Deduce.lark deliberately allows it) and defer to the semantic checker,
+// which reports the missing rule cases. Regression test for #1018 -- the
+// RD parser used to raise a parse error here while LALR accepted it.
+
+import UInt
+
+predicate even : fn UInt -> bool {
+  ev0   : even(0)
+  ev_ss : all n : UInt. if even(n) then even(n + 2)
+}
+
+theorem even_self : all n : UInt. if even(n) then even(n)
+proof
+  rule induction even
+end
