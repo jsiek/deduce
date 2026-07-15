@@ -1,0 +1,1 @@
+./test/should-error/rule_inversion_no_case.pf:15.3-15.22: rule inversion: missing cases for rules: ev0, ev_ss
