@@ -865,6 +865,35 @@ def _canonical_ast(
     return value
 
 
+def _canonical_equal(a: object, b: object) -> bool:
+    """Structural equality for ``_canonical_ast`` results, iteratively.
+
+    A canonical AST for a large unary numeric literal is nested thousands of
+    levels deep; comparing two of them with plain ``==`` recurses in C and
+    trips CPython 3.12's fixed C-recursion guard -- which ``setrecursionlimit``
+    does not raise -- aborting the whole ``--equiv-full`` run on files like
+    ``test/should-validate/large_numeric_literals.pf``. This explicit worklist
+    keeps the comparison iterative; leaf values (str/int/bool/None) are the
+    only ones handed to ``==``.
+    """
+    stack: list[tuple[object, object]] = [(a, b)]
+    while stack:
+        x, y = stack.pop()
+        x_seq = isinstance(x, (list, tuple))
+        y_seq = isinstance(y, (list, tuple))
+        if x_seq != y_seq or isinstance(x, list) != isinstance(y, list):
+            return False
+        if x_seq:
+            x_seq_v = cast("list[object] | tuple[object, ...]", x)
+            y_seq_v = cast("list[object] | tuple[object, ...]", y)
+            if len(x_seq_v) != len(y_seq_v):
+                return False
+            stack.extend(zip(x_seq_v, y_seq_v))
+        elif x != y:
+            return False
+    return True
+
+
 def _parse_for_equivalence(
     path: str, *, recursive_descent: bool
 ) -> list[object]:
@@ -914,7 +943,7 @@ def _worker_parser_equivalence(
     except Exception as exc:
         return path, False, f"{type(exc).__name__}: {exc}", False
 
-    if rd_ast == lalr_ast:
+    if _canonical_equal(rd_ast, lalr_ast):
         if path in PARSER_EQUIV_EXPECTED_DIVERGENCES:
             return path, False, "listed as a divergence but now matches", False
         return path, True, "", False
@@ -998,7 +1027,7 @@ def _worker_parser_round_trip(path: str) -> list[tuple[str, str, str]]:
                                  f"{type(exc).__name__}: {exc}"))
                 continue
 
-            if _canonical_ast(reparsed) != original_ast:
+            if not _canonical_equal(_canonical_ast(reparsed), original_ast):
                 failures.append((path, "parser-roundtrip",
                                  f"{source_label} pretty source changed "
                                  f"when parsed with {roundtrip_label}"))
@@ -1187,7 +1216,7 @@ def run_experimental_imperative_parser_test() -> list[tuple[str, str, str]]:
             experimental_imperative=True,
         )
         canonical = _canonical_ast(rd_ast)
-        if _canonical_ast(lalr_ast) != canonical:
+        if not _canonical_equal(_canonical_ast(lalr_ast), canonical):
             failures.append((
                 path, "experimental-imperative",
                 "RD and LALR ASTs differ",
@@ -1202,7 +1231,7 @@ def run_experimental_imperative_parser_test() -> list[tuple[str, str, str]]:
                 recursive_descent=recursive_descent,
                 experimental_imperative=True,
             )
-            if _canonical_ast(reparsed) != canonical:
+            if not _canonical_equal(_canonical_ast(reparsed), canonical):
                 failures.append((
                     path, label,
                     "pretty-printer round-trip changed the AST",
