@@ -6,7 +6,7 @@ constructor stacks the language uses for its literals. Covers:
     ``isNat``/``isLitNat``, ``natToInt``, ``getZero``/``getSuc``.
   * ``UInt`` (``bzero``/``inc_dub``/``dub_inc``): ``mkBZero``,
     ``mkIncDub``, ``mkDubInc``, ``intToUInt``, ``isUInt``/``isLitUInt``,
-    ``uintToInt``, ``uint_inc``.
+    ``uintToInt``.
   * ``Int`` (``pos``/``neg`` over ``UInt``): ``mkPos``/``mkNeg``,
     ``mkIntLit``, ``isDeduceInt``, ``deduceIntToInt``.
   * Lists (``empty``/``node``): ``mkEmpty``/``mkNode``,
@@ -197,16 +197,6 @@ def mkDubInc(loc: Meta, arg: Term, cname: str = 'dub_inc',
              ty: Type | None = None) -> Call:
   return Call(loc, ty, ResolvedVar(loc, None, cname), [arg])
 
-def uint_inc(loc: Meta, x: Term) -> Term:
-    if isBZero(x):
-        return mkIncDub(loc, x)
-    elif isDubInc(x):
-        return mkIncDub(loc, uint_inc(loc, get_arg(x)))
-    elif isIncDub(x):
-        return mkDubInc(loc, get_arg(x))
-    else:
-        internal_error(loc, 'not a UInt constructor: ' + str(x))
-
 def isSuc(t: Term) -> bool:
   match t:
     case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [_]) \
@@ -294,15 +284,28 @@ def _uint_double(loc: Meta, x: Term, env: Env) -> Term | None:
       return None
     return Call(loc, None, ResolvedVar(loc, None, dub_name), [x])
 
-# The parsers use this function to create unsigned integer literals.
+# Build the compact binary (``bzero``/``inc_dub``/``dub_inc``)
+# representation of ``n``. Recursion depth and node count are both
+# O(log n), via a direct odd/even decomposition:
+#   n odd  ->  inc_dub((n-1)/2)   [ 1 + 2k ]
+#   n even ->  dub_inc(n/2 - 1)   [ 2(1 + k) ]
+# NOTE: the parsers do *not* currently use this -- ``Binary``'s
+# constructors are ``private`` to the UInt module, so a user file
+# cannot name them and literals go through ``mkUIntLit`` (``fromNat``
+# of a unary ``Nat``) instead. Switching literals to this compact form
+# is the end-to-end fix tracked in issue #1021.
 def intToUInt(loc: Meta, n: int, bzero: str = 'bzero',
               dubinc: str = 'dub_inc',
               incdub: str = 'inc_dub',
               uint_ty: Type | None = None) -> Term:
-    if n == 0:
+    if n <= 0:
         return mkBZero(loc, bzero, uint_ty)
+    elif n % 2 == 1:
+        return mkIncDub(loc, intToUInt(loc, (n - 1) // 2, bzero, dubinc,
+                                       incdub, uint_ty), cname=incdub)
     else:
-        return uint_inc(loc, intToUInt(loc, n - 1, bzero, dubinc, incdub, uint_ty))
+        return mkDubInc(loc, intToUInt(loc, n // 2 - 1, bzero, dubinc,
+                                       incdub, uint_ty), cname=dubinc)
     
 def _resolved_or_var(loc: Meta, ty: Type | None, name: str) -> VarRef:
   # A ``ResolvedVar`` when ``name`` is already uniquified (contains a
@@ -573,9 +576,27 @@ def formulas_equal_modulo_numeric_literals(frm1: AST, frm2: AST) -> bool:
     case _:
       return False
 
+def check_literal_size(loc: Meta, num: int) -> None:
+    # Reject a literal whose value is so large its unary desugaring
+    # would overflow the recursion limit mid-check. Raising a located
+    # ``ParseError`` here turns an opaque "maximum recursion depth
+    # exceeded" crash into a beginner-friendly diagnostic (issue #1021).
+    from flags import MAX_LITERAL
+    from error import ParseError
+    if abs(num) > MAX_LITERAL:
+        raise ParseError(
+            loc,
+            f'numeric literal {num} is too large: Deduce represents '
+            f'numbers as unary terms whose depth equals the value, so it '
+            f'only supports literals up to {MAX_LITERAL}.',
+        )
+
 def mkLitNat(loc: Meta, num: int) -> Term:
     # The ``lit(ℕnum)`` surface form shared by the parsers' Nat literals
-    # and the Nat payload of a UInt literal (below).
+    # and the Nat payload of a UInt literal (below). The size guard lives
+    # here so every literal path (Nat, UInt, and Int via mkUIntLit) is
+    # covered by one check.
+    check_literal_size(loc, num)
     return Call(loc, None, Var(loc, None, 'lit'), [intToNat(loc, num)])
 
 def mkUIntLit(loc: Meta, num: int) -> Term:

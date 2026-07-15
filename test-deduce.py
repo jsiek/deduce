@@ -107,7 +107,6 @@ _ppmod._check_system_limits = _patched_check_system_limits
 
 REPO_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(REPO_ROOT))
-sys.setrecursionlimit(10000)
 
 # ``lsp.library`` derives the location of ``Deduce.lark`` from
 # ``os.path.dirname(sys.argv[0])``. When this script is invoked as
@@ -119,10 +118,13 @@ sys.argv = [str(REPO_ROOT / "deduce.py")] + sys.argv[1:]
 
 from abstract_syntax import add_import_directory, init_import_directories
 from flags import (
+    RECURSION_LIMIT,
     set_experimental_imperative,
     set_quiet_mode,
     set_recursive_descent,
 )
+
+sys.setrecursionlimit(RECURSION_LIMIT)
 from lsp.library import check_file, reset_prelude_cache
 import parser as _equiv_lark_parser
 import rec_desc_parser as _equiv_rd_parser
@@ -272,6 +274,7 @@ SHOULD_ERROR_PARSER_EQUIV_SKIP = frozenset({
     "./test/should-error/double_private.pf",
     "./test/should-error/fn_missing_arrow.pf",
     "./test/should-error/function_case_missing_equal.pf",
+    "./test/should-error/literal_too_large.pf",
     "./test/should-error/missing-colon-in-have.pf",
     "./test/should-error/paren_term.pf",
     "./test/should-error/private_opaque.pf",

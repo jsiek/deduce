@@ -470,6 +470,31 @@ def _check_file_impl(
         from lsp.debugger import DebuggerQuit
         if isinstance(e, DebuggerQuit):
             raise
+        if isinstance(e, RecursionError):
+            # A bare "maximum recursion depth exceeded" is exactly the
+            # kind of opaque crash Deduce's beginner-friendly diagnostics
+            # avoid. The usual cause is an oversized integer literal:
+            # numbers desugar to a *unary* term whose depth equals the
+            # value, so every tree-walking pass recurses that deep. Skip
+            # ``format_exc`` -- the traceback is thousands of frames deep
+            # and re-walking it risks tripping the limit again. Issue
+            # #1021.
+            return CheckResult(
+                ok=False,
+                error_message=(
+                    "this file is too deeply nested for Deduce to check "
+                    "(exceeded the recursion limit). The most common cause "
+                    "is a very large integer literal: Deduce represents a "
+                    "number as a unary term whose depth equals its value, "
+                    "so a literal like 100000 builds a term too deep to "
+                    "check. Use a smaller value, or raise RECURSION_LIMIT "
+                    "in flags.py if you really need it."
+                ),
+                error_traceback=None,
+                exception=e,
+                module_name=module_name,
+                ast=ast,
+            )
         return CheckResult(
             ok=False,
             error_message=str(e),

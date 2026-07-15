@@ -50,13 +50,13 @@ if str(REPO_ROOT) not in sys.path:
 # silently produces unexpected results (e.g. None responses when a
 # real HoleContext should come back).
 sys.argv = [str(REPO_ROOT / "deduce.py")] + sys.argv[1:]
-sys.setrecursionlimit(10000)
 from abstract_syntax import (  # noqa: E402
     add_import_directory,
     init_import_directories,
 )
-from flags import set_quiet_mode  # noqa: E402
+from flags import RECURSION_LIMIT, set_quiet_mode  # noqa: E402
 
+sys.setrecursionlimit(RECURSION_LIMIT)
 set_quiet_mode(True)
 init_import_directories()
 add_import_directory(str(REPO_ROOT / "lib"))

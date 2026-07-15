@@ -70,7 +70,6 @@ _TEST_IMPORTS_DIR = _DEDUCE_ROOT / "test" / "test-imports"
 # was launched.
 _PSEUDO_ENTRY = str(_DEDUCE_ROOT / "deduce.py")
 sys.argv = [_PSEUDO_ENTRY] + sys.argv[1:]
-sys.setrecursionlimit(10000)
 
 # Repo root needs to be on sys.path for ``import abstract_syntax`` etc.
 if str(_DEDUCE_ROOT) not in sys.path:
@@ -80,8 +79,9 @@ from abstract_syntax import (  # noqa: E402
     add_import_directory,
     init_import_directories,
 )
-from flags import set_quiet_mode  # noqa: E402
+from flags import RECURSION_LIMIT, set_quiet_mode  # noqa: E402
 
+sys.setrecursionlimit(RECURSION_LIMIT)
 set_quiet_mode(True)
 init_import_directories()
 add_import_directory(str(_LIB_DIR))

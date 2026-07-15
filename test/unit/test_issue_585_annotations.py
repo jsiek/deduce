@@ -48,7 +48,6 @@ def test_issue_585_helper_parameters_are_annotated() -> None:
         (ast.mkBZero, {"loc", "zname", "ty"}),
         (ast.mkIncDub, {"loc", "arg", "cname", "ty"}),
         (ast.mkDubInc, {"loc", "arg", "cname", "ty"}),
-        (ast.uint_inc, {"loc", "x"}),
         (ast.isSuc, {"t"}),
         (ast._array_index_predecessor, {"pos", "env"}),
         (ast._try_match_one_plus, {"t"}),

@@ -105,14 +105,13 @@ def _set_up_query_environment() -> tuple[Callable[[str], None], tuple[str, ...]]
     """
     sys.path.insert(0, str(REPO_ROOT))
     sys.argv = [str(REPO_ROOT / "deduce.py")] + sys.argv[1:]
-    sys.setrecursionlimit(10000)
-
     from abstract_syntax import (
         add_import_directory,
         init_import_directories,
     )
-    from flags import set_quiet_mode
+    from flags import RECURSION_LIMIT, set_quiet_mode
 
+    sys.setrecursionlimit(RECURSION_LIMIT)
     set_quiet_mode(True)
     init_import_directories()
     add_import_directory(str(REPO_ROOT / "lib"))
