@@ -680,41 +680,6 @@ def update_all_head(r: Formula) -> Formula:
       case _:
         return r
 
-def gen_conjunct_advice(conjunct: Formula, arbs: list[str], ihs: list[str]) -> str:
-  match conjunct:
-    case All(_, _, (n, _), _, b):
-      return gen_conjunct_advice(b, arbs + [base_name(n)], ihs)
-    case IfThen(_, _, _, b):
-      return gen_conjunct_advice(b, arbs, ihs + [f"IH{len(ihs)}"])
-    case Call(_, _, _, [arg]):
-      withs = ""
-      if arbs:
-        withs = "with " + ", ".join(arbs) + ". "
-      assumes = ""
-      if ihs:
-        assumes = "assume " + ", ".join(ihs) +" "
-      return f"\t\tcase {withs}{arg} {assumes} {'{'}\n\t\t\t?\n{'\t\t}'}"
-  return ""
-
-def gen_custom_induction_advice(conjuncts: list[Formula]) -> str:
-  return "\n".join([gen_conjunct_advice(c, [], []) for c in conjuncts])
-
-def _custom_induction_expected_cases(conjuncts: list[Formula]) -> str:
-  return gen_custom_induction_advice(conjuncts).replace('\t\t', '\t')
-
-def _custom_induction_case_hint(conjunct: Formula) -> str:
-  return gen_conjunct_advice(conjunct, [], []).replace('\t\t', '\t')
-
-def _proof_view_callable(loc: Meta, name: str, type_args: list[Type]) -> Term:
-  rator: Term = ResolvedVar(loc, None, name)
-  if type_args:
-    rator = TermInst(loc, None, rator, type_args)
-  return rator
-
-def _proof_view_call(loc: Meta, name: str, arg: Term,
-                     type_args: list[Type]) -> Call:
-  return Call(loc, None, _proof_view_callable(loc, name, type_args), [arg])
-
 def _bijective_view_for_source_type(loc: Meta, ty: Type, env: Env
                                     ) -> ViewMatch | None:
   for binding in env.dict.values():
@@ -771,7 +736,7 @@ def _check_induction_via_custom_induction(
   if len(cases) != len(conjuncts):
     plural = '' if len(conjuncts) == 1 else 's'
     if expected_cases is None:
-      expected_cases = _custom_induction_expected_cases(conjuncts)
+      expected_cases = custom_induction_expected_cases(conjuncts)
     add_diagnostic(loc, 'expected ' + str(len(conjuncts)) \
           + ' case' + plural + ' for custom induction on ' + str(typ) \
           + ', but have ' + str(len(cases)) \
@@ -857,7 +822,7 @@ def _check_induction_via_view(loc: Meta, typ: Type,
         pattern_term = pattern_to_term(indcase.pattern)
         checked_pattern = type_check_term(pattern_term, target_ty, body_env, None, [])
         out_term = type_check_term(
-            _proof_view_call(loc, view.out, checked_pattern, type_args),
+            view_call(loc, view.out, checked_pattern, type_args),
             source_ty, body_env, None, [])
         old_reduce_only = get_reduce_only()
         set_reduce_only(old_reduce_only + [ResolvedVar(loc, None, view.out)])
@@ -919,7 +884,7 @@ def _check_switch_via_view(loc: Meta, new_subject: Term,
 
   view_value_name = generate_proof_name('v')
   view_value = ResolvedVar(loc, target_ty, view_value_name)
-  out_value = _proof_view_call(loc, view.out, view_value, type_args)
+  out_value = view_call(loc, view.out, view_value, type_args)
   view_formula_body = cast(
       CheckedFormula,
       formula.substitute({new_subject.get_name(): out_value}),
@@ -933,7 +898,7 @@ def _check_switch_via_view(loc: Meta, new_subject: Term,
   ]
   prove_view_formula = PAnnot(loc, view_formula,
                               Induction(loc, target_ty, ind_cases))
-  into_subject = _proof_view_call(loc, view.into, new_subject, type_args)
+  into_subject = view_call(loc, view.into, new_subject, type_args)
   prove_out_into = AllElim(loc, prove_view_formula, into_subject, (0, 1))
 
   try:
@@ -995,7 +960,7 @@ def _check_switch_via_custom_induction(loc: Meta, new_subject: Term,
     add_diagnostic(loc, 'expected ' + str(len(conjuncts))
           + ' case' + plural + ' in switch on `' + str(ty) + '`,'
           + ' but have ' + str(len(cases))
-          + '\nExpected cases:\n' + _custom_induction_expected_cases(conjuncts)
+          + '\nExpected cases:\n' + custom_induction_expected_cases(conjuncts)
           + givens_str(env))
     return
 

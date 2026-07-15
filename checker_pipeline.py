@@ -510,7 +510,7 @@ def type_check_view_recursive_fun(stmt: RecFun, env: Env,
   case_env = case_env.declare_term_vars(loc, param_pairs)
 
   checked_subject = ResolvedVar(loc, checked_params[0], param_names[0])
-  checked_view = type_check_term(_view_call(loc, view_decl.into,
+  checked_view = type_check_term(view_call(loc, view_decl.into,
                                            checked_subject),
                                  view_ty, case_env, None, [])
   cases_present: PatternCoverage = {}
@@ -623,15 +623,12 @@ def _check_view_function_type(loc: Meta, name: str, expected: Type,
                + " has type\n\t" + str(actual)
                + "\nbut expected\n\t" + str(expected))
 
-def _view_call(loc: Meta, fun_name: str, arg: Term) -> Call:
-  return Call(loc, None, ResolvedVar(loc, None, fun_name), [arg])
-
 def _view_roundtrip_formula(loc: Meta, view: ViewDecl) -> Formula:
   value_name = generate_proof_name("v")
   value = ResolvedVar(loc, view.target, value_name)
   formula = mkEqual(loc,
-                    _view_call(loc, view.into,
-                               _view_call(loc, view.out, value)),
+                    view_call(loc, view.into,
+                               view_call(loc, view.out, value)),
                     value)
   formula = All(loc, None, (value_name, view.target), (0, 1), formula)
   for i, tp in enumerate(reversed(view.type_params)):
@@ -643,8 +640,8 @@ def _view_inverse_formula(loc: Meta, view: ViewDecl) -> Formula:
   value_name = generate_proof_name("v")
   value = ResolvedVar(loc, view.source, value_name)
   formula = mkEqual(loc,
-                    _view_call(loc, view.out,
-                               _view_call(loc, view.into, value)),
+                    view_call(loc, view.out,
+                               view_call(loc, view.into, value)),
                     value)
   formula = All(loc, None, (value_name, view.source), (0, 1), formula)
   for i, tp in enumerate(reversed(view.type_params)):
@@ -719,7 +716,7 @@ def type_check_viewrec(stmt: ViewRecFun, env: Env) -> GenRecFun:
                + " but view " + base_name(view_name)
                + " views " + str(source_ty))
   checked_subject = type_check_term(view_subject, source_ty, case_env, None, [])
-  checked_view = type_check_term(_view_call(loc, view_decl.into,
+  checked_view = type_check_term(view_call(loc, view_decl.into,
                                            checked_subject),
                                  view_ty, case_env, None, [])
   cases_present: PatternCoverage = {}

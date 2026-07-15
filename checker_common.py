@@ -118,3 +118,53 @@ def switch_pattern_could_match_alts(
   else:
     return False
   return any(alt.name in candidates for alt in alts)
+
+
+def gen_conjunct_advice(conjunct: Formula, arbs: list[str], ihs: list[str]) -> str:
+  """Render one custom-induction conjunct as a suggested ``case`` skeleton.
+
+  Used to build the "Expected a case shaped like ..." advice shown when a
+  custom induction proof is missing or malformed. Shared by ordinary proof
+  dispatch (``checker_proofs``) and custom-induction body generation
+  (``checker_induction``). Unrecognized conjunct shapes yield the empty
+  string so advice generation never crashes while a user error is being
+  assembled.
+  """
+  match conjunct:
+    case All(_, _, (n, _), _, b):
+      return gen_conjunct_advice(b, arbs + [base_name(n)], ihs)
+    case IfThen(_, _, _, b):
+      return gen_conjunct_advice(b, arbs, ihs + [f"IH{len(ihs)}"])
+    case Call(_, _, _, [arg]):
+      withs = ""
+      if arbs:
+        withs = "with " + ", ".join(arbs) + ". "
+      assumes = ""
+      if ihs:
+        assumes = "assume " + ", ".join(ihs) +" "
+      return f"\t\tcase {withs}{arg} {assumes} {'{'}\n\t\t\t?\n{'\t\t}'}"
+  return ""
+
+def gen_custom_induction_advice(conjuncts: list[Formula]) -> str:
+  return "\n".join([gen_conjunct_advice(c, [], []) for c in conjuncts])
+
+def custom_induction_expected_cases(conjuncts: list[Formula]) -> str:
+  return gen_custom_induction_advice(conjuncts).replace('\t\t', '\t')
+
+def custom_induction_case_hint(conjunct: Formula) -> str:
+  return gen_conjunct_advice(conjunct, [], []).replace('\t\t', '\t')
+
+
+def view_call(loc: Meta, name: str, arg: Term,
+              type_args: Optional[List[Type]] = None) -> Call:
+  """Build a single-argument call to view function ``name`` applied to ``arg``.
+
+  Shared by view checking (``checker_pipeline``, ``checker_types``) and view
+  proof generation (``checker_proofs``). When ``type_args`` is non-empty the
+  operator is instantiated with a ``TermInst``; otherwise it is a bare
+  ``ResolvedVar``.
+  """
+  rator: Term = ResolvedVar(loc, None, name)
+  if type_args:
+    rator = TermInst(loc, None, rator, type_args)
+  return Call(loc, None, rator, [arg])

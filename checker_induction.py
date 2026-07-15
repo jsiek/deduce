@@ -51,31 +51,6 @@ from error import UserError, internal_error, user_error
 from flags import get_verbose
 
 
-def gen_conjunct_advice(conjunct: Formula, arbs: list[str], ihs: list[str]) -> str:
-  match conjunct:
-    case All(_, _, (n, _), _, b):
-      return gen_conjunct_advice(b, arbs + [base_name(n)], ihs)
-    case IfThen(_, _, _, b):
-      return gen_conjunct_advice(b, arbs, ihs + [f"IH{len(ihs)}"])
-    case Call(_, _, _, [arg]):
-      withs = ""
-      if arbs:
-        withs = "with " + ", ".join(arbs) + ". "
-      assumes = ""
-      if ihs:
-        assumes = "assume " + ", ".join(ihs) +" "
-      return f"\t\tcase {withs}{arg} {assumes} {'{'}\n\t\t\t?\n{'\t\t}'}"
-  raise AssertionError(f"unsupported conjunct shape: {conjunct!r}")
-
-def gen_custom_induction_advice(conjuncts: list[Formula]) -> str:
-  return "\n".join([gen_conjunct_advice(c, [], []) for c in conjuncts])
-
-def _custom_induction_expected_cases(conjuncts: list[Formula]) -> str:
-  return gen_custom_induction_advice(conjuncts).replace('\t\t', '\t')
-
-def _custom_induction_case_hint(conjunct: Formula) -> str:
-  return gen_conjunct_advice(conjunct, [], []).replace('\t\t', '\t')
-
 def validate_conjunct(loc: Meta, conj: Formula, fun: str) -> Formula:
   match conj:
     case All(loc1, _, (_, ty), _, body):
@@ -115,7 +90,7 @@ def generate_conjunct_body(
   if get_verbose():
     print("generate_conjunct_body", conjunct)
   if case_hint is None:
-    case_hint = _custom_induction_case_hint(conjunct)
+    case_hint = custom_induction_case_hint(conjunct)
   match conjunct:
     case All(_, _, (name, ty), _, body):
       if len(case.pattern.parameters) <= param_i:
