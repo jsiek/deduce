@@ -58,9 +58,8 @@ if TYPE_CHECKING:
     )
     from .ops import (
         _alpha_equiv_all,
+        _alpha_equiv_binders,
         _alpha_equiv_function_type,
-        _alpha_equiv_lambda,
-        _alpha_equiv_some,
         _alpha_equiv_tlet,
         callable_name,
         explicit_term_inst,
@@ -794,7 +793,7 @@ class Lambda(Term):
   def __eq__(self, other: object) -> bool:
       if not isinstance(other, Lambda):
         return False
-      return _alpha_equiv_lambda(self, other, {}, {})
+      return _alpha_equiv_binders(self, other, {}, {})
 
   def reduce(self, env: Env) -> Lambda:
     if get_eval_all():
@@ -2080,5 +2079,5 @@ class Some(Formula):
   def __eq__(self, other: object) -> bool:
     if not isinstance(other, Some):
       return False
-    return _alpha_equiv_some(self, other, {}, {})
+    return _alpha_equiv_binders(self, other, {}, {})
   

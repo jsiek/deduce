@@ -159,7 +159,7 @@ post_term_st = st.recursive(
 
 
 # Lambda body generator: keeps the body in the post-uniquify shape so
-# that ``Lambda.__eq__`` (which delegates to ``_alpha_equiv_lambda``)
+# that ``Lambda.__eq__`` (which delegates to ``_alpha_equiv_binders``)
 # is well-defined.
 def _lambda_with_binder(binder, body):
     return Lambda(_m(), None, [(binder, None)], body)
