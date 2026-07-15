@@ -38,6 +38,15 @@ Standalone modes (mutually exclusive with the above):
                        LALR/RD parity is already covered by ``--equiv`` for a
                        representative grammar corpus; here we just need to
                        catch regressions in the examples themselves.
+    --equiv-full       Pretty-print → reparse round-trip over EVERY
+                       accepted-syntax ``.pf`` file (``lib/``,
+                       ``test/should-validate``, ``example.pf``,
+                       ``test/should-warn``, ``test/prelude``, ``examples/``)
+                       with both parsers. This is the opt-in full-corpus audit
+                       from issue #931 -- broader than the curated
+                       ``PARSER_ROUND_TRIP_FILES`` set that ``--equiv`` runs in
+                       CI, and intentionally NOT part of the default sweep so
+                       CI stays fast.
     --regenerate-errors      Regenerate every ``test/should-error/*.err``.
     --generate-error <path>  Regenerate one ``.err`` fixture.
     --regenerate-warns       Regenerate every ``test/should-warn/*.warn``.
@@ -515,6 +524,7 @@ class ParsedFlags(TypedDict):
     errors: bool
     warns: bool
     equiv: bool
+    equiv_full: bool
     site: bool
     parser: bool
     examples: bool
@@ -1009,6 +1019,37 @@ def run_parser_round_trip(workers: int) -> list[tuple[str, str, str]]:
     return failures
 
 
+# Accepted-syntax directories swept by the opt-in ``--equiv-full`` audit.
+# ``test/should-error`` and ``test/parse`` are excluded on purpose: those
+# fixtures are meant to fail (at parse time or later), so round-tripping them
+# is not meaningful. This is the full-corpus counterpart to the curated
+# ``PARSER_ROUND_TRIP_FILES`` set (issue #931).
+FULL_ROUND_TRIP_DIRS = (LIB_DIR, PASS_DIR, WARN_DIR, PRELUDE_DIR, EXAMPLES_DIR)
+
+
+def full_round_trip_files() -> tuple[str, ...]:
+    """Every accepted-syntax ``.pf`` file, deduped and order-preserving."""
+    files: list[str] = []
+    for d in FULL_ROUND_TRIP_DIRS:
+        files.extend(list_pf(d))
+    files.append(f"./{EXAMPLE_FILE.as_posix()}")
+    return tuple(dict.fromkeys(files))
+
+
+def run_parser_round_trip_full(workers: int) -> list[tuple[str, str, str]]:
+    """Round-trip every accepted-syntax ``.pf`` file (opt-in, non-CI)."""
+    files = full_round_trip_files()
+    failures: list[tuple[str, str, str]] = []
+    for file_failures in _map_or_serial(
+        _parser_workers(workers, len(files)),
+        _worker_parser_round_trip,
+        files,
+        1,
+    ):
+        failures.extend(file_failures)
+    return failures
+
+
 def run_cli_test() -> list[tuple[str, str, str]]:
     """Sanity-check that ``python deduce.py`` works end-to-end.
 
@@ -1237,7 +1278,8 @@ def parse_args(argv: list[str]) -> ParsedFlags:
     arguments still in scripts / muscle memory."""
     flags: ParsedFlags = {
         "cli": False, "lib": False, "passable": False, "errors": False,
-        "warns": False, "equiv": False, "site": False, "parser": False,
+        "warns": False, "equiv": False, "equiv_full": False, "site": False,
+        "parser": False,
         "examples": False, "regen_all": False, "regen_files": [],
         "regen_all_warns": False, "regen_warn_files": [],
         "gen_parse": False, "workers": max(1, (os.cpu_count() or 4)),
@@ -1251,6 +1293,7 @@ def parse_args(argv: list[str]) -> ParsedFlags:
         elif a == "--errors": flags["errors"] = True
         elif a == "--warns": flags["warns"] = True
         elif a == "--equiv": flags["equiv"] = True
+        elif a == "--equiv-full": flags["equiv_full"] = True
         elif a == "--site": flags["site"] = True
         elif a == "--parser": flags["parser"] = True
         elif a == "--examples": flags["examples"] = True
@@ -1276,7 +1319,8 @@ def parse_args(argv: list[str]) -> ParsedFlags:
     if not (
         flags["cli"] or flags["lib"] or flags["passable"] or flags["errors"]
         or flags["warns"] or flags["site"] or flags["parser"]
-        or flags["examples"] or flags["equiv"] or flags["regen_all"]
+        or flags["examples"] or flags["equiv"] or flags["equiv_full"]
+        or flags["regen_all"]
         or flags["regen_all_warns"] or flags["gen_parse"]
         or flags["regen_files"] or flags["regen_warn_files"]
     ):
@@ -1296,6 +1340,7 @@ def parse_args(argv: list[str]) -> ParsedFlags:
         ("site", flags["site"]),
         ("parser", flags["parser"]),
         ("examples", flags["examples"]),
+        ("equiv-full", flags["equiv_full"]),
         ("regen_all", flags["regen_all"]),
         ("regen_files", bool(flags["regen_files"])),
         ("regen_all_warns", flags["regen_all_warns"]),
@@ -1381,6 +1426,14 @@ def main(argv: list[str]) -> int:
         bootstrap_prelude(lib_modules)
         _, fails = time_section("examples",
                                 lambda: run_examples_parallel(workers))
+        total_failures.extend(fails)
+        return _report(total_failures, total_t0)
+    if flags["equiv_full"]:
+        corpus = full_round_trip_files()
+        print(f"=== --equiv-full: pretty-print round trip over "
+              f"{len(corpus)} accepted-syntax files (both parsers) ===")
+        _, fails = time_section("full-corpus round trip",
+                                lambda: run_parser_round_trip_full(workers))
         total_failures.extend(fails)
         return _report(total_failures, total_t0)
 

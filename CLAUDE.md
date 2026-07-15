@@ -65,6 +65,7 @@ python test-deduce.py --passable       # only test/should-validate
 python test-deduce.py --errors         # only test/should-error (diff vs .err files)
 python test-deduce.py --warns          # only test/should-warn (valid + diff vs .warn files)
 python test-deduce.py --equiv          # compare RD/LALR ASTs for a curated grammar corpus
+python test-deduce.py --equiv-full     # opt-in: pretty-print round-trip over EVERY accepted-syntax .pf (not in CI)
 python test-deduce.py --parser         # only test/parse (parser-error fixtures)
 python test-deduce.py --site           # generates and checks doc code from gh_pages/doc
 
