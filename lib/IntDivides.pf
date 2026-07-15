@@ -298,3 +298,33 @@ proof
   arbitrary a:Int
   expand lcm.
 end
+
+// `a` divides `lcm(a, b)`. Lifts `uint_divides_lcm_left` through
+// `int_divides_iff_abs`, since `lcm` is defined on absolute values.
+theorem int_divides_lcm_left: all a:Int, b:Int. divides(a, lcm(a, b))
+proof
+  arbitrary a:Int, b:Int
+  expand lcm
+  have ul: divides(abs(a), lcm(abs(a), abs(b)))
+    by uint_divides_lcm_left[abs(a), abs(b)]
+  have unfold: abs(pos(lcm(abs(a), abs(b)))) = lcm(abs(a), abs(b))
+    by int_abs_pos[lcm(abs(a), abs(b))]
+  have ul2: divides(abs(a), abs(pos(lcm(abs(a), abs(b)))))
+    by replace symmetric unfold in ul
+  apply (conjunct 1 of int_divides_iff_abs[a, pos(lcm(abs(a), abs(b)))]) to ul2
+end
+
+// `b` divides `lcm(a, b)`. Mirrors `int_divides_lcm_left` through
+// `uint_divides_lcm_right`.
+theorem int_divides_lcm_right: all a:Int, b:Int. divides(b, lcm(a, b))
+proof
+  arbitrary a:Int, b:Int
+  expand lcm
+  have ul: divides(abs(b), lcm(abs(a), abs(b)))
+    by uint_divides_lcm_right[abs(a), abs(b)]
+  have unfold: abs(pos(lcm(abs(a), abs(b)))) = lcm(abs(a), abs(b))
+    by int_abs_pos[lcm(abs(a), abs(b))]
+  have ul2: divides(abs(b), abs(pos(lcm(abs(a), abs(b)))))
+    by replace symmetric unfold in ul
+  apply (conjunct 1 of int_divides_iff_abs[b, pos(lcm(abs(a), abs(b)))]) to ul2
+end
