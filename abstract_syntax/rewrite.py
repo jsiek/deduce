@@ -252,7 +252,25 @@ def remove_mark(formula: Formula) -> Formula:
             internal_error(loc, 'in remove_mark, find_mark failed on formula:\n\t' + str(formula))
         except MarkException as ex:
             return replace_mark(formula, ex.subject)
-      
+
+def build_equations_proof(loc: Meta, eqs: list[tuple[Term, Term, Proof]]) -> Proof:
+    """Fold a list of ``(lhs, rhs, reason)`` equation steps into a single
+    proof, right to left, via transitivity. Shared by both parsers."""
+    result: Proof | None = None
+    for (lhs, rhs, reason) in reversed(eqs):
+        num_marks = count_marks(lhs) + count_marks(rhs)
+        if num_marks == 0 and get_default_mark_LHS():
+            new_lhs: Term = Mark(loc, None, lhs)
+        else:
+            new_lhs = lhs
+        eq_proof = PAnnot(loc, mkEqualVar(loc, new_lhs, rhs), reason)
+        if result == None:
+            result = eq_proof
+        else:
+            result = PTransitive(loc, eq_proof, result)
+    assert result is not None  # the equations grammar yields >= 1 step
+    return result
+
 def extract_and(frm: Formula) -> list[Formula]:
     match frm:
       case And(_, _, args):
