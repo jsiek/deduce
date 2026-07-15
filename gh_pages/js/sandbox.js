@@ -1,4 +1,4 @@
-import { idents, types, prims, operators, keywords, whitespaces, comments, libs } from './codeKeywords.js'
+import { identifiers, types, prims, operators, keywords, whitespaces, comments, libs } from './codeKeywords.js'
 
 const isMobile = window.innerWidth < 990;
 
