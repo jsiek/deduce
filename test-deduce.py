@@ -21,11 +21,13 @@ Per-category flags (combinable):
     --errors       ``test/should-error`` (RD only, ``.err`` diff).
     --warns        ``test/should-warn`` (RD only, ``.warn`` diff): files
                    that must validate AND emit specific warning text.
-    --equiv        Parse a curated grammar-coverage corpus with both parsers
-                   and compare structural ASTs. Known historical divergences
-                   and parser-error fixtures are allowlisted so CI catches new
-                   drift. Also round-trip representative ASTs through the
-                   pretty-printer and both parsers.
+    --equiv        Parse a grammar-coverage corpus with both parsers and
+                   compare structural ASTs. The corpus is a curated stdlib /
+                   accepted / warning selection plus every ``test/should-error``
+                   fixture both parsers accept at parse time. Known historical
+                   divergences and parse-time-rejected fixtures are allowlisted
+                   so CI catches new drift. Also round-trip representative ASTs
+                   through the pretty-printer and both parsers.
 
 Standalone modes (mutually exclusive with the above):
     --site             Generate ``doc_*.pf`` from ``gh_pages/doc/``
@@ -509,19 +511,27 @@ PARSER_EQUIV_FILES = PARSER_ROUND_TRIP_FILES + (
     "./lib/Nat.pf",
     "./lib/UInt.pf",
     "./lib/Int.pf",
-    # Warning and later-phase error fixtures add syntax that is not always
-    # present in validating examples while staying much smaller than the full
-    # should-error directory sweep.
+    # Warning fixtures add syntax that is not always present in validating
+    # examples. The ``test/should-error`` corpus is folded in wholesale by
+    # ``should_error_equiv_files`` below (everything both parsers accept at
+    # parse time), so individual should-error paths are not listed here.
     "./test/should-warn/replace_auto_handled_922.pf",
-    "./test/should-error/advice_and.pf",
-    "./test/should-error/import_using_unknown.pf",
-    "./test/should-error/opaque_define_use_in_theorem.pf",
-    "./test/should-error/overload_return_type.pf",
-    "./test/should-error/predicate_negative_position.pf",
-    "./test/should-error/private_import1.pf",
-    "./test/should-error/recursive_import_one.pf",
-    "./test/should-error/replace_match_failure.pf",
 )
+
+
+def should_error_equiv_files() -> tuple[str, ...]:
+    """``test/should-error`` fixtures both parsers accept at parse time.
+
+    Most should-error files fail in a *later* phase (type-check/proof-check)
+    while parsing cleanly under both parsers, so their surface syntax is a
+    legitimate RD-vs-LALR drift sample -- and exercises constructs the
+    validating corpus may not. Everything except the
+    ``SHOULD_ERROR_PARSER_EQUIV_SKIP`` baseline (fixtures at least one parser
+    rejects at parse time) participates; that baseline shrinks over time via
+    ``_check_should_error_skip_set``.
+    """
+    return tuple(p for p in list_pf(ERROR_DIR)
+                 if p not in SHOULD_ERROR_PARSER_EQUIV_SKIP)
 
 
 class ParsedFlags(TypedDict):
@@ -910,18 +920,21 @@ def _worker_parser_equivalence(
 def run_parser_equivalence(workers: int) -> list[tuple[str, str, str]]:
     """Compare RD and LALR ASTs for parseable syntax.
 
-    Covers a curated corpus spanning stdlib, accepted, warning, and
-    later-phase error fixtures. ``should-error`` files fail in later phases,
-    so their ASTs are still meaningful surface-syntax samples; the
-    ``SHOULD_ERROR_PARSER_EQUIV_SKIP`` baseline excludes the fixtures where
-    at least one parser rejects at parse time today.
+    Covers a curated corpus spanning stdlib, accepted, and warning fixtures,
+    plus the entire ``test/should-error`` directory: those files fail in a
+    later phase but parse cleanly under both parsers, so their ASTs are still
+    meaningful surface-syntax samples. The ``SHOULD_ERROR_PARSER_EQUIV_SKIP``
+    baseline excludes only the fixtures where at least one parser rejects at
+    parse time today.
 
     ``test/parse`` remains RD-only because those fixtures intentionally lock
     down beginner-facing RD diagnostics, while the LALR parser is kept as an
     executable grammar spec.
     """
     files = tuple(dict.fromkeys(
-        PARSER_EQUIV_FILES + tuple(sorted(PARSER_EQUIV_EXPECTED_DIVERGENCES))
+        PARSER_EQUIV_FILES
+        + should_error_equiv_files()
+        + tuple(sorted(PARSER_EQUIV_EXPECTED_DIVERGENCES))
     ))
     failures: list[tuple[str, str, str]] = []
     seen_divergences: set[str] = set()
@@ -1524,7 +1537,7 @@ def main(argv: list[str]) -> int:
 
     if flags["equiv"]:
         print("\n=== parser equivalence (RD vs LALR ASTs) ===")
-        _, fails = time_section("curated grammar corpus",
+        _, fails = time_section("grammar + should-error corpus",
                                 lambda: run_parser_equivalence(workers))
         total_failures.extend(fails)
         _, fails = time_section("pretty-print round trip",
