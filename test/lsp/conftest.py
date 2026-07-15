@@ -32,7 +32,7 @@ from abstract_syntax import (  # noqa: E402
     add_import_directory,
     init_import_directories,
 )
-from flags import set_quiet_mode  # noqa: E402
+from flags import RECURSION_LIMIT, set_quiet_mode  # noqa: E402
 
 
 LIB_DIR = REPO_ROOT / "lib"
@@ -46,5 +46,5 @@ def _set_up_globals():
     init_import_directories()
     add_import_directory(str(LIB_DIR))
     add_import_directory(str(TEST_IMPORTS_DIR))
-    sys.setrecursionlimit(10000)
+    sys.setrecursionlimit(RECURSION_LIMIT)
     yield

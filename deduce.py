@@ -1,4 +1,5 @@
 from flags import (
+    RECURSION_LIMIT,
     VerboseLevel,
     add_import_directory,
     init_import_directories,
@@ -301,13 +302,13 @@ if __name__ == "__main__":
         print("Couldn't find a file to deduce!")
         exit(1)
 
-    sys.setrecursionlimit(10000)
+    sys.setrecursionlimit(RECURSION_LIMIT)
     # We can probably use a loop for some tail recursive functions
     # And even the non-tail recursive functions can be turned into a
     # loop by using an explicit stack.  But these alternatives would
     # hurt the readability of the code and increase the maintenance
-    # burden. So when you hit the recursion limit, just bump the number
-    # higher.
+    # burden. So when you hit the recursion limit, bump RECURSION_LIMIT
+    # in flags.py (it is shared by every entry point).
 
     # Start deducing
 

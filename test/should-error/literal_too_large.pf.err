@@ -1,0 +1,8 @@
+./test/should-error/literal_too_large.pf:4.1-4.14: while parsing assert
+	statement ::= "assert" formula
+
+
+assert 100000 = 100000
+       ^^^^^^
+
+./test/should-error/literal_too_large.pf:4.8-4.14: numeric literal 100000 is too large: Deduce represents numbers as unary terms whose depth equals the value, so it only supports literals up to 4000.

@@ -11,6 +11,28 @@ class VerboseLevel(Enum):
   CURR_ONLY = 1
   FULL = 2
 
+# Python recursion limit used by every Deduce entry point (CLI, test
+# harness, LSP/DAP/MCP servers). Deduce's numeric literals desugar to a
+# *unary* term whose depth is proportional to the literal's value, so
+# every tree-walking pass (uniquify, type-check, evaluation) recurses to
+# that depth. This ceiling therefore bounds the largest literal Deduce
+# can check before CPython's stack guard trips; keep it in one place so
+# the bound is consistent across entry points (issue #1021). CPython
+# 3.12 raises a clean ``RecursionError`` rather than crashing when the C
+# stack is exhausted, so raising this is safe from segfaults.
+RECURSION_LIMIT: int = 40000
+
+# Largest magnitude Deduce accepts for an integer or ``Nat`` literal.
+# Literals desugar to a unary term of depth == value, and CPython's C
+# stack guard trips (a clean ``RecursionError``) once a tree-walking
+# pass recurses a few thousand frames deep -- empirically around a
+# literal value of ~5000 with ``RECURSION_LIMIT`` above. Rejecting
+# larger literals at parse time with a located, beginner-friendly error
+# is far better than an opaque mid-check recursion crash (issue #1021).
+# Kept comfortably below the empirical ceiling so a literal near the
+# bound still checks even inside a moderately deep proof.
+MAX_LITERAL: int = 4000
+
 # flag for displaying uniquified names
 
 unique_names: bool = False

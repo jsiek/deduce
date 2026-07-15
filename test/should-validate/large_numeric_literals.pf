@@ -1,0 +1,11 @@
+import Nat
+import UInt
+
+// Large-but-supported numeric literals check without crashing.
+// Regression test for issue #1021: literals up to MAX_LITERAL (4000)
+// must type-check rather than blow the recursion limit.
+assert 3000 = 3000
+assert 3000 < 4000
+assert 4000 = 4000
+assert ℕ3000 = ℕ3000
+assert 1500 + 1500 = 3000

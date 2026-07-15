@@ -289,7 +289,6 @@ def _bootstrap_deduce_env_for_tests() -> None:
     """
     if str(REPO_ROOT) not in sys.path:
         sys.path.insert(0, str(REPO_ROOT))
-    sys.setrecursionlimit(10000)
     # parser.py reads `Deduce.lark' relative to dirname(sys.argv[0]);
     # under pytest, argv[0] is the pytest runner so the parser can't
     # find the grammar.  Point it at deduce.py in REPO_ROOT.
@@ -298,8 +297,9 @@ def _bootstrap_deduce_env_for_tests() -> None:
         add_import_directory,
         init_import_directories,
     )
-    from flags import set_quiet_mode  # noqa: E402
+    from flags import RECURSION_LIMIT, set_quiet_mode  # noqa: E402
 
+    sys.setrecursionlimit(RECURSION_LIMIT)
     set_quiet_mode(True)
     init_import_directories()
     lib_dir = REPO_ROOT / "lib"

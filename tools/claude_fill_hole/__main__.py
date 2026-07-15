@@ -68,7 +68,6 @@ def _bootstrap_deduce_env(deduce_root: Path) -> None:
     """
     if str(deduce_root) not in sys.path:
         sys.path.insert(0, str(deduce_root))
-    sys.setrecursionlimit(10000)
     # The deduce parser locates `Deduce.lark' via
     # ``os.path.dirname(sys.argv[0])'' (see parser.py:get_deduce_directory).
     # When the sidecar is launched as ``python -m tools.claude_fill_hole'',
@@ -83,7 +82,7 @@ def _bootstrap_deduce_env(deduce_root: Path) -> None:
             add_import_directory,
             init_import_directories,
         )
-        from flags import set_quiet_mode  # noqa: E402
+        from flags import RECURSION_LIMIT, set_quiet_mode  # noqa: E402
     except ImportError:
         # Bootstrap is best-effort -- if the deduce repo isn't on
         # sys.path (e.g. user invoked sidecar from outside a checkout
@@ -91,6 +90,7 @@ def _bootstrap_deduce_env(deduce_root: Path) -> None:
         # via subprocess; only query_goal will fail with a clear
         # message.
         return
+    sys.setrecursionlimit(RECURSION_LIMIT)
     set_quiet_mode(True)
     init_import_directories()
     lib_dir = deduce_root / "lib"
