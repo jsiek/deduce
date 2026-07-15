@@ -197,9 +197,6 @@ def _instantiate_view_type(
   return cast(ViewInstantiation | None,
               checker_pipeline._instantiate_view_type(loc, typ, env))
 
-def _view_call(loc: Meta, fun_name: str, arg: Term) -> Call:
-  return Call(loc, None, ResolvedVar(loc, None, fun_name), [arg])
-
 def _term_bijective_view_for_source_type(
     loc: Meta, typ: TypeExpr, env: Env
 ) -> ViewMatch | None:
@@ -243,7 +240,7 @@ def _switch_subject_via_bijective_view(
              for c in cases):
     return None
   checked_view = type_check_term(
-      _view_call(loc, view.into, new_subject), target_ty, env, recfun,
+      view_call(loc, view.into, new_subject), target_ty, env, recfun,
       subterms)
   return checked_view, target_ty
 
