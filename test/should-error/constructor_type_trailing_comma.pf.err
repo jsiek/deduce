@@ -1,0 +1,11 @@
+./test/should-error/constructor_type_trailing_comma.pf:3.1-4.13: while parsing
+	statement ::= "union" identifier type_params_opt "{" constructor* "}"
+
+./test/should-error/constructor_type_trailing_comma.pf:4.3-4.13: while parsing
+	constructor ::= identifier | identifier "(" type_list ")"
+
+  boxed(Nat,)
+            ^
+
+./test/should-error/constructor_type_trailing_comma.pf:4.13-4.14: expected a type, not
+	")"

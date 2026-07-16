@@ -1,0 +1,4 @@
+// A trailing comma in a function parameter list is rejected by both parsers.
+fun first(x : Nat, y : Nat,) {
+  x
+}

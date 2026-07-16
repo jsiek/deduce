@@ -1,0 +1,9 @@
+./test/should-error/quantifier_binding_trailing_comma.pf:2.1-2.34: while parsing
+	proof_stmt ::= "define" identifier "=" term
+
+
+define always_true = all x : Nat,. true
+                                 ^
+
+./test/should-error/quantifier_binding_trailing_comma.pf:2.34-2.35: expected an identifier, not
+	"."

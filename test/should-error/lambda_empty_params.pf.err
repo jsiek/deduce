@@ -1,0 +1,9 @@
+./test/should-error/lambda_empty_params.pf:3.1-3.19: while parsing
+	proof_stmt ::= "define" identifier "=" term
+
+
+define thunk = fun { true }
+                   ^
+
+./test/should-error/lambda_empty_params.pf:3.20-3.21: expected an identifier, not
+	"{"

@@ -1,0 +1,4 @@
+// A trailing comma in a type-parameter list is rejected by both parsers.
+fun identity<T,>(x : T) {
+  x
+}

@@ -138,8 +138,8 @@ identifier: IDENT              -> identifier
     | atomic_term "(" term_list ")"                    -> call
     | atomic_term "[" term "]"                         -> array_get
     | atomic_term FIELDACCESS                          -> field_access
-    | "λ" type_params_opt variable_list "{" term "}"    -> lambda
-    | "fun" type_params_opt variable_list "{" term "}"  -> lambda
+    | "λ" type_params_opt ne_variable_list "{" term "}"    -> lambda
+    | "fun" type_params_opt ne_variable_list "{" term "}"  -> lambda
     | "generic" identifier_list "{" term "}"            -> generic
     | "switch" term "{" switch_list "}"            -> switch
     | "all" type_annotation_list "." term               -> all_formula
@@ -161,8 +161,7 @@ identifier: IDENT              -> identifier
     | term                                         -> single
     | term "," term_list                           -> push
     
-?identifier_list:                                       -> empty
-    | identifier                                        -> single
+?identifier_list: identifier                            -> single
     | identifier "," identifier_list                         -> push
 
 ?identifier_list_bar:                                   -> empty
@@ -171,14 +170,15 @@ identifier: IDENT              -> identifier
     | identifier "|" identifier_list_bar                     -> push
     | INT "*" identifier "|" identifier_list_bar             -> push_repeat
 
-?type_annotation_list:                                  -> empty_binding
-    | identifier ":" type                               -> single_binding
+?type_annotation_list: identifier ":" type              -> single_binding
     | identifier ":" type "," type_annotation_list           -> push_binding
 
 ?variable_list:                                         -> empty_binding
-    | identifier ":" type                               -> single_binding
-    | identifier ":" type "," variable_list                  -> push_binding
-    | identifier "," variable_list                           -> push_var
+    | ne_variable_list
+
+?ne_variable_list: identifier ":" type                  -> single_binding
+    | identifier ":" type "," ne_variable_list               -> push_binding
+    | identifier "," ne_variable_list                        -> push_var
     | identifier                                        -> single_var
 
 ?assumption_list:                                  -> empty_binding
@@ -338,8 +338,7 @@ identifier: IDENT              -> identifier
  | "[" type "]" "!" -> mutable_array_type
  | "[" type "]"   -> array_type
 
-?type_list:                                      -> empty
-    | type                                       -> single
+?type_list: type                                 -> single
     | type "," type_list                         -> push
 
 ?type_params_opt:                                -> empty

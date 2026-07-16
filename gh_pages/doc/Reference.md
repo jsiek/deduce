@@ -1077,8 +1077,8 @@ formula ::= term
 ## Function (Term)
 
 ```deduce-grammar
-atomic_term ::= "fun" type_params_opt variable_list "{" term "}"
-atomic_term ::= "λ" type_params_opt variable_list "{" term "}"
+atomic_term ::= "fun" type_params_opt ne_variable_list "{" term "}"
+atomic_term ::= "λ" type_params_opt ne_variable_list "{" term "}"
 ```
 
 Functions are created with a `fun` expression.  Their syntax starts with
@@ -1189,8 +1189,8 @@ statement (see [Recursive Function](#recursive-function-statement)).
 ## Generic Function (Term)
 
 ```deduce-grammar
-atomic_term ::= "fun" type_params_opt variable_list "{" term "}"
-atomic_term ::= "λ" type_params_opt variable_list "{" term "}"
+atomic_term ::= "fun" type_params_opt ne_variable_list "{" term "}"
+atomic_term ::= "λ" type_params_opt ne_variable_list "{" term "}"
 ```
 
 To make a [Function](#function-term) generic, add type parameters surrounded
@@ -1312,10 +1312,9 @@ followed by one of the following operators: `+`, `-`, `*`, `/`, `%`,
 
 ## Identifier List
 
-A comma-separated sequence of identifiers.
+A comma-separated sequence of one or more identifiers.
 
 ```deduce-grammar
-identifier_list ::= ε
 identifier_list ::= identifier
 identifier_list ::= identifier "," identifier_list
 ```
@@ -2923,12 +2922,11 @@ define boxed_true : BoxOf<Truth> = box(true)
 ## Type List
 
 ```deduce-grammar
-type_list ::= ε
 type_list ::= type
 type_list ::= type "," type_list
 ```
 
-A type list is a comma-separated list of zero or more types.
+A type list is a comma-separated list of one or more types.
 
 
 ## Type Parameters
@@ -3012,14 +3010,18 @@ An unsigned integer literal is a sequence of one or more digits.
 
 ```deduce-grammar
 variable_list ::= ε
-variable_list ::= identifier
-variable_list ::= identifier "," variable_list
-variable_list ::= identifier ":" type
-variable_list ::= identifier ":" type "," variable_list
+variable_list ::= ne_variable_list
+ne_variable_list ::= identifier
+ne_variable_list ::= identifier "," ne_variable_list
+ne_variable_list ::= identifier ":" type
+ne_variable_list ::= identifier ":" type "," ne_variable_list
 ```
 
 A comma-separated list of variable declarations. Each variable may
-optionally be annotated with its type.
+optionally be annotated with its type. A `variable_list` may be empty
+(as in the parameter list of a nullary `fun` statement), whereas a
+`ne_variable_list` (used for the parameters of a `fun`/`λ` term) must
+declare at least one variable.
 
 ## View (Statement)
 

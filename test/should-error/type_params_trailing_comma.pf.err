@@ -1,0 +1,9 @@
+./test/should-error/type_params_trailing_comma.pf:2.1-2.16: while parsing
+	statement ::= "fun" identifier type_params_opt "(" variable_list ")" "{" term "}"
+
+
+fun identity<T,>(x : T) {
+               ^
+
+./test/should-error/type_params_trailing_comma.pf:2.16-2.17: expected an identifier, not
+	">"
