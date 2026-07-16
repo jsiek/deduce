@@ -1,0 +1,28 @@
+// Regression coverage for RD/LALR operator-grouping agreement (#473).
+//
+// Before the fix, three unparenthesized forms parsed to different ASTs
+// under recursive-descent vs LALR:
+//
+//   * `not` bound *looser* than `=` in RD (the `NOT` branch of
+//     `parse_term_hi` consumed a whole `parse_term_equal`), whereas the
+//     LALR grammar and Reference.md make `not` a level-0 atomic prefix,
+//     so `not P = Q` is `(not P) = Q`, not `not (P = Q)`.
+//   * `=`/`≠` and the comparison operators recursed rightward in RD,
+//     making them right-associative, whereas the grammar is
+//     left-associative: `a = b = c` is `(a = b) = c`.
+//
+// These theorems state those forms without disambiguating parentheses,
+// so the file lives in the `--equiv` corpus to keep RD and LALR pinned
+// to the documented grouping.
+
+theorem not_binds_tighter_than_eq: all P:bool. (not P = false) = P
+proof
+  arbitrary P:bool
+  switch P { case true { . } case false { . } }
+end
+
+theorem eq_left_associative: all P:bool. true = P = P
+proof
+  arbitrary P:bool
+  switch P { case true { . } case false { . } }
+end

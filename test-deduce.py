@@ -516,6 +516,11 @@ PARSER_ROUND_TRIP_FILES = (
     # (which accepts them as identifiers when the flag is off). RD now
     # demotes them to `IDENT` in that mode. Refs #473.
     "./test/should-validate/experimental_imperative_keywords_as_identifiers.pf",
+    # RD used to make `not` bind looser than `=` (its `NOT` branch consumed
+    # `parse_term_equal`) and parse `=`/comparison operators right-associatively,
+    # diverging from the LALR grammar and Reference.md. `not P = false` and
+    # `a = b = c` now group as `(not P) = false` / `(a = b) = c` under both.
+    "./test/should-validate/operator_precedence_rd_lalr.pf",
 )
 
 

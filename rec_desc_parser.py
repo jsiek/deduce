@@ -361,7 +361,10 @@ def parse_term_hi() -> Term:
 
   elif token.type == 'NOT':
     advance()
-    subject = parse_term_equal()
+    # `not` is a prefix at the atomic level (LALR: `"not" atomic_term`;
+    # Reference.md level 0), so it applies only to the immediately following
+    # atom -- `not P = Q` is `(not P) = Q`, not `not (P = Q)`.
+    subject = parse_call()
     meta = meta_from_tokens(token, previous_token())
     return IfThen(meta, None, subject, Bool(meta, None, False))
 
@@ -574,7 +577,10 @@ def parse_term_compare() -> Term:
     rator = Var(meta_from_tokens(current_token(), current_token()),
                 None, to_unicode.get(current_token().value, current_token().value))
     advance()
-    right = parse_term_compare()
+    # Left-associative, matching the LALR grammar
+    # (`comparison_term "<" additive_term`): recurse into the tighter level,
+    # not back into `parse_term_compare`, so `a < b < c` is `(a < b) < c`.
+    right = parse_term_add()
     term = Call(meta_from_tokens(token, previous_token()), None,
                 rator, [term,right])
 
@@ -587,7 +593,9 @@ def parse_term_equal() -> Term:
     meta = meta_from_tokens(current_token(), current_token())
     opr = current_token().value
     advance()
-    right = parse_term_equal()
+    # Left-associative, matching the LALR grammar
+    # (`equality_term "=" comparison_term`): `a = b = c` is `(a = b) = c`.
+    right = parse_term_compare()
     call_meta = meta_from_tokens(token, previous_token())
     if opr == '≠' or opr == '/=':
       term = IfThen(call_meta, None,
