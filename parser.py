@@ -25,46 +25,28 @@ from abstract_syntax import (
     mkLitNat, mkUIntLit, remove_mark,
 )
 import re
-from lark import Lark, Token, Tree, exceptions
+from lark import Token, Tree, exceptions
 from lark.tree import Meta
 from typing import Any, TypeAlias as TypingTypeAlias, cast
 from flags import VerboseLevel, get_experimental_imperative
 from error import ParseError, lark_unexpected_chars_to_parse_error
-
-filename: str = '???'
-
-def set_filename(fname: str) -> None:
-    global filename
-    filename = fname
-
-def get_filename() -> str:
-    global filename
-    return filename
-
-
-deduce_directory: str = '???'
-
-def set_deduce_directory(dir: str) -> None:
-    global deduce_directory
-    deduce_directory = dir
-
-def get_deduce_directory() -> str:
-    global deduce_directory
-    return deduce_directory
+from parser_common import (
+    experimental_imperative_keywords, get_experimental_imperative_enabled,
+    make_lark_parser, set_experimental_imperative,
+)
+from parser_common import require_experimental_imperative as _require_experimental_imperative
+# Re-exported so ``parser.<name>`` stays a valid module attribute for the
+# callers (LSP, declarations, tests) that reach through the active parser.
+from parser_common import get_deduce_directory as get_deduce_directory
+from parser_common import get_filename as get_filename
+from parser_common import set_deduce_directory as set_deduce_directory
+from parser_common import set_filename as set_filename
 
 ##################################################
 # Concrete Syntax Parser
 ##################################################
 
 lark_parser = None
-experimental_imperative_enabled = False
-
-def _require_experimental_imperative(meta: Meta) -> None:
-    if not experimental_imperative_enabled:
-        raise ParseError(
-            meta,
-            'experimental imperative syntax requires --experimental-imperative',
-        )
 
 # Reserved keyword words that must never be used as identifiers. The LALR
 # parser's contextual lexer relabels a keyword as IDENT whenever the keyword
@@ -74,13 +56,15 @@ def _require_experimental_imperative(meta: Meta) -> None:
 # reproduce that by rejecting any IDENT token whose text is one of these words.
 # Populated from the grammar in `init_parser` so it stays in sync automatically.
 reserved_ident_keywords: frozenset[str] = frozenset()
+# The subset of `reserved_ident_keywords` that belongs to the experimental
+# imperative layer. These are only reserved when `--experimental-imperative`
+# is on; with the flag off they are ordinary identifiers (issue #473, matching
+# the recursive-descent parser's `experimental_imperative_keywords` demotion).
+experimental_ident_keywords: frozenset[str] = frozenset()
 
 def init_parser() -> None:
-  global lark_parser, reserved_ident_keywords
-  lark_file = get_deduce_directory() + "/Deduce.lark"
-  lark_parser = Lark(open(lark_file, encoding="utf-8").read(),
-                     start='program', parser='lalr',
-                     debug=True, propagate_positions=True)
+  global lark_parser, reserved_ident_keywords, experimental_ident_keywords
+  lark_parser = make_lark_parser(lalr=True)
   # A string terminal whose text is itself a valid IDENT is a reserved keyword:
   # lark's basic lexer gives it priority over the IDENT regex, so RD always
   # tokenizes it as that keyword. Collect exactly that set here.
@@ -94,6 +78,11 @@ def init_parser() -> None:
       t.pattern.value for t in lark_parser.terminals
       if t.pattern.type == 'str' and ident_regexp.fullmatch(t.pattern.value)
       and t.pattern.value not in ('__', 'operator'))
+  # The concrete words for the experimental-imperative keyword terminals,
+  # recovered from the grammar so they track it automatically.
+  experimental_ident_keywords = frozenset(
+      t.pattern.value for t in lark_parser.terminals
+      if t.name in experimental_imperative_keywords and t.pattern.type == 'str')
 
 ##################################################
 # Parsing Concrete to Abstract Syntax
@@ -257,7 +246,7 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
     if isinstance(e, Token):
         return e
     
-    setattr(e.meta, 'filename', filename)
+    setattr(e.meta, 'filename', get_filename())
 
     if e.data == 'nothing':
         return None
@@ -724,7 +713,7 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
         if len(e.children) == 1:
             meta: Any = Meta()  # type: ignore[no-untyped-call,unused-ignore]
             meta.empty = False
-            meta.filename = getattr(e.meta, 'filename', filename)
+            meta.filename = getattr(e.meta, 'filename', get_filename())
             meta.line = e.meta.end_line+1
             meta.column = 0
             meta.end_line = e.meta.end_line+1
@@ -1280,11 +1269,19 @@ def reject_reserved_identifiers(parse_tree: Tree[Token],
     slots where the keyword terminal is not expected; the recursive-descent
     parser never does. Rejecting these IDENT tokens keeps the two parsers in
     sync -- a reserved word can never be an identifier under either.
+
+    The experimental-imperative keyword vocabulary is reserved only when
+    `--experimental-imperative` is on; with the flag off those words are
+    ordinary identifiers (issue #473), so they are dropped from the reject
+    set to match the recursive-descent parser.
     """
+    reserved = reserved_ident_keywords
+    if not get_experimental_imperative_enabled():
+        reserved = reserved - experimental_ident_keywords
     for token in parse_tree.scan_values(
             lambda v: isinstance(v, Token)
             and v.type == 'IDENT'
-            and v.value in reserved_ident_keywords):
+            and v.value in reserved):
         raise ParseError(
             meta_from_token(token),
             'expected an identifier, not the reserved keyword\n\t'
@@ -1294,12 +1291,11 @@ def parse(program_text: str,
           trace: "bool | VerboseLevel" = False,
           error_expected: bool = False,
           experimental_imperative: bool | None = None) -> "list[Statement]":
-  global experimental_imperative_enabled
-  previous_experimental_imperative = experimental_imperative_enabled
+  previous_experimental_imperative = get_experimental_imperative_enabled()
   if experimental_imperative is None:
       experimental_imperative = get_experimental_imperative()
-  experimental_imperative_enabled = experimental_imperative
-  try:    
+  set_experimental_imperative(experimental_imperative)
+  try:
     # if trace:
     #     print('lexing!')
     # lexed = lark_parser.lex(program_text)
@@ -1366,5 +1362,5 @@ def parse(program_text: str,
                  + hint)
           raise ParseError(meta, msg)
   finally:
-      experimental_imperative_enabled = previous_experimental_imperative
+      set_experimental_imperative(previous_experimental_imperative)
         

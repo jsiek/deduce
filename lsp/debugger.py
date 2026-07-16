@@ -1029,9 +1029,9 @@ class Debugger:
         import rec_desc_parser as _p
         from abstract_syntax.core import Term as TermClass, UniquifyContext, base_name
 
+        saved_filename = _p.get_filename()
         saved = (
-            _p.token_list, _p.current_position,
-            _p.filename, _p.check_closest_kwd,
+            _p.token_list, _p.current_position, _p.check_closest_kwd,
         )
         try:
             _p.set_filename("<debugger>")
@@ -1043,8 +1043,9 @@ class Debugger:
             parse_term = cast(Callable[[], TermClass], getattr(_p, "parse_term"))
             term = parse_term()
         finally:
+            _p.set_filename(saved_filename)
             (_p.token_list, _p.current_position,
-             _p.filename, _p.check_closest_kwd) = saved
+             _p.check_closest_kwd) = saved
 
         # Build a uniquify env from the proof-checker env.  Each base
         # name maps to a list of the uniquified candidates -- which
