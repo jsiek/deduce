@@ -1,0 +1,12 @@
+./test/should-error/call_trailing_comma.pf:10.1-10.31: while parsing
+	proof_stmt ::= "define" identifier "=" term
+
+./test/should-error/call_trailing_comma.pf:10.12-10.31: while parsing function call
+	term ::= term "(" term_list ")"
+
+
+define d = snd(bit_lo, bit_hi,)
+                              ^
+
+./test/should-error/call_trailing_comma.pf:10.31-10.32: expected a term, not
+	")"
