@@ -997,6 +997,7 @@ def run_parser_equivalence(workers: int) -> list[tuple[str, str, str]]:
 
 def _worker_parser_round_trip(path: str) -> list[tuple[str, str, str]]:
     failures: list[tuple[str, str, str]] = []
+    pretty_by_source: dict[str, str] = {}
     for source_rd in (True, False):
         source_label = "RD" if source_rd else "LALR"
         try:
@@ -1010,6 +1011,7 @@ def _worker_parser_round_trip(path: str) -> list[tuple[str, str, str]]:
                              f"{source_label} source parse/print: "
                              f"{type(exc).__name__}: {exc}"))
             continue
+        pretty_by_source[source_label] = pretty_source
 
         for roundtrip_rd in (True, False):
             roundtrip_label = "RD" if roundtrip_rd else "LALR"
@@ -1031,6 +1033,28 @@ def _worker_parser_round_trip(path: str) -> list[tuple[str, str, str]]:
                 failures.append((path, "parser-roundtrip",
                                  f"{source_label} pretty source changed "
                                  f"when parsed with {roundtrip_label}"))
+                continue
+
+            # Idempotence: the pretty-printer is meant to be a canonical
+            # fixpoint, so re-printing the reparsed AST must reproduce the
+            # exact same text. A drift here means the printed output depends
+            # on something the canonical-AST check normalizes away (source
+            # locations, Token-vs-str leaves, the ``default`` visibility
+            # sentinel) -- a latent formatting bug masked by that comparison.
+            if _pretty_print_program(reparsed) != pretty_source:
+                failures.append((path, "parser-roundtrip",
+                                 f"{source_label} pretty source is not "
+                                 f"idempotent under {roundtrip_label} "
+                                 f"(reprint differs)"))
+
+    # Cross-parser agreement: RD and LALR must pretty-print a file to byte
+    # identical text. They already produce canonically equal ASTs (checked by
+    # ``run_parser_equivalence``), so any text difference is the printer
+    # reading a field the canonical comparison ignores.
+    if ("RD" in pretty_by_source and "LALR" in pretty_by_source
+            and pretty_by_source["RD"] != pretty_by_source["LALR"]):
+        failures.append((path, "parser-roundtrip",
+                         "RD and LALR pretty-print to different text"))
     return failures
 
 
