@@ -375,7 +375,7 @@ def _alpha_equiv(t1: object, t2: object,
   if isinstance(t1, Lambda):
     if not isinstance(t2, Lambda):
       return False
-    return _alpha_equiv_lambda(t1, t2, env1, env2)
+    return _alpha_equiv_binders(t1, t2, env1, env2)
   if isinstance(t1, All):
     if not isinstance(t2, All):
       return False
@@ -383,7 +383,7 @@ def _alpha_equiv(t1: object, t2: object,
   if isinstance(t1, Some):
     if not isinstance(t2, Some):
       return False
-    return _alpha_equiv_some(t1, t2, env1, env2)
+    return _alpha_equiv_binders(t1, t2, env1, env2)
   if isinstance(t1, TLet):
     if not isinstance(t2, TLet):
       return False
@@ -485,8 +485,12 @@ def _bind_all(env: dict[str, object],
   return new
 
 
-def _alpha_equiv_lambda(t1:Lambda, t2:Lambda,
-                        env1:dict[str,object], env2:dict[str,object]) -> bool:
+def _alpha_equiv_binders(t1:Lambda | Some, t2:Lambda | Some,
+                         env1:dict[str,object], env2:dict[str,object]) -> bool:
+  # Shared by `Lambda` and `Some`: both bind a list of `.vars` (each an
+  # optionally-typed `(name, type?)` pair) over a `.body`. Check the
+  # binder types agree, then compare the bodies with a fresh tag bound
+  # per position so the comparison is insensitive to the bound names.
   if not _alpha_equiv_binder_types(t1.vars, t2.vars, env1, env2):
     return False
   tags = [object() for _ in t1.vars]
@@ -505,16 +509,6 @@ def _alpha_equiv_all(t1:All, t2:All,
   return _alpha_equiv(t1.body, t2.body, _bind(env1, x, tag), _bind(env2, y, tag))
 
 
-def _alpha_equiv_some(t1:Some, t2:Some,
-                      env1:dict[str,object], env2:dict[str,object]) -> bool:
-  if not _alpha_equiv_binder_types(t1.vars, t2.vars, env1, env2):
-    return False
-  tags = [object() for _ in t1.vars]
-  new_env1 = _bind_all(env1, [(x, tag) for ((x, _), tag) in zip(t1.vars, tags)])
-  new_env2 = _bind_all(env2, [(y, tag) for ((y, _), tag) in zip(t2.vars, tags)])
-  return _alpha_equiv(t1.body, t2.body, new_env1, new_env2)
-
-
 def _alpha_equiv_tlet(t1:TLet, t2:TLet,
                       env1:dict[str,object], env2:dict[str,object]) -> bool:
   if not _alpha_equiv(t1.rhs, t2.rhs, env1, env2):
@@ -530,7 +524,7 @@ def _alpha_equiv_function_type(t1: FunctionType, t2: object,
                                env2: dict[str, object]) -> bool:
   # The only `Type`-level binder: `type_params` is a list of names
   # bound in `param_types` and `return_type`. Same parallel-walk
-  # pattern as `_alpha_equiv_lambda`, but `type_params` carries no
+  # pattern as `_alpha_equiv_binders`, but `type_params` carries no
   # per-parameter type annotation -- it's just names.
   if not isinstance(t2, FunctionType):
     return False

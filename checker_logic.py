@@ -124,6 +124,12 @@ def commute_diff_hint(frm: Formula) -> str:
           + 'See CheatSheet.md "Equations involving `+` that look trivial".')
 
 
+def _implies_context(frm1: Formula, frm2: Formula) -> str:
+  # The "while proving frm1 implies frm2" note appended to a nested
+  # failure so the reported error keeps the enclosing implication goal.
+  return '\n\nWhile trying to prove that\n\t' + str(frm1) \
+      + '\nimplies\n' + '\t' + str(frm2)
+
 def check_implies(loc: Meta, frm1: Formula, frm2: Formula) -> None:
   if get_verbose():
     print('check_implies? ' + str(frm1) + ' => ' + str(frm2))
@@ -136,20 +142,14 @@ def check_implies(loc: Meta, frm1: Formula, frm2: Formula) -> None:
         for arg2 in args:
           check_implies(loc, frm1, arg2)
       except UserError as e:
-          context = '\n\nWhile trying to prove that\n\t' + str(frm1) \
-              + '\nimplies\n'\
-              + '\t' + str(frm2)
-          raise wrap_user_error(e, context) from e
+          raise wrap_user_error(e, _implies_context(frm1, frm2)) from e
 
     case(Or(_, _, args1), _):
       for arg1 in args1:
         try:
           check_implies(loc, arg1, frm2)
         except UserError as e:
-          context = '\n\nWhile trying to prove that\n\t' + str(frm1) \
-              + '\nimplies\n'\
-              + '\t' + str(frm2)
-          raise wrap_user_error(e, context) from e
+          raise wrap_user_error(e, _implies_context(frm1, frm2)) from e
       
     case (Bool(loc2, tyof2, False), _):
       return
@@ -203,10 +203,7 @@ def check_implies(loc: Meta, frm1: Formula, frm2: Formula) -> None:
         check_implies(loc, prem2, prem1)
         check_implies(loc, conc1, conc2)
       except UserError as e:
-        context = '\n\nWhile trying to prove that\n\t' + str(frm1) \
-            + '\nimplies\n'\
-            + '\t' + str(frm2)
-        raise wrap_user_error(e, context) from e
+        raise wrap_user_error(e, _implies_context(frm1, frm2)) from e
 
     case (All(_, _, var1, _, body1), All(loc2, tyof2, var2, _, body2)):
       try:
@@ -214,10 +211,7 @@ def check_implies(loc: Meta, frm1: Formula, frm2: Formula) -> None:
           body2a = cast(Formula, body2.substitute(sub))
           check_implies(loc, body1, body2a)
       except UserError as e:
-        context = '\n\nWhile trying to prove that\n\t' + str(frm1) \
-            + '\nimplies\n'\
-            + '\t' + str(frm2)
-        raise wrap_user_error(e, context) from e
+        raise wrap_user_error(e, _implies_context(frm1, frm2)) from e
 
     case (All(_, _, _, _, body1), _):
        matching:dict[str, Term] = {}
