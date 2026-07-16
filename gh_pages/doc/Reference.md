@@ -842,6 +842,49 @@ assert 8 / 3 = 2
 assert 9 / 3 = 3
 ```
 
+### Rounding convention for signed division
+
+Division and modulo are also defined for `Nat` (`Nat.pf`) and `Int`
+(`IntDefs.pf` / `IntMod.pf`). For `Nat` and `UInt` both operands are
+non-negative, so every rounding convention agrees and there is nothing
+to choose.
+
+For `Int` the convention only matters when the dividend is negative, and
+Deduce uses **truncated** (round-toward-zero, "T-") division. `Int /` is
+defined in `IntDefs.pf` as
+
+```
+n / m = (sign(n) * sign(m)) * (abs(n) / abs(m))
+```
+
+so the quotient rounds toward zero and the remainder `n % m` (see
+[Modulo](#modulo)) takes the sign of the dividend. The two are linked by
+`int_div_mod`: for `m ≠ 0`,
+
+```
+(n / m) * m + (n % m) = n
+```
+
+and `int_mod_less_abs` bounds the remainder by `abs(n % m) < abs(m)`.
+
+Lean's `ediv` / `emod` instead use the **Euclidean** (E-) convention,
+whose remainder is always non-negative (`0 ≤ n % m < abs(m)`); the two
+conventions agree whenever the dividend is non-negative and differ in
+sign otherwise (e.g. `-7 / 2` is `-3` truncated but `-4` Euclidean, with
+remainders `-1` and `+1` respectively). Truncated division was chosen
+because it falls straight out of the sign/magnitude definition of `Int`,
+keeps the four `pos`/`negsuc` case lemmas symmetric, and matches the `/`
+and `%` of C, Java, Go, and Rust; the trade-off is that the remainder
+can be negative, so proofs that need a canonical non-negative residue
+must add `abs` or a case split. See issue #1024 for the discussion.
+
+```{.deduce^#int_division_example}
+assert pos(7) / pos(2) = pos(3)     // 7 / 2 = 3
+assert -pos(7) / pos(2) = -pos(3)   // -7 / 2 = -3 (toward zero)
+assert pos(7) / -pos(2) = -pos(3)   // 7 / -2 = -3
+assert -pos(7) / -pos(2) = pos(3)   // -7 / -2 = 3
+```
+
 ## GCD
 
 The `UInt` library provides Euclid's algorithm as `gcd(a, b)`. It is
@@ -1730,6 +1773,20 @@ assert 1 % 2 = 1
 assert 2 % 2 = 0
 assert 3 % 2 = 1
 assert 4 % 2 = 0
+```
+
+`Int %` is defined in `IntMod.pf` as `sign(n) * (abs(n) % abs(m))`, so it
+follows the same **truncated** convention as `Int /`
+(see [the rounding-convention note](#rounding-convention-for-signed-division)):
+the remainder takes the sign of the dividend rather than always being
+non-negative. Companion theorems include `int_div_mod`,
+`int_mod_less_abs`, `int_abs_mod`, and `int_mod_small`.
+
+```{.deduce^#int_mod_example}
+assert pos(7) % pos(2) = pos(1)     // 7 % 2 = 1
+assert -pos(7) % pos(2) = -pos(1)   // -7 % 2 = -1 (sign of dividend)
+assert pos(7) % -pos(2) = pos(1)    // 7 % -2 = 1
+assert -pos(7) % -pos(2) = -pos(1)  // -7 % -2 = -1
 ```
 
 ## Modus Ponens
@@ -3194,6 +3251,7 @@ import Pair
 <<expand_example>>
 <<expand_in_example>>
 <<division_example>>
+<<int_division_example>>
 <<gcd_example>>
 <<equations_example>>
 <<equations_expand_example>>
@@ -3210,6 +3268,7 @@ import Pair
 <<less_equal_example>>
 <<mark_example>>
 <<mod_example>>
+<<int_mod_example>>
 <<obtain_example>>
 <<or_example>>
 <<or_example_intro1>>
