@@ -953,6 +953,42 @@ def _worker_parser_equivalence(
     return path, False, "RD and LALR ASTs differ", False
 
 
+# Reserved keywords must not be usable as identifiers in name/binding
+# positions under either parser (issue #1032). RD lexes non-contextually so it
+# always rejected these; the LALR parser used to lex a keyword as IDENT
+# whenever the keyword terminal was not expected in the current state, letting
+# it slip through until `parser.reject_reserved_identifiers` closed the gap.
+# One representative keyword per binding position from the issue's table is
+# enough to catch a regression of that fix.
+KEYWORD_NAME_REJECTION_CASES = (
+    "define if = true",                 # define name
+    "theorem if: true proof . end",     # theorem name
+    "fun and(x:bool) { x }",            # fun name
+    "union theorem { foo }",            # union name
+    "fun f(then:bool) { then }",        # fun parameter
+    "define d = all if:bool. true",     # all-bound variable
+)
+
+
+def _check_keyword_name_rejection() -> list[tuple[str, str, str]]:
+    """Both parsers must reject reserved keywords in name/binding positions."""
+    failures: list[tuple[str, str, str]] = []
+    for src in KEYWORD_NAME_REJECTION_CASES:
+        for recursive_descent in (True, False):
+            label = "recursive-descent" if recursive_descent else "lalr"
+            try:
+                _parse_text_for_equivalence(
+                    "<keyword-name-rejection>", src,
+                    recursive_descent=recursive_descent,
+                )
+                failures.append((src, "parser-equivalence",
+                                 f"{label} accepted a reserved keyword as an "
+                                 f"identifier; both parsers must reject"))
+            except Exception:
+                pass
+    return failures
+
+
 def run_parser_equivalence(workers: int) -> list[tuple[str, str, str]]:
     """Compare RD and LALR ASTs for parseable syntax.
 
@@ -987,6 +1023,7 @@ def run_parser_equivalence(workers: int) -> list[tuple[str, str, str]]:
                              msg))
 
     failures.extend(_check_should_error_skip_set())
+    failures.extend(_check_keyword_name_rejection())
 
     stale = PARSER_EQUIV_EXPECTED_DIVERGENCES - seen_divergences - set(files)
     for path in sorted(stale):
