@@ -1,0 +1,31 @@
+// Regression test for issue #473: the experimental-imperative keyword
+// vocabulary (`call`, `return`, `while`, `emp`, `reads`, `modifies`, ...) must
+// be usable as ordinary identifiers when `--experimental-imperative` is off,
+// matching the LALR parser. Before the fix, the recursive-descent parser
+// tokenized with lark's non-contextual lexer and reserved these words
+// globally, rejecting them as identifiers and diverging from the LALR parser.
+
+define call = true
+define return = false
+define reads = true
+define modifies = false
+define decreases = true
+define emp = false
+define requires = true
+define ensures = false
+define invariant = true
+define preserved = true
+define established = false
+define observer = true
+define resource = false
+
+// `while` in binding position (a parameter) and in reference position.
+fun negate(while : bool) {
+  if while then false else true
+}
+
+theorem experimental_keywords_are_identifiers:
+  negate(call) = return
+proof
+  evaluate
+end
