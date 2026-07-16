@@ -1,0 +1,2 @@
+./test/should-error/empty_switch_no_annotation.pf:4.3-4.15: cannot infer the type of an empty switch.
+Add a type annotation, e.g. "(switch x { } : T)".
