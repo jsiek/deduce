@@ -34,27 +34,17 @@ from lark.tree import Meta
 from error import ParseError, error_header, lark_unexpected_chars_to_parse_error
 from flags import VerboseLevel, get_experimental_imperative
 from edit_distance import closest_keyword, edit_distance
-
-filename: str = '???'
-
-def set_filename(fname: str) -> None:
-    global filename
-    filename = fname
-
-def get_filename() -> str:
-    global filename
-    return filename
-
-
-deduce_directory: str = '???'
-
-def set_deduce_directory(dir: str) -> None:
-    global deduce_directory
-    deduce_directory = dir
-
-def get_deduce_directory() -> str:
-    global deduce_directory
-    return deduce_directory
+from parser_common import (
+    get_experimental_imperative_enabled, make_lark_parser,
+    require_experimental_imperative, set_experimental_imperative,
+)
+# Re-exported so ``rec_desc_parser.<name>`` stays a valid module attribute
+# for the callers (LSP, declarations, tests) that reach through the active
+# parser.
+from parser_common import get_deduce_directory as get_deduce_directory
+from parser_common import get_filename as get_filename
+from parser_common import set_deduce_directory as set_deduce_directory
+from parser_common import set_filename as set_filename
 
 expt_operators = { '^' }
 mult_operators = {'*', '/', '%', '∘', '.o.'}
@@ -95,10 +85,7 @@ lark_parser: Optional[Lark] = None
 
 def init_parser() -> None:
   global lark_parser
-  lark_file = get_deduce_directory() + "/Deduce.lark"
-  lark_parser = Lark(open(lark_file, encoding="utf-8").read(),
-                     start='program',
-                     debug=True, propagate_positions=True)
+  lark_parser = make_lark_parser(lalr=False)
 
 # The current_position needs to be a global so that the changes to the
 # current_position don't get discarded when an exception is
@@ -140,24 +127,16 @@ def consume_token(expected: str, display: str, context: str = "", advice: str = 
     advance()
 
 check_closest_kwd = False
-experimental_imperative_enabled = False
-
-def require_experimental_imperative(loc: Meta) -> None:
-  if not experimental_imperative_enabled:
-    raise ParseError(
-        loc,
-        'experimental imperative syntax requires --experimental-imperative',
-    )
 
 def parse(program_text: str,
           trace: "bool | VerboseLevel" = False,
           error_expected: bool = False,
           experimental_imperative: bool | None = None) -> "list[Statement]":
-  global token_list, current_position, check_closest_kwd, experimental_imperative_enabled
-  previous_experimental_imperative = experimental_imperative_enabled
+  global token_list, current_position, check_closest_kwd
+  previous_experimental_imperative = get_experimental_imperative_enabled()
   if experimental_imperative is None:
     experimental_imperative = get_experimental_imperative()
-  experimental_imperative_enabled = experimental_imperative
+  set_experimental_imperative(experimental_imperative)
   try:
     assert lark_parser is not None, "init_parser() must be called before parse()"
     lexed = lark_parser.lex(program_text)
@@ -172,7 +151,7 @@ def parse(program_text: str,
       for token in lexed:
         if trace:
           print(repr(token))
-        if not experimental_imperative_enabled \
+        if not get_experimental_imperative_enabled() \
            and token.type in experimental_imperative_keywords:
           # See ``experimental_imperative_keywords``: with the flag off,
           # this word is an ordinary identifier, matching the LALR parser.
@@ -206,7 +185,7 @@ def parse(program_text: str,
     # suggestions. The CLI never noticed because each invocation is
     # a fresh process.
     check_closest_kwd = False
-    experimental_imperative_enabled = previous_experimental_imperative
+    set_experimental_imperative(previous_experimental_imperative)
 
 
 def parse_identifier() -> str:
