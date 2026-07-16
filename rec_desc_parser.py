@@ -71,6 +71,26 @@ to_unicode = {'.o.': '∘', '|': '∪', '&': '∩', '.+.': '⨄', '.-.': '∸',
 
 accessiblity_keywords = {'OPAQUE', 'PRIVATE', 'PUBLIC'}
 
+# Keyword tokens that belong exclusively to the experimental imperative
+# layer (#854): every recursive-descent parse path that consumes one is
+# gated behind ``require_experimental_imperative``. Because RD tokenizes
+# with lark's *non-contextual* ``.lex()`` (unlike the LALR parser's
+# contextual lexer), these words would otherwise be reserved globally and
+# rejected as ordinary identifiers even when ``--experimental-imperative``
+# is off -- a divergence from the LALR parser, which accepts them as
+# identifiers in that mode (issue #473). When the flag is off we demote
+# these tokens to ``IDENT`` so both parsers agree.
+#
+# Excluded on purpose: ``VAR``/``GHOST`` (also used by the stable ``object``
+# field syntax) and ``VIEW``/``SOURCE``/``TARGET``/``INTO``/``OUT``/
+# ``ROUNDTRIP``/``INVERSE`` (the ``view`` declaration is not gated in RD),
+# since those are reachable with the flag off and must stay reserved.
+experimental_imperative_keywords = frozenset({
+    'EMP', 'NEW', 'PROC', 'OBSERVER', 'RESOURCE', 'REQUIRES', 'ENSURES',
+    'READS', 'MODIFIES', 'DECREASES', 'INVARIANT', 'ESTABLISHED',
+    'PRESERVED', 'CALL', 'WHILE', 'RETURN', 'AS', 'FOOTPRINT',
+})
+
 lark_parser: Optional[Lark] = None
 
 def init_parser() -> None:
@@ -152,6 +172,11 @@ def parse(program_text: str,
       for token in lexed:
         if trace:
           print(repr(token))
+        if not experimental_imperative_enabled \
+           and token.type in experimental_imperative_keywords:
+          # See ``experimental_imperative_keywords``: with the flag off,
+          # this word is an ordinary identifier, matching the LALR parser.
+          token = Token.new_borrow_pos('IDENT', token.value, token)
         token_list.append(token)
     except exceptions.UnexpectedCharacters as e:
       raise lark_unexpected_chars_to_parse_error(e, get_filename())

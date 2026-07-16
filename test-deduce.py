@@ -508,6 +508,14 @@ PARSER_ROUND_TRIP_FILES = (
     # `object Empty` at EOF did not reparse under RD. Fixed by guarding the
     # `LESSTHAN` lookahead with `not end_of_file()`.
     "./test/should-validate/object_bodyless_eof.pf",
+    # The experimental-imperative keyword vocabulary (`call`, `return`,
+    # `while`, `emp`, `reads`, ...) is only reserved with
+    # `--experimental-imperative` on. RD tokenizes with lark's
+    # non-contextual lexer, so it used to reserve those words globally and
+    # reject them as ordinary identifiers, diverging from the LALR parser
+    # (which accepts them as identifiers when the flag is off). RD now
+    # demotes them to `IDENT` in that mode. Refs #473.
+    "./test/should-validate/experimental_imperative_keywords_as_identifiers.pf",
 )
 
 
