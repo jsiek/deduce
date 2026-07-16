@@ -93,6 +93,41 @@ def type_match(
         match_failed(loc, str(arg_ty) + " does not match " + str(param_ty))
 
 
+def bijective_view_for_source_type(
+    loc: Meta, ty: Type, env: Env
+) -> tuple[ViewDecl, Type, Type, dict[str, Type | VarRef]] | None:
+  """Find an in-scope invertible (bijective) view whose source matches ``ty``.
+
+  Shared by term type-checking (``checker_types``) and proof checking
+  (``checker_proofs``): scan the environment for a ``ViewBinding`` whose
+  view has an ``inverse``, unify its source type with ``ty``, and return
+  the matched view along with the instantiated source and target types
+  and the resulting type substitution. Callers derive the concrete type
+  arguments from that substitution. Returns ``None`` when no such view
+  matches.
+  """
+  for binding in env.dict.values():
+    if not isinstance(binding, ViewBinding):
+      continue
+    view = binding.view
+    if view.inverse is None:
+      continue
+    matching: dict[str, Type | VarRef | None] = {}
+    try:
+      type_match(loc, type_names(loc, view.type_params),
+                 view.source, ty, matching)
+    except MatchFailed:
+      continue
+    sub: dict[str, Type | VarRef] = {
+        name: value for name, value in matching.items()
+        if value is not None
+    }
+    source_ty = view.source.substitute(sub)
+    target_ty = view.target.substitute(sub)
+    return view, source_ty, target_ty, sub
+  return None
+
+
 def is_associative(loc: Meta, opname: str, typ: Type | None, env: Env) -> bool:
   for (typarams, ty) in env.get_assoc_types(opname):
     type_params = type_names(loc, typarams)
