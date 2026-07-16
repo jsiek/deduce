@@ -26,8 +26,8 @@ from abstract_syntax import (
     Statement, Suffices, Switch, SwitchCase, SwitchProof, SwitchProofCase,
     TAnnote, TLet, Term, TermInst,
     Theorem, Trace, Type, TypeAlias, TypeInst, TypeType, Union, Var, ViewDecl,
-    count_marks, extract_and, extract_or, extract_tuple, get_default_mark_LHS,
-    listToNodeList, mkEqualVar, mkIntLit, mkLitNat, mkUIntLit, remove_mark,
+    build_equations_proof, extract_and, extract_or, extract_tuple,
+    listToNodeList, mkIntLit, mkLitNat, mkUIntLit, remove_mark,
 )
 from lark import Lark, Token, exceptions
 from lark.tree import Meta
@@ -861,22 +861,7 @@ def parse_proof_hi() -> Proof:
             # the mark.
             lhs = remove_mark(eqs[-1][1])
         eqs.append((lhs, rhs, reason))
-    result: Proof | None = None
-    meta = meta_from_tokens(token, token)
-    for (lhs, rhs, reason) in reversed(eqs):
-        num_marks = count_marks(lhs) + count_marks(rhs)
-        if num_marks == 0 and get_default_mark_LHS():
-            new_lhs = Mark(meta, None, lhs)
-        else:
-            new_lhs = lhs
-
-        eq_proof = PAnnot(meta, mkEqualVar(meta, new_lhs, rhs), reason)
-        if result == None:
-            result = eq_proof
-        else:
-            result = PTransitive(meta, eq_proof, result)
-    assert result is not None
-    return result
+    return build_equations_proof(meta_from_tokens(token, token), eqs)
 
   elif token.type == 'RECALL':
     return parse_recall()

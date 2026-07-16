@@ -18,10 +18,10 @@ from abstract_syntax import (
     RewriteFact, RewriteGoal,
     Rule, RuleInduction, RuleInductionCase, RuleInversion, SepConj, SimplifyFact,
     SimplifyGoal, Some, SomeElim, SomeIntro, Statement, Suffices, Switch,
-    SwitchCase, SwitchProof, SwitchProofCase, TAnnote, TLet, Term, TermInst,
-    Theorem, Trace, Proof, TypeAlias, TypeInst, TypeType, Union, Var,
-    ViewDecl, count_marks, extract_and, extract_or, extract_tuple,
-    get_default_mark_LHS, listToNodeList, mkEqualVar, mkIntLit,
+    SwitchCase, SwitchProof, SwitchProofCase, TAnnote, TLet, TermInst,
+    Theorem, Trace, TypeAlias, TypeInst, TypeType, Union, Var,
+    ViewDecl, build_equations_proof, extract_and, extract_or,
+    extract_tuple, listToNodeList, mkIntLit,
     mkLitNat, mkUIntLit, remove_mark,
 )
 import re
@@ -224,24 +224,7 @@ def set_visibility(statement: Any, visibility: str) -> None:
         statement.visibility = 'public'
     else:
         statement.visibility = 'public'
-        
-def build_equations_proof(loc: Meta, eqs: list[tuple[Term, Term, Proof]]) -> Proof:
-    result: Proof | None = None
-    for (lhs, rhs, reason) in reversed(eqs):
-        num_marks = count_marks(lhs) + count_marks(rhs)
-        if num_marks == 0 and get_default_mark_LHS():
-            new_lhs = Mark(loc, None, lhs)
-        else:
-            new_lhs = lhs
 
-        eq_proof = PAnnot(loc, mkEqualVar(loc, new_lhs, rhs), reason)
-        if result == None:
-            result = eq_proof
-        else:
-            result = PTransitive(loc, eq_proof, result)
-    assert result is not None  # the equations grammar yields >= 1 step
-    return result
-        
 # Any: the lark-tree -> AST dispatch boundary. This is dispatched on the
 # grammar rule name and so is polymorphic over every node kind the grammar
 # can produce (Term/Formula/Proof/Type/Pattern/Statement, plus bare str
