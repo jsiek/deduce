@@ -984,3 +984,113 @@ proof
 end
 
 auto uint_lcm_zero_right
+
+// A positive first operand forces a positive gcd, since `gcd(a, b)`
+// divides `a` and only zero divides into zero.
+theorem uint_gcd_pos: all a:UInt, b:UInt. if 0 < a then 0 < gcd(a, b)
+proof
+  arbitrary a:UInt, b:UInt
+  assume a_pos
+  have g_div_a: divides(gcd(a, b), a) by uint_gcd_divides_left[a, b]
+  have g_ne_z: not (gcd(a, b) = 0) by {
+    assume g_z
+    have div0a: divides(0, a) by replace g_z in g_div_a
+    obtain j where z_a: 0 = a from expand divides in div0a
+    have a_ne: not (a = 0) by apply uint_pos_not_zero to a_pos
+    apply a_ne to (symmetric z_a)
+  }
+  apply uint_not_zero_pos to g_ne_z
+end
+
+// `a` divides its least common multiple with `b`. In the interesting
+// case `lcm(a, b) = (a * b) / gcd(a, b)`; since `gcd(a, b)` divides `b`
+// as `gcd(a, b) * k = b`, the quotient collapses to `a * k`.
+theorem uint_divides_lcm_left: all a:UInt, b:UInt. divides(a, lcm(a, b))
+proof
+  arbitrary a:UInt, b:UInt
+  cases uint_zero_or_positive[a]
+  case a_z {
+    replace a_z
+    uint_divides_zero[0]
+  }
+  case a_pos {
+    cases uint_zero_or_positive[b]
+    case b_z {
+      replace b_z
+      uint_divides_zero[a]
+    }
+    case b_pos {
+      have g_pos: 0 < gcd(a, b) by apply uint_gcd_pos[a, b] to a_pos
+      have g_div_b: divides(gcd(a, b), b) by uint_gcd_divides_right[a, b]
+      obtain k where gk_b: gcd(a, b) * k = b from expand divides in g_div_b
+      have a_ne: not (a = 0) by apply uint_pos_not_zero to a_pos
+      have b_ne: not (b = 0) by apply uint_pos_not_zero to b_pos
+      have cond_false: not (a = 0 or b = 0) by {
+        assume c
+        cases c
+        case l { apply a_ne to l }
+        case r { apply b_ne to r }
+      }
+      have lcm_eq: lcm(a, b) = a * k by {
+        expand lcm
+        replace (apply eq_false to cond_false)
+        have prod_eq: a * b = gcd(a, b) * (a * k) by {
+          have s1: a * b = a * (gcd(a, b) * k) by replace gk_b.
+          replace s1
+          replace uint_mult_commute[a, gcd(a, b)].
+        }
+        replace prod_eq
+        apply uint_mult_div_left_inverse[a * k, gcd(a, b)] to g_pos
+      }
+      expand divides
+      choose k
+      symmetric lcm_eq
+    }
+  }
+end
+
+// `b` divides its least common multiple with `a`. Mirrors
+// `uint_divides_lcm_left`, using that `gcd(a, b)` divides `a`.
+theorem uint_divides_lcm_right: all a:UInt, b:UInt. divides(b, lcm(a, b))
+proof
+  arbitrary a:UInt, b:UInt
+  cases uint_zero_or_positive[a]
+  case a_z {
+    replace a_z
+    uint_divides_zero[b]
+  }
+  case a_pos {
+    cases uint_zero_or_positive[b]
+    case b_z {
+      replace b_z
+      uint_divides_zero[0]
+    }
+    case b_pos {
+      have g_pos: 0 < gcd(a, b) by apply uint_gcd_pos[a, b] to a_pos
+      have g_div_a: divides(gcd(a, b), a) by uint_gcd_divides_left[a, b]
+      obtain j where gj_a: gcd(a, b) * j = a from expand divides in g_div_a
+      have a_ne: not (a = 0) by apply uint_pos_not_zero to a_pos
+      have b_ne: not (b = 0) by apply uint_pos_not_zero to b_pos
+      have cond_false: not (a = 0 or b = 0) by {
+        assume c
+        cases c
+        case l { apply a_ne to l }
+        case r { apply b_ne to r }
+      }
+      have lcm_eq: lcm(a, b) = j * b by {
+        expand lcm
+        replace (apply eq_false to cond_false)
+        have prod_eq: a * b = gcd(a, b) * (j * b) by {
+          have s1: a * b = (gcd(a, b) * j) * b by replace gj_a.
+          replace s1.
+        }
+        replace prod_eq
+        apply uint_mult_div_left_inverse[j * b, gcd(a, b)] to g_pos
+      }
+      expand divides
+      choose j
+      replace lcm_eq
+      uint_mult_commute[b, j]
+    }
+  }
+end
