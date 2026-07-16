@@ -66,12 +66,34 @@ def _require_experimental_imperative(meta: Meta) -> None:
             'experimental imperative syntax requires --experimental-imperative',
         )
 
+# Reserved keyword words that must never be used as identifiers. The LALR
+# parser's contextual lexer relabels a keyword as IDENT whenever the keyword
+# terminal is not expected in the current state, which let keywords slip into
+# name/binding positions (issue #1032). The recursive-descent parser lexes
+# non-contextually (via `Lark.lex`) and so rejects every keyword there; we
+# reproduce that by rejecting any IDENT token whose text is one of these words.
+# Populated from the grammar in `init_parser` so it stays in sync automatically.
+reserved_ident_keywords: frozenset[str] = frozenset()
+
 def init_parser() -> None:
-  global lark_parser
+  global lark_parser, reserved_ident_keywords
   lark_file = get_deduce_directory() + "/Deduce.lark"
   lark_parser = Lark(open(lark_file, encoding="utf-8").read(),
                      start='program', parser='lalr',
                      debug=True, propagate_positions=True)
+  # A string terminal whose text is itself a valid IDENT is a reserved keyword:
+  # lark's basic lexer gives it priority over the IDENT regex, so RD always
+  # tokenizes it as that keyword. Collect exactly that set here.
+  ident_regexp = re.compile(
+      next(t for t in lark_parser.terminals
+           if t.name == 'IDENT').pattern.to_regexp())
+  # `__` (the omitted-term placeholder) and `operator` are the two words RD's
+  # `parse_identifier` accepts as identifiers despite being keyword terminals,
+  # so they are not reserved in name position under either parser.
+  reserved_ident_keywords = frozenset(
+      t.pattern.value for t in lark_parser.terminals
+      if t.pattern.type == 'str' and ident_regexp.fullmatch(t.pattern.value)
+      and t.pattern.value not in ('__', 'operator'))
 
 ##################################################
 # Parsing Concrete to Abstract Syntax
@@ -1232,8 +1254,41 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
 def token_str(token: Token, program_text: str) -> str:
     return program_text[token.start_pos:token.end_pos]
 
+def meta_from_token(token: Token) -> Meta:
+    meta = Meta()  # type: ignore[no-untyped-call,unused-ignore]
+    meta.empty = False
+    setattr(meta, 'filename', get_filename())
+    assert (token.line is not None and token.column is not None
+            and token.start_pos is not None and token.end_line is not None
+            and token.end_column is not None and token.end_pos is not None)
+    meta.line = token.line
+    meta.column = token.column
+    meta.start_pos = token.start_pos
+    meta.end_line = token.end_line
+    meta.end_column = token.end_column
+    meta.end_pos = token.end_pos
+    return meta
+
 def parse_program_tree(parse_tree: Tree[Token]) -> list[Statement]:
     return cast(list[Statement], parse_tree_to_ast(parse_tree, None))
+
+def reject_reserved_identifiers(parse_tree: Tree[Token],
+                                program_text: str) -> None:
+    """Reject a reserved keyword used as an identifier (issue #1032).
+
+    The contextual LALR lexer relabels a keyword as IDENT in name/binding
+    slots where the keyword terminal is not expected; the recursive-descent
+    parser never does. Rejecting these IDENT tokens keeps the two parsers in
+    sync -- a reserved word can never be an identifier under either.
+    """
+    for token in parse_tree.scan_values(
+            lambda v: isinstance(v, Token)
+            and v.type == 'IDENT'
+            and v.value in reserved_ident_keywords):
+        raise ParseError(
+            meta_from_token(token),
+            'expected an identifier, not the reserved keyword\n\t'
+            + token_str(token, program_text))
 
 def parse(program_text: str,
           trace: "bool | VerboseLevel" = False,
@@ -1261,6 +1316,7 @@ def parse(program_text: str,
         print('parse tree: ')
         print(parse_tree)
         print('')
+    reject_reserved_identifiers(parse_tree, program_text)
     ast = parse_program_tree(parse_tree)
     if trace:
         print('abstract syntax tree: ')
@@ -1303,15 +1359,7 @@ def parse(program_text: str,
                           'or use `fun`/`recursive`:\n'
                           '\tfun ' + name + '<T>(...) { ... }\n'
                           '\trecursive ' + name + '<T>(...) -> ... { ... }')
-          meta = Meta()  # type: ignore[no-untyped-call,unused-ignore]
-          meta.empty = False
-          setattr(meta, 'filename', get_filename())
-          meta.line = t.token.line
-          meta.column = t.token.column
-          meta.start_pos = t.token.start_pos
-          meta.end_line = t.token.end_line
-          meta.end_column = t.token.end_column
-          meta.end_pos = t.token.end_pos
+          meta = meta_from_token(t.token)
           msg = ("error in parsing, unexpected token: "
                  + token_str(t.token, program_text) + '\n'
                  + "(The error may be immediately before this token.)"
