@@ -82,6 +82,12 @@ def process_declaration_visibility(decl: Declaration, env: Env,
       if ty == None:
         new_body = type_synth_term(body, env, None, [])
         new_ty = new_body.typeof
+        if isinstance(new_ty, OverloadType):
+          user_error(loc, "the value of '" + base_name(name)
+                     + "' is ambiguous because it could have any of these types:\n\t"
+                     + '\n\t'.join(str(t) for (_, t) in new_ty.types)
+                     + "\nAdd a type annotation to disambiguate, e.g. "
+                     + "define " + base_name(name) + " : <type> = ...")
       else:
         new_ty = check_type(ty, env)
         new_body = body
