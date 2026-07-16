@@ -31,8 +31,8 @@ from typing import Any, TypeAlias as TypingTypeAlias, cast
 from flags import VerboseLevel, get_experimental_imperative
 from error import ParseError, lark_unexpected_chars_to_parse_error
 from parser_common import (
-    get_experimental_imperative_enabled, make_lark_parser,
-    set_experimental_imperative,
+    experimental_imperative_keywords, get_experimental_imperative_enabled,
+    make_lark_parser, set_experimental_imperative,
 )
 from parser_common import require_experimental_imperative as _require_experimental_imperative
 # Re-exported so ``parser.<name>`` stays a valid module attribute for the
@@ -56,9 +56,14 @@ lark_parser = None
 # reproduce that by rejecting any IDENT token whose text is one of these words.
 # Populated from the grammar in `init_parser` so it stays in sync automatically.
 reserved_ident_keywords: frozenset[str] = frozenset()
+# The subset of `reserved_ident_keywords` that belongs to the experimental
+# imperative layer. These are only reserved when `--experimental-imperative`
+# is on; with the flag off they are ordinary identifiers (issue #473, matching
+# the recursive-descent parser's `experimental_imperative_keywords` demotion).
+experimental_ident_keywords: frozenset[str] = frozenset()
 
 def init_parser() -> None:
-  global lark_parser, reserved_ident_keywords
+  global lark_parser, reserved_ident_keywords, experimental_ident_keywords
   lark_parser = make_lark_parser(lalr=True)
   # A string terminal whose text is itself a valid IDENT is a reserved keyword:
   # lark's basic lexer gives it priority over the IDENT regex, so RD always
@@ -73,6 +78,11 @@ def init_parser() -> None:
       t.pattern.value for t in lark_parser.terminals
       if t.pattern.type == 'str' and ident_regexp.fullmatch(t.pattern.value)
       and t.pattern.value not in ('__', 'operator'))
+  # The concrete words for the experimental-imperative keyword terminals,
+  # recovered from the grammar so they track it automatically.
+  experimental_ident_keywords = frozenset(
+      t.pattern.value for t in lark_parser.terminals
+      if t.name in experimental_imperative_keywords and t.pattern.type == 'str')
 
 ##################################################
 # Parsing Concrete to Abstract Syntax
@@ -1259,11 +1269,19 @@ def reject_reserved_identifiers(parse_tree: Tree[Token],
     slots where the keyword terminal is not expected; the recursive-descent
     parser never does. Rejecting these IDENT tokens keeps the two parsers in
     sync -- a reserved word can never be an identifier under either.
+
+    The experimental-imperative keyword vocabulary is reserved only when
+    `--experimental-imperative` is on; with the flag off those words are
+    ordinary identifiers (issue #473), so they are dropped from the reject
+    set to match the recursive-descent parser.
     """
+    reserved = reserved_ident_keywords
+    if not get_experimental_imperative_enabled():
+        reserved = reserved - experimental_ident_keywords
     for token in parse_tree.scan_values(
             lambda v: isinstance(v, Token)
             and v.type == 'IDENT'
-            and v.value in reserved_ident_keywords):
+            and v.value in reserved):
         raise ParseError(
             meta_from_token(token),
             'expected an identifier, not the reserved keyword\n\t'

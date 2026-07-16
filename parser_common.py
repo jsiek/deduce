@@ -62,3 +62,25 @@ def require_experimental_imperative(loc: Meta) -> None:
             loc,
             'experimental imperative syntax requires --experimental-imperative',
         )
+
+
+# Keyword tokens that belong exclusively to the experimental imperative
+# layer (#854): every recursive-descent parse path that consumes one is
+# gated behind ``require_experimental_imperative``. Because RD tokenizes
+# with lark's *non-contextual* ``.lex()`` (unlike the LALR parser's
+# contextual lexer), these words would otherwise be reserved globally and
+# rejected as ordinary identifiers even when ``--experimental-imperative``
+# is off -- a divergence from the LALR parser, which accepts them as
+# identifiers in that mode (issue #473). When the flag is off, RD demotes
+# these tokens to ``IDENT`` and the LALR parser skips them in
+# ``reject_reserved_identifiers`` so both parsers agree.
+#
+# Excluded on purpose: ``VAR``/``GHOST`` (also used by the stable ``object``
+# field syntax) and ``VIEW``/``SOURCE``/``TARGET``/``INTO``/``OUT``/
+# ``ROUNDTRIP``/``INVERSE`` (the ``view`` declaration is not gated in RD),
+# since those are reachable with the flag off and must stay reserved.
+experimental_imperative_keywords = frozenset({
+    'EMP', 'NEW', 'PROC', 'OBSERVER', 'RESOURCE', 'REQUIRES', 'ENSURES',
+    'READS', 'MODIFIES', 'DECREASES', 'INVARIANT', 'ESTABLISHED',
+    'PRESERVED', 'CALL', 'WHILE', 'RETURN', 'AS', 'FOOTPRINT',
+})
