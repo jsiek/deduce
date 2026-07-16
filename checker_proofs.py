@@ -30,10 +30,11 @@ from abstract_syntax import (
     RewriteFact, RewriteGoal, RuleInduction, RuleInversion,
     SimplifyFact, SimplifyGoal, Some, SomeElim, SomeIntro, Suffices,
     SwitchProof, SwitchProofCase, TLet, Term, TermInst, Type, TypeInst, TypeType,
-    Union, Var, VarRef, ViewBinding, ViewDecl, base_name, callable_name, formula_match,
+    Union, Var, VarRef, ViewDecl, base_name, bijective_view_for_source_type,
+    callable_name, formula_match,
     get_predicate_decl, get_type_name, is_constructor, is_equation, is_true,
     mkEqual, remove_mark, set_dont_reduce_opaque, set_reduce_all,
-    get_reduce_only, set_reduce_only, split_equation, type_match, type_names,
+    get_reduce_only, set_reduce_only, split_equation, type_match,
 )
 from checker_common import *
 from checker_logic import (
@@ -682,27 +683,12 @@ def update_all_head(r: Formula) -> Formula:
 
 def _bijective_view_for_source_type(loc: Meta, ty: Type, env: Env
                                     ) -> ViewMatch | None:
-  for binding in env.dict.values():
-    if not isinstance(binding, ViewBinding):
-      continue
-    view = binding.view
-    if view.inverse is None:
-      continue
-    matching: dict[str, Type | VarRef | None] = {}
-    try:
-      type_match(loc, type_names(loc, view.type_params),
-                 view.source, ty, matching)
-    except MatchFailed:
-      continue
-    sub: Substitution = {
-        name: value for name, value in matching.items()
-        if value is not None
-    }
-    type_args = [cast(Type, sub[name]) for name in view.type_params]
-    source_ty = cast(Type, view.source.substitute(sub))
-    target_ty = cast(Type, view.target.substitute(sub))
-    return view, source_ty, target_ty, type_args
-  return None
+  match = bijective_view_for_source_type(loc, ty, env)
+  if match is None:
+    return None
+  view, source_ty, target_ty, sub = match
+  type_args = [cast(Type, sub[name]) for name in view.type_params]
+  return view, source_ty, target_ty, type_args
 
 def _view_switch_expected_cases(alts: list[Constructor], env: Env) -> str:
   lines = []

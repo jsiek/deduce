@@ -68,9 +68,9 @@ from abstract_syntax import (
     Union,
     Var,
     VarRef,
-    ViewBinding,
     ViewDecl,
     base_name,
+    bijective_view_for_source_type,
     callable_name,
     is_associative,
     type_match,
@@ -88,7 +88,6 @@ PatternCoverage: TypingTypeAlias = dict[str, bool]
 RecursiveName: TypingTypeAlias = str | None
 SubtermNames: TypingTypeAlias = Sequence[str]
 ParamBindings: TypingTypeAlias = list[tuple[str, Type]]
-Substitution: TypingTypeAlias = dict[str, Term | Type | RecFun | GenRecFun]
 
 _NAT_LITERAL_HINT_PREFIX = (
     "\n\tnumeric literals default to `UInt`; for a `Nat` literal write "
@@ -200,26 +199,11 @@ def _instantiate_view_type(
 def _term_bijective_view_for_source_type(
     loc: Meta, typ: TypeExpr, env: Env
 ) -> ViewMatch | None:
-  for binding in env.dict.values():
-    if not isinstance(binding, ViewBinding):
-      continue
-    view = binding.view
-    if view.inverse is None:
-      continue
-    matching: TypeMatching = {}
-    try:
-      type_match(loc, type_names(loc, view.type_params),
-                 view.source, typ, matching)
-    except MatchFailed:
-      continue
-    sub = cast(Substitution, {
-        name: value for name, value in matching.items()
-        if value is not None
-    })
-    source_ty = cast(TypeExpr, view.source.substitute(sub))
-    target_ty = cast(TypeExpr, view.target.substitute(sub))
-    return view, source_ty, target_ty
-  return None
+  match = bijective_view_for_source_type(loc, cast(Type, typ), env)
+  if match is None:
+    return None
+  view, source_ty, target_ty, _ = match
+  return view, source_ty, target_ty
 
 def _switch_subject_via_bijective_view(
     loc: Meta,
