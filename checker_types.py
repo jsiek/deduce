@@ -772,6 +772,11 @@ def check_type(typ: TypeExpr, env: Env, arity_required: bool = True) -> TypeExpr
       return ArrayType(loc, check_type(elt_type, env))
     case MutableArrayType(loc, elt_type):
       return MutableArrayType(loc, check_type(elt_type, env))
+    case OverloadType(loc, overloads):
+      # An unresolved overloaded reference (e.g. an overloaded function name
+      # not yet narrowed by a call/expected type). Validate each candidate
+      # type; the overload itself is resolved later at the use site.
+      return OverloadType(loc, [(x, check_type(t, env)) for (x, t) in overloads])
     case _:
       internal_error(typ.location, 'error in check_type: unhandled type ' + repr(typ) + ' ' + str(type(typ)))
 
