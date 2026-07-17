@@ -54,6 +54,7 @@ if TYPE_CHECKING:
         nodeListToList,
         nodeListToString,
         try_fast_lit_nat_arith,
+        try_fast_uint_arith,
         uintToInt,
     )
     from .ops import (
@@ -1244,6 +1245,11 @@ class Call(Term):
       fast = try_fast_lit_nat_arith(self.location, self.rator, args, self.typeof)
       if fast is not None:
         return auto_rewrites(fast, env)
+    else:
+      fast_uint = try_fast_uint_arith(self.location, self.rator, args,
+                                      self.typeof, env)
+      if fast_uint is not None:
+        return fast_uint
     ret: Term | None = None
     match fun:
       case Var(loc, _, '=') | OverloadedVar(loc, _, ['=']) | ResolvedVar(loc, _, '='):

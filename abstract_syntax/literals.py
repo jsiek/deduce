@@ -527,6 +527,57 @@ def try_fast_lit_nat_arith(loc: Meta, rator: Term, args: list[Term],
                    sname=suc_name or 'suc')
   return Call(loc, ty, _resolved_or_var(loc, None, lit_name), [inner])
 
+def _mk_uint_from_int(loc: Meta, n: int, ty: Type | None, env: Env) -> Term | None:
+  # Build the compact ``Binary`` value for ``n`` using the environment's
+  # uniquified constructor names, so the result is structurally identical
+  # to what the opaque recursive reduction would produce.
+  bz = env.base_to_unique('bzero')
+  di = env.base_to_unique('dub_inc')
+  idd = env.base_to_unique('inc_dub')
+  if bz is None or di is None or idd is None:
+    return None
+  return intToUInt(loc, n, bzero=bz, dubinc=di, incdub=idd, uint_ty=ty)
+
+def try_fast_uint_arith(loc: Meta, rator: Term, args: list[Term],
+                        ty: Type | None, env: Env) -> Term | None:
+  # Full-evaluation (``assert``/``evaluate``) fast path for UInt.  A UInt
+  # literal enters the evaluator as ``fromNat(<unary Nat of depth N>)``,
+  # whose opaque unfolding is O(N); and the recursive ``Binary`` division
+  # operator is O(N/M).  Both make ``assert`` on large literals take tens
+  # of seconds (issue #1050).  Here we compute the result with Python ints
+  # and emit the compact ``Binary`` value directly.  Returns None unless
+  # every operand is a concrete UInt literal, so symbolic terms fall
+  # through to normal reduction.  Only sound under ``eval_all``, where the
+  # ``fromNat``/``Binary``-operator shape that proof automation keys on is
+  # already being reduced away.
+  if not isinstance(rator, (Var, OverloadedVar, ResolvedVar)):
+    return None
+  op = base_name(rator.get_name())
+  if op == 'fromNat' and len(args) == 1 and isNat(args[0]):
+    return _mk_uint_from_int(loc, natToInt(args[0]), ty, env)
+  if op not in ('+', '*', '∸', '/', '%', '<', '≤'):
+    return None
+  if len(args) != 2 or not (isUInt(args[0]) and isUInt(args[1])):
+    return None
+  a = uintToInt(args[0])
+  b = uintToInt(args[1])
+  if op == '<':
+    return Bool(loc, ty, a < b)
+  if op == '≤':
+    return Bool(loc, ty, a <= b)
+  if op == '+':
+    result_int = a + b
+  elif op == '*':
+    result_int = a * b
+  elif op == '∸':
+    result_int = max(0, a - b)
+  elif op == '/':
+    # UInt division truncates and defines n / 0 = 0 (lib/UIntDiv.pf).
+    result_int = a // b if b != 0 else 0
+  else:  # '%' : n % m = n ∸ (n / m) * m, so n % 0 = n (lib/UIntDiv.pf).
+    result_int = a % b if b != 0 else a
+  return _mk_uint_from_int(loc, result_int, ty, env)
+
 def _same_numeric_literal(t1: AST, t2: AST) -> bool:
   if not isinstance(t1, Term) or not isinstance(t2, Term):
     return False
