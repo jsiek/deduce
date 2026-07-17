@@ -10,6 +10,11 @@
 //   * `=`/`≠` and the comparison operators recursed rightward in RD,
 //     making them right-associative, whereas the grammar is
 //     left-associative: `a = b = c` is `(a = b) = c`.
+//   * `and`/`or` recursed rightward in RD (`parse_term_logic` consumed a
+//     whole `parse_term_logic` as its right operand), making `or` bind
+//     *tighter* than `and` and both right-associative, whereas the grammar
+//     and Reference.md put `and`/`or`/`:` at a single level read left to
+//     right: `a and b or c` is `(a and b) or c`, not `a and (b or c)`.
 //
 // These theorems state those forms without disambiguating parentheses,
 // so the file lives in the `--equiv` corpus to keep RD and LALR pinned
@@ -24,5 +29,21 @@ end
 theorem eq_left_associative: all P:bool. true = P = P
 proof
   arbitrary P:bool
+  switch P { case true { . } case false { . } }
+end
+
+// `(P or Q) and false` is always false; `P or (Q and false)` is `P`. Only
+// the documented left-to-right grouping makes this hold for every `P`.
+theorem and_or_same_level_left: all P:bool, Q:bool. (P or Q and false) = false
+proof
+  arbitrary P:bool, Q:bool
+  switch P { case true { . } case false { . } }
+end
+
+// `(P and Q) or true` is always true; `P and (Q or true)` is `P`. Again only
+// the left-to-right grouping validates for every `P`.
+theorem or_binds_looser_than_and: all P:bool, Q:bool. (P and Q or true) = true
+proof
+  arbitrary P:bool, Q:bool
   switch P { case true { . } case false { . } }
 end

@@ -642,7 +642,12 @@ def parse_term_logic() -> Term:
                                  or current_token().type == 'OR'):
     opr = current_token().type
     advance()
-    right = parse_term_logic()
+    # Left-associative at a single `and`/`or` precedence level, matching the
+    # left-recursive `logical_term` rule in Deduce.lark. Recursing into
+    # `parse_term_logic` here would instead group `a and b or c` as
+    # `a and (b or c)`, disagreeing with the LALR parser and the documented
+    # precedence (Reference.md: `and`/`or`/`:` are one level, read left to right).
+    right = parse_term_sep()
     if opr == 'AND':
       term = And(meta_from_tokens(token, previous_token()), None,
                  extract_and(term) + extract_and(right))
