@@ -1,0 +1,27 @@
+// A define bound to an overloaded *function* name is allowed: the alias
+// stays overloaded and is narrowed at each call site. (A define bound to a
+// non-function overload is rejected -- see
+// test/should-error/define_overloaded_ambiguous.pf.)
+
+union Color {
+  red
+  green
+}
+
+union Shape {
+  circle
+  square
+}
+
+fun paint(c : Color) { c }
+fun paint(s : Shape) { s }
+
+define mypaint = paint
+
+assert mypaint(red) = red
+assert mypaint(circle) = circle
+
+// aliases chain, and resolve against an expected type too
+define mypaint2 = mypaint
+define use_color : fn Color -> Color = mypaint2
+assert use_color(green) = green

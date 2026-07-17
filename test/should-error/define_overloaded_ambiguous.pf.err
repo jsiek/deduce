@@ -1,0 +1,5 @@
+./test/should-error/define_overloaded_ambiguous.pf:9.1-9.16: the value of 'x' is ambiguous because it could have any of these types:
+	Apple
+	Berry
+Add a type annotation to disambiguate, e.g. define x : <type> = ...
+Overloading is only allowed for function types.

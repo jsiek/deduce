@@ -115,12 +115,16 @@ class OverloadType(Type):
                              for (x,ty) in self.types]) + ')'
 
   def __eq__(self, other: object) -> bool:
+    # ``&'' is an unordered set of overloads, so equality is size-sensitive
+    # but order-independent: the two must have the same number of members and
+    # every member type of one must appear in the other, and vice versa.
     match other:
       case OverloadType(_, types2):
-        ret = True
-        for ((x,t1), (y,t2)) in zip(self.types, types2):
-          ret = ret and t1 == t2
-        return ret
+        ts1 = [t for (_, t) in self.types]
+        ts2 = [t for (_, t) in types2]
+        return len(ts1) == len(ts2) \
+           and all(any(a == b for b in ts2) for a in ts1) \
+           and all(any(b == a for a in ts1) for b in ts2)
       case _:
         return False
 

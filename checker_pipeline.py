@@ -82,6 +82,19 @@ def process_declaration_visibility(decl: Declaration, env: Env,
       if ty == None:
         new_body = type_synth_term(body, env, None, [])
         new_ty = new_body.typeof
+        # An unresolved overload is only meaningful as a define value when
+        # every candidate is a function: such a name can still be narrowed at
+        # each call site. A non-function overload (e.g. an overloaded nullary
+        # constructor) has no use-site type to disambiguate it, so require an
+        # annotation rather than storing an ambiguous value.
+        if isinstance(new_ty, OverloadType) \
+           and not all(isinstance(t, FunctionType) for (_, t) in new_ty.types):
+          user_error(loc, "the value of '" + base_name(name)
+                     + "' is ambiguous because it could have any of these types:\n\t"
+                     + '\n\t'.join(str(t) for (_, t) in new_ty.types)
+                     + "\nAdd a type annotation to disambiguate, e.g. "
+                     + "define " + base_name(name) + " : <type> = ..."
+                     + "\nOverloading is only allowed for function types.")
       else:
         new_ty = check_type(ty, env)
         new_body = body
@@ -750,7 +763,13 @@ def type_check_stmt(stmt: Statement, env: Env,
         new_ty = body.typeof
       else:
         new_ty = check_type(ty, env)
-        new_body = type_check_term(body, new_ty, env, None, [])
+        if isinstance(new_ty, OverloadType):
+          # An unresolved overloaded value (all-function, per
+          # process_declaration): there is no single type to check the body
+          # against here -- it is resolved at each use site instead.
+          new_body = body
+        else:
+          new_body = type_check_term(body, new_ty, env, None, [])
       return Define(loc, name, new_ty, new_body, visibility=stmt.visibility)
         
     case Theorem(loc, name, frm, pf, isLemma):

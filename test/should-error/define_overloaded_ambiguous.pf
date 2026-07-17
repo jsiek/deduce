@@ -1,0 +1,9 @@
+union Apple {
+  gala
+}
+
+union Berry {
+  gala
+}
+
+define x = gala
