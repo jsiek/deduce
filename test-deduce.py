@@ -63,6 +63,15 @@ Pool sizing:
     --workers N         Worker count (default ``os.cpu_count()``).
     --max-threads N     Alias for ``--workers`` (legacy).
     --serial            Equivalent to ``--workers 1``.
+
+Sharding:
+    --shard i/n         Process only stride ``i`` of ``n`` of each selected
+                        category's work list (``i`` is 1-based). Every item
+                        lands in exactly one shard, so running all ``n`` shards
+                        covers the whole corpus with no loss -- this is how CI
+                        fans the long categories (should-validate, lib, equiv)
+                        across parallel matrix legs. Corpus-wide invariant
+                        checks in ``--equiv`` run only on shard 1.
 """
 
 from __future__ import annotations
@@ -79,7 +88,7 @@ from concurrent.futures import ProcessPoolExecutor
 from dataclasses import fields as dc_fields, is_dataclass
 from pathlib import Path
 from signal import signal, SIGINT
-from typing import Callable, Iterable, TypeVar, TypedDict, cast
+from typing import Callable, Iterable, Optional, TypeVar, TypedDict, cast
 from lark import Token
 
 # Work around macOS sandbox profiles (notably Claude Code's seatbelt
@@ -572,6 +581,7 @@ class ParsedFlags(TypedDict):
     regen_warn_files: list[str]
     gen_parse: bool
     workers: int
+    shard: Optional[tuple[int, int]]
 
 
 T = TypeVar("T")
@@ -584,6 +594,23 @@ S = TypeVar("S")
 # copy-on-write. Avoids pickling a 32-entry tuple per task.
 _WORKER_PREWARM: tuple[str, ...] = ()
 _WORKER_PRELUDE: tuple[str, ...] = ()
+
+# When set by ``--shard i/n`` the run functions process only their stride of
+# the work list, so CI can fan a long category (e.g. should-validate) across n
+# parallel matrix legs without any coverage loss -- every item lands in exactly
+# one shard. ``None`` means "run everything" (the default / local behaviour).
+_SHARD: tuple[int, int] | None = None
+
+
+def shard(items: list[T]) -> list[T]:
+    """Return this shard's slice of ``items`` (round-robin by stride).
+
+    Striding rather than contiguous chunks keeps the shards balanced even
+    when per-item cost is uneven across the (sorted) list."""
+    if _SHARD is None:
+        return items
+    idx, count = _SHARD
+    return items[idx::count]
 
 
 def handle_sigint(signum: int, frame: object) -> None:
@@ -789,7 +816,7 @@ def _parser_workers(workers: int, task_count: int) -> int:
 def run_lib_parallel(workers: int) -> list[tuple[str, str, str]]:
     """``lib/*.pf`` × both parsers with no shared cache."""
     files = list_pf(LIB_DIR)
-    tasks = [(f, p) for f in files for p in (True, False)]
+    tasks = shard([(f, p) for f in files for p in (True, False)])
     failures: list[tuple[str, str, str]] = []
     for f, ok, label, msg in _map_or_serial(workers, _worker_lib, tasks, 2):
         if not ok:
@@ -800,7 +827,7 @@ def run_lib_parallel(workers: int) -> list[tuple[str, str, str]]:
 def run_validate_parallel(workers: int) -> list[tuple[str, str, str]]:
     """``test/should-validate`` + ``example.pf`` × both parsers."""
     files = list_pf(PASS_DIR) + [f"./{EXAMPLE_FILE.as_posix()}"]
-    tasks = [(f, p) for f in files for p in (True, False)]
+    tasks = shard([(f, p) for f in files for p in (True, False)])
     failures: list[tuple[str, str, str]] = []
     for f, ok, label, msg in _map_or_serial(workers, _worker_validate, tasks, 4):
         if not ok:
@@ -811,7 +838,7 @@ def run_validate_parallel(workers: int) -> list[tuple[str, str, str]]:
 def run_prelude_parallel(workers: int) -> list[tuple[str, str, str]]:
     """``test/prelude`` × both parsers (uses ``prelude=`` bootstrap)."""
     files = list_pf(PRELUDE_DIR)
-    tasks = [(f, p) for f in files for p in (True, False)]
+    tasks = shard([(f, p) for f in files for p in (True, False)])
     failures: list[tuple[str, str, str]] = []
     for f, ok, label, msg in _map_or_serial(workers, _worker_prelude, tasks, 2):
         if not ok:
@@ -822,7 +849,7 @@ def run_prelude_parallel(workers: int) -> list[tuple[str, str, str]]:
 def run_err_diff_parallel(directory: Path, label: str,
                           workers: int) -> list[tuple[str, str, str]]:
     """Run ``.err``-fixture tests in ``directory`` (RD only)."""
-    files = list_pf(directory)
+    files = shard(list_pf(directory))
     failures: list[tuple[str, str, str]] = []
     for f, ok, msg in _map_or_serial(workers, _check_against_err, files, 4):
         if not ok:
@@ -832,7 +859,7 @@ def run_err_diff_parallel(directory: Path, label: str,
 
 def run_warn_diff_parallel(workers: int) -> list[tuple[str, str, str]]:
     """Run ``.warn``-fixture tests in ``test/should-warn`` (RD only)."""
-    files = list_pf(WARN_DIR)
+    files = shard(list_pf(WARN_DIR))
     failures: list[tuple[str, str, str]] = []
     for f, ok, msg in _map_or_serial(workers, _check_against_warn, files, 4):
         if not ok:
@@ -1017,11 +1044,12 @@ def run_parser_equivalence(workers: int) -> list[tuple[str, str, str]]:
     down beginner-facing RD diagnostics, while the LALR parser is kept as an
     executable grammar spec.
     """
-    files = tuple(dict.fromkeys(
+    all_files = tuple(dict.fromkeys(
         PARSER_EQUIV_FILES
         + should_error_equiv_files()
         + tuple(sorted(PARSER_EQUIV_EXPECTED_DIVERGENCES))
     ))
+    files = shard(list(all_files))
     failures: list[tuple[str, str, str]] = []
     seen_divergences: set[str] = set()
     for path, ok, msg, expected_diverged in _map_or_serial(
@@ -1036,13 +1064,17 @@ def run_parser_equivalence(workers: int) -> list[tuple[str, str, str]]:
             failures.append((path, "parser-equivalence",
                              msg))
 
-    failures.extend(_check_should_error_skip_set())
-    failures.extend(_check_keyword_name_rejection())
-
-    stale = PARSER_EQUIV_EXPECTED_DIVERGENCES - seen_divergences - set(files)
-    for path in sorted(stale):
-        failures.append((path, "parser-equivalence",
-                         "expected divergence path no longer exists"))
+    # Global invariant checks are corpus-wide, not per-file: run them once
+    # (on the sole/first shard) so a fan-out neither duplicates their failures
+    # nor trips the staleness check on paths another shard owns.
+    if _SHARD is None or _SHARD[0] == 0:
+        failures.extend(_check_should_error_skip_set())
+        failures.extend(_check_keyword_name_rejection())
+        stale = (PARSER_EQUIV_EXPECTED_DIVERGENCES
+                 - seen_divergences - set(all_files))
+        for path in sorted(stale):
+            failures.append((path, "parser-equivalence",
+                             "expected divergence path no longer exists"))
     return failures
 
 
@@ -1143,11 +1175,12 @@ def _check_should_error_skip_set() -> list[tuple[str, str, str]]:
 
 def run_parser_round_trip(workers: int) -> list[tuple[str, str, str]]:
     """Pretty-print representative ASTs and re-parse with both parsers."""
+    files = shard(list(PARSER_ROUND_TRIP_FILES))
     failures: list[tuple[str, str, str]] = []
     for file_failures in _map_or_serial(
-        _parser_workers(workers, len(PARSER_ROUND_TRIP_FILES)),
+        _parser_workers(workers, len(files)),
         _worker_parser_round_trip,
-        PARSER_ROUND_TRIP_FILES,
+        files,
         1,
     ):
         failures.extend(file_failures)
@@ -1361,7 +1394,7 @@ def run_examples_parallel(workers: int) -> list[tuple[str, str, str]]:
     ``deduce.py`` runs them.
     """
     files = list_pf(EXAMPLES_DIR)
-    tasks = [(f, True) for f in files]
+    tasks = shard([(f, True) for f in files])
     failures: list[tuple[str, str, str]] = []
     for f, ok, label, msg in _map_or_serial(workers, _worker_prelude, tasks, 4):
         if not ok:
@@ -1437,6 +1470,25 @@ def time_section(label: str, fn: Callable[[], S]) -> tuple[float, S]:
     return dt, result
 
 
+def _parse_shard(spec: str) -> tuple[int, int]:
+    """Parse a ``--shard i/n`` spec into a 0-based ``(index, count)``.
+
+    ``i`` is 1-based on the command line (``1/6`` .. ``6/6``) to read
+    naturally in CI matrix definitions."""
+    try:
+        i_str, n_str = spec.split("/", 1)
+        index, count = int(i_str), int(n_str)
+    except ValueError:
+        print(f"invalid --shard spec {spec!r} (expected i/n, e.g. 2/6)",
+              file=sys.stderr)
+        sys.exit(2)
+    if count < 1 or not (1 <= index <= count):
+        print(f"invalid --shard {spec}: need 1 <= i <= n and n >= 1",
+              file=sys.stderr)
+        sys.exit(2)
+    return (index - 1, count)
+
+
 def parse_args(argv: list[str]) -> ParsedFlags:
     """Return a dict of flag → value. Tolerates the legacy long-form
     arguments still in scripts / muscle memory."""
@@ -1447,6 +1499,7 @@ def parse_args(argv: list[str]) -> ParsedFlags:
         "examples": False, "regen_all": False, "regen_files": [],
         "regen_all_warns": False, "regen_warn_files": [],
         "gen_parse": False, "workers": max(1, (os.cpu_count() or 4)),
+        "shard": None,
     }
     i = 0
     while i < len(argv):
@@ -1473,6 +1526,9 @@ def parse_args(argv: list[str]) -> ParsedFlags:
         elif a == "--serial": flags["workers"] = 1
         elif a in ("--workers", "--max-threads"):
             flags["workers"] = max(1, int(argv[i + 1]))
+            i += 1
+        elif a == "--shard":
+            flags["shard"] = _parse_shard(argv[i + 1])
             i += 1
         else:
             print(f"unknown argument: {a}", file=sys.stderr)
@@ -1538,6 +1594,12 @@ def main(argv: list[str]) -> int:
     setup_paths()
     lib_modules = discover_lib_modules()
     workers = flags["workers"]
+
+    global _SHARD
+    _SHARD = flags["shard"]
+    if _SHARD is not None:
+        print(f"[shard {_SHARD[0] + 1}/{_SHARD[1]}] "
+              "processing this stride of each category's work list")
 
     total_failures: list[tuple[str, str, str]] = []
     total_t0 = time.perf_counter()

@@ -1,11 +1,17 @@
 import Nat
 import UInt
 
-// Large-but-supported numeric literals check without crashing.
-// Regression test for issue #1021: literals up to MAX_LITERAL (4000)
-// must type-check rather than blow the recursion limit.
-assert 3000 = 3000
-assert 3000 < 4000
-assert 4000 = 4000
+// Large-but-supported numeric literals must *type-check* near MAX_LITERAL
+// (4000) without blowing the recursion limit -- the regression from #1021.
+//
+// Type-checking a large literal is cheap; it is runtime *evaluation* of UInt
+// arithmetic on such values that is pathologically slow under the unary
+// literal representation (see #1050, and the binary-literal work in #1025),
+// and it was making this one file dominate CI (~100s/parser). So we keep the
+// type-check coverage for both Nat and UInt large literals and arithmetic
+// expressions, and evaluate only on the cheap Nat path.
+define _big_uint : UInt = 4000
+define _sum_uint : UInt = 1500 + 1500
+define _lt_uint  : bool = 3000 < 4000
+define _big_nat  : Nat  = ℕ4000
 assert ℕ3000 = ℕ3000
-assert 1500 + 1500 = 3000
