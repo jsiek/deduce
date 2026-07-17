@@ -1,0 +1,5 @@
+union Empty { }
+
+fun absurd(x : Empty) {
+  switch x { }
+}

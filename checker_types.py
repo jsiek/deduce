@@ -1067,6 +1067,13 @@ def type_synth_term(
             case _:
               user_error(loc, 'expected a union type, not ' + str(ty))
 
+      # An empty switch (over an uninhabited type) is vacuously exhaustive
+      # but has no inferrable result type; ask for an annotation.
+      if result_type[0] is None:
+        user_error(loc, 'cannot infer the type of an empty switch.\n'\
+              + 'Add a type annotation, e.g. "(switch ' + str(subject) \
+              + ' { } : T)".')
+
     case TermInst(loc, _, subject, tyargs, inferred) if isinstance(subject, VarRef):
       ret = type_check_term_inst_var(loc, subject, tyargs, inferred, env)
 
@@ -1265,6 +1272,10 @@ def type_check_term(
         return SwitchCase(c.location, c.pattern, new_body)
 
       new_cases = [process_case(c, result_type, cases_present) for c in cases]
+      # An empty switch (over an uninhabited type) runs no case, so
+      # `result_type` was never set; the switch has the expected type.
+      if result_type[0] is None:
+        result_type[0] = typ
 
       # Check case coverage
       match ty:
