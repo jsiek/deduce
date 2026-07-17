@@ -3005,14 +3005,16 @@ function.
 
 ```deduce-grammar
 statement ::= visibility "union" IDENT type_params_opt "{" constructor_list "}"
-constructor_list ::= constructor
+constructor_list ::= ε
 constructor_list ::= constructor constructor_list
 constructor ::= IDENT
 constructor ::= IDENT "(" type_list ")"
 ```
 
 The `union` statement defines a new type whose values are created by
-invoking one of the constructors declared inside the union.
+invoking one of the constructors declared inside the union. A union may
+declare zero constructors (an empty `{ }` body); the resulting type is
+uninhabited, and a value of it can be eliminated by a case-free `switch`.
 
 Example:
 

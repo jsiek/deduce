@@ -535,6 +535,12 @@ PARSER_ROUND_TRIP_FILES = (
     # diverging from the LALR grammar and Reference.md. `not P = false` and
     # `a = b = c` now group as `(not P) = false` / `(a = b) = c` under both.
     "./test/should-validate/operator_precedence_rd_lalr.pf",
+    # An empty (uninhabited) `union { }` body. RD documents the body as
+    # `constructor*` and accepted zero constructors, but the LALR
+    # `constructor_list` rule required at least one, so the pretty-printed
+    # empty union did not reparse under LALR. Fixed by admitting the empty
+    # production in `constructor_list`. Refs #473.
+    "./test/should-validate/empty_union.pf",
 )
 
 

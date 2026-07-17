@@ -1,0 +1,13 @@
+// An empty (uninhabited) union has zero constructors.  Both parsers must
+// accept the empty `{ }` body: the recursive-descent grammar documents the
+// body as `constructor*` (zero or more), and the LALR grammar's
+// `constructor_list` admits the empty production to match it.  Refs #473.
+union Empty { }
+
+// An uninhabited type can be eliminated by a case-free `switch`, which is
+// vacuously exhaustive, so any goal follows from a value of the type.
+theorem empty_absurd: all x:Empty. false
+proof
+  arbitrary x:Empty
+  switch x { }
+end

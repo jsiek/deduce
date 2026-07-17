@@ -349,7 +349,7 @@ identifier: IDENT              -> identifier
 ?constructor: IDENT                                   -> constructor_id
     | IDENT "(" type_list ")"                    -> constructor_apply
 
-?constructor_list: constructor                             -> single
+?constructor_list:                                         -> empty
     | constructor constructor_list                         -> push
 
 ?object_field: "var" identifier ":" type                    -> object_field
