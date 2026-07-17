@@ -287,7 +287,6 @@ SHOULD_ERROR_PARSER_EQUIV_SKIP = frozenset({
     "./test/should-error/define_type.pf",
     "./test/should-error/define_with_type_params.pf",
     "./test/should-error/double_private.pf",
-    "./test/should-error/empty_switch_no_annotation.pf",
     "./test/should-error/fn_missing_arrow.pf",
     "./test/should-error/fun_params_trailing_comma.pf",
     "./test/should-error/function_case_missing_equal.pf",
