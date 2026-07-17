@@ -353,3 +353,20 @@ proof
     by replace symmetric unfold in ul
   apply (conjunct 1 of int_divides_iff_abs[pos(lcm(abs(a), abs(b))), m]) to ul2
 end
+
+// Commutativity of `gcd` on `Int`, lifted from `uint_gcd_commutative`
+// through the `abs`-based definition.
+theorem int_gcd_commutative: all a:Int, b:Int. gcd(a, b) = gcd(b, a)
+proof
+  arbitrary a:Int, b:Int
+  expand gcd
+  replace uint_gcd_commutative[abs(a), abs(b)].
+end
+
+// Commutativity of `lcm` on `Int`, lifted from `uint_lcm_commutative`.
+theorem int_lcm_commutative: all a:Int, b:Int. lcm(a, b) = lcm(b, a)
+proof
+  arbitrary a:Int, b:Int
+  expand lcm
+  replace uint_lcm_commutative[abs(a), abs(b)].
+end
