@@ -457,6 +457,77 @@ proof
   apply (expand P in Pb)[a, d] to prem
 end
 
+// Divisibility is preserved by multiplying both sides by a common factor.
+theorem uint_divides_mult_both: all k:UInt, a:UInt, b:UInt.
+  if divides(a, b) then divides(k * a, k * b)
+proof
+  arbitrary k:UInt, a:UInt, b:UInt
+  assume ab
+  obtain x where ax_b: a * x = b from expand divides in ab
+  expand divides
+  choose x
+  equations
+    (k * a) * x = k * (a * x)  by uint_mult_assoc[k, a, x]
+            ... = k * b        by replace ax_b.
+end
+
+// A positive common factor may be cancelled from a divisibility fact.
+theorem uint_divides_mult_cancel: all k:UInt, a:UInt, b:UInt.
+  if 0 < k and divides(k * a, k * b) then divides(a, b)
+proof
+  arbitrary k:UInt, a:UInt, b:UInt
+  assume prem
+  have k_pos: 0 < k by prem
+  obtain x where kax_kb: (k * a) * x = k * b from expand divides in conjunct 1 of prem
+  have e1: k * (a * x) = k * b by replace symmetric uint_mult_assoc[k, a, x] in kax_kb
+  have e2: a * x = b by apply uint_pos_mult_left_cancel[k, a * x, b] to k_pos, e1
+  expand divides
+  choose x
+  e2
+end
+
+// `gcd` distributes over a common multiplicative factor. Proved from the
+// universal property (`uint_gcd_greatest`/`uint_gcd_divides_*`) via
+// antisymmetry, so it holds for every `k` including zero. This is the key
+// ingredient behind the least-common-multiple universal property below.
+theorem uint_gcd_mult_distributive: all k:UInt, a:UInt, b:UInt.
+  gcd(k * a, k * b) = k * gcd(a, b)
+proof
+  arbitrary k:UInt, a:UInt, b:UInt
+  cases uint_zero_or_positive[k]
+  case k_z {
+    suffices gcd((0:UInt) * a, 0 * b) = 0 * gcd(a, b)  by replace k_z.
+    evaluate
+  }
+  case k_pos {
+    have d1: divides(k * gcd(a, b), gcd(k * a, k * b)) by {
+      have kga: divides(k * gcd(a, b), k * a)
+        by apply uint_divides_mult_both[k, gcd(a, b), a] to uint_gcd_divides_left[a, b]
+      have kgb: divides(k * gcd(a, b), k * b)
+        by apply uint_divides_mult_both[k, gcd(a, b), b] to uint_gcd_divides_right[a, b]
+      apply uint_gcd_greatest[k * gcd(a, b), k * a, k * b] to kga, kgb
+    }
+    have d2: divides(gcd(k * a, k * b), k * gcd(a, b)) by {
+      have kka: divides(k, k * a) by { expand divides choose a. }
+      have kkb: divides(k, k * b) by { expand divides choose b. }
+      have k_div_G: divides(k, gcd(k * a, k * b))
+        by apply uint_gcd_greatest[k, k * a, k * b] to kka, kkb
+      obtain e where ke_G: k * e = gcd(k * a, k * b) from expand divides in k_div_G
+      have ke_ka: divides(k * e, k * a)
+        by replace symmetric ke_G in uint_gcd_divides_left[k * a, k * b]
+      have ke_kb: divides(k * e, k * b)
+        by replace symmetric ke_G in uint_gcd_divides_right[k * a, k * b]
+      have e_a: divides(e, a) by apply uint_divides_mult_cancel[k, e, a] to k_pos, ke_ka
+      have e_b: divides(e, b) by apply uint_divides_mult_cancel[k, e, b] to k_pos, ke_kb
+      have e_g: divides(e, gcd(a, b)) by apply uint_gcd_greatest[e, a, b] to e_a, e_b
+      have ke_kg: divides(k * e, k * gcd(a, b))
+        by apply uint_divides_mult_both[k, e, gcd(a, b)] to e_g
+      conclude divides(gcd(k * a, k * b), k * gcd(a, b)) by replace ke_G in ke_kg
+    }
+    apply uint_divides_antisymmetric[gcd(k * a, k * b), k * gcd(a, b)] to d2, d1
+  }
+end
+
 theorem uint_div_cancel: all y:UInt. if 0 < y then y / y = 1
 proof
   arbitrary y:UInt
@@ -1091,6 +1162,102 @@ proof
       choose j
       replace lcm_eq
       uint_mult_commute[b, j]
+    }
+  }
+end
+
+// Universal property of the least common multiple: every common multiple of
+// `a` and `b` is a multiple of `lcm(a, b)`. Combined with
+// `uint_divides_lcm_left`/`uint_divides_lcm_right`, this characterizes
+// `lcm(a, b)` as the least common multiple up to divisibility. The proof
+// runs entirely through `uint_gcd_mult_distributive`: applied with factor
+// `m` it gives `gcd(m*a, m*b) = m*gcd(a,b)`, and applied with factor `a*b`
+// (after rewriting `m*a`/`m*b` as `(a*b)*t`/`(a*b)*s`) it gives
+// `gcd(m*a, m*b) = (a*b)*gcd(t,s)`; equating and cancelling `gcd(a,b)` shows
+// `m = lcm(a,b) * gcd(t,s)`.
+theorem uint_lcm_least: all a:UInt, b:UInt, m:UInt.
+  if divides(a, m) and divides(b, m) then divides(lcm(a, b), m)
+proof
+  arbitrary a:UInt, b:UInt, m:UInt
+  assume prem
+  have a_div_m: divides(a, m) by conjunct 0 of prem
+  have b_div_m: divides(b, m) by conjunct 1 of prem
+  cases uint_zero_or_positive[a]
+  case a_z {
+    obtain k where zk_m: 0 * k = m from expand divides in (replace a_z in a_div_m)
+    have m_z: m = 0 by symmetric zk_m
+    replace m_z
+    uint_divides_zero[lcm(a, b)]
+  }
+  case a_pos {
+    cases uint_zero_or_positive[b]
+    case b_z {
+      obtain k where zk_m: 0 * k = m from expand divides in (replace b_z in b_div_m)
+      have m_z: m = 0 by symmetric zk_m
+      replace m_z
+      uint_divides_zero[lcm(a, b)]
+    }
+    case b_pos {
+      have g_pos: 0 < gcd(a, b) by apply uint_gcd_pos[a, b] to a_pos
+      have a_ne: not (a = 0) by apply uint_pos_not_zero to a_pos
+      have b_ne: not (b = 0) by apply uint_pos_not_zero to b_pos
+      have cond_false: not (a = 0 or b = 0) by {
+        assume c
+        cases c
+        case l { apply a_ne to l }
+        case r { apply b_ne to r }
+      }
+      have lcm_def: lcm(a, b) = (a * b) / gcd(a, b) by {
+        expand lcm
+        replace (apply eq_false to cond_false).
+      }
+      obtain s where as_m: a * s = m from expand divides in a_div_m
+      obtain t where bt_m: b * t = m from expand divides in b_div_m
+      // Rewrite the two products m*a and m*b as multiples of a*b.
+      have ma_eq: m * a = (a * b) * t by {
+        replace symmetric bt_m
+        replace uint_mult_commute[t, a] | uint_mult_commute[b, a * t]
+              | uint_mult_commute[t, b].
+      }
+      have mb_eq: m * b = (a * b) * s by {
+        replace symmetric as_m
+        replace uint_mult_commute[s, b].
+      }
+      have E1: gcd(m * a, m * b) = m * gcd(a, b) by uint_gcd_mult_distributive[m, a, b]
+      have E2: gcd((a * b) * t, (a * b) * s) = (a * b) * gcd(t, s)
+        by uint_gcd_mult_distributive[a * b, t, s]
+      have E3: m * gcd(a, b) = (a * b) * gcd(t, s) by {
+        equations
+          m * gcd(a, b) = gcd(m * a, m * b)              by symmetric E1
+                    ... = gcd((a * b) * t, (a * b) * s)  by replace ma_eq | mb_eq.
+                    ... = (a * b) * gcd(t, s)            by E2
+      }
+      // a*b = gcd(a,b) * lcm(a,b), and lcm(a,b) = w below.
+      have g_div_ab: divides(gcd(a, b), a * b)
+        by apply uint_divides_mult_right[gcd(a, b), a, b] to uint_gcd_divides_left[a, b]
+      obtain w where gw_ab: gcd(a, b) * w = a * b from expand divides in g_div_ab
+      have lcm_eq_w: lcm(a, b) = w by {
+        replace lcm_def
+        have ab_eq: a * b = gcd(a, b) * w by symmetric gw_ab
+        replace ab_eq
+        apply uint_mult_div_left_inverse[w, gcd(a, b)] to g_pos
+      }
+      have final: m = lcm(a, b) * gcd(t, s) by {
+        have step: gcd(a, b) * m = gcd(a, b) * (w * gcd(t, s)) by {
+          equations
+            gcd(a, b) * m = m * gcd(a, b)                by uint_mult_commute[gcd(a, b), m]
+                      ... = (a * b) * gcd(t, s)          by E3
+                      ... = (gcd(a, b) * w) * gcd(t, s)  by replace symmetric gw_ab.
+                      ... = gcd(a, b) * (w * gcd(t, s))  by uint_mult_assoc[gcd(a, b), w, gcd(t, s)]
+        }
+        have m_eq: m = w * gcd(t, s)
+          by apply uint_pos_mult_left_cancel[gcd(a, b), m, w * gcd(t, s)] to g_pos, step
+        replace lcm_eq_w
+        m_eq
+      }
+      expand divides
+      choose gcd(t, s)
+      symmetric final
     }
   }
 end
