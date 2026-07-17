@@ -12,10 +12,15 @@ default: check-settings static tests-tokens tests
 check-settings:
 	$(PYTHON) -c "import json; json.load(open('.claude/settings.json'))"
 
-static:
+# Mirrors the CI "static checks" job (.github/workflows/test_deduce.yml):
+# ruff + mypy + the token/grammar consistency scripts, so a green
+# ``make static`` predicts a green CI static job. ``tests-tokens`` is a
+# prerequisite rather than inlined so ``default:`` (which lists both) still
+# runs the scripts exactly once per build. mypy is run once (matching CI);
+# the extra ``--no-site-packages`` pass was dropped so the two stay aligned.
+static: tests-tokens
 	$(PYTHON) -m ruff check .
 	$(PYTHON) -m mypy .
-	$(PYTHON) -m mypy . --no-site-packages
 
 tests-tokens:
 	$(PYTHON) ./gh_pages/scripts/keywords.py

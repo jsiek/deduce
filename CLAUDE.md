@@ -50,7 +50,7 @@ python deduce.py --recursive-descent file.pf
 python deduce.py --lalr file.pf
 
 # Make targets run static checks and BOTH parsers across the test/lib tree
-make static       # ruff + mypy
+make static       # ruff + mypy + token/grammar checks (matches CI "static checks")
 make tests        # static + should-validate + should-error + should-warn
 make tests-lib    # checks the stdlib itself
 make              # static + token checks + tests (default)
