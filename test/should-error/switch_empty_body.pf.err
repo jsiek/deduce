@@ -1,0 +1,2 @@
+./test/should-error/switch_empty_body.pf:8.8-8.20: missing a case for:
+	bit_lo

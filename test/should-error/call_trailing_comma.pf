@@ -1,0 +1,10 @@
+union Bit {
+  bit_lo
+  bit_hi
+}
+
+fun snd(x : Bit, y : Bit) {
+  y
+}
+
+define d = snd(bit_lo, bit_hi,)

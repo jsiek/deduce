@@ -2727,7 +2727,7 @@ atomic_term ::= "switch" term "{" switch_list "}"
 ```
 
 ```deduce-grammar
-switch_list ::= switch_case
+switch_list ::= ε
 switch_list ::= switch_case switch_list
 switch_case ::= "case" pattern "{" term "}"
 ```
@@ -2871,12 +2871,14 @@ lemma), plus `<pred>_rule_induction` and `<pred>_rule_inversion`.
 
 ## Term List
 
-A term list is a comma-separated sequence of zero or more terms.
+A term list is a comma-separated sequence of zero or more terms. A trailing
+comma is not allowed.
 
 ```deduce-grammar
 term_list ::= ε
-term_list ::= term
-term_list ::= term "," term_list
+term_list ::= ne_term_list
+ne_term_list ::= term
+ne_term_list ::= term "," ne_term_list
 ```
 
 ## Trace (Statement)

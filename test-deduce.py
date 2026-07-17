@@ -264,6 +264,7 @@ PARSER_EQUIV_EXPECTED_DIVERGENCES: frozenset[str] = frozenset()
 SHOULD_ERROR_PARSER_EQUIV_SKIP = frozenset({
     "./test/should-error/all5.pf",
     "./test/should-error/apply_to_error.pf",
+    "./test/should-error/call_trailing_comma.pf",
     "./test/should-error/cases_error.pf",
     "./test/should-error/conjunct.pf",
     "./test/should-error/deep_error.pf",

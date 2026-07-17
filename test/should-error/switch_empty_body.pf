@@ -1,0 +1,8 @@
+union Bit {
+  bit_lo
+  bit_hi
+}
+
+define b = bit_lo
+
+assert switch b { }

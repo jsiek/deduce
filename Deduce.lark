@@ -102,7 +102,7 @@ POINTSTO: "|->"
 
 ?switch_case: "case" pattern "{" term "}"           -> switch_case
 
-?switch_list: switch_case                           -> single
+?switch_list:                                       -> empty
     | switch_case switch_list                       -> push
 
 identifier: IDENT              -> identifier
@@ -158,8 +158,9 @@ identifier: IDENT              -> identifier
     | "%" type
     
 ?term_list:                                        -> empty
-    | term                                         -> single
-    | term "," term_list                           -> push
+    | ne_term_list
+?ne_term_list: term                                -> single
+    | term "," ne_term_list                        -> push
     
 ?identifier_list:                                       -> empty
     | identifier                                        -> single
