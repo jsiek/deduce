@@ -20,6 +20,19 @@ def edit_distance(s1: str, s2: str) -> int:
             F[(i, j)] = min(match, delete, insert)
     return F[(m, n)]
 
+def did_you_mean_hint(name: str, candidates: Iterable[str]) -> str:
+    """Build a ``did you intend: ...`` suggestion for an undefined name.
+
+    Returns a newline-prefixed, tab-indented list of every candidate within
+    ``ceil(len(name) / 5)`` edits of ``name``, or the empty string when none
+    are close enough. Shared by the ``uniquify`` name-resolution error paths
+    for variables, proof variables, and rule-induction/inversion hypotheses.
+    """
+    close = [c for c in candidates
+             if edit_distance(name, c) <= ceil(len(name) / 5)]
+    return '\n\tdid you intend: ' + ', '.join(close) if close else ''
+
+
 def closest_keyword(word: str, keywords: Iterable[str]) -> Optional[str]:
     best_yet: Optional[tuple[str, int]] = None
     for kw in keywords:

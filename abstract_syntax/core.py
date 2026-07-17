@@ -50,7 +50,7 @@ from flags import (
     view_aliasing_suppressed,
 )
 from pathlib import Path
-from edit_distance import edit_distance
+from edit_distance import did_you_mean_hint, edit_distance
 from math import ceil
 import os
 
