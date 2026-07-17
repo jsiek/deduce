@@ -52,6 +52,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Long categories are fanned across parallel shards with ``--shard
+        # i/n`` so no single leg dominates wall-clock; every item lands in
+        # exactly one shard, so coverage is unchanged. ``test/prelude`` is its
+        # own leg (``--prelude``) because it needs the expensive stdlib
+        # bootstrap that should-validate does not. Bump a shard count if a leg
+        # creeps back over budget. (See issue #1049.)
         include:
           - name: site
             args: --site
@@ -60,13 +66,22 @@ jobs:
             args: --parser
             requirements: core
           - name: lib-1
-            args: --lib --shard 1/2
+            args: --lib --shard 1/3
             requirements: core
           - name: lib-2
-            args: --lib --shard 2/2
+            args: --lib --shard 2/3
             requirements: core
-          - name: passable
-            args: --passable --cli
+          - name: lib-3
+            args: --lib --shard 3/3
+            requirements: core
+          - name: passable-1
+            args: --passable --cli --shard 1/2
+            requirements: core
+          - name: passable-2
+            args: --passable --shard 2/2
+            requirements: core
+          - name: prelude
+            args: --prelude
             requirements: core
           - name: errors
             args: --errors
