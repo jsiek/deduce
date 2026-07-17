@@ -93,7 +93,8 @@ def process_declaration_visibility(decl: Declaration, env: Env,
                      + "' is ambiguous because it could have any of these types:\n\t"
                      + '\n\t'.join(str(t) for (_, t) in new_ty.types)
                      + "\nAdd a type annotation to disambiguate, e.g. "
-                     + "define " + base_name(name) + " : <type> = ...")
+                     + "define " + base_name(name) + " : <type> = ..."
+                     + "\nOverloading is only allowed for function types.")
       else:
         new_ty = check_type(ty, env)
         new_body = body
