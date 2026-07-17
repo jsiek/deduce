@@ -1,0 +1,5 @@
+// A trailing comma in a constructor's type-argument list is rejected by
+// both parsers.
+union Box {
+  boxed(Nat,)
+}

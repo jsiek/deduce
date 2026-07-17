@@ -1,0 +1,2 @@
+// A trailing comma in a quantifier's binding list is rejected by both parsers.
+define always_true = all x : Nat,. true

@@ -1,0 +1,3 @@
+// A lambda must bind at least one parameter; an empty binding list is
+// rejected by both parsers.
+define thunk = fun { true }
