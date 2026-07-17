@@ -8,16 +8,20 @@ via copy-on-write and run ``lsp.library.check_file`` directly.
 
 Modes
 -----
-Default (no flags): runs ``--cli + --lib + --passable + --errors +
---warns + --equiv``.
+Default (no flags): runs ``--cli + --lib + --passable + --prelude +
+--errors + --warns + --equiv``.
 
 Per-category flags (combinable):
     --cli          One subprocess invocation of ``deduce.py`` on a tiny
                    no-stdlib proof to sanity-check the CLI entry point
                    itself.
     --lib          ``lib/`` with both parsers, no shared cache.
-    --passable     ``test/should-validate``, ``example.pf``,
-                   ``test/prelude`` with both parsers.
+    --passable     ``test/should-validate`` + ``example.pf`` with both
+                   parsers (uses the cheap ``prewarm`` bootstrap).
+    --prelude      ``test/prelude`` with both parsers. Separate from
+                   ``--passable`` because it needs the full ``prelude=``
+                   bootstrap (checks the stdlib, ~100s cold on CI); keeping
+                   it its own leg lets should-validate shards stay cheap.
     --errors       ``test/should-error`` (RD only, ``.err`` diff).
     --warns        ``test/should-warn`` (RD only, ``.warn`` diff): files
                    that must validate AND emit specific warning text.
@@ -568,6 +572,7 @@ class ParsedFlags(TypedDict):
     cli: bool
     lib: bool
     passable: bool
+    prelude: bool
     errors: bool
     warns: bool
     equiv: bool
@@ -1493,7 +1498,8 @@ def parse_args(argv: list[str]) -> ParsedFlags:
     """Return a dict of flag → value. Tolerates the legacy long-form
     arguments still in scripts / muscle memory."""
     flags: ParsedFlags = {
-        "cli": False, "lib": False, "passable": False, "errors": False,
+        "cli": False, "lib": False, "passable": False, "prelude": False,
+        "errors": False,
         "warns": False, "equiv": False, "equiv_full": False, "site": False,
         "parser": False,
         "examples": False, "regen_all": False, "regen_files": [],
@@ -1507,6 +1513,7 @@ def parse_args(argv: list[str]) -> ParsedFlags:
         if a == "--cli": flags["cli"] = True
         elif a == "--lib": flags["lib"] = True
         elif a == "--passable": flags["passable"] = True
+        elif a == "--prelude": flags["prelude"] = True
         elif a == "--errors": flags["errors"] = True
         elif a == "--warns": flags["warns"] = True
         elif a == "--equiv": flags["equiv"] = True
@@ -1537,7 +1544,8 @@ def parse_args(argv: list[str]) -> ParsedFlags:
 
     # If no flags at all, default to the per-PR regression sweep.
     if not (
-        flags["cli"] or flags["lib"] or flags["passable"] or flags["errors"]
+        flags["cli"] or flags["lib"] or flags["passable"] or flags["prelude"]
+        or flags["errors"]
         or flags["warns"] or flags["site"] or flags["parser"]
         or flags["examples"] or flags["equiv"] or flags["equiv_full"]
         or flags["regen_all"]
@@ -1545,6 +1553,7 @@ def parse_args(argv: list[str]) -> ParsedFlags:
         or flags["regen_files"] or flags["regen_warn_files"]
     ):
         flags["cli"] = flags["lib"] = flags["passable"] = True
+        flags["prelude"] = True
         flags["errors"] = flags["warns"] = flags["equiv"] = True
 
     # Standalone modes are mutually exclusive with everything else.
@@ -1552,6 +1561,7 @@ def parse_args(argv: list[str]) -> ParsedFlags:
         ("cli", flags["cli"]),
         ("lib", flags["lib"]),
         ("passable", flags["passable"]),
+        ("prelude", flags["prelude"]),
         ("errors", flags["errors"]),
         ("warns", flags["warns"]),
         ("equiv", flags["equiv"]),
@@ -1686,8 +1696,12 @@ def main(argv: list[str]) -> int:
                                 lambda: run_lib_parallel(workers))
         total_failures.extend(fails)
 
-    # Prelude pool: prelude-injection bootstrap.
-    if flags["passable"]:
+    # Prelude pool: prelude-injection bootstrap. This is a separate leg from
+    # ``--passable`` because the ``prelude=`` bootstrap fully checks the stdlib
+    # (~100s cold on CI), whereas should-validate needs only the cheap
+    # ``prewarm`` bootstrap -- bundling them made every should-validate shard
+    # pay the expensive bootstrap. See issue #1049.
+    if flags["prelude"]:
         reset_prelude_cache()
         t0 = time.perf_counter()
         bootstrap_prelude(lib_modules)
