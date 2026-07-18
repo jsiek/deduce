@@ -1,0 +1,7 @@
+// The `/=` ASCII synonym for `≠` must normalize to `≠` under BOTH parsers
+// when written as `operator /=` (regression for the RD/LALR divergence where
+// the recursive-descent parser left the identifier as the literal `/=`).
+// `≠` is built-in equality sugar, not a definable value, so referring to it as
+// `operator /=` is an undefined variable under either parser -- but the error
+// must name `≠`, proving the ASCII synonym was normalized.
+define d = operator /=

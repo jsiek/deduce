@@ -1,0 +1,3 @@
+./test/should-error/operator_not_equal_synonym.pf:7.12-7.20: while type checking, undefined variable ≠
+in scope:
+str(env)
