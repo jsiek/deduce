@@ -1,0 +1,7 @@
+// Issue #1062 regression: a UInt value that reduces to zero must print as
+// the decimal `0`, not the internal binary constructor name `bzero`. The
+// failing assertion below forces the reduced zero (`3 % 3`) into the error
+// message; a `bzero` substring in the fixture would mean the leak is back.
+import UInt
+
+assert 3 % 3 = 1

@@ -708,6 +708,8 @@ class ResolvedVar(VarRef):
   def __str__(self) -> str:
     if base_name(self.name) == 'empty' and not get_unique_names() and not get_verbose():
       return '[]'
+    elif base_name(self.name) == 'bzero' and not get_unique_names() and not get_verbose():
+      return '0'
     elif get_unique_names():
       return name2str(self.name) + '{' + self.name + '}'
     elif is_var_operator(self):

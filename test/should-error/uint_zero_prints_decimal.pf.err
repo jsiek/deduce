@@ -1,0 +1,3 @@
+./test/should-error/uint_zero_prints_decimal.pf:7.1-7.17: assertion failed:
+	0 ≠ 1
+
