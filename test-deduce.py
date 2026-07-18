@@ -546,6 +546,12 @@ PARSER_ROUND_TRIP_FILES = (
     # empty union did not reparse under LALR. Fixed by admitting the empty
     # production in `constructor_list`. Refs #473.
     "./test/should-validate/empty_union.pf",
+    # Chained proof instantiation `h[x]<Nat>` (term then type). RD used to
+    # consume all `<...>` type instantiations before any `[...]` term
+    # instantiations in two separate loops, so a `<...>` following a `[...]`
+    # was rejected -- diverging from the interleaving LALR `atomic_proof`
+    # rules. A single dispatching loop now accepts both orders. Refs #473.
+    "./test/should-validate/proof_instantiation_order_rd_lalr.pf",
 )
 
 

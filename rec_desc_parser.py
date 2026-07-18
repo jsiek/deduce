@@ -1021,26 +1021,33 @@ def parse_proof_med() -> Proof:
     start_token = current_token()
     proof = parse_proof_hi()
 
-    while (not end_of_file()) and current_token().type == 'LESSTHAN':
-      while_parsing= 'while trying to parse type arguments for instantiation of an "all" formula:\n\t'\
-              + 'proof ::= proof "<" type_list ">"'
-      advance()
-      try:
-        type_list = parse_type_list()
-        consume_token('MORETHAN', 'a closing ">"')
+    # Term (`[...]`) and type (`<...>`) instantiations chain in any order,
+    # matching the left-recursive LALR rules `atomic_proof "[" term_list "]"`
+    # and `atomic_proof "<" type_list ">"`. A single dispatching loop lets
+    # `h[x]<Nat>` and `h<Nat>[x]` both parse; two separate loops would reject
+    # a `<...>` that follows a `[...]`.
+    while not end_of_file():
+      if current_token().type == 'LESSTHAN':
+        while_parsing= 'while trying to parse type arguments for instantiation of an "all" formula:\n\t'\
+                + 'proof ::= proof "<" type_list ">"'
+        advance()
+        try:
+          type_list = parse_type_list()
+          consume_token('MORETHAN', 'a closing ">"')
+          meta = meta_from_tokens(start_token, previous_token())
+          for j, ty in enumerate(type_list):
+            proof = AllElimTypes(meta, proof, ty, (j, len(type_list)))
+        except ParseError as e:
+          raise e.extend(meta_from_tokens(start_token, current_token()), while_parsing)
+      elif current_token().type == 'LSQB':
+        advance()
+        term_list = parse_nonempty_term_list()
+        consume_token('RSQB', 'a closing "]"', advice="Perhaps you forgot a comma?")
         meta = meta_from_tokens(start_token, previous_token())
-        for j, ty in enumerate(type_list):
-          proof = AllElimTypes(meta, proof, ty, (j, len(type_list)))
-      except ParseError as e:
-        raise e.extend(meta_from_tokens(start_token, current_token()), while_parsing)
-
-    while (not end_of_file()) and current_token().type == 'LSQB':
-      advance()
-      term_list = parse_nonempty_term_list()
-      consume_token('RSQB', 'a closing "]"', advice="Perhaps you forgot a comma?")
-      meta = meta_from_tokens(start_token, previous_token())
-      for j, term in enumerate(term_list):
-        proof = AllElim(meta, proof, term, (j, len(term_list)))
+        for j, term in enumerate(term_list):
+          proof = AllElim(meta, proof, term, (j, len(term_list)))
+      else:
+        break
 
     return proof
 
