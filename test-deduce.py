@@ -1046,6 +1046,43 @@ def _check_keyword_name_rejection() -> list[tuple[str, str, str]]:
     return failures
 
 
+# Operator-grouping forms that both parsers must group identically (refs #473,
+# #931). These belong here rather than in a ``should-validate`` fixture because
+# the approximate operators ``≈``/``≲`` only apply to ``fn UInt -> UInt`` while
+# the comparison/equality operators apply to numbers, so a mixed expression like
+# ``a ≈ b < c`` never type-checks -- yet both parsers must still parse it to the
+# same AST. ``≈`` sits at the ``comparison_term``
+# level in ``Deduce.lark`` and the Reference.md precedence table (level 4), but
+# RD used to group it with the looser equality operators, so ``a ≈ b < c``
+# diverged (``a ≈ (b < c)`` under RD vs ``(a ≈ b) < c`` under LALR).
+OPERATOR_GROUPING_EQUIV_CASES = (
+    "define t = a ≈ b < c",
+    "define t = a = b ≈ c",
+    "define t = a ≠ b ≈ c",
+    "define t = a ≈ b ≲ c",
+    "define t = a ≲ b ≈ c",
+)
+
+
+def _check_operator_grouping_equivalence() -> list[tuple[str, str, str]]:
+    """Both parsers must group mixed operator forms identically."""
+    failures: list[tuple[str, str, str]] = []
+    for src in OPERATOR_GROUPING_EQUIV_CASES:
+        try:
+            rd = _canonical_ast(_parse_text_for_equivalence(
+                "<operator-grouping>", src, recursive_descent=True))
+            lalr = _canonical_ast(_parse_text_for_equivalence(
+                "<operator-grouping>", src, recursive_descent=False))
+        except Exception as exc:
+            failures.append((src, "parser-equivalence",
+                             f"{type(exc).__name__}: {exc}"))
+            continue
+        if not _canonical_equal(rd, lalr):
+            failures.append((src, "parser-equivalence",
+                             "RD and LALR group this form differently"))
+    return failures
+
+
 def run_parser_equivalence(workers: int) -> list[tuple[str, str, str]]:
     """Compare RD and LALR ASTs for parseable syntax.
 
@@ -1086,6 +1123,7 @@ def run_parser_equivalence(workers: int) -> list[tuple[str, str, str]]:
     if _SHARD is None or _SHARD[0] == 0:
         failures.extend(_check_should_error_skip_set())
         failures.extend(_check_keyword_name_rejection())
+        failures.extend(_check_operator_grouping_equivalence())
         stale = (PARSER_EQUIV_EXPECTED_DIVERGENCES
                  - seen_divergences - set(all_files))
         for path in sorted(stale):
