@@ -1050,21 +1050,32 @@ KEYWORD_NAME_REJECTION_CASES = (
     "define d = all if:bool. true",     # all-bound variable
 )
 
+# The LALR grammar once had an `atomic_term: "%" type` production that leaked a
+# bare Type node into a term position (crashing later in `type_synth_term`),
+# which RD never accepted (issue #1077). One `%<type>` per type shape guards
+# against reintroducing that LALR-only divergence.
+PERCENT_TYPE_REJECTION_CASES = (
+    "define d = %bool",                 # atomic type
+    "define d = %[bool]",               # array type
+    "define d = %U<bool>",              # instantiated type
+)
 
-def _check_keyword_name_rejection() -> list[tuple[str, str, str]]:
-    """Both parsers must reject reserved keywords in name/binding positions."""
+
+def _expect_both_parsers_reject(
+    cases: tuple[str, ...], marker: str, why: str,
+) -> list[tuple[str, str, str]]:
+    """Every case must fail to parse under both parsers."""
     failures: list[tuple[str, str, str]] = []
-    for src in KEYWORD_NAME_REJECTION_CASES:
+    for src in cases:
         for recursive_descent in (True, False):
             label = "recursive-descent" if recursive_descent else "lalr"
             try:
                 _parse_text_for_equivalence(
-                    "<keyword-name-rejection>", src,
-                    recursive_descent=recursive_descent,
+                    marker, src, recursive_descent=recursive_descent,
                 )
                 failures.append((src, "parser-equivalence",
-                                 f"{label} accepted a reserved keyword as an "
-                                 f"identifier; both parsers must reject"))
+                                 f"{label} accepted input both parsers must "
+                                 f"reject: {why}"))
             except Exception:
                 pass
     return failures
@@ -1148,6 +1159,20 @@ def _check_ascii_operator_synonyms() -> list[tuple[str, str, str]]:
     return failures
 
 
+def _check_keyword_name_rejection() -> list[tuple[str, str, str]]:
+    """Both parsers must reject reserved keywords in name/binding positions."""
+    return _expect_both_parsers_reject(
+        KEYWORD_NAME_REJECTION_CASES, "<keyword-name-rejection>",
+        "reserved keyword used as an identifier")
+
+
+def _check_percent_type_rejection() -> list[tuple[str, str, str]]:
+    """Both parsers must reject `%<type>` in term position (issue #1077)."""
+    return _expect_both_parsers_reject(
+        PERCENT_TYPE_REJECTION_CASES, "<percent-type-rejection>",
+        "`%<type>` is not a term")
+
+
 def run_parser_equivalence(workers: int) -> list[tuple[str, str, str]]:
     """Compare RD and LALR ASTs for parseable syntax.
 
@@ -1190,6 +1215,7 @@ def run_parser_equivalence(workers: int) -> list[tuple[str, str, str]]:
         failures.extend(_check_keyword_name_rejection())
         failures.extend(_check_operator_grouping_equivalence())
         failures.extend(_check_ascii_operator_synonyms())
+        failures.extend(_check_percent_type_rejection())
         stale = (PARSER_EQUIV_EXPECTED_DIVERGENCES
                  - seen_divergences - set(all_files))
         for path in sorted(stale):

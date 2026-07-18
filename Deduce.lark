@@ -172,8 +172,7 @@ identifier: IDENT              -> identifier
     | "#" term "#"                                 -> mark
     | "if" term "then" term "else" term            -> conditional
     | "if" term "then" term                        -> if_then_formula
-    | "%" type
-    
+
 ?term_list:                                        -> empty
     | ne_term_list
 ?ne_term_list: term                                -> single
