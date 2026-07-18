@@ -539,16 +539,10 @@ class Var(VarRef):
       if import_advice != '':
           static_error(self.location, import_advice)
 
-      close_matches = []
-      for var in env.keys():
-        if edit_distance(self.name, var) <= ceil(len(self.name) / 5):
-          close_matches.append(var)
-      if len(close_matches) > 0:
-        mispell_advice = '\n\tdid you intend: ' + ', '.join(close_matches) + '\n'
-      else:
-        mispell_advice = ''
-      static_error(self.location, 'undefined variable: ' + self.name \
-                   + mispell_advice + '' + env_str)
+      hint = did_you_mean_hint(self.name, env.keys())
+      mispell_advice = hint + '\n' if hint else ''
+      static_error(self.location, 'undefined variable: ' + self.name
+                   + mispell_advice + env_str)
 
     return OverloadedVar(self.location, self.typeof, env[self.name])
 

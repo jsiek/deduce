@@ -65,12 +65,7 @@ class PVar(Proof):
                + " from other modules. To make it accessible here, change"
                + " `lemma` to `theorem` there.")
         user_error(self.location, msg)
-      from edit_distance import edit_distance
-      from math import ceil
-      close = [v for v in env.keys()
-               if edit_distance(self.name, v)
-                  <= ceil(len(self.name) / 5)]
-      hint = '\n\tdid you intend: ' + ', '.join(close) if close else ''
+      hint = did_you_mean_hint(self.name, env.keys())
       env_str = ('\n' + ', '.join(env.keys())) if get_verbose() else ''
       user_error(self.location,
                  "undefined proof variable " + self.name + hint + env_str)
@@ -611,6 +606,21 @@ class Induction(Proof):
     return 'induction ' + str(self.typ) + '\n' \
       + '\n'.join([str(c) for c in self.cases])
 
+def resolve_uniquify_name(loc: Meta, name: str, env_map: UniquifyEnv,
+                          not_found_msg: str) -> str:
+  """Resolve `name` to its canonical uniquified form via the uniquify env.
+
+  Reports `not_found_msg` (which must already include `name`) plus a
+  did-you-mean hint when `name` is absent. Shared by the rule-name lookups
+  in `RuleInductionCase`/`RuleInduction`/`RuleInversion.uniquify`.
+  """
+  if name not in env_map.keys():
+    user_error(loc, not_found_msg + did_you_mean_hint(name, env_map.keys()))
+  resolved = env_map[name]
+  if isinstance(resolved, list) and len(resolved) >= 1:
+    return cast(str, resolved[0])
+  return name
+
 @dataclass
 class RuleInductionCase(AST):
   # `case <rule_name> { <proof> }` from a `rule induction` block.
@@ -634,19 +644,9 @@ class RuleInductionCase(AST):
     # Resolve the rule name against the env so we can match against the
     # uniquified rule names later. Wrong names are reported with a
     # did-you-mean message.
-    if self.rule_name not in env_map.keys():
-      from edit_distance import edit_distance
-      from math import ceil
-      close = [v for v in env_map.keys()
-               if edit_distance(self.rule_name, v)
-                  <= ceil(len(self.rule_name) / 5)]
-      hint = '\n\tdid you intend: ' + ', '.join(close) if close else ''
-      user_error(self.location,
-                 "no such rule '" + self.rule_name + "'" + hint)
-    resolved = env_map[self.rule_name]
-    new_rule_name = self.rule_name
-    if isinstance(resolved, list) and len(resolved) >= 1:
-      new_rule_name = resolved[0]
+    new_rule_name = resolve_uniquify_name(
+        self.location, self.rule_name, env_map,
+        "no such rule '" + self.rule_name + "'")
     return RuleInductionCase(self.location, new_rule_name,
                              self.body.uniquify(env_map, uniq_ctx))
 
@@ -670,20 +670,9 @@ class RuleInduction(Proof):
   def uniquify(self, env: object, ctx: object) -> RuleInduction:
     env_map = cast(UniquifyEnv, env)
     uniq_ctx = cast(UniquifyContext, ctx)
-    if self.hyp_name not in env_map.keys():
-      from edit_distance import edit_distance
-      from math import ceil
-      close = [v for v in env_map.keys()
-               if edit_distance(self.hyp_name, v)
-                  <= ceil(len(self.hyp_name) / 5)]
-      hint = '\n\tdid you intend: ' + ', '.join(close) if close else ''
-      user_error(self.location,
-                 "rule induction: no such predicate '"
-                 + self.hyp_name + "'" + hint)
-    resolved = env_map[self.hyp_name]
-    new_hyp_name = self.hyp_name
-    if isinstance(resolved, list) and len(resolved) >= 1:
-      new_hyp_name = resolved[0]
+    new_hyp_name = resolve_uniquify_name(
+        self.location, self.hyp_name, env_map,
+        "rule induction: no such predicate '" + self.hyp_name + "'")
     return RuleInduction(self.location, new_hyp_name,
                          [c.uniquify(env_map, uniq_ctx) for c in self.cases])
 
@@ -707,20 +696,9 @@ class RuleInversion(Proof):
   def uniquify(self, env: object, ctx: object) -> RuleInversion:
     env_map = cast(UniquifyEnv, env)
     uniq_ctx = cast(UniquifyContext, ctx)
-    if self.hyp_name not in env_map.keys():
-      from edit_distance import edit_distance
-      from math import ceil
-      close = [v for v in env_map.keys()
-               if edit_distance(self.hyp_name, v)
-                  <= ceil(len(self.hyp_name) / 5)]
-      hint = '\n\tdid you intend: ' + ', '.join(close) if close else ''
-      user_error(self.location,
-                 "rule inversion: no such predicate '"
-                 + self.hyp_name + "'" + hint)
-    resolved = env_map[self.hyp_name]
-    new_hyp_name = self.hyp_name
-    if isinstance(resolved, list) and len(resolved) >= 1:
-      new_hyp_name = resolved[0]
+    new_hyp_name = resolve_uniquify_name(
+        self.location, self.hyp_name, env_map,
+        "rule inversion: no such predicate '" + self.hyp_name + "'")
     return RuleInversion(self.location, new_hyp_name,
                          [c.uniquify(env_map, uniq_ctx) for c in self.cases])
 
