@@ -328,3 +328,28 @@ proof
     by replace symmetric unfold in ul
   apply (conjunct 1 of int_divides_iff_abs[b, pos(lcm(abs(a), abs(b)))]) to ul2
 end
+
+// Universal property of the least common multiple on `Int`: every common
+// multiple of `a` and `b` is a multiple of `lcm(a, b)`. Together with
+// `int_divides_lcm_left`/`int_divides_lcm_right`, this characterizes
+// `lcm(a, b)` as the least common multiple up to divisibility. Lifts
+// `uint_lcm_least` through `int_divides_iff_abs`, since `lcm` is defined on
+// absolute values.
+theorem int_lcm_least: all a:Int, b:Int, m:Int.
+  if divides(a, m) and divides(b, m) then divides(lcm(a, b), m)
+proof
+  arbitrary a:Int, b:Int, m:Int
+  assume prem
+  have ua: divides(abs(a), abs(m))
+    by apply (conjunct 0 of int_divides_iff_abs[a, m]) to conjunct 0 of prem
+  have ub: divides(abs(b), abs(m))
+    by apply (conjunct 0 of int_divides_iff_abs[b, m]) to conjunct 1 of prem
+  have ul: divides(lcm(abs(a), abs(b)), abs(m))
+    by apply uint_lcm_least[abs(a), abs(b), abs(m)] to ua, ub
+  expand lcm
+  have unfold: abs(pos(lcm(abs(a), abs(b)))) = lcm(abs(a), abs(b))
+    by int_abs_pos[lcm(abs(a), abs(b))]
+  have ul2: divides(abs(pos(lcm(abs(a), abs(b)))), abs(m))
+    by replace symmetric unfold in ul
+  apply (conjunct 1 of int_divides_iff_abs[pos(lcm(abs(a), abs(b))), m]) to ul2
+end
