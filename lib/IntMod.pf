@@ -272,6 +272,30 @@ proof
   }
 end
 
+// Under truncated division the remainder ignores the divisor's sign, since
+// it only depends on the divisor through `abs`.
+theorem int_mod_neg_divisor: all n:Int, m:Int. n % (- m) = n % m
+proof
+  arbitrary n:Int, m:Int
+  expand operator%
+  replace abs_neg.
+end
+
+// Truncated modulo by zero returns the dividend (following `UInt`), so that
+// the division identity `(n / m) * m + (n % m) = n` still holds at m = +0.
+theorem int_mod_zero: all n:Int. n % +0 = n
+proof
+  arbitrary n:Int
+  have umz: all x:UInt. x % 0 = x by {
+    arbitrary x:UInt
+    expand operator%.
+  }
+  switch n {
+    case pos(au) { replace umz. }
+    case negsuc(au) { replace umz | neg_pos. }
+  }
+end
+
 // Zero divided by anything is zero.
 theorem int_zero_div: all m:Int. +0 / m = +0
 proof
