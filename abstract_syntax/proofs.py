@@ -135,9 +135,6 @@ class PTLetNew(Proof):
 class PRecall(Proof):
   facts: List[Formula]
 
-  def pretty_print(self, indent: int) -> str:
-      return str(self)
-
   def __str__(self) -> str:
       return 'recall ' + ', '.join([str(f) for f in self.facts])
 
@@ -342,9 +339,6 @@ class AllElimTypes(Proof):
   #  s : The variable's index in the list, starting from the first var
   pos: Tuple[int, int]
 
-  def pretty_print(self, indent: int) -> str:
-      return str(self)
-
   def __str__(self) -> str:
     s, e = self.pos
     if s == 0:
@@ -365,9 +359,6 @@ class AllElim(Proof):
   #  e : The number of vars in the list
   #  s : The variable's index in the list, starting from the first var
   pos: Tuple[int, int]
-
-  def pretty_print(self, indent: int) -> str:
-      return str(self)
 
   def __str__(self) -> str:
     s, e = self.pos
@@ -435,9 +426,6 @@ class SomeElim(Proof):
 class PTuple(Proof):
   args: List[Proof]
 
-  def pretty_print(self, indent: int) -> str:
-      return str(self)
-
   def __str__(self) -> str:
     return ', '.join(_proof_list_item_str(arg) for arg in self.args)
 
@@ -453,17 +441,11 @@ class PAndElim(Proof):
   which: int
   subject: Proof
 
-  def pretty_print(self, indent: int) -> str:
-      return str(self)
-
   def __str__(self) -> str:
     return 'conjunct ' + str(self.which) + ' of ' + str(self.subject)
 
 @dataclass
 class PTrue(Proof):
-
-  def pretty_print(self, indent: int) -> str:
-      return str(self)
 
   def __str__(self) -> str:
     return '.'
@@ -471,26 +453,17 @@ class PTrue(Proof):
 @dataclass
 class PReflexive(Proof):
 
-  def pretty_print(self, indent: int) -> str:
-      return str(self)
-
   def __str__(self) -> str:
     return 'reflexive'
 
 @dataclass
 class PHole(Proof):
 
-  def pretty_print(self, indent: int) -> str:
-      return str(self)
-
   def __str__(self) -> str:
       return '?'
 
 @dataclass
 class PSorry(Proof):
-
-  def pretty_print(self, indent: int) -> str:
-      return str(self)
 
   def __str__(self) -> str:
       return 'sorry'
@@ -499,18 +472,12 @@ class PSorry(Proof):
 class PHelpUse(Proof):
   proof : Proof
 
-  def pretty_print(self, indent: int) -> str:
-      return str(self)
-
   def __str__(self) -> str:
       return 'help ' + str(self.proof)
 
 @dataclass
 class PSymmetric(Proof):
   body: Proof
-
-  def pretty_print(self, indent: int) -> str:
-      return str(self)
 
   def __str__(self) -> str:
     return 'symmetric ' + str(self.body)
@@ -519,9 +486,6 @@ class PSymmetric(Proof):
 class PTransitive(Proof):
   first: Proof
   second: Proof
-
-  def pretty_print(self, indent: int) -> str:
-      return str(self)
 
   def __str__(self) -> str:
     return 'transitive ' + str(self.first) + ' ' + str(self.second)
@@ -794,18 +758,12 @@ class SwitchProof(Proof):
 @dataclass
 class EvaluateGoal(Proof):
 
-  def pretty_print(self, indent: int) -> str:
-      return str(self)
-
   def __str__(self) -> str:
     return 'evaluate'
 
 @dataclass
 class EvaluateFact(Proof):
   subject: Proof
-
-  def pretty_print(self, indent: int) -> str:
-      return str(self)
 
   def __str__(self) -> str:
     return 'evaluate in ' + str(self.subject)
@@ -889,9 +847,6 @@ class SimplifyGoal(Proof):
 class SimplifyFact(Proof):
   subject: Proof
   givens: List[Proof]
-
-  def pretty_print(self, indent: int) -> str:
-      return str(self)
 
   def __str__(self) -> str:
     head = 'simplify'
