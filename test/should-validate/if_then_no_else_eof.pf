@@ -1,0 +1,7 @@
+// A bare `if ... then ...` implication (no `else`), appearing as the final
+// term of the file, exercises the recursive-descent parser at end-of-file:
+// after parsing the conclusion the `IF` branch checked for an optional `else`
+// with `current_token()`, which raised "Expected a token, got end of file" at
+// EOF while LALR accepted the `"if" term "then" term` implication form.
+// Regression coverage for that parser divergence. Refs #1073, #473.
+define implication_at_eof = if true then false

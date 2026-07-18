@@ -269,7 +269,12 @@ def parse_term_hi() -> Term:
             + '\tformula ::= "if" formula "then" formula')
     conc = parse_term()
 
-    if current_token().type == 'ELSE':
+    # An `if ... then ...` with no `else` is the implication form
+    # (`if_then_formula`), which is a valid term. Guard the `else` lookahead so
+    # a bare implication at end of input does not trip `current_token()`'s
+    # end-of-file error, matching the LALR grammar which accepts
+    # `"if" term "then" term`.
+    if not end_of_file() and current_token().type == 'ELSE':
       advance()
       els = parse_term()
       return Conditional(meta_from_tokens(token, previous_token()), None,
