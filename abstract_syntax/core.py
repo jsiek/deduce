@@ -189,9 +189,8 @@ class Term(AST):
 
   def subst_typeof(self, sub: Mapping[str, Term | Type | RecFun | GenRecFun]) -> Optional[Type]:
     # Apply `sub` to the cached `typeof` annotation. Kept as a named
-    # helper because a handful of bespoke `substitute` methods (Var,
-    # OverloadedVar, ResolvedVar) call it directly to short-circuit
-    # when the annotation didn't actually change.
+    # helper because the shared `VarRef.substitute` calls it directly to
+    # short-circuit when the annotation didn't actually change.
     return self.typeof.substitute(sub) if self.typeof is not None else None
 
   def substitute(self, sub: Mapping[str, Term | Type | RecFun | GenRecFun]) -> Term | RecFun | GenRecFun:
