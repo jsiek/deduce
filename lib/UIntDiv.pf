@@ -1261,3 +1261,83 @@ proof
     }
   }
 end
+
+// `gcd(a, 0) = a`: definitional, since the `b = 0` guard selects `a`.
+theorem uint_gcd_zero_right: all a:UInt. gcd(a, 0) = a
+proof
+  arbitrary a:UInt
+  expand gcd.
+end
+
+// Commutativity of `gcd`. Proved through the universal property rather
+// than the (asymmetric) Euclidean recursion: each of `gcd(a,b)` and
+// `gcd(b,a)` divides the other by `uint_gcd_greatest`, so they are
+// equal by `uint_divides_antisymmetric`.
+theorem uint_gcd_commutative: all a:UInt, b:UInt. gcd(a, b) = gcd(b, a)
+proof
+  arbitrary a:UInt, b:UInt
+  have ab_a: divides(gcd(a, b), a) by uint_gcd_divides_left[a, b]
+  have ab_b: divides(gcd(a, b), b) by uint_gcd_divides_right[a, b]
+  have ba_a: divides(gcd(b, a), a) by uint_gcd_divides_right[b, a]
+  have ba_b: divides(gcd(b, a), b) by uint_gcd_divides_left[b, a]
+  have d1: divides(gcd(a, b), gcd(b, a))
+    by apply uint_gcd_greatest[gcd(a, b), b, a] to ab_b, ab_a
+  have d2: divides(gcd(b, a), gcd(a, b))
+    by apply uint_gcd_greatest[gcd(b, a), a, b] to ba_a, ba_b
+  apply uint_divides_antisymmetric[gcd(a, b), gcd(b, a)] to d1, d2
+end
+
+// `gcd(0, b) = b`, via commutativity and `uint_gcd_zero_right`.
+theorem uint_gcd_zero_left: all b:UInt. gcd(0, b) = b
+proof
+  arbitrary b:UInt
+  replace uint_gcd_commutative[0, b]
+  uint_gcd_zero_right[b]
+end
+
+// `gcd(a, a) = a`, again through the universal property.
+theorem uint_gcd_self: all a:UInt. gcd(a, a) = a
+proof
+  arbitrary a:UInt
+  have a_a: divides(a, a) by uint_divides_refl[a]
+  have d1: divides(a, gcd(a, a))
+    by apply uint_gcd_greatest[a, a, a] to a_a, a_a
+  have d2: divides(gcd(a, a), a) by uint_gcd_divides_left[a, a]
+  apply uint_divides_antisymmetric[gcd(a, a), a] to d2, d1
+end
+
+// Commutativity of `lcm`. An algebraic consequence of the product-form
+// definition: `a*b = b*a` and `gcd(a,b) = gcd(b,a)`.
+theorem uint_lcm_commutative: all a:UInt, b:UInt. lcm(a, b) = lcm(b, a)
+proof
+  arbitrary a:UInt, b:UInt
+  cases uint_zero_or_positive[a]
+  case a_z {
+    replace a_z.
+  }
+  case a_pos {
+    cases uint_zero_or_positive[b]
+    case b_z {
+      replace b_z.
+    }
+    case b_pos {
+      have a_ne: not (a = 0) by apply uint_pos_not_zero to a_pos
+      have b_ne: not (b = 0) by apply uint_pos_not_zero to b_pos
+      have cond_ab: not (a = 0 or b = 0) by {
+        assume c
+        cases c
+        case l { apply a_ne to l }
+        case r { apply b_ne to r }
+      }
+      have cond_ba: not (b = 0 or a = 0) by {
+        assume c
+        cases c
+        case l { apply b_ne to l }
+        case r { apply a_ne to r }
+      }
+      expand lcm
+      replace (apply eq_false to cond_ab) | (apply eq_false to cond_ba)
+      replace uint_mult_commute[a, b] | uint_gcd_commutative[a, b].
+    }
+  }
+end
