@@ -527,6 +527,22 @@ def try_fast_lit_nat_arith(loc: Meta, rator: Term, args: list[Term],
                    sname=suc_name or 'suc')
   return Call(loc, ty, _resolved_or_var(loc, None, lit_name), [inner])
 
+def _uint_binary_name(env: Env) -> str | None:
+  # Unique name of the UInt library's private ``Binary`` representation
+  # type. It is ``private`` to the UInt module, so a user file cannot
+  # name it: a call whose result type is this ``Binary`` is therefore a
+  # library UInt operation, which is what lets the fast path tell the
+  # built-in UInt conversion/arithmetic apart from a same-named user
+  # overload (e.g. ``fun fromNat(n:Nat) -> Nat``).
+  return env.base_to_unique('Binary')
+
+def _is_uint_binary_type(ty: Type | VarRef | None, env: Env) -> bool:
+  # A named type such as ``Binary`` is represented as a ``VarRef`` node.
+  binary_name = _uint_binary_name(env)
+  return binary_name is not None \
+      and isinstance(ty, VarRef) \
+      and ty.get_name() == binary_name
+
 def _mk_uint_from_int(loc: Meta, n: int, ty: Type | None, env: Env) -> Term | None:
   # Build the compact ``Binary`` value for ``n`` using the environment's
   # uniquified constructor names, so the result is structurally identical
@@ -550,11 +566,22 @@ def try_fast_uint_arith(loc: Meta, rator: Term, args: list[Term],
   # through to normal reduction.  Only sound under ``eval_all``, where the
   # ``fromNat``/``Binary``-operator shape that proof automation keys on is
   # already being reduced away.
+  #
+  # To avoid hijacking a same-named user overload (issue #1050 review),
+  # value-producing operations require the call's result type to be the
+  # UInt library's private ``Binary`` -- unspoofable by user code -- so a
+  # user ``fromNat : Nat -> Nat`` (or any op not returning UInt) is left
+  # to normal reduction.  Comparisons return ``bool``, so they instead
+  # rely on both operands being genuine UInt values (built from the
+  # private UInt constructors), the same operand-type guard the Nat fast
+  # path uses.
   if not isinstance(rator, (Var, OverloadedVar, ResolvedVar)):
     return None
   op = base_name(rator.get_name())
-  if op == 'fromNat' and len(args) == 1 and isNat(args[0]):
-    return _mk_uint_from_int(loc, natToInt(args[0]), ty, env)
+  if op == 'fromNat':
+    if len(args) == 1 and isNat(args[0]) and _is_uint_binary_type(ty, env):
+      return _mk_uint_from_int(loc, natToInt(args[0]), ty, env)
+    return None
   if op not in ('+', '*', '∸', '/', '%', '<', '≤'):
     return None
   if len(args) != 2 or not (isUInt(args[0]) and isUInt(args[1])):
@@ -565,6 +592,8 @@ def try_fast_uint_arith(loc: Meta, rator: Term, args: list[Term],
     return Bool(loc, ty, a < b)
   if op == '≤':
     return Bool(loc, ty, a <= b)
+  if not _is_uint_binary_type(ty, env):
+    return None
   if op == '+':
     result_int = a + b
   elif op == '*':
