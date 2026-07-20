@@ -64,6 +64,19 @@ class Declaration(Statement):
         return self.visibility + ' '
       return ''
 
+  def _skip_export(self, importing_module: str) -> bool:
+    # A private declaration is visible only within its own module.
+    return self.visibility == 'private' \
+        and importing_module != get_current_module()
+
+  def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
+    # Default: export this declaration's single name. Subclasses that
+    # export additional names (constructors, rules), accumulate overloads
+    # via `extend`, or use a different visibility rule override this.
+    if self._skip_export(importing_module):
+      return
+    export_env[base_name(self.name)] = [self.name]
+
 ################ Statements ######################################
 
 ## Updates the environment with a name, creating overloads
@@ -522,10 +535,6 @@ class ProcDecl(Declaration):
                     new_return_type, new_specs, new_body, new_proof_block,
                     visibility=self.visibility)
 
-  def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
-    if self.visibility != 'private' or importing_module == get_current_module():
-      export_env[base_name(self.name)] = [self.name]
-      
 @dataclass
 class Postulate(Declaration):
   what: Formula
@@ -753,14 +762,10 @@ class Predicate(Declaration):
     _predicate_decls_by_unique_name[new_name] = new_pred
     return new_pred
 
-  def collect_exports(
-      self,
-      export_env: UniquifyEnv,
-      importing_module: str,
-  ) -> None:
-    if self.visibility == 'private' and importing_module != get_current_module():
+  def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
+    super().collect_exports(export_env, importing_module)
+    if self._skip_export(importing_module):
       return
-    export_env[base_name(self.name)] = [self.name]
     for rule in self.rules:
       extend(export_env, base_name(rule.name), rule.name, self.location)
     if self.rule_induction_name is not None:
@@ -810,15 +815,10 @@ class Union(Declaration):
     return Union(self.location, new_name, new_type_params, new_alts,
                  visibility=self.visibility)
 
-  def collect_exports(
-      self,
-      export_env: UniquifyEnv,
-      importing_module: str,
-  ) -> None:
-    if self.visibility == 'private' and importing_module != get_current_module():
+  def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
+    super().collect_exports(export_env, importing_module)
+    if self._skip_export(importing_module):
       return
-    export_env[base_name(self.name)] = [self.name]
-
     if not self.visibility == 'opaque' or (importing_module == get_current_module()):
       for con in self.alternatives:
         extend(export_env, base_name(con.name), con.name, self.location)
@@ -869,15 +869,6 @@ class TypeAlias(Declaration):
     return TypeAlias(self.location, new_name, new_type_params,
                      self.body.uniquify(body_env, uniq_ctx),
                      visibility=self.visibility)
-
-  def collect_exports(
-      self,
-      export_env: UniquifyEnv,
-      importing_module: str,
-  ) -> None:
-    if self.visibility == 'private' and importing_module != get_current_module():
-      return
-    export_env[base_name(self.name)] = [self.name]
 
   def substitute(self, sub: object) -> Self:
     return self
@@ -944,15 +935,6 @@ class ObjectDecl(Declaration):
       else [field.uniquify(body_env, uniq_ctx) for field in self.fields]
     return ObjectDecl(self.location, new_name, new_type_params, new_fields,
                       visibility=self.visibility)
-
-  def collect_exports(
-      self,
-      export_env: UniquifyEnv,
-      importing_module: str,
-  ) -> None:
-    if self.visibility == 'private' and importing_module != get_current_module():
-      return
-    export_env[base_name(self.name)] = [self.name]
 
   def substitute(self, sub: object) -> Self:
     return self
@@ -1025,15 +1007,6 @@ class ObserverDecl(Declaration):
                         new_params, new_return_type, new_reads,
                         new_body, visibility=self.visibility)
 
-  def collect_exports(
-      self,
-      export_env: UniquifyEnv,
-      importing_module: str,
-  ) -> None:
-    if self.visibility == 'private' and importing_module != get_current_module():
-      return
-    export_env[base_name(self.name)] = [self.name]
-
   def __str__(self) -> str:
     if get_verbose():
       shown_name = self.name
@@ -1104,15 +1077,6 @@ class ResourceDecl(Declaration):
                 if self.body is not None else None)
     return ResourceDecl(self.location, new_name, new_type_params,
                         new_params, new_body, visibility=self.visibility)
-
-  def collect_exports(
-      self,
-      export_env: UniquifyEnv,
-      importing_module: str,
-  ) -> None:
-    if self.visibility == 'private' and importing_module != get_current_module():
-      return
-    export_env[base_name(self.name)] = [self.name]
 
   def __str__(self) -> str:
     if get_verbose():
@@ -1210,12 +1174,8 @@ class RecFun(Declaration):
                   new_params, new_returns, new_cases,
                   visibility=self.visibility)
       
-  def collect_exports(
-      self,
-      export_env: UniquifyEnv,
-      importing_module: str,
-  ) -> None:
-    if self.visibility == 'private' and importing_module != get_current_module():
+  def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
+    if self._skip_export(importing_module):
       return
     extend(export_env, base_name(self.name), self.name, self.location)
 
@@ -1334,12 +1294,8 @@ class GenRecFun(Declaration):
                      new_measure_ty, new_body, new_terminates,
                      self.trusted_terminates, visibility=self.visibility)
     
-  def collect_exports(
-      self,
-      export_env: UniquifyEnv,
-      importing_module: str,
-  ) -> None:
-    if self.visibility == 'private' and (importing_module != get_current_module()):
+  def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
+    if self._skip_export(importing_module):
       return
     extend(export_env, base_name(self.name), self.name, self.location)
 
@@ -1455,7 +1411,7 @@ class ViewRecFun(Declaration):
                       visibility=self.visibility)
 
   def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
-    if self.visibility == 'private' and (importing_module != get_current_module()):
+    if self._skip_export(importing_module):
       return
     extend(export_env, base_name(self.name), self.name, self.location)
 
@@ -1519,7 +1475,7 @@ class ViewDecl(Declaration):
                     new_roundtrip, new_inverse, visibility=self.visibility)
 
   def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
-    if self.visibility == 'private' and (importing_module != get_current_module()):
+    if self._skip_export(importing_module):
       return
     extend(export_env, base_name(self.name), self.name, self.location)
 
@@ -1595,7 +1551,7 @@ class Define(Declaration):
                   visibility=self.visibility)
 
   def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
-    if self.visibility == 'private' and (importing_module != get_current_module()):
+    if self._skip_export(importing_module):
       return
     extend(export_env, base_name(self.name), self.name, self.location)
 
