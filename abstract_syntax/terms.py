@@ -44,6 +44,7 @@ if TYPE_CHECKING:
         getSuc,
         getZero,
         intToNat,
+        isBZero,
         isDeduceInt,
         isLitNat,
         isLitUInt,
@@ -324,6 +325,13 @@ class PatternCons(Pattern):
     return PatternCons(self.location, self.constructor, params)
 
   def __str__(self) -> str:
+      # A pattern's constructor must print as a constructor, never as the
+      # decimal value-sugar `ResolvedVar.__str__` gives UInt zero: `case 0`
+      # would reparse as the `Nat` `zero` pattern, not the `Binary` `bzero`
+      # constructor (unlike `empty`->`[]`, which does reparse as the nil
+      # pattern).
+      if isBZero(self.constructor):
+        return 'bzero'
       if len(self.parameters) > 0:
         ctor = applied_head_str(self.constructor) or str(self.constructor)
         return ctor \
@@ -703,6 +711,11 @@ class ResolvedVar(VarRef):
   def __str__(self) -> str:
     if base_name(self.name) == 'empty' and not get_unique_names() and not get_verbose():
       return '[]'
+    elif isBZero(self) and not get_verbose():
+      # UInt zero is the value `bzero`; render it as the decimal literal `0`,
+      # matching the `Call.__str__` UInt branch that already prints nonzero
+      # binary values (inc_dub/dub_inc trees) back as decimals.
+      return '0'
     elif get_unique_names():
       return name2str(self.name) + '{' + self.name + '}'
     elif is_var_operator(self):
