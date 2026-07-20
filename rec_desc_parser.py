@@ -638,23 +638,28 @@ def parse_term_sep() -> Term:
 def parse_term_logic() -> Term:
   token = current_token()
   term = parse_term_sep()
-  while (not end_of_file()) and (current_token().type == 'AND'
-                                 or current_token().type == 'OR'):
+  # `and`, `or`, and the type annotation `:` share one left-associative
+  # precedence level, matching the left-recursive `logical_term` rule in
+  # Deduce.lark and the documented precedence (Reference.md: read left to
+  # right). Handling any of them by recursing into `parse_term_logic`, or
+  # handling `:` only after the loop, would regroup mixed chains such as
+  # `a and b or c` or `P or Q : bool and false` inconsistently with the LALR
+  # parser.
+  while (not end_of_file()) and current_token().type in ('AND', 'OR', 'COLON'):
     opr = current_token().type
     advance()
-    right = parse_term_logic()
+    if opr == 'COLON':
+      typ = parse_type()
+      term = TAnnote(meta_from_tokens(token, previous_token()), None,
+                     term, typ)
+      continue
+    right = parse_term_sep()
     if opr == 'AND':
       term = And(meta_from_tokens(token, previous_token()), None,
                  extract_and(term) + extract_and(right))
-    elif opr == 'OR':
+    else:
       term = Or(meta_from_tokens(token, previous_token()), None,
-                 extract_or(term) + extract_or(right))
-
-  if (not end_of_file()) and current_token().type == 'COLON':
-    advance()
-    typ = parse_type()
-    term = TAnnote(meta_from_tokens(token, previous_token()), None,
-                   term, typ)
+                extract_or(term) + extract_or(right))
 
   return term
 

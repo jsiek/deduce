@@ -536,9 +536,14 @@ PARSER_ROUND_TRIP_FILES = (
     # demotes them to `IDENT` in that mode. Refs #473.
     "./test/should-validate/experimental_imperative_keywords_as_identifiers.pf",
     # RD used to make `not` bind looser than `=` (its `NOT` branch consumed
-    # `parse_term_equal`) and parse `=`/comparison operators right-associatively,
-    # diverging from the LALR grammar and Reference.md. `not P = false` and
-    # `a = b = c` now group as `(not P) = false` / `(a = b) = c` under both.
+    # `parse_term_equal`), parse `=`/comparison operators right-associatively,
+    # and recurse rightward on `and`/`or` (making `or` bind tighter than
+    # `and`) while handling the `:` annotation only after that loop, all
+    # diverging from the LALR grammar and Reference.md, which put `and`/`or`/`:`
+    # at one left-associative level. `not P = false`, `a = b = c`,
+    # `a and b or c`, and `P or Q : bool and false` now group as
+    # `(not P) = false` / `(a = b) = c` / `(a and b) or c` /
+    # `((P or Q):bool) and false` under both.
     "./test/should-validate/operator_precedence_rd_lalr.pf",
     # An empty (uninhabited) `union { }` body. RD documents the body as
     # `constructor*` and accepted zero constructors, but the LALR
