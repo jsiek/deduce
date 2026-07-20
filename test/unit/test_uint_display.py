@@ -43,3 +43,12 @@ def test_uint_zero_prints_decimal_under_unique_names() -> None:
     # decimals; zero must be consistent with them.
     set_unique_names(True)
     assert str(ast.intToUInt(Meta(), 0)) == "0"
+
+
+def test_bzero_pattern_constructor_stays_bzero() -> None:
+    # The value-sugar must not leak into pattern/constructor position:
+    # `case 0` would reparse as the Nat `zero` pattern, not the Binary
+    # `bzero` constructor. A resolved `bzero` pattern constructor (as the
+    # induction/predicate machinery builds) must print as `bzero`.
+    pat = ast.PatternCons(Meta(), ast.ResolvedVar(Meta(), None, "bzero"), [])
+    assert str(pat) == "bzero"

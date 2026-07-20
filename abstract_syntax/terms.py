@@ -325,6 +325,13 @@ class PatternCons(Pattern):
     return PatternCons(self.location, self.constructor, params)
 
   def __str__(self) -> str:
+      # A pattern's constructor must print as a constructor, never as the
+      # decimal value-sugar `ResolvedVar.__str__` gives UInt zero: `case 0`
+      # would reparse as the `Nat` `zero` pattern, not the `Binary` `bzero`
+      # constructor (unlike `empty`->`[]`, which does reparse as the nil
+      # pattern).
+      if isBZero(self.constructor):
+        return 'bzero'
       if len(self.parameters) > 0:
         ctor = applied_head_str(self.constructor) or str(self.constructor)
         return ctor \
