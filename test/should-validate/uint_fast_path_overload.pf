@@ -1,0 +1,20 @@
+import Nat
+import UInt
+
+// Regression test for the #1050 UInt evaluation fast path
+// (`try_fast_uint_arith`): it must not hijack a same-named *user* overload.
+//
+// `fromNat` is exported by UInt as `Nat -> UInt`. A user file may define
+// its own `fromNat : Nat -> Nat`. The fast path matches operators by base
+// name, so it must additionally require the call's result type to be the
+// UInt library's private `Binary` before replacing semantics -- otherwise
+// this user `fromNat`, resolved by the type checker at expected type Nat,
+// would be evaluated as the built-in UInt conversion and yield a UInt
+// value instead of the intended Nat.
+fun fromNat(n : Nat) { n + ℕ1 }
+
+// Resolved to the user function via the expected type; must reduce with
+// the user body (5 + 1 = 6), NOT the UInt conversion. Before the
+// result-type guard this asserted `5 ≠ 6` (LHS collapsed to UInt 5).
+define user_r : Nat = fromNat(ℕ5)
+assert user_r = ℕ6

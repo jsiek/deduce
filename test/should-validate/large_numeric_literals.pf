@@ -4,14 +4,28 @@ import UInt
 // Large-but-supported numeric literals must *type-check* near MAX_LITERAL
 // (4000) without blowing the recursion limit -- the regression from #1021.
 //
-// Type-checking a large literal is cheap; it is runtime *evaluation* of UInt
-// arithmetic on such values that is pathologically slow under the unary
-// literal representation (see #1050, and the binary-literal work in #1025),
-// and it was making this one file dominate CI (~100s/parser). So we keep the
-// type-check coverage for both Nat and UInt large literals and arithmetic
-// expressions, and evaluate only on the cheap Nat path.
+// Runtime *evaluation* of UInt arithmetic on such values used to be
+// pathologically slow under the unary literal representation (~100s/parser
+// for this file, see #1050): a UInt literal enters the evaluator as
+// `fromNat(<unary Nat of depth N>)`, whose opaque unfolding is O(N). The
+// `eval_all` fast path (`try_fast_uint_arith`) now computes `fromNat`,
+// arithmetic, and comparison on concrete literal operands with Python ints,
+// so these asserts are cheap again.
 define _big_uint : UInt = 4000
 define _sum_uint : UInt = 1500 + 1500
 define _lt_uint  : bool = 3000 < 4000
 define _big_nat  : Nat  = ℕ4000
 assert ℕ3000 = ℕ3000
+
+// UInt runtime-evaluation coverage restored now that large literals evaluate
+// in O(log N) (#1050): equality, ordering, and each arithmetic operator on
+// values near MAX_LITERAL.
+assert 4000 = 4000
+assert not (4000 = 3999)
+assert 3000 < 4000
+assert 3000 ≤ 3000
+assert not (4000 < 3000)
+assert 2000 + 2000 = 4000
+assert 4000 ∸ 1500 = 2500
+assert 4000 / 7 = 571
+assert 4000 % 7 = 3
