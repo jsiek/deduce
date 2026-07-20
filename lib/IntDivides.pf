@@ -370,3 +370,18 @@ proof
   expand lcm
   replace uint_lcm_commutative[abs(a), abs(b)].
 end
+
+// The product of the gcd and lcm recovers the (absolute) product of the
+// arguments: `gcd(a, b) * lcm(a, b) = pos(abs(a * b))`. Both `gcd` and
+// `lcm` are nonnegative on `Int` (defined via `pos`/`abs`), so the product
+// equals `|a * b|`; it lifts the `UInt` identity `uint_gcd_lcm_product`
+// through `mult_pos_pos` and `int_abs_mult`.
+theorem int_gcd_lcm_product: all a:Int, b:Int.
+  gcd(a, b) * lcm(a, b) = pos(abs(a * b))
+proof
+  arbitrary a:Int, b:Int
+  expand gcd | lcm
+  replace mult_pos_pos[gcd(abs(a), abs(b)), lcm(abs(a), abs(b))]
+  replace uint_gcd_lcm_product[abs(a), abs(b)]
+  replace int_abs_mult[a, b].
+end
