@@ -15,6 +15,11 @@
 //     *tighter* than `and` and both right-associative, whereas the grammar
 //     and Reference.md put `and`/`or`/`:` at a single level read left to
 //     right: `a and b or c` is `(a and b) or c`, not `a and (b or c)`.
+//     The type annotation `:` sits at that same level, so after the initial
+//     fix RD still handled `:` only after the `and`/`or` loop and left a
+//     trailing `and`/`or` unconsumed (`P or Q : bool and false` errored in
+//     RD but parsed as `((P or Q):bool) and false` under LALR); `:` now
+//     participates in the same left-associative loop.
 //
 // These theorems state those forms without disambiguating parentheses,
 // so the file lives in the `--equiv` corpus to keep RD and LALR pinned
@@ -43,6 +48,15 @@ end
 // `(P and Q) or true` is always true; `P and (Q or true)` is `P`. Again only
 // the left-to-right grouping validates for every `P`.
 theorem or_binds_looser_than_and: all P:bool, Q:bool. (P and Q or true) = true
+proof
+  arbitrary P:bool, Q:bool
+  switch P { case true { . } case false { . } }
+end
+
+// `:` shares the `and`/`or` level: `P or Q : bool and false` groups as
+// `((P or Q):bool) and false`, which is always false. RD must keep parsing
+// `and`/`or` after a `:`, not stop at it.
+theorem annotation_same_level_as_and: all P:bool, Q:bool. (P or Q : bool and false) = false
 proof
   arbitrary P:bool, Q:bool
   switch P { case true { . } case false { . } }

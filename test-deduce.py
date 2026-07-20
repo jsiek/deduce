@@ -538,9 +538,12 @@ PARSER_ROUND_TRIP_FILES = (
     # RD used to make `not` bind looser than `=` (its `NOT` branch consumed
     # `parse_term_equal`), parse `=`/comparison operators right-associatively,
     # and recurse rightward on `and`/`or` (making `or` bind tighter than
-    # `and`), all diverging from the LALR grammar and Reference.md.
-    # `not P = false`, `a = b = c`, and `a and b or c` now group as
-    # `(not P) = false` / `(a = b) = c` / `(a and b) or c` under both.
+    # `and`) while handling the `:` annotation only after that loop, all
+    # diverging from the LALR grammar and Reference.md, which put `and`/`or`/`:`
+    # at one left-associative level. `not P = false`, `a = b = c`,
+    # `a and b or c`, and `P or Q : bool and false` now group as
+    # `(not P) = false` / `(a = b) = c` / `(a and b) or c` /
+    # `((P or Q):bool) and false` under both.
     "./test/should-validate/operator_precedence_rd_lalr.pf",
     # An empty (uninhabited) `union { }` body. RD documents the body as
     # `constructor*` and accepted zero constructors, but the LALR
