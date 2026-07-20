@@ -7,3 +7,5 @@ lemma cant_import_lemma: true
 proof
   .
 end
+
+private postulate cant_import_postulate: true

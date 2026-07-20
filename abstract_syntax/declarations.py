@@ -562,7 +562,8 @@ class Postulate(Declaration):
                      visibility=self.visibility)
 
   def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
-    export_env[base_name(self.name)] = [self.name]
+    if self.visibility != 'private' or importing_module == get_current_module():
+      export_env[base_name(self.name)] = [self.name]
 
 @dataclass
 class Theorem(Declaration):

@@ -1,0 +1,1 @@
+./test/should-error/import_postulate.pf:5.3-5.24: undefined proof variable cant_import_postulate

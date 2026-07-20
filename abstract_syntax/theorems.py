@@ -57,7 +57,8 @@ def collect_public(s: Statement, to_print: list[TheoremFilePrinting]) -> None:
       if not s.isLemma:
         to_print.append(s)
     elif isinstance(s, Postulate):
-      to_print.append(s)
+      if s.visibility != 'private':
+        to_print.append(s)
     elif isinstance(s, Auto):
       if not _auto_target_is_private(s.name):
         to_print.append(s)
