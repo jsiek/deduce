@@ -262,6 +262,33 @@ proof
   }
 end
 
+// A nonzero integer divides evenly into itself: the self-quotient is one.
+// (The division-side mirror of `int_mod_self`.)
+theorem int_div_self: all n:Int. if n ≠ +0 then n / n = +1
+proof
+  arbitrary n:Int
+  assume neq: n ≠ +0
+  switch n {
+    case pos(au) assume eq: n = pos(au) {
+      have neq2: pos(au) ≠ +0 by replace eq in neq
+      have au_pos: 0 < au by {
+        cases uint_zero_or_positive[au]
+        case au_z: au = 0 {
+          conclude false by replace au_z in neq2
+        }
+        case au_p { au_p }
+      }
+      show pos(au) / pos(au) = +1
+      replace (apply uint_div_cancel[au] to au_pos).
+    }
+    case negsuc(au) assume eq: n = negsuc(au) {
+      show negsuc(au) / negsuc(au) = +1
+      have p: 0 < 1 + au by .
+      replace (apply uint_div_cancel[1 + au] to p).
+    }
+  }
+end
+
 // Truncated division by zero yields zero (following `UInt`).
 theorem int_div_zero: all n:Int. n / +0 = +0
 proof
