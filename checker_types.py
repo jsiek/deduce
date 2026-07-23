@@ -860,8 +860,7 @@ def type_synth_term(
       try:
         ty = env.get_type_of_term_var(term)
         if ty == None:
-          raise Exception('while type checking, undefined variable ' + str(term) \
-                + '\nin scope:\n' + 'str(env)')
+          raise Exception('while type checking, undefined variable ' + str(term))
       except Exception as e:
         user_error(loc, str(e))
       match ty:
@@ -1169,8 +1168,7 @@ def type_check_term(
       if get_verbose():
           print('var_typ = ' + str(var_typ))
       if var_typ == None:
-        user_error(loc, 'variable ' + str(term) + ' is not defined' \
-              + '\nin scope:\n' + 'str(env)')
+        user_error(loc, 'variable ' + str(term) + ' is not defined')
       match (var_typ, typ):
         case (OverloadType(loc2, overloads), _):
           for (x, ty) in overloads:

@@ -1,0 +1,6 @@
+// Referencing an undefined operator must report a clean
+// "undefined variable" error. Regression guard for the bug where the
+// OverloadedVar branch of type_synth_term appended the literal text
+// `str(env)` (a quoted string, not the call) as a bogus "in scope:"
+// dump. See issue #1082.
+define d = operator ≠
