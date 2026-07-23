@@ -527,6 +527,13 @@ PARSER_ROUND_TRIP_FILES = (
     # `object Empty` at EOF did not reparse under RD. Fixed by guarding the
     # `LESSTHAN` lookahead with `not end_of_file()`.
     "./test/should-validate/object_bodyless_eof.pf",
+    # A bare `if ... then ...` implication (no `else`) as the final term of the
+    # file hit the same EOF hazard: the `IF` branch checked for an optional
+    # `else` with `current_token()`, which raised "Expected a token, got end of
+    # file" under RD while LALR accepted the `"if" term "then" term` form.
+    # Fixed by guarding the `else` lookahead with `not end_of_file()`.
+    # Refs #1073, #473.
+    "./test/should-validate/if_then_no_else_eof.pf",
     # The experimental-imperative keyword vocabulary (`call`, `return`,
     # `while`, `emp`, `reads`, ...) is only reserved with
     # `--experimental-imperative` on. RD tokenizes with lark's
