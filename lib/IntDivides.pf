@@ -7,6 +7,7 @@ import IntAddSub
 import IntMult
 import IntLess
 import IntAbs
+import IntMod
 
 /*
   Integer divisibility, gcd, and lcm.
@@ -220,6 +221,45 @@ proof
   have ba: divides(abs(b), abs(a))
     by apply (conjunct 0 of int_divides_iff_abs[b, a]) to conjunct 1 of prem
   apply uint_divides_antisymmetric[abs(a), abs(b)] to ab, ba
+end
+
+// Divisibility bridges to the remainder: for a nonzero divisor, `m` divides
+// `n` exactly when the truncated remainder `n % m` vanishes. The forward
+// direction routes `abs(n % m)` through `int_abs_mod` /
+// `uint_mult_mod_left_zero`; the backward direction reconstructs `n` from the
+// division identity `int_div_mod` once the remainder is `+0`.
+theorem int_divides_iff_mod_zero: all m:Int, n:Int.
+  if not (m = +0) then (divides(m, n) ⇔ n % m = +0)
+proof
+  arbitrary m:Int, n:Int
+  assume prem: not (m = +0)
+  have mpos: 0 < abs(m) by {
+    have nz: not (abs(m) = 0) by {
+      assume az: abs(m) = 0
+      conclude false
+        by apply prem to (apply int_abs_eq_zero_implies_zero[m] to az)
+    }
+    apply uint_not_zero_pos to nz
+  }
+  have fwd: if divides(m, n) then n % m = +0 by {
+    assume dvd
+    obtain k where mk: m * k = n from expand divides in dvd
+    have absmod0: abs(n % m) = 0 by {
+      replace int_abs_mod[n, m] | symmetric mk | int_abs_mult[m, k]
+      apply uint_mult_mod_left_zero[abs(k), abs(m)] to mpos
+    }
+    apply int_abs_eq_zero_implies_zero[n % m] to absmod0
+  }
+  have bwd: if n % m = +0 then divides(m, n) by {
+    assume modz: n % m = +0
+    have dm: (n / m) * m + (n % m) = n by apply int_div_mod[n, m] to prem
+    have eq: (n / m) * m = n by replace modz in dm
+    expand divides
+    choose n / m
+    replace int_mult_commute[m, n / m]
+    eq
+  }
+  fwd, bwd
 end
 
 // Greatest common divisor on Int, defined through `UInt.gcd` on
