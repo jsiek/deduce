@@ -1148,6 +1148,23 @@ class FunCase(AST):
     return FunCase(self.location, new_rator, new_pat, new_params, new_body)
 
 
+def funcdecl_ref_eq(decl: RecFun | GenRecFun, other: object) -> bool | None:
+  """Name-based equality of a function declaration against the reference
+  forms that can point at it. Shared by ``RecFun`` and ``GenRecFun``.
+  Returns ``None`` when ``other`` is not one of those forms, leaving the
+  same-kind comparison to the caller (which keeps ``RecFun`` and
+  ``GenRecFun`` from comparing equal to each other)."""
+  if isinstance(other, ResolvedVar):
+    return decl.name == other.name
+  elif isinstance(other, OverloadedVar):
+    return decl.name == other.resolved_names[0]
+  elif isinstance(other, Var):
+    return decl.name == other.name
+  elif isinstance(other, TermInst):
+    return decl == other.subject
+  return None
+
+
 @dataclass
 class RecFun(Declaration):
   type_params: List[str]
@@ -1206,18 +1223,10 @@ class RecFun(Declaration):
     return indent*' ' + ret
 
   def __eq__(self, other: object) -> bool:
-    if isinstance(other, ResolvedVar):
-      return self.name == other.name
-    elif isinstance(other, OverloadedVar):
-      return self.name == other.resolved_names[0]
-    elif isinstance(other, Var):
-      return self.name == other.name
-    elif isinstance(other, TermInst):
-      return self == other.subject
-    elif isinstance(other, RecFun):
-      return self.name == other.name
-    else:
-      return False
+    res = funcdecl_ref_eq(self, other)
+    if res is not None:
+      return res
+    return isinstance(other, RecFun) and self.name == other.name
 
   def reduce(self, env: object) -> Self:
     return self
@@ -1339,19 +1348,11 @@ class GenRecFun(Declaration):
 
 
   def __eq__(self, other: object) -> bool:
-    if isinstance(other, ResolvedVar):
-      return self.name == other.name
-    elif isinstance(other, OverloadedVar):
-      return self.name == other.resolved_names[0]
-    elif isinstance(other, Var):
-      return self.name == other.name
-    elif isinstance(other, TermInst):
-      return self == other.subject
-    elif isinstance(other, GenRecFun):
-      return self.name == other.name
-    else:
-      return False
-  
+    res = funcdecl_ref_eq(self, other)
+    if res is not None:
+      return res
+    return isinstance(other, GenRecFun) and self.name == other.name
+
   def reduce(self, env: object) -> Self:
     return self
 
