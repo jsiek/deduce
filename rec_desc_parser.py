@@ -50,8 +50,8 @@ from parser_common import set_filename as set_filename
 expt_operators = { '^' }
 mult_operators = {'*', '/', '%', '∘', '.o.'}
 add_operators = {'+', '-', '∸', '.-.', '∪', '|', '∩', '&', '⨄', '.+.', '++', '⊝' }
-compare_operators = {'<', '>', '≤', '<=', '≥', '>=', '⊆', '(=', '∈', 'in', '≲', '<~'}
-equal_operators = {'=', '≠', '/=', '≈', '~~'}
+compare_operators = {'<', '>', '≤', '<=', '≥', '>=', '⊆', '(=', '∈', 'in', '≲', '<~', '≈', '~~'}
+equal_operators = {'=', '≠', '/='}
 iff_operators = {'iff', "<=>", "⇔"}
 
 to_unicode = {'.o.': '∘', '|': '∪', '&': '∩', '.+.': '⨄', '.-.': '∸',
