@@ -454,11 +454,18 @@ class TAnnote(Term):
 @dataclass
 class VarRef(Term):
   # Abstract base for variable references. Concrete subclasses are
-  # `Var` (post-parse, holds a source identifier) and `OverloadedVar`
-  # (post-uniquify, holds uniquified candidate names). Code that wants
-  # to operate on either variant should `isinstance(node, VarRef)` and
-  # call `get_name()` rather than reach for a `name` field — the two
+  # `Var` (post-parse, holds a source identifier), `OverloadedVar`
+  # (post-uniquify, holds uniquified candidate names), and `ResolvedVar`
+  # (post-overload-resolution, holds a single chosen name). Code that
+  # wants to operate on any variant should `isinstance(node, VarRef)` and
+  # call `get_name()` rather than reach for a `name` field — the
   # subclasses store names differently on purpose.
+  #
+  # `copy`, `substitute`, `__str__`, and (for the post-uniquify forms)
+  # `reduce` are shared here, driven by `get_name()` plus per-subclass
+  # hooks — `_rebuild` (reconstruct with a new `typeof`),
+  # `_unique_names_str` (the `--unique-names` brace form), and
+  # `_special_str` (optional literal rendering, e.g. UInt `bzero` as `0`).
   def get_name(self) -> str:
     internal_error(self.location, 'get_name not implemented on VarRef base')
 
@@ -467,6 +474,79 @@ class VarRef(Term):
 
   def operator_str(self) -> str:
     return name2str(self.get_name())
+
+  def _rebuild(self, typeof: Optional[Type]) -> Self:
+    # Reconstruct this reference carrying a (possibly new) type
+    # annotation. Each subclass rebuilds its own class with whatever
+    # name payload it stores.
+    internal_error(self.location, '_rebuild not implemented on VarRef base')
+
+  def _unique_names_str(self) -> str:
+    # The `name{...}` brace form shown under --unique-names. Subclasses
+    # fill in the brace contents from their name payload.
+    internal_error(self.location,
+                   '_unique_names_str not implemented on VarRef base')
+
+  def _special_str(self) -> str | None:
+    # A subclass may render itself as a special literal (e.g. the UInt
+    # zero value `bzero` as `0`); `None` means fall through to the normal
+    # name / brace forms. Only overridden by `ResolvedVar`.
+    return None
+
+  def copy(self) -> Self:
+    return self._rebuild(self.typeof)
+
+  def substitute(self, sub: Mapping[str, Term | Type | RecFun | GenRecFun]) -> Term | RecFun | GenRecFun:
+    name = self.get_name()
+    if name in sub:
+      trm = cast(Term | RecFun | GenRecFun, sub[name])
+      if not isinstance(trm, RecFun) and not isinstance(trm, GenRecFun):
+        add_reduced_def(name)
+      return trm
+    else:
+      new_typeof = self.subst_typeof(sub)
+      if new_typeof is self.typeof:
+        return self
+      return self._rebuild(new_typeof)
+
+  def __str__(self) -> str:
+    name = self.get_name()
+    if base_name(name) == 'empty' and not get_unique_names() and not get_verbose():
+      return '[]'
+    special = self._special_str()
+    if special is not None:
+      return special
+    elif get_unique_names():
+      return self._unique_names_str()
+    elif is_var_operator(self):
+      return 'operator ' + name2str(name)
+    else:
+      return name2str(name)
+
+  def reduce(self, env: Env) -> Term | RecFun | GenRecFun:  # type: ignore[override]
+    # Post-uniquify references (OverloadedVar / ResolvedVar) resolve
+    # against the runtime environment. `Var` is pre-uniquify and
+    # overrides this to a no-op.
+    if get_reduce_all() or (self in get_reduce_only()):
+      name = self.get_name()
+      if get_dont_reduce_opaque() and name in env.dict.keys():
+        binding = env.dict[name]
+        if isinstance(binding, TermBinding) \
+           and binding.visibility == 'opaque' \
+           and binding.module != env.get_current_module():
+            return self if get_eval_all() else auto_rewrites(self, env)
+
+      res = env.get_value_of_term_var(self)
+      if res:
+        if get_verbose():
+          print('\t var ' + name + ' ===> ' + str(res))
+        if isinstance(res, Union):
+          return self if get_eval_all() else auto_rewrites(self, env)
+        return res.reduce(env)
+      else:
+        return self if get_eval_all() else auto_rewrites(self, env)
+    else:
+      return self if get_eval_all() else auto_rewrites(self, env)
 
 
 @dataclass
@@ -481,8 +561,11 @@ class Var(VarRef):
   def get_name(self) -> str:
     return self.name
 
-  def copy(self) -> Var:
-    return Var(self.location, self.typeof, self.name)
+  def _rebuild(self, typeof: Optional[Type]) -> Var:
+    return Var(self.location, typeof, self.name)
+
+  def _unique_names_str(self) -> str:
+    return name2str(self.name) + '{}'
 
   def __eq__(self, other: object) -> bool:
       if isinstance(other, OverloadedVar):
@@ -502,33 +585,11 @@ class Var(VarRef):
         result = self.name == other.name
       return result
 
-  def __str__(self) -> str:
-      if base_name(self.name) == 'empty' and not get_unique_names() and not get_verbose():
-          return '[]'
-      elif get_unique_names():
-        return name2str(self.name) + '{}'
-      elif is_var_operator(self):
-        return 'operator ' + name2str(self.name)
-      else:
-        return name2str(self.name)
-
   def reduce(self, env: Env) -> Self:
       # Pre-uniquify Vars don't appear in the runtime environment, so
-      # they reduce to themselves. The post-uniquify form is
-      # `OverloadedVar`, which has its own reduce.
+      # they reduce to themselves. The post-uniquify forms
+      # (`OverloadedVar` / `ResolvedVar`) use the shared VarRef.reduce.
       return self
-
-  def substitute(self, sub: Mapping[str, Term | Type | RecFun | GenRecFun]) -> Term | RecFun | GenRecFun:
-      if self.name in sub:
-          trm = cast(Term | RecFun | GenRecFun, sub[self.name])
-          if not isinstance(trm, RecFun) and not isinstance(trm, GenRecFun):
-            add_reduced_def(self.name)
-          return trm
-      else:
-          new_typeof = self.subst_typeof(sub)
-          if new_typeof is self.typeof:
-            return self
-          return Var(self.location, new_typeof, self.name)
 
   def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> OverloadedVar:  # type: ignore[override]
     if self.name not in env.keys():
@@ -582,9 +643,12 @@ class OverloadedVar(VarRef):
   def get_name(self) -> str:
     return self.resolved_names[0]
 
-  def copy(self) -> OverloadedVar:
-    return OverloadedVar(self.location, self.typeof,
-                       list(self.resolved_names))
+  def _rebuild(self, typeof: Optional[Type]) -> OverloadedVar:
+    return OverloadedVar(self.location, typeof, list(self.resolved_names))
+
+  def _unique_names_str(self) -> str:
+    return name2str(self.resolved_names[0]) \
+           + '{' + ','.join(self.resolved_names) + '}'
 
   def __eq__(self, other: object) -> bool:
     if isinstance(other, OverloadedVar):
@@ -605,52 +669,6 @@ class OverloadedVar(VarRef):
       return False
     else:
       return False
-
-  def __str__(self) -> str:
-    chosen = self.resolved_names[0]
-    if base_name(chosen) == 'empty' and not get_unique_names() and not get_verbose():
-      return '[]'
-    elif get_unique_names():
-      return name2str(chosen) + '{' + ','.join(self.resolved_names) + '}'
-    elif is_var_operator(self):
-      return 'operator ' + name2str(chosen)
-    else:
-      return name2str(chosen)
-
-  def reduce(self, env: Env) -> Term | RecFun | GenRecFun:  # type: ignore[override]
-    if get_reduce_all() or (self in get_reduce_only()):
-      chosen = self.resolved_names[0]
-      if get_dont_reduce_opaque() and chosen in env.dict.keys():
-        binding = env.dict[chosen]
-        if isinstance(binding, TermBinding) \
-           and binding.visibility == 'opaque' \
-           and binding.module != env.get_current_module():
-            return self if get_eval_all() else auto_rewrites(self, env)
-
-      res = env.get_value_of_term_var(self)
-      if res:
-        if get_verbose():
-          print('\t var ' + chosen + ' ===> ' + str(res))
-        if isinstance(res, Union):
-          return self if get_eval_all() else auto_rewrites(self, env)
-        return res.reduce(env)
-      else:
-        return self if get_eval_all() else auto_rewrites(self, env)
-    else:
-      return self if get_eval_all() else auto_rewrites(self, env)
-
-  def substitute(self, sub: Mapping[str, Term | Type | RecFun | GenRecFun]) -> Term | RecFun | GenRecFun:
-    chosen = self.resolved_names[0]
-    if chosen in sub:
-      trm = cast(Term | RecFun | GenRecFun, sub[chosen])
-      if not isinstance(trm, RecFun) and not isinstance(trm, GenRecFun):
-        add_reduced_def(chosen)
-      return trm
-    else:
-      new_typeof = self.subst_typeof(sub)
-      if new_typeof is self.typeof:
-        return self
-      return OverloadedVar(self.location, new_typeof, list(self.resolved_names))
 
   def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> OverloadedVar:
     # Already uniquified — re-uniquify is a no-op (we'd hit this if
@@ -682,8 +700,11 @@ class ResolvedVar(VarRef):
   def get_name(self) -> str:
     return self.name
 
-  def copy(self) -> ResolvedVar:
-    return ResolvedVar(self.location, self.typeof, self.name)
+  def _rebuild(self, typeof: Optional[Type]) -> ResolvedVar:
+    return ResolvedVar(self.location, typeof, self.name)
+
+  def _unique_names_str(self) -> str:
+    return name2str(self.name) + '{' + self.name + '}'
 
   def __eq__(self, other: object) -> bool:
     if isinstance(other, ResolvedVar):
@@ -708,53 +729,15 @@ class ResolvedVar(VarRef):
     else:
       return False
 
-  def __str__(self) -> str:
-    if base_name(self.name) == 'empty' and not get_unique_names() and not get_verbose():
-      return '[]'
-    elif isBZero(self) and not get_verbose():
-      # UInt zero is the value `bzero`; render it as the decimal literal `0`,
-      # matching the `Call.__str__` UInt branch that already prints nonzero
-      # binary values (inc_dub/dub_inc trees) back as decimals.
+  def _special_str(self) -> str | None:
+    # UInt zero is the value `bzero`; render it as the decimal literal `0`,
+    # matching the `Call.__str__` UInt branch that already prints nonzero
+    # binary values (inc_dub/dub_inc trees) back as decimals. Only the
+    # resolved form is special-cased (see VarRef._special_str), matching
+    # the pre-consolidation behavior of #1062.
+    if isBZero(self) and not get_verbose():
       return '0'
-    elif get_unique_names():
-      return name2str(self.name) + '{' + self.name + '}'
-    elif is_var_operator(self):
-      return 'operator ' + name2str(self.name)
-    else:
-      return name2str(self.name)
-
-  def reduce(self, env: Env) -> Term | RecFun | GenRecFun:  # type: ignore[override]
-    if get_reduce_all() or (self in get_reduce_only()):
-      if get_dont_reduce_opaque() and self.name in env.dict.keys():
-        binding = env.dict[self.name]
-        if isinstance(binding, TermBinding) \
-           and binding.visibility == 'opaque' \
-           and binding.module != env.get_current_module():
-            return self if get_eval_all() else auto_rewrites(self, env)
-
-      res = env.get_value_of_term_var(self)
-      if res:
-        if get_verbose():
-          print('\t var ' + self.name + ' ===> ' + str(res))
-        if isinstance(res, Union):
-          return self if get_eval_all() else auto_rewrites(self, env)
-        return res.reduce(env)
-      else:
-        return self if get_eval_all() else auto_rewrites(self, env)
-    else:
-      return self if get_eval_all() else auto_rewrites(self, env)
-
-  def substitute(self, sub: Mapping[str, Term | Type | RecFun | GenRecFun]) -> Term | RecFun | GenRecFun:
-    if self.name in sub:
-      trm = cast(Term | RecFun | GenRecFun, sub[self.name])
-      if not isinstance(trm, RecFun) and not isinstance(trm, GenRecFun):
-        add_reduced_def(self.name)
-      return trm
-    else:
-      new_typeof = self.subst_typeof(sub)
-      if new_typeof is self.typeof:
-        return self
-      return ResolvedVar(self.location, new_typeof, self.name)
+    return None
 
   def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> ResolvedVar:
     # Already uniquified.
