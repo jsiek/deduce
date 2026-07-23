@@ -557,6 +557,12 @@ PARSER_ROUND_TRIP_FILES = (
     # was rejected -- diverging from the interleaving LALR `atomic_proof`
     # rules. A single dispatching loop now accepts both orders. Refs #473.
     "./test/should-validate/proof_instantiation_order_rd_lalr.pf",
+    # RD handled the `:` type annotation only as a trailing step after the
+    # `and`/`or` chain (and redundantly above `iff`), so a stacked annotation
+    # such as `P : bool : bool` was split, with the second colon leaking up a
+    # precedence level. `:` now folds into the same left-associative
+    # `logical_term` loop as `and`/`or`, matching LALR. Refs #473.
+    "./test/should-validate/annotation_precedence_rd_lalr.pf",
 )
 
 

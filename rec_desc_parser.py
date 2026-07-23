@@ -660,7 +660,6 @@ def parse_term_logic() -> Term:
     else:
       term = Or(meta_from_tokens(token, previous_token()), None,
                 extract_or(term) + extract_or(right))
-
   return term
 
 def parse_term_iff() -> Term:
@@ -673,29 +672,13 @@ def parse_term_iff() -> Term:
     left_right = IfThen(loc, None, term.copy(), right.copy())
     right_left = IfThen(loc, None, right.copy(), term.copy())
     term = And(loc, None, [left_right, right_left])
-
-  if (not end_of_file()) and current_token().type == 'COLON':
-    advance()
-    typ = parse_type()
-    term = TAnnote(meta_from_tokens(token, previous_token()), None,
-                   term, typ)
-
   return term
 
 def parse_term() -> Term:
   if end_of_file():
       raise ParseError(meta_from_tokens(previous_token(),previous_token()),
             'expected a term, not end of file')
-
-  token = current_token()
-  term = parse_term_iff()
-
-  if not end_of_file() and current_token().type == 'COLON':
-    advance()
-    typ = parse_type()
-    term = TAnnote(meta_from_tokens(token, previous_token()), None,
-                   term, typ)
-  return term
+  return parse_term_iff()
 
 def parse_define_term() -> Term:
   while_parsing = 'while parsing\n' \

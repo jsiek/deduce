@@ -1,0 +1,31 @@
+// Regression coverage for RD/LALR type-annotation grouping (#473).
+//
+// The `:` type annotation sits at the left-associative `logical_term` level
+// in Deduce.lark (`logical_term ":" type`), the same level as `and`/`or`,
+// read left to right. RD used to handle `:` only as a trailing step after the
+// whole logical chain (and again, redundantly, above `iff`), so two forms
+// parsed differently from LALR:
+//
+//   * `P : bool and Q` failed to parse at all under RD -- the annotation
+//     ended the term and left `and Q` stranded -- whereas LALR reads it as
+//     `(P : bool) and Q`.
+//   * a stacked annotation such as `P : bool : bool` was split, with the
+//     second colon leaking up a precedence level, instead of grouping as
+//     `(P : bool) : bool` at this level.
+//
+// RD now folds `:` into the same left-associative `logical_term` loop as
+// `and`/`or`, so both forms agree with LALR. These theorems state them without
+// disambiguating parentheses, so the file lives in the `--equiv` corpus to
+// keep RD and LALR pinned to the same AST.
+
+theorem annote_left_of_and: all P:bool, Q:bool. (P : bool and Q) = (P and Q)
+proof
+  arbitrary P:bool, Q:bool
+  switch P { case true { . } case false { . } }
+end
+
+theorem annote_stacked_colon: all P:bool. (P : bool : bool) = P
+proof
+  arbitrary P:bool
+  switch P { case true { . } case false { . } }
+end
