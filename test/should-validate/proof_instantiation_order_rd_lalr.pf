@@ -1,0 +1,40 @@
+// Regression coverage for RD/LALR agreement on chained proof
+// instantiation (#473).
+//
+// The LALR grammar builds term (`[...]`) and type (`<...>`) instantiations
+// with two left-recursive `atomic_proof` rules, so they may interleave in
+// any order. The recursive-descent parser used to consume all `<...>`
+// instantiations first and then all `[...]` instantiations, in two separate
+// loops -- which accepted `h<Nat>[x]` but rejected `h[x]<Nat>`, a parse
+// divergence from LALR. A single dispatching loop now mirrors the grammar.
+
+theorem generic_over_type_then_value:
+  all x:bool. <T> x = x
+proof
+  arbitrary x:bool
+  arbitrary T:type
+  conclude x = x by .
+end
+
+theorem generic_over_value_then_type:
+  all T:type. all x:bool. x = x
+proof
+  arbitrary T:type
+  arbitrary x:bool
+  conclude x = x by .
+end
+
+// `[value]<type>` -- term instantiation followed by type instantiation.
+// This is the ordering RD used to reject.
+theorem use_term_then_type: all x:bool. x = x
+proof
+  arbitrary x:bool
+  conclude x = x by generic_over_type_then_value[x]<bool>
+end
+
+// `<type>[value]` -- type instantiation followed by term instantiation.
+theorem use_type_then_term: all x:bool. x = x
+proof
+  arbitrary x:bool
+  conclude x = x by generic_over_value_then_type<bool>[x]
+end
