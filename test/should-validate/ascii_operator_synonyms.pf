@@ -1,0 +1,51 @@
+// ASCII synonyms for the approximate-comparison operators (`~~` for `≈`,
+// `<~` for `≲`) and the circled-minus signed difference (`~-` for `⊝`).
+// Every other Unicode operator in Deduce already has an ASCII spelling
+// (`<=` for `≤`, `.o.` for `∘`, ...); these three did not. This file
+// exercises all three, both as `operator` declarations and as infix uses,
+// on a fresh type so it does not overload the stdlib's `≲`/`≈`/`⊝`.
+// See issue #1069.
+
+union Bit {
+  b0
+  b1
+}
+
+// `operator <~` declares the `≲` operator via its ASCII spelling.
+fun operator <~ (x : Bit, y : Bit) {
+  switch x {
+    case b0 { true }
+    case b1 { switch y { case b0 { false } case b1 { true } } }
+  }
+}
+
+// `operator ~~` declares `≈`; its body uses the ASCII infix `<~`.
+fun operator ~~ (x : Bit, y : Bit) {
+  (x <~ y) and (y <~ x)
+}
+
+// `operator ~-` declares `⊝`.
+fun operator ~- (x : Bit, y : Bit) {
+  switch x {
+    case b0 { y }
+    case b1 { switch y { case b0 { b1 } case b1 { b0 } } }
+  }
+}
+
+assert b0 <~ b1
+assert b1 ~~ b1
+assert not (b0 ~~ b1)
+assert (b1 ~- b1) = b0
+
+// The ASCII infix forms parse in formula and proof position too, and the
+// `operator~~`/`operator<~` reference forms name the same operators. Because
+// `~-` and `⊝` denote the identical operator, `x ~- x = x ⊝ x` is reflexive.
+theorem ascii_synonyms_in_proofs: all x:Bit. (x ~~ x) and ((x ~- x) = (x ⊝ x))
+proof
+  arbitrary x:Bit
+  expand operator~~ | operator<~
+  switch x {
+    case b0 { evaluate }
+    case b1 { evaluate }
+  }
+end

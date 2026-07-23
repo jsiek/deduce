@@ -657,6 +657,12 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
         return '≠'
     elif e.data == 'identifier_circ':
         return '∘'
+    elif e.data == 'identifier_approx_equal':
+        return '≈'
+    elif e.data == 'identifier_approx_less_equal':
+        return '≲'
+    elif e.data == 'identifier_o_sub':
+        return '⊝'
     elif e.data == 'true_literal':
         return Bool(e.meta, None, True)
     elif e.data == 'false_literal':

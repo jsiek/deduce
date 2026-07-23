@@ -1072,6 +1072,12 @@ OPERATOR_GROUPING_EQUIV_CASES = (
     "define t = a ≠ b ≈ c",
     "define t = a ≈ b ≲ c",
     "define t = a ≲ b ≈ c",
+    # ASCII synonyms (~~ for ≈, <~ for ≲, ~- for ⊝) must group exactly like
+    # their Unicode counterparts under both parsers (issue #1069).
+    "define t = a ~~ b < c",
+    "define t = a <~ b ~~ c",
+    "define t = a ~- b + c",
+    "define t = a ~~ b ~- c",
 )
 
 
@@ -1091,6 +1097,41 @@ def _check_operator_grouping_equivalence() -> list[tuple[str, str, str]]:
         if not _canonical_equal(rd, lalr):
             failures.append((src, "parser-equivalence",
                              "RD and LALR group this form differently"))
+    return failures
+
+
+# Each ASCII operator spelling must parse to the *same* AST as its Unicode
+# counterpart -- both as an infix operator and in an `operator` declaration --
+# under both parsers (issue #1069). This guards the synonym wiring in
+# Deduce.lark / rec_desc_parser.py / parser.py against silent drift.
+ASCII_OPERATOR_SYNONYM_PAIRS = (
+    ("define t = a ~~ b", "define t = a ≈ b"),
+    ("define t = a <~ b", "define t = a ≲ b"),
+    ("define t = a ~- b", "define t = a ⊝ b"),
+    ("define f = operator ~~", "define f = operator ≈"),
+    ("define f = operator <~", "define f = operator ≲"),
+    ("define f = operator ~-", "define f = operator ⊝"),
+)
+
+
+def _check_ascii_operator_synonyms() -> list[tuple[str, str, str]]:
+    """ASCII operator spellings must parse identically to their Unicode forms."""
+    failures: list[tuple[str, str, str]] = []
+    for ascii_src, unicode_src in ASCII_OPERATOR_SYNONYM_PAIRS:
+        for rd in (True, False):
+            parser = "RD" if rd else "LALR"
+            try:
+                a = _canonical_ast(_parse_text_for_equivalence(
+                    "<ascii-synonym>", ascii_src, recursive_descent=rd))
+                u = _canonical_ast(_parse_text_for_equivalence(
+                    "<ascii-synonym>", unicode_src, recursive_descent=rd))
+            except Exception as exc:
+                failures.append((ascii_src, "ascii-synonym",
+                                 f"{parser}: {type(exc).__name__}: {exc}"))
+                continue
+            if not _canonical_equal(a, u):
+                failures.append((ascii_src, "ascii-synonym",
+                                 f"{parser}: parses differently from {unicode_src!r}"))
     return failures
 
 
@@ -1135,6 +1176,7 @@ def run_parser_equivalence(workers: int) -> list[tuple[str, str, str]]:
         failures.extend(_check_should_error_skip_set())
         failures.extend(_check_keyword_name_rejection())
         failures.extend(_check_operator_grouping_equivalence())
+        failures.extend(_check_ascii_operator_synonyms())
         stale = (PARSER_EQUIV_EXPECTED_DIVERGENCES
                  - seen_divergences - set(all_files))
         for path in sorted(stale):

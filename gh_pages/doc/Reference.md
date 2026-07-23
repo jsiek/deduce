@@ -1904,8 +1904,8 @@ tighter rule listed above it.
 |     0 | `atomic_term`          | literals, identifiers, parentheses, `f(...)`, `a[i]`, `@f<T>`, `not P`, `-n`       | primary and prefix forms                                           |
 |     1 | `exponent_term`        | `^`                                                                                | exponent                                                           |
 |     2 | `multiplicative_term`  | `*`  `/`  `%`  `∘` (also `.o.`)                                                    | multiply, divide, modulo, function composition                     |
-|     3 | `additive_term`        | `+`  `-`  `∸` (also `.-.`)  `⊝`  `++`  `∪`  `∩`  `⨄` (also `.+.`)                  | add, subtract, monus, list append, set/multiset union/intersection |
-|     4 | `comparison_term`      | `<`  `>`  `≤` (also `<=`)  `≥` (also `>=`)  `⊆` (also `(=`)  `∈` (also `in`)  `≲`  `≈` | comparisons, subset, membership                                |
+|     3 | `additive_term`        | `+`  `-`  `∸` (also `.-.`)  `⊝` (also `~-`)  `++`  `∪`  `∩`  `⨄` (also `.+.`)      | add, subtract, monus, list append, set/multiset union/intersection |
+|     4 | `comparison_term`      | `<`  `>`  `≤` (also `<=`)  `≥` (also `>=`)  `⊆` (also `(=`)  `∈` (also `in`)  `≲` (also `<~`)  `≈` (also `~~`) | comparisons, subset, membership                                |
 |     5 | `equality_term`        | `=`  `≠` (also `/=`)                                                               | equality, inequality                                               |
 |     6 | `logical_term`         | `and`  `or`  `:`                                                                   | logical conjunction, disjunction, type annotation                  |
 |     7 | `iff_term`             | `iff` (also `<=>`, `⇔`)                                                            | biconditional                                                      |
