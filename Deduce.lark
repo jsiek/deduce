@@ -32,6 +32,17 @@ ASSIGN: ":="
 // anonymous-terminal series that keywords.py mirrors.
 SEPCONJ: "**"
 POINTSTO: "|->"
+// ASCII synonyms for the approximate-comparison operators (≈, ≲) and the
+// circled-minus signed difference (⊝) -- the only infix operators that lacked
+// an ASCII spelling. Named (not inline string literals) so adding them does
+// not renumber the anonymous-terminal series that keywords.py mirrors, and
+// leading-underscore so lark filters them from the parse tree, exactly as it
+// filters the inline operator literals: the generic infix transformer in
+// parser.py maps over every child, so a retained operator token would leak in
+// as a bogus operand.
+_APPROXEQ: "~~"
+_APPROXLE: "<~"
+_OMINUS: "~-"
 
 ?term:  iff_term
 
@@ -72,7 +83,9 @@ POINTSTO: "|->"
     | comparison_term "(=" additive_term                       -> subset_equal
     | comparison_term "∈" additive_term                       -> membership
     | comparison_term "≲" additive_term                       -> approx_less_equal
+    | comparison_term _APPROXLE additive_term                   -> approx_less_equal
     | comparison_term "≈" additive_term                       -> approx_equal
+    | comparison_term _APPROXEQ additive_term                   -> approx_equal
     | comparison_term "in" additive_term                       -> membership
     | additive_term
 
@@ -88,6 +101,7 @@ POINTSTO: "|->"
     | additive_term "∸" multiplicative_term                        -> nat_sub
     | additive_term ".-." multiplicative_term                      -> nat_sub
     | additive_term "⊝" multiplicative_term                        -> o_sub
+    | additive_term _OMINUS multiplicative_term                     -> o_sub
     | multiplicative_term
 
 ?multiplicative_term: multiplicative_term "/" exponent_term                    -> div
@@ -119,6 +133,9 @@ identifier: IDENT              -> identifier
     | "operator" "<="      -> identifier_less_equal
     | "operator" ">="      -> identifier_greater_equal
     | "operator" "/="      -> identifier_not_equal
+    | "operator" _APPROXEQ  -> identifier_approx_equal
+    | "operator" _APPROXLE  -> identifier_approx_less_equal
+    | "operator" _OMINUS    -> identifier_o_sub
 
 ?atomic_term: INT                                      -> int
     | NAT                                          -> nat

@@ -14,6 +14,8 @@ known_tokens = {
     'AMPERSAND': 'operator', 
     'AND': 'keyword',
     'APPLY': 'keyword',
+    '_APPROXEQ': 'operator', # ~~ (ASCII synonym for ≈)
+    '_APPROXLE': 'operator', # <~ (ASCII synonym for ≲)
     'ARBITRARY': 'keyword',
     'ARRAY': 'operator',
     'ARROW': 'operator',
@@ -96,6 +98,7 @@ known_tokens = {
     'OBSERVER': 'keyword',
     'OBTAIN': 'keyword',
     'OF': 'keyword',
+    '_OMINUS': 'operator', # ~- (ASCII synonym for ⊝)
     'OPAQUE': 'keyword',
     'OPERATOR': 'keyword',
     'OR': 'keyword',
