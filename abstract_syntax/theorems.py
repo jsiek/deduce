@@ -65,8 +65,12 @@ def collect_public(s: Statement, to_print: list[TheoremFilePrinting]) -> None:
     elif isinstance(s, Import):
       if s.name in collected_imports:
           return
-      collected_imports.add(s.name)
+      # Only a public import contributes (and dedups) the module's public
+      # theorems. A private import must not mark the module collected, or a
+      # later public re-export of the same module would be skipped and its
+      # public theorems silently dropped from the .thm summary.
       if s.ast != None and s.visibility == 'public':
+        collected_imports.add(s.name)
         for stmt in s.ast:
             collect_public(stmt, to_print)
     elif isinstance(s, Declaration) and not s.visibility == 'private':
