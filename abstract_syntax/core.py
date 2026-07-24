@@ -165,6 +165,28 @@ def _ast_map(value: object, f: Callable[[AST], AST]) -> object:
   return value
 
 
+def eq_fields(self: AST, other: object, *fields: str) -> bool:
+  """Structural `__eq__` for a leaf AST dataclass that compares a fixed set
+  of fields (never `location`). `other` must be an instance of exactly
+  `self`'s class; with no `fields` this degenerates to the isinstance-only
+  check used by nullary nodes. Kept as a module-level helper — deleting a
+  class's `__eq__` would let `@dataclass` regenerate one that also compares
+  `location`."""
+  if not isinstance(other, type(self)):
+    return False
+  return all(getattr(self, f) == getattr(other, f) for f in fields)
+
+
+def eq_arg_list(self: AST, other: object, attr: str = 'args') -> bool:
+  """Structural `__eq__` for a leaf AST dataclass whose payload is a single
+  list of children, compared pairwise under a length guard."""
+  if not isinstance(other, type(self)):
+    return False
+  a = getattr(self, attr)
+  b = getattr(other, attr)
+  return len(a) == len(b) and all(x == y for x, y in zip(a, b))
+
+
 @dataclass
 class Type(AST):
 

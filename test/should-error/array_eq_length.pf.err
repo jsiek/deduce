@@ -1,0 +1,2 @@
+./test/should-error/array_eq_length.pf:9.3-9.11: the goal did not evaluate to `true`, but instead:
+	array(1) = array(1, 2)
