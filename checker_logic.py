@@ -487,6 +487,30 @@ def _equation_marked_side(formula: Formula | None) -> str | None:
       return None
 
 
+def _marked_equation_other_side(
+    formula: Formula,
+) -> tuple[Term, str] | None:
+  # If `formula` is an equation `L = R` with exactly one mark sitting on a
+  # single side, return the *unmarked* side together with its human-readable
+  # label ('left-hand side' / 'right-hand side'); otherwise None. Shared by the
+  # `expand`/`replace` backward-mark hints, which both suggest wrapping the
+  # unmarked side in `#...#`.
+  if count_marks(formula) != 1:
+    return None
+  match formula:
+    case Call(_, _, rator, [side0, side1]) \
+         if isinstance(rator, VarRef) and rator.get_name() == '=':
+      marks0 = count_marks(side0)
+      marks1 = count_marks(side1)
+      if marks0 == 1 and marks1 == 0:
+        return side1, 'right-hand side'
+      if marks0 == 0 and marks1 == 1:
+        return side0, 'left-hand side'
+      return None
+    case _:
+      return None
+
+
 def _defs_mentioned_in(node: AST, defs: Sequence[Term]) -> list[str]:
   # Display names of `defs` (VarRefs) that appear anywhere in `node`.
   result: list[str] = []
@@ -665,33 +689,20 @@ def expand_backward_mark_hint(formula: Formula, var: Term, env: Env) -> str:
   # where the LHS of each step is implicitly marked: an `expand` whose
   # unfolding belongs on the RHS fails with a confusing "could not find
   # a place to expand" error and no pointer at the mark form.
-  if count_marks(formula) != 1:
+  other_side = _marked_equation_other_side(formula)
+  if other_side is None:
     return ''
-  match formula:
-    case Call(_, _, rator, [side0, side1]) \
-         if isinstance(rator, VarRef) and rator.get_name() == '=':
-      marks0 = count_marks(side0)
-      marks1 = count_marks(side1)
-      if marks0 == 1 and marks1 == 0:
-        other = side1
-        other_label = 'right-hand side'
-      elif marks0 == 0 and marks1 == 1:
-        other = side0
-        other_label = 'left-hand side'
-      else:
-        return ''
-      if not _expand_would_progress(other, [var], env):
-        return ''
-      display_name = name2str(var.get_name()) if isinstance(var, VarRef) \
-                     else str(var)
-      return ('\nThe ' + other_label + ' contains `' + display_name \
-              + '`, but `expand` only unfolds inside the marked subterm. ' \
-              'Inside an `equations` block, the left-hand side of each step is ' \
-              'implicitly marked. To unfold the ' + other_label \
-              + ' instead, wrap that side in `#...#`:\n' \
-              '\t# ' + str(other) + ' #')
-    case _:
-      return ''
+  other, other_label = other_side
+  if not _expand_would_progress(other, [var], env):
+    return ''
+  display_name = name2str(var.get_name()) if isinstance(var, VarRef) \
+                 else str(var)
+  return ('\nThe ' + other_label + ' contains `' + display_name \
+          + '`, but `expand` only unfolds inside the marked subterm. ' \
+          'Inside an `equations` block, the left-hand side of each step is ' \
+          'implicitly marked. To unfold the ' + other_label \
+          + ' instead, wrap that side in `#...#`:\n' \
+          '\t# ' + str(other) + ' #')
 
 
 def replace_backward_mark_hint(formula: Formula, eq: Formula | AutoRewriteRule,
@@ -700,52 +711,49 @@ def replace_backward_mark_hint(formula: Formula, eq: Formula | AutoRewriteRule,
   # `replace eq` fails inside a marked equation `# L # = R` because the
   # eq's LHS doesn't appear on the marked side, but it *would* match on
   # the unmarked side, suggest wrapping that side in `#...#`.
-  if count_marks(formula) != 1:
+  other_side = _marked_equation_other_side(formula)
+  if other_side is None:
     return ''
-  match formula:
-    case Call(_, _, rator, [side0, side1]) \
-         if isinstance(rator, VarRef) and rator.get_name() == '=':
-      marks0 = count_marks(side0)
-      marks1 = count_marks(side1)
-      if marks0 == 1 and marks1 == 0:
-        other = side1
-        other_label = 'right-hand side'
-      elif marks0 == 0 and marks1 == 1:
-        other = side0
-        other_label = 'left-hand side'
-      else:
-        return ''
-      try:
-        reset_num_rewrites()
-        rewrite_aux(formula.location, other, eq, env)
-      except Exception:
-        return ''
-      if get_num_rewrites() == 0:
-        return ''
-      return ('\nThe ' + other_label + ' does contain a match, but `replace` ' \
-              'only rewrites inside the marked subterm. Inside an `equations` ' \
-              'block, the left-hand side of each step is implicitly marked. ' \
-              'To rewrite the ' + other_label + ' instead, wrap that side in `#...#`:\n' \
-              '\t# ' + str(other) + ' #')
-    case _:
-      return ''
+  other, other_label = other_side
+  try:
+    reset_num_rewrites()
+    rewrite_aux(formula.location, other, eq, env)
+  except Exception:
+    return ''
+  if get_num_rewrites() == 0:
+    return ''
+  return ('\nThe ' + other_label + ' does contain a match, but `replace` ' \
+          'only rewrites inside the marked subterm. Inside an `equations` ' \
+          'block, the left-hand side of each step is implicitly marked. ' \
+          'To rewrite the ' + other_label + ' instead, wrap that side in `#...#`:\n' \
+          '\t# ' + str(other) + ' #')
+
+
+def _single_marked_subject(loc: Meta, formula: Formula, num_marks: int,
+                           find_mark_where: str, multi_mark_where: str) -> Formula:
+  # A formula handed to `expand`/`replace` carries at most one mark. Given its
+  # already-computed mark count, return the marked subterm when there is exactly
+  # one mark, the formula unchanged when there is none, and raise an internal
+  # error otherwise. The `*_where` labels keep the (should-never-fire)
+  # internal-error text specific to each caller.
+  if num_marks == 0:
+    return formula
+  if num_marks == 1:
+    try:
+      find_mark(formula)
+      internal_error(loc, 'in ' + find_mark_where + ', find_mark failed on formula:\n\t' \
+                     + str(formula))
+    except MarkException as ex:
+      return ex.subject
+  internal_error(loc, 'in ' + multi_mark_where + ', formula contains more than one mark:\n\t' \
+                 + str(formula))
 
 
 def expand_definitions(loc: Meta, formula: Formula, defs: Sequence[Term],
                        env: Env) -> Formula:
   num_marks = count_marks(formula)
-  if num_marks == 0:
-      new_formula = formula
-  elif num_marks == 1:
-      try:
-          find_mark(formula)
-          internal_error(loc, 'in expand_definitions, find_mark failed on formula:\n\t' \
-                         + str(formula))
-      except MarkException as ex:
-          new_formula = ex.subject
-  else:
-      internal_error(loc, 'in expand, formula contains more than one mark:\n\t' \
-                     + str(formula))
+  new_formula = _single_marked_subject(loc, formula, num_marks,
+                                       'expand_definitions', 'expand')
   if get_verbose():
       print('expand definitions to formula: ' + str(new_formula))
   # True once an earlier target in this `expand a | b | ...` collapsed the
@@ -835,16 +843,8 @@ def apply_rewrites(loc: Meta, formula: Formula,
   # equations used in diagnostics; an entry that auto-rules collapse to
   # `true` would otherwise have no useful printed form.
   num_marks = count_marks(formula)
-  if num_marks == 0:
-      new_formula = formula
-  elif num_marks == 1:
-      try:
-          find_mark(formula)
-          internal_error(loc, 'in apply_rewrites, find_mark failed on formula:\n\t' + str(formula))
-      except MarkException as ex:
-          new_formula = ex.subject
-  else:
-      internal_error(loc, 'in rewrite, formula contains more than one mark:\n\t' + str(formula))
+  new_formula = _single_marked_subject(loc, formula, num_marks,
+                                       'apply_rewrites', 'rewrite')
 
   display_seq: Sequence[Formula | AutoRewriteRule] = \
       display_eqns if display_eqns is not None else eqns
