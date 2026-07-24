@@ -913,15 +913,15 @@ def add_reduced_def(df: str) -> None:
   reduced_defs.add(df)
 
 def complete_name(name: str) -> str:
-    if base_name(name) in infix_precedence.keys() \
-       or base_name(name) in prefix_precedence.keys():
+    if is_operator_name(name):
         return 'operator ' + base_name(name)
     else:
         return name2str(name)
     
 def is_operator_name(name: str) -> bool:
     return base_name(name) in infix_precedence.keys() \
-        or base_name(name) in prefix_precedence.keys()
+        or base_name(name) in prefix_precedence.keys() \
+        or base_name(name) in sugar_operators
     
     
 def is_var_operator(trm: Term) -> bool:
