@@ -30,7 +30,7 @@ Does NOT go here:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from .core import *
 from .terms import *
@@ -69,13 +69,21 @@ class Declaration(Statement):
     return self.visibility == 'private' \
         and importing_module != get_current_module()
 
+  # Function-like declarations (`Define`, `RecFun`, ...) permit several
+  # definitions sharing a base name, so they accumulate overloads via
+  # `extend`; other declarations just overwrite their single name.
+  _exports_overload: ClassVar[bool] = False
+
   def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
     # Default: export this declaration's single name. Subclasses that
-    # export additional names (constructors, rules), accumulate overloads
-    # via `extend`, or use a different visibility rule override this.
+    # export additional names (constructors, rules) or use a different
+    # visibility rule override this.
     if self._skip_export(importing_module):
       return
-    export_env[base_name(self.name)] = [self.name]
+    if self._exports_overload:
+      extend(export_env, base_name(self.name), self.name, self.location)
+    else:
+      export_env[base_name(self.name)] = [self.name]
 
 ################ Statements ######################################
 
@@ -1192,10 +1200,7 @@ class RecFun(Declaration):
                   new_params, new_returns, new_cases,
                   visibility=self.visibility)
       
-  def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
-    if self._skip_export(importing_module):
-      return
-    extend(export_env, base_name(self.name), self.name, self.location)
+  _exports_overload = True
 
   def __str__(self) -> str:
     if get_verbose():
@@ -1304,10 +1309,7 @@ class GenRecFun(Declaration):
                      new_measure_ty, new_body, new_terminates,
                      self.trusted_terminates, visibility=self.visibility)
     
-  def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
-    if self._skip_export(importing_module):
-      return
-    extend(export_env, base_name(self.name), self.name, self.location)
+  _exports_overload = True
 
   def __str__(self) -> str:
     if get_verbose():
@@ -1412,10 +1414,7 @@ class ViewRecFun(Declaration):
                       new_view_subject, new_cases,
                       visibility=self.visibility)
 
-  def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
-    if self._skip_export(importing_module):
-      return
-    extend(export_env, base_name(self.name), self.name, self.location)
+  _exports_overload = True
 
   def __str__(self) -> str:
     return self.name if get_unique_names() else base_name(self.name)
@@ -1476,10 +1475,7 @@ class ViewDecl(Declaration):
                     new_source, new_target, new_into, new_out,
                     new_roundtrip, new_inverse, visibility=self.visibility)
 
-  def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
-    if self._skip_export(importing_module):
-      return
-    extend(export_env, base_name(self.name), self.name, self.location)
+  _exports_overload = True
 
   def __str__(self) -> str:
     return self.name if get_unique_names() else base_name(self.name)
@@ -1552,10 +1548,7 @@ class Define(Declaration):
     return Define(self.location, new_name, new_typ, new_body,
                   visibility=self.visibility)
 
-  def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
-    if self._skip_export(importing_module):
-      return
-    extend(export_env, base_name(self.name), self.name, self.location)
+  _exports_overload = True
 
 uniquified_modules: "dict[str, List[Statement]]" = {}
 
