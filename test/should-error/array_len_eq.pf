@@ -1,0 +1,8 @@
+// A shorter array must not compare equal to a longer one (soundness, issue #1087).
+import UInt
+import List
+
+theorem array_len_bug: array([1]) = array([1, 2])
+proof
+  evaluate
+end

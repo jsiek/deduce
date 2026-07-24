@@ -1573,11 +1573,12 @@ class Array(Term):
   elements: List[Term]
 
   def __eq__(self, other: object) -> bool:
-    if isinstance(other, Array):
-      return all([elt == other_elt for (elt, other_elt) in zip(self.elements,
-                                                               other.elements)])
-    else:
+    if not isinstance(other, Array):
       return False
+    if len(self.elements) != len(other.elements):
+      return False
+    return all([elt == other_elt for (elt, other_elt) in zip(self.elements,
+                                                             other.elements)])
 
   def __str__(self) -> str:
     return 'array(' + ', '.join([str(elt) for elt in self.elements]) + ')'
