@@ -109,6 +109,7 @@ forms are parser/AST only today and most require
 - [Pattern](#pattern)
 - [Parameter List](#parameter-list)
 - [Period (Proof of True)](#period-proof-of-true)
+- [Power](#power)
 - [Private (Visibility)](#private-visibility)
 - [Public (Visibility)](#public-visibility)
 - [Proof](#proof)
@@ -2045,6 +2046,24 @@ atomic_proof ::= "."
 
 A period is a proof of the formula `true` in Deduce.
 
+
+## Power
+
+```deduce-grammar
+exponent_term ::= exponent_term "^" atomic_term
+```
+
+The exponentiation operator `x ^ y` computes `x` raised to the power
+`y`. It binds more tightly than the multiplicative operators, so
+`2 * 3 ^ 2` is `2 * (3 ^ 2)`. Exponentiation on unsigned integers is
+defined in `UInt.pf`; the one for integers is defined in `Int.pf`.
+
+Example:
+
+```{.deduce^#power_example}
+assert 2 ^ 3 = 8
+assert 2 ^ 0 = 1
+```
 
 ## Private (Visibility)
 
