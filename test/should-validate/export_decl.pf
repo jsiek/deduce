@@ -1,0 +1,9 @@
+// `export <name>` (the `Export` statement) re-exports a name so that a module
+// importing this one sees it without a qualified path. Round-trip coverage for
+// the pretty-printer's reproduction of the bare `export IDENT` form. Refs #931.
+
+import UInt
+
+define answer : UInt = 42
+
+export answer
