@@ -508,6 +508,41 @@ class PExtensionality(Proof):
   def __str__(self) -> str:
     return 'extensionality\n' + maybe_str(self.body)
 
+def uniquify_pattern_case(
+    loc: Meta,
+    pattern: Pattern,
+    labeled_hyps: list[Tuple[str, Optional[Formula]]],
+    body: Proof,
+    env_map: UniquifyEnv,
+    uniq_ctx: UniquifyContext,
+) -> Tuple[Pattern, list[Tuple[str, Optional[Formula]]], Proof]:
+  """Uniquify a `case <pattern> assume <labeled_hyps> { <body> }` block.
+
+  Renames the pattern's bindings and the hypothesis/assumption labels to
+  globally unique names, uniquifies each hypothesis formula and the body
+  against the extended environment, and returns the rebuilt
+  `(pattern, labeled_hyps, body)`. Shared by `IndCase.uniquify` (induction
+  hypotheses) and `SwitchProofCase.uniquify` (switch assumptions).
+  """
+  body_env = copy_dict(env_map)
+
+  new_params = [generate_name(x, uniq_ctx) for x in pattern.bindings()]
+  for (old, new) in zip(pattern.bindings(), new_params):
+    overwrite(body_env, old, new, loc)
+
+  new_labels = [generate_name(x, uniq_ctx) for (x, _) in labeled_hyps]
+  for ((old, _), new) in zip(labeled_hyps, new_labels):
+    overwrite(body_env, old, new, loc)
+
+  new_hyps: list[Tuple[str, Optional[Formula]]] = []
+  for ((_, f), new_label) in zip(labeled_hyps, new_labels):
+    new_f = f.uniquify(body_env, uniq_ctx) if f else None
+    new_hyps.append((new_label, new_f))
+
+  new_pat = pattern.with_bindings(new_params).uniquify(body_env, uniq_ctx)
+  new_body = body.uniquify(body_env, uniq_ctx)
+  return (new_pat, new_hyps, new_body)
+
 @dataclass
 class IndCase(AST):
   pattern: Pattern
@@ -535,27 +570,12 @@ class IndCase(AST):
       + ' {' + str(self.body) + '}'
 
   def uniquify(self, env: object, ctx: object) -> IndCase:
-    env_map = cast(UniquifyEnv, env)
-    uniq_ctx = cast(UniquifyContext, ctx)
-    body_env = copy_dict(env_map)
-    pattern = cast(PatternCons, self.pattern)
-
-    new_params = [generate_name(x, uniq_ctx) for x in pattern.parameters]
-    for (old, new) in zip(pattern.parameters, new_params):
-      overwrite(body_env, old, new, self.location)
-
-    new_hyp_labels = [generate_name(x, uniq_ctx) for (x, _) in self.induction_hypotheses]
-    for ((old, _), new) in zip(self.induction_hypotheses, new_hyp_labels):
-      overwrite(body_env, old, new, self.location)
-
-    new_hyps: list[Tuple[str, Formula]] = []
-    for ((_, f), new_label) in zip(self.induction_hypotheses, new_hyp_labels):
-      new_f = f.uniquify(body_env, uniq_ctx) if f else None
-      new_hyps.append((new_label, cast(Formula, new_f)))
-
-    new_pat = pattern.with_bindings(new_params).uniquify(body_env, uniq_ctx)
-    new_body = self.body.uniquify(body_env, uniq_ctx)
-    return IndCase(self.location, new_pat, new_hyps, new_body)
+    new_pat, new_hyps, new_body = uniquify_pattern_case(
+        self.location, self.pattern,
+        cast('list[Tuple[str, Optional[Formula]]]', self.induction_hypotheses),
+        self.body, cast(UniquifyEnv, env), cast(UniquifyContext, ctx))
+    return IndCase(self.location, new_pat,
+                   cast('list[Tuple[str, Formula]]', new_hyps), new_body)
 
 @dataclass
 class Induction(Proof):
@@ -696,26 +716,9 @@ class SwitchProofCase(AST):
         + '{' + str(self.body) + '}'
 
   def uniquify(self, env: object, ctx: object) -> SwitchProofCase:
-    env_map = cast(UniquifyEnv, env)
-    uniq_ctx = cast(UniquifyContext, ctx)
-    body_env = copy_dict(env_map)
-    pattern = self.pattern
-
-    new_params = [generate_name(x, uniq_ctx) for x in pattern.bindings()]
-    for (old, new) in zip(pattern.bindings(), new_params):
-      overwrite(body_env, old, new, self.location)
-
-    new_assumption_labels = [generate_name(x, uniq_ctx) for (x, _) in self.assumptions]
-    for ((old, _), new) in zip(self.assumptions, new_assumption_labels):
-      overwrite(body_env, old, new, self.location)
-
-    new_assumptions: list[Tuple[str, Optional[Formula]]] = []
-    for ((_, f), new_label) in zip(self.assumptions, new_assumption_labels):
-      new_f = f.uniquify(body_env, uniq_ctx) if f else None
-      new_assumptions.append((new_label, new_f))
-
-    new_pat = pattern.with_bindings(new_params).uniquify(body_env, uniq_ctx)
-    new_body = self.body.uniquify(body_env, uniq_ctx)
+    new_pat, new_assumptions, new_body = uniquify_pattern_case(
+        self.location, self.pattern, self.assumptions, self.body,
+        cast(UniquifyEnv, env), cast(UniquifyContext, ctx))
     return SwitchProofCase(self.location, new_pat,
                            new_assumptions, new_body)
 
