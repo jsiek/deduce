@@ -35,7 +35,7 @@ deferred to subsequent PRs.
 from __future__ import annotations
 
 from dataclasses import fields as dc_fields
-from typing import Callable, Iterable
+from typing import Callable, Iterable, cast
 
 import pytest
 from lark.tree import Meta
@@ -841,21 +841,47 @@ def test_structural_eq_nodes_are_unhashable(cls: type) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Length-guard regression (issues #1087, #1096)
+# Length-guard regression (issues #1087, #1096, #1101)
 # ---------------------------------------------------------------------------
 #
 # Container-shaped nodes compare their child lists elementwise. Without a
 # length guard the pairwise ``zip`` stops at the shorter list, so a node whose
 # children are a *prefix* of another's compares equal -- a structural-equality
 # hole; #1096 covers ``Switch``/``TermInst`` (``Array`` is guarded separately
-# in #1089). These build a node and the same node with one extra trailing child
-# and assert inequality in both directions, mirroring the ``And``/``Or``/
-# ``Call`` nodes that already guard on ``len``.
+# in #1089), and #1101 covers ``TypeInst`` plus the two alpha-renaming nodes
+# ``Generic`` and ``SwitchCase`` (whose ``zip`` builds the rename map rather
+# than comparing directly, but has the same prefix hole). These build a node
+# and the same node with one extra trailing child and assert inequality in both
+# directions, mirroring the ``And``/``Or``/``Call`` nodes that already guard on
+# ``len``.
+
+
+def _spec_SwitchCaseCons() -> ast.SwitchCase:
+    return ast.SwitchCase(
+        _meta(), ast.PatternCons(_meta(), _var("C"), ["x"]), _var("z")
+    )
 
 
 def _grow_Switch(node: ast.Switch) -> ast.Switch:
     return ast.Switch(node.location, node.typeof, node.subject,
                       node.cases + [_spec_SwitchCase()])
+
+
+def _grow_TypeInst(node: ast.TypeInst) -> ast.TypeInst:
+    return ast.TypeInst(node.location, node.typ,
+                        node.arg_types + [ast.BoolType(_meta())])
+
+
+def _grow_Generic(node: ast.Generic) -> ast.Generic:
+    return ast.Generic(node.location, node.typeof,
+                       node.type_params + ["U"], node.body)
+
+
+def _grow_SwitchCaseCons(node: ast.SwitchCase) -> ast.SwitchCase:
+    pat = cast(ast.PatternCons, node.pattern)
+    grown = ast.PatternCons(pat.location, pat.constructor,
+                            pat.parameters + ["y"])
+    return ast.SwitchCase(node.location, grown, node.body)
 
 
 def _grow_TermInst(node: ast.TermInst) -> ast.TermInst:
@@ -881,6 +907,9 @@ _LENGTH_GUARD_CASES = [
     (_spec_And, _grow_And),
     (_spec_Or, _grow_Or),
     (_spec_Call, _grow_Call),
+    (_spec_TypeInst, _grow_TypeInst),
+    (_spec_Generic, _grow_Generic),
+    (_spec_SwitchCaseCons, _grow_SwitchCaseCons),
 ]
 
 
