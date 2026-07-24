@@ -1,0 +1,6 @@
+// The `operator` keyword may only name an actual operator symbol. The
+// recursive-descent parser used to grab whatever token followed `operator`
+// unconditionally, so `operator **` (and `operator .0.`, `operator |->`,
+// `operator )`, ...) parsed to a bogus `Var`, while the LALR parser rejected
+// them -- a parser divergence. RD now rejects non-operators too. See #473.
+define d = operator **

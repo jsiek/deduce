@@ -54,6 +54,13 @@ compare_operators = {'<', '>', '≤', '<=', '≥', '>=', '⊆', '(=', '∈', 'in
 equal_operators = {'=', '≠', '/='}
 iff_operators = {'iff', "<=>", "⇔"}
 
+# The operator symbols nameable via the `operator` keyword. Matches the
+# `operator`-prefixed alternatives of the LALR grammar's `identifier` rule
+# (Deduce.lark); note `iff`/`⇔`/`<=>` are deliberately excluded, as they are
+# connectives with no `operator` form in either parser.
+operator_names = (expt_operators | mult_operators | add_operators
+                  | compare_operators | equal_operators)
+
 to_unicode = {'.o.': '∘', '|': '∪', '&': '∩', '.+.': '⨄', '.-.': '∸',
               '<=': '≤', '>=': '≥', '/=': '≠',
               '~~': '≈', '<~': '≲', '~-': '⊝',
@@ -182,7 +189,11 @@ def parse_identifier() -> str:
     return '__'
   elif current_token().value == 'operator':
     advance()
-    rator = cast(str, current_token().value)
+    rator_token = current_token()
+    rator = cast(str, rator_token.value)
+    if rator not in operator_names:
+      raise ParseError(meta_from_tokens(rator_token, rator_token),
+            'expected an operator after "operator", not\n\t' + quote(rator))
     advance()
     return to_unicode.get(rator, rator)
   else:

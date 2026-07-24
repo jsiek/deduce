@@ -1,0 +1,9 @@
+./test/parse/operator_not_an_operator.pf:6.1-6.20: while parsing
+	proof_stmt ::= "define" identifier "=" term
+
+
+define d = operator **
+           ^^^^^^^^^^^
+
+./test/parse/operator_not_an_operator.pf:6.12-6.23: expected a term, not
+	"**"
