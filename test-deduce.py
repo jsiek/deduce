@@ -577,6 +577,23 @@ PARSER_ROUND_TRIP_FILES = (
     # recognized as an operator name, so the `operator` prefix is preserved.
     # Refs #931, #473.
     "./test/should-error/operator_not_equal_synonym.pf",
+    # `rule induction <pred>` / `rule inversion <pred>` proofs (`RuleInduction`,
+    # `RuleInductionCase`, `RuleInversion` AST nodes). No prior round-trip fixture
+    # exercised these tactics, so a pretty-printer regression on the `rule
+    # induction`/`rule inversion` header or its `case <rule> { ... }` list would
+    # have passed CI silently. Refs #931, #473.
+    "./test/should-validate/predicate_rule_induction_sugar.pf",
+    "./test/should-validate/predicate_rule_inversion.pf",
+    # A `view` declaration (`ViewDecl` node) with its `source`/`target`/`into`/
+    # `out`/`roundtrip`/`inverse` clauses, plus a `recursive f(<view>) -> ...`
+    # function keyed on the view. No prior round-trip fixture covered `view`, so
+    # the pretty-printer's reproduction of the clause block was unverified.
+    # Refs #931, #473.
+    "./test/should-validate/view_inverse_decl.pf",
+    # A bare `export <name>` re-export statement (`Export` node). Only stdlib
+    # modules exercised it before, none of them in the round-trip corpus, so the
+    # pretty-printer's `export IDENT` form was unverified. Refs #931, #473.
+    "./test/should-validate/export_decl.pf",
 )
 
 
