@@ -488,15 +488,7 @@ def try_rewrite(
   return cast(Term, rule.rhs.substitute(matching).reduce(env))
 
 def premise_holds(premise: Formula, env: Env) -> bool:
-    old_reduce_all = get_reduce_all()
-    old_eval_all = get_eval_all()
-    try:
-      set_reduce_all(True)
-      set_eval_all(True)
-      normalized = premise.reduce(env)
-    finally:
-      set_eval_all(old_eval_all)
-      set_reduce_all(old_reduce_all)
+    normalized = full_reduce(premise, env)
     rewritten = auto_rewrites(normalized, env, include_conditionals=False)
     return is_true(cast(Formula, rewritten))
 
