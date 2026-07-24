@@ -892,6 +892,19 @@ def set_eval_all(b: bool) -> None:
   global eval_all
   eval_all = b
 
+def full_reduce(term: Term, env: Env) -> Term:
+  """Reduce `term` with reduce_all and eval_all forced on, restoring the
+  previous flag settings afterward."""
+  old_reduce_all = get_reduce_all()
+  old_eval_all = get_eval_all()
+  try:
+    set_reduce_all(True)
+    set_eval_all(True)
+    return term.reduce(env)
+  finally:
+    set_eval_all(old_eval_all)
+    set_reduce_all(old_reduce_all)
+
 # Definitions that were reduced.
 reduced_defs: set[str] = set()
 

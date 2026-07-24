@@ -29,8 +29,8 @@ from abstract_syntax import (
     Statement, Switch, SwitchCase, TAnnote, TLet, Term, TermInst, Theorem,
     Trace, Type, TypeAlias, TypeInst, TypeType, Union, Var, VarRef, VerboseLevel,
     ViewDecl, ViewRecFun, alpha_equiv, base_name, callable_name,
-    check_post_typecheck_invariants, find_file, mkEqual, print_theorems,
-    set_eval_all, set_reduce_all, type_match, type_names,
+    check_post_typecheck_invariants, find_file, full_reduce, mkEqual,
+    print_theorems, type_match, type_names,
 )
 from checker_cache import (
     _collect_defined_names, _collect_referenced_names, _hash_ast,
@@ -1251,22 +1251,14 @@ def check_proofs(stmt: Statement, env: Env) -> None:
       pass
   
     case Print(loc, trm):
-      set_reduce_all(True)
-      set_eval_all(True)
-      result = trm.reduce(env)
-      set_eval_all(False)
-      set_reduce_all(False)
+      result = full_reduce(trm, env)
       print(str(result))
       
     case Assert(loc, frm):
       match frm:
         case Call(_, _, rator, [lhs, rhs]) if isinstance(rator, VarRef) and rator.get_name() == '=':
-          set_reduce_all(True)
-          set_eval_all(True)
-          L = lhs.reduce(env)
-          R = rhs.reduce(env)
-          set_eval_all(False)
-          set_reduce_all(False)
+          L = full_reduce(lhs, env)
+          R = full_reduce(rhs, env)
           if L == R:
             pass
           else:
@@ -1275,23 +1267,15 @@ def check_proofs(stmt: Statement, env: Env) -> None:
         case IfThen(_, _,
                     Call(_, _, rator, [lhs, rhs]),
                     Bool(_, _, False)) if isinstance(rator, VarRef) and rator.get_name() == '=':
-          set_reduce_all(True)
-          set_eval_all(True)
-          L = lhs.reduce(env)
-          R = rhs.reduce(env)
-          set_eval_all(False)
-          set_reduce_all(False)
+          L = full_reduce(lhs, env)
+          R = full_reduce(rhs, env)
           if L != R:
             pass
           else:
               user_error(loc, 'assertion failed:\n' +
                     '\t' + str(L) + ' = ' + str(R) + '\n')
         case _:
-          set_reduce_all(True)
-          set_eval_all(True)
-          result = frm.reduce(env)
-          set_eval_all(False)
-          set_reduce_all(False)
+          result = full_reduce(frm, env)
           match result:
             case Bool(_, _, True):
               pass
