@@ -46,6 +46,7 @@ SUBSET_RULES = {
     "conclusion",
     "comparison_term",
     "equality_term",
+    "exponent_term",
     "iff_term",
     "logical_term",
     "multiplicative_term",
