@@ -85,6 +85,17 @@ class Declaration(Statement):
     else:
       export_env[base_name(self.name)] = [self.name]
 
+  def reduce(self, env: object) -> Self:
+    # A declaration is not a reducible term: reducing or substituting into
+    # one yields the declaration unchanged. (The recursive `AST` default is
+    # only meaningful for terms; declarations that live in the runtime
+    # environment as values -- `RecFun`, `GenRecFun`, `ViewRecFun` -- rely
+    # on this.)
+    return self
+
+  def substitute(self, sub: object) -> Self:
+    return self
+
 ################ Statements ######################################
 
 ## Updates the environment with a name, creating overloads
@@ -708,12 +719,6 @@ class Predicate(Declaration):
   # `None` on a Predicate that hasn't been processed yet.
   translated_ast: Optional[List["Statement"]] = None
 
-  def reduce(self, env: object) -> Self:
-    return self
-
-  def substitute(self, sub: object) -> Self:
-    return self
-
   def uniquify(self, env: object, ctx: object) -> Predicate:
     env_map = cast(UniquifyEnv, env)
     uniq_ctx = cast(UniquifyContext, ctx)
@@ -802,9 +807,6 @@ class Union(Declaration):
   alternatives: List[Constructor]
   param_polarities: Optional[List[str]] = None
 
-  def reduce(self, env: object) -> Self:
-    return self
-  
   def uniquify(self, env: object, ctx: object) -> Union:
     env_map = cast(UniquifyEnv, env)
     uniq_ctx = cast(UniquifyContext, ctx)
@@ -831,10 +833,7 @@ class Union(Declaration):
     if not self.visibility == 'opaque' or (importing_module == get_current_module()):
       for con in self.alternatives:
         extend(export_env, base_name(con.name), con.name, self.location)
-    
-  def substitute(self, sub: object) -> Self:
-    return self
-      
+
   def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
       header = self.visibility_prefix() + 'union ' + base_name(self.name) \
           + ('<' + ','.join([base_name(t) for t in self.type_params]) + '>' if len(self.type_params) > 0 \
@@ -858,9 +857,6 @@ class TypeAlias(Declaration):
   type_params: List[str]
   body: Type
 
-  def reduce(self, env: object) -> Self:
-    return self
-
   def uniquify(self, env: object, ctx: object) -> TypeAlias:
     env_map = cast(UniquifyEnv, env)
     uniq_ctx = cast(UniquifyContext, ctx)
@@ -878,9 +874,6 @@ class TypeAlias(Declaration):
     return TypeAlias(self.location, new_name, new_type_params,
                      self.body.uniquify(body_env, uniq_ctx),
                      visibility=self.visibility)
-
-  def substitute(self, sub: object) -> Self:
-    return self
 
   def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
     header = self.visibility_prefix() + 'type ' + base_name(self.name) \
@@ -924,9 +917,6 @@ class ObjectDecl(Declaration):
   type_params: List[str]
   fields: Optional[List[ObjectField]] = None
 
-  def reduce(self, env: object) -> Self:
-    return self
-
   def uniquify(self, env: object, ctx: object) -> ObjectDecl:
     env_map = cast(UniquifyEnv, env)
     uniq_ctx = cast(UniquifyContext, ctx)
@@ -944,9 +934,6 @@ class ObjectDecl(Declaration):
       else [field.uniquify(body_env, uniq_ctx) for field in self.fields]
     return ObjectDecl(self.location, new_name, new_type_params, new_fields,
                       visibility=self.visibility)
-
-  def substitute(self, sub: object) -> Self:
-    return self
 
   def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
     header = self.visibility_prefix() + 'object ' + base_name(self.name) \
@@ -974,12 +961,6 @@ class ObserverDecl(Declaration):
   return_type: Type
   reads: List[List[FrameExpr]]
   body: Optional[Term] = None
-
-  def reduce(self, env: object) -> Self:
-    return self
-
-  def substitute(self, sub: object) -> Self:
-    return self
 
   def uniquify(self, env: object, ctx: object) -> ObserverDecl:
     env_map = cast(UniquifyEnv, env)
@@ -1051,12 +1032,6 @@ class ResourceDecl(Declaration):
   type_params: List[str]
   params: List[ProcParam]
   body: Optional[Term] = None
-
-  def reduce(self, env: object) -> Self:
-    return self
-
-  def substitute(self, sub: object) -> Self:
-    return self
 
   def uniquify(self, env: object, ctx: object) -> ResourceDecl:
     env_map = cast(UniquifyEnv, env)
@@ -1233,12 +1208,6 @@ class RecFun(Declaration):
       return res
     return isinstance(other, RecFun) and self.name == other.name
 
-  def reduce(self, env: object) -> Self:
-    return self
-
-  def substitute(self, sub: object) -> Self:
-    return self
-
 def pretty_print_function_header(
     name: str,
     type_params: Sequence[str],
@@ -1354,12 +1323,6 @@ class GenRecFun(Declaration):
     if res is not None:
       return res
     return isinstance(other, GenRecFun) and self.name == other.name
-
-  def reduce(self, env: object) -> Self:
-    return self
-
-  def substitute(self, sub: object) -> Self:
-    return self
 
 @dataclass
 class ViewRecFun(Declaration):
