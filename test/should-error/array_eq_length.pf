@@ -1,0 +1,10 @@
+import UInt
+import List
+
+// Regression for #1087: Array equality must respect length. Previously
+// `Array.__eq__` zipped elements without a length guard, so an array that is
+// a prefix of another compared equal and this false theorem checked as valid.
+theorem array_eq_length: array([1]) = array([1, 2])
+proof
+  evaluate
+end

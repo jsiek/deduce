@@ -79,7 +79,7 @@ class IntType(Type):
     return 'int'
 
   def __eq__(self, other: object) -> bool:
-    return isinstance(other, IntType)
+    return eq_fields(self, other)
 
   def free_vars(self) -> Set[str]:
     return set()
@@ -91,7 +91,7 @@ class BoolType(Type):
     return 'bool'
 
   def __eq__(self, other: object) -> bool:
-    return isinstance(other, BoolType)
+    return eq_fields(self, other)
 
   def free_vars(self) -> Set[str]:
     return set()
@@ -103,7 +103,7 @@ class TypeType(Type):
     return 'type'
 
   def __eq__(self, other: object) -> bool:
-    return isinstance(other, TypeType)
+    return eq_fields(self, other)
 
   def free_vars(self) -> Set[str]:
     return set()
@@ -194,11 +194,7 @@ class ArrayType(Type):
     return '[' + str(self.elt_type) + ']'
 
   def __eq__(self, other: object) -> bool:
-    match other:
-      case ArrayType(_, elt_type):
-        return self.elt_type == elt_type
-      case _:
-        return False
+    return eq_fields(self, other, 'elt_type')
 
   def free_vars(self) -> Set[str]:
     return self.elt_type.free_vars()
@@ -211,11 +207,7 @@ class MutableArrayType(Type):
     return '[' + str(self.elt_type) + ']!'
 
   def __eq__(self, other: object) -> bool:
-    match other:
-      case MutableArrayType(_, elt_type):
-        return self.elt_type == elt_type
-      case _:
-        return False
+    return eq_fields(self, other, 'elt_type')
 
   def free_vars(self) -> Set[str]:
     return self.elt_type.free_vars()
@@ -1573,11 +1565,7 @@ class Array(Term):
   elements: List[Term]
 
   def __eq__(self, other: object) -> bool:
-    if isinstance(other, Array):
-      return all([elt == other_elt for (elt, other_elt) in zip(self.elements,
-                                                               other.elements)])
-    else:
-      return False
+    return eq_arg_list(self, other, 'elements')
 
   def __str__(self) -> str:
     return 'array(' + ', '.join([str(elt) for elt in self.elements]) + ')'
@@ -1587,10 +1575,7 @@ class MakeArray(Term):
   subject: Term
 
   def __eq__(self, other: object) -> bool:
-    if isinstance(other, MakeArray):
-      return self.subject == other.subject
-    else:
-      return False
+    return eq_fields(self, other, 'subject')
 
   def __str__(self) -> str:
     return 'array(' + str(self.subject) + ')'
@@ -1609,11 +1594,7 @@ class ArrayGet(Term):
   position: Term
 
   def __eq__(self, other: object) -> bool:
-    if isinstance(other, ArrayGet):
-      return self.subject == other.subject \
-        and self.position == other.position
-    else:
-      return False
+    return eq_fields(self, other, 'subject', 'position')
 
   def __str__(self) -> str:
     return str(self.subject) + '[' + str(self.position) + ']'
@@ -1791,12 +1772,8 @@ class And(Formula):
                                for arg in ret_args]) + ')'
 
   def __eq__(self, other: object) -> bool:
-    if not isinstance(other, And):
-      return False
-    if len(self.args) != len(other.args):
-      return False
-    return all([arg1 == arg2 for arg1,arg2 in zip(self.args, other.args)])
-  
+    return eq_arg_list(self, other)
+
   def reduce(self, env: Env) -> Formula:
     #new_args = [arg.reduce(env) for arg in self.args]
     new_args = flatten_and([arg.reduce(env) for arg in self.args])
@@ -1838,12 +1815,8 @@ class Or(Formula):
                               for arg in self.args]) + ')'
   
   def __eq__(self, other: object) -> bool:
-    if not isinstance(other, Or):
-      return False
-    if len(self.args) != len(other.args):
-      return False
-    return all([arg1 == arg2 for arg1,arg2 in zip(self.args, other.args)])
-  
+    return eq_arg_list(self, other)
+
   def reduce(self, env: Env) -> Formula:
     new_args = flatten_or([arg.reduce(env) for arg in self.args])
     newer_args = []
@@ -1886,9 +1859,7 @@ class IfThen(Formula):
           + ' then ' + str(self.conclusion) + ')'
 
   def __eq__(self, other: object) -> bool:
-    if not isinstance(other, IfThen):
-      return False
-    return self.premise == other.premise and self.conclusion == other.conclusion
+    return eq_fields(self, other, 'premise', 'conclusion')
   
   def reduce(self, env: Env) -> Formula:
     prem = self.premise.reduce(env)
@@ -1946,7 +1917,7 @@ class Emp(Formula):
   # The empty-heap resource assertion, written `emp`.
 
   def __eq__(self, other: object) -> bool:
-    return isinstance(other, Emp)
+    return eq_fields(self, other)
 
   def __str__(self) -> str:
     return 'emp'
@@ -1958,9 +1929,7 @@ class PointsTo(Formula):
   value: Term
 
   def __eq__(self, other: object) -> bool:
-    if not isinstance(other, PointsTo):
-      return False
-    return self.address == other.address and self.value == other.value
+    return eq_fields(self, other, 'address', 'value')
 
   def __str__(self) -> str:
     return '(' + str(self.address) + ' |-> ' + str(self.value) + ')'
@@ -1973,9 +1942,7 @@ class SepConj(Formula):
   right: Formula
 
   def __eq__(self, other: object) -> bool:
-    if not isinstance(other, SepConj):
-      return False
-    return self.left == other.left and self.right == other.right
+    return eq_fields(self, other, 'left', 'right')
 
   def __str__(self) -> str:
     return '(' + str(self.left) + ' ** ' + str(self.right) + ')'
