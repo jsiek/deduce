@@ -840,6 +840,67 @@ def test_structural_eq_nodes_are_unhashable(cls: type) -> None:
         hash(copied)
 
 
+# ---------------------------------------------------------------------------
+# Length-guard regression (issues #1087, #1096)
+# ---------------------------------------------------------------------------
+#
+# Container-shaped nodes compare their child lists elementwise. Without a
+# length guard the pairwise ``zip`` stops at the shorter list, so a node whose
+# children are a *prefix* of another's compares equal -- a structural-equality
+# hole; #1096 covers ``Switch``/``TermInst`` (``Array`` is guarded separately
+# in #1089). These build a node and the same node with one extra trailing child
+# and assert inequality in both directions, mirroring the ``And``/``Or``/
+# ``Call`` nodes that already guard on ``len``.
+
+
+def _grow_Switch(node: ast.Switch) -> ast.Switch:
+    return ast.Switch(node.location, node.typeof, node.subject,
+                      node.cases + [_spec_SwitchCase()])
+
+
+def _grow_TermInst(node: ast.TermInst) -> ast.TermInst:
+    return ast.TermInst(node.location, node.typeof, node.subject,
+                        node.type_args + [ast.BoolType(_meta())], node.inferred)
+
+
+def _grow_And(node: ast.And) -> ast.And:
+    return ast.And(node.location, node.typeof, node.args + [_var("z")])
+
+
+def _grow_Or(node: ast.Or) -> ast.Or:
+    return ast.Or(node.location, node.typeof, node.args + [_var("z")])
+
+
+def _grow_Call(node: ast.Call) -> ast.Call:
+    return ast.Call(node.location, node.typeof, node.rator, node.args + [_var("z")])
+
+
+_LENGTH_GUARD_CASES = [
+    (_spec_Switch, _grow_Switch),
+    (_spec_TermInst, _grow_TermInst),
+    (_spec_And, _grow_And),
+    (_spec_Or, _grow_Or),
+    (_spec_Call, _grow_Call),
+]
+
+
+@pytest.mark.parametrize(
+    "make,grow",
+    _LENGTH_GUARD_CASES,
+    ids=[make().__class__.__name__ for make, _ in _LENGTH_GUARD_CASES],
+)
+def test_prefix_child_list_not_equal(
+    make: Callable[[], ast.AST], grow: Callable[[ast.AST], ast.AST]
+) -> None:
+    """A node whose children are a prefix of another's is not equal to it."""
+    short = make()
+    long = grow(make())
+    assert not (short == long), f"{type(short).__name__}: prefix compared equal"
+    assert not (long == short), (
+        f"{type(short).__name__}: prefix compared equal (reversed)"
+    )
+
+
 def test_specimen_coverage_report(capsys: pytest.CaptureFixture[str]) -> None:
     """Informational: report concrete AST classes without a specimen.
 

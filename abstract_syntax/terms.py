@@ -1522,7 +1522,8 @@ class Switch(Term):
     if not isinstance(other, Switch):
       return False
     eq_subject = self.subject == other.subject
-    eq_cases = all([c1 == c2 for (c1,c2) in zip(self.cases, other.cases)])
+    eq_cases = len(self.cases) == len(other.cases) \
+      and all([c1 == c2 for (c1,c2) in zip(self.cases, other.cases)])
     return eq_subject and eq_cases
 
 @dataclass
@@ -1536,6 +1537,7 @@ class TermInst(Term):
       return self.subject == other
     elif isinstance(other, TermInst):
       return self.subject == other.subject \
+        and len(self.type_args) == len(other.type_args) \
         and all([t1 == t2 for (t1,t2) in zip(self.type_args, other.type_args)])
     else:
       return self.subject == other
