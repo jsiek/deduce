@@ -1,1 +1,1 @@
-./test/should-error/undefined_operator_no_str_env.pf:6.12-6.20: while type checking, undefined variable ≠
+./test/should-error/undefined_operator_no_str_env.pf:6.12-6.20: while type checking, undefined variable operator ≠

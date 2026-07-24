@@ -570,6 +570,15 @@ PARSER_ROUND_TRIP_FILES = (
     # precedence level. `:` now folds into the same left-associative
     # `logical_term` loop as `and`/`or`, matching LALR. Refs #473.
     "./test/should-validate/annotation_precedence_rd_lalr.pf",
+    # `operator ≠` in term position parses to `Var('≠')`, but `≠` was absent
+    # from `infix_precedence`, so `is_operator_name('≠')` was False and
+    # `VarRef.__str__` dropped the `operator ` keyword, emitting a bare `≠`
+    # that neither parser accepts as a term. `≠` is a precedence-1 comparison
+    # operator (like `=`, which is in the table), so adding it makes the
+    # `operator ≠` reference round-trip. The `/=` ASCII synonym normalizes to
+    # `≠` at parse time, so both files exercise the same fix. Refs #931, #473.
+    "./test/should-error/undefined_operator_no_str_env.pf",
+    "./test/should-error/operator_not_equal_synonym.pf",
 )
 
 
