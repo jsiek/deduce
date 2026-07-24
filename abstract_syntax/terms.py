@@ -225,6 +225,7 @@ class TypeInst(Type):
     match other:
       case TypeInst(_, typ, arg_types):
         return self.typ == typ and \
+          len(self.arg_types) == len(arg_types) and \
           all([t1 == t2 for (t1, t2) in zip(self.arg_types, arg_types)])
       # case GenericUnknownInst(loc, typ):
       #   return self.typ == typ
@@ -367,6 +368,8 @@ class Generic(Term):
 
   def __eq__(self, other: object) -> bool:
       if not isinstance(other, Generic):
+          return False
+      if len(self.type_params) != len(other.type_params):
           return False
       ren = {x: ResolvedVar(self.location, None, y) \
              for (x,y) in zip(self.type_params, other.type_params) }
@@ -1467,6 +1470,8 @@ class SwitchCase(AST):
       case PatternBool(_, value1), PatternBool(_, value2):
         return value1 == value2 and self.body == other.body
       case PatternCons(_, constr1, params1), PatternCons(_, constr2, params2):
+        if len(params1) != len(params2):
+          return False
         # Use ResolvedVar in the rename so substituted-in references
         # compare equal to the (already uniquified) ResolvedVars in
         # `other.body`. Picking Var here would break post-uniquify
