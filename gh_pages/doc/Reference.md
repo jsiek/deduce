@@ -1904,7 +1904,7 @@ tighter rule listed above it.
 |     0 | `atomic_term`          | literals, identifiers, parentheses, `f(...)`, `a[i]`, `@f<T>`, `not P`, `-n`       | primary and prefix forms                                           |
 |     1 | `exponent_term`        | `^`                                                                                | exponent                                                           |
 |     2 | `multiplicative_term`  | `*`  `/`  `%`  `∘` (also `.o.`)                                                    | multiply, divide, modulo, function composition                     |
-|     3 | `additive_term`        | `+`  `-`  `∸` (also `.-.`)  `⊝` (also `~-`)  `++`  `∪`  `∩`  `⨄` (also `.+.`)      | add, subtract, monus, list append, set/multiset union/intersection |
+|     3 | `additive_term`        | `+`  `-`  `∸` (also `.-.`)  `⊝` (also `~-`)  `++`  `∪`  `∩` (also `&`)  `⨄` (also `.+.`)  | add, subtract, monus, list append, set/multiset union/intersection |
 |     4 | `comparison_term`      | `<`  `>`  `≤` (also `<=`)  `≥` (also `>=`)  `⊆` (also `(=`)  `∈` (also `in`)  `≲` (also `<~`)  `≈` (also `~~`) | comparisons, subset, membership                                |
 |     5 | `equality_term`        | `=`  `≠` (also `/=`)                                                               | equality, inequality                                               |
 |     6 | `logical_term`         | `and`  `or`  `:`                                                                   | logical conjunction, disjunction, type annotation                  |
@@ -1916,10 +1916,9 @@ following atom — for example, `not P and Q` means `(not P) and Q`, and
 `logical_term`, so it is grouped left-to-right with `and` and `or`;
 use parentheses when mixing annotations with logical connectives.
 
-The ASCII aliases for `∪` and `∩` (the single characters used as the
-table separator and HTML-attribute character) are documented at
-[Union (Operator on Sets)](#union-operator-on-sets) and
-[Intersection](#intersection).
+The ASCII alias `|` for `∪` cannot appear in the table above because `|`
+is the Markdown column separator; it is documented at
+[Union (Operator on Sets)](#union-operator-on-sets).
 
 The most common surprise is that **(in)equality binds tighter than the
 logical connectives**, so

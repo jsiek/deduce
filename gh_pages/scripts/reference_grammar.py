@@ -204,10 +204,25 @@ def format_alternatives(alternatives: set[str]) -> str:
 #   * every operator listed at a level (including ``(also ...)`` ASCII
 #     aliases) is actually an operator of that rule in Deduce.lark.
 #
+# The operator membership check runs in both directions for levels 1+: every
+# documented operator must be in the grammar rule, and every grammar operator
+# of the rule must be documented -- the latter is the primary drift this guards
+# against (a new operator added to Deduce.lark but not to the table).
+#
 # Level 0 (``atomic_term``) lists descriptive primary/prefix *forms*
 # (``f(...)``, ``@f<T>``, ``not P``, ...) rather than plain operators, so its
 # operator membership is not checked -- only that the rule exists and anchors
 # the chain.
+#
+# INTENTIONALLY_UNDOCUMENTED lists operators Deduce.lark defines for a rule but
+# that the table cannot list. Only ``|`` (the ASCII alias for ∪) qualifies: it
+# is the Markdown table's own column separator, and ``\|`` would render with a
+# stray backslash under the site's ``markdown`` renderer, so it is documented
+# in prose below the table instead. Every other alias -- including ``&`` (∩),
+# which a code span renders correctly -- is listed at its level.
+INTENTIONALLY_UNDOCUMENTED: dict[str, set[str]] = {
+    "additive_term": {"|"},
+}
 
 TERMINAL_RE = re.compile(r'^\s*(_[A-Z0-9_]+)\s*:\s*"([^"]*)"\s*$')
 BARE_RULE_RE = re.compile(r"^[a-z_][A-Za-z0-9_]*$")
@@ -358,13 +373,22 @@ def check_precedence_table(path: Path) -> tuple[list[str], int]:
         # Level 0 lists descriptive forms, not plain operators.
         if row.level == 0:
             continue
+        documented = set(row.operators)
+        grammar_ops = operators[row.rule]
         for op in row.operators:
             checked += 1
-            if op not in operators[row.rule]:
+            if op not in grammar_ops:
                 failures.append(
                     f"{loc}: operator {op!r} is documented at level {row.level} "
                     f"({row.rule}) but is not an operator of {row.rule} in Deduce.lark"
                 )
+        allowed = INTENTIONALLY_UNDOCUMENTED.get(row.rule, set())
+        for op in sorted(grammar_ops - documented - allowed):
+            checked += 1
+            failures.append(
+                f"{loc}: operator {op!r} is a level-{row.level} ({row.rule}) "
+                f"operator in Deduce.lark but is missing from the precedence table"
+            )
 
     # Verify the precedence chain: each looser rule falls through (transitively)
     # to the next tighter rule.
