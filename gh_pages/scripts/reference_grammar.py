@@ -189,6 +189,222 @@ def format_alternatives(alternatives: set[str]) -> str:
     return "\n".join(f"      {alt or 'ε'}" for alt in sorted(alternatives))
 
 
+# --- Operator-precedence table check ---------------------------------------
+#
+# The "Operator Precedence" section of Reference.md documents the term
+# grammar's precedence levels as a Markdown table: each row names a
+# ``Deduce.lark`` rule and the operators it introduces. Nothing else checks
+# that table, so it can silently drift when operators are added, moved, or
+# renamed in the grammar. The checks below pin it to Deduce.lark:
+#
+#   * every named rule exists,
+#   * the levels form a fall-through chain (each looser rule reaches the next
+#     tighter rule, transitively -- the table intentionally skips the
+#     experimental ``sep_term``/``pointsto_term`` levels), and
+#   * every operator listed at a level (including ``(also ...)`` ASCII
+#     aliases) is actually an operator of that rule in Deduce.lark.
+#
+# The operator membership check runs in both directions for levels 1+: every
+# documented operator must be in the grammar rule, and every grammar operator
+# of the rule must be documented -- the latter is the primary drift this guards
+# against (a new operator added to Deduce.lark but not to the table).
+#
+# Level 0 (``atomic_term``) lists descriptive primary/prefix *forms*
+# (``f(...)``, ``@f<T>``, ``not P``, ...) rather than plain operators, so its
+# operator membership is not checked -- only that the rule exists and anchors
+# the chain.
+#
+# INTENTIONALLY_UNDOCUMENTED lists operators Deduce.lark defines for a rule but
+# that the table cannot list. Only ``|`` (the ASCII alias for ∪) qualifies: it
+# is the Markdown table's own column separator, and ``\|`` would render with a
+# stray backslash under the site's ``markdown`` renderer, so it is documented
+# in prose below the table instead. Every other alias -- including ``&`` (∩),
+# which a code span renders correctly -- is listed at its level.
+INTENTIONALLY_UNDOCUMENTED: dict[str, set[str]] = {
+    "additive_term": {"|"},
+}
+
+TERMINAL_RE = re.compile(r'^\s*(_[A-Z0-9_]+)\s*:\s*"([^"]*)"\s*$')
+BARE_RULE_RE = re.compile(r"^[a-z_][A-Za-z0-9_]*$")
+ARROW_RE = re.compile(r"\s*->\s*\w+\s*$")
+LITERAL_RE = re.compile(r'"([^"]*)"')
+TERM_REF_RE = re.compile(r"\b(_[A-Z0-9_]+)\b")
+BACKTICK_RE = re.compile(r"`([^`]*)`")
+
+
+def parse_lark_terminals(text: str) -> dict[str, str]:
+    """Map simple single-literal terminal names (e.g. ``_APPROXEQ``) to their
+    literal spelling (``~~``). Multi-alternative or regex terminals are
+    ignored -- the precedence table only references the literal ones."""
+    terminals: dict[str, str] = {}
+    for raw in text.splitlines():
+        match = TERMINAL_RE.match(strip_comment(raw))
+        if match:
+            terminals[match.group(1)] = match.group(2)
+    return terminals
+
+
+def parse_lark_alternatives(text: str) -> dict[str, list[str]]:
+    """Return each lowercase rule's raw right-hand-side alternatives, with
+    comments and the ``-> name`` tree-shaping suffix removed."""
+    alternatives: dict[str, list[str]] = {}
+    current: str | None = None
+
+    def record(name: str, rhs: str) -> None:
+        alternatives.setdefault(name, []).append(ARROW_RE.sub("", rhs).strip())
+
+    for raw in text.splitlines():
+        line = strip_comment(raw).strip()
+        if not line or line.startswith("%"):
+            continue
+        match = RULE_RE.match(line)
+        if match:
+            current = match.group(1)
+            if current.isupper():
+                current = None
+                continue
+            record(current, match.group(2))
+            continue
+        match = ALT_RE.match(line)
+        if match and current is not None:
+            record(current, match.group(1))
+    return alternatives
+
+
+def rule_operators(
+    rhs_list: list[str], terminals: dict[str, str]
+) -> set[str]:
+    """Operator spellings introduced by a rule: every quoted string literal
+    plus every referenced literal terminal, resolved to its spelling."""
+    operators: set[str] = set()
+    for rhs in rhs_list:
+        operators.update(LITERAL_RE.findall(rhs))
+        for term_name in TERM_REF_RE.findall(rhs):
+            if term_name in terminals:
+                operators.add(terminals[term_name])
+    return operators
+
+
+def fall_through_targets(rhs_list: list[str]) -> set[str]:
+    """Rules this rule falls through to: alternatives that are exactly a bare
+    rule name (no operators, no other symbols)."""
+    return {rhs for rhs in rhs_list if BARE_RULE_RE.match(rhs)}
+
+
+def reaches(source: str, target: str, edges: dict[str, set[str]]) -> bool:
+    seen: set[str] = set()
+    stack = [source]
+    while stack:
+        node = stack.pop()
+        if node == target:
+            return True
+        if node in seen:
+            continue
+        seen.add(node)
+        stack.extend(edges.get(node, set()))
+    return False
+
+
+@dataclass(frozen=True)
+class PrecedenceRow:
+    line: int
+    level: int
+    rule: str
+    operators: tuple[str, ...]
+
+
+def extract_precedence_table(path: Path) -> list[PrecedenceRow]:
+    lines = path.read_text(encoding="utf-8").splitlines()
+    start = next(
+        (i for i, l in enumerate(lines) if l.strip() == "## Operator Precedence"),
+        None,
+    )
+    if start is None:
+        raise ValueError(f"{path.name}: no '## Operator Precedence' section")
+
+    i = start + 1
+    while i < len(lines) and not lines[i].lstrip().startswith("|"):
+        if lines[i].startswith("## "):
+            raise ValueError(f"{path.name}: Operator Precedence section has no table")
+        i += 1
+
+    table: list[str] = []
+    table_start = i
+    while i < len(lines) and lines[i].lstrip().startswith("|"):
+        table.append(lines[i])
+        i += 1
+
+    rows: list[PrecedenceRow] = []
+    # Skip the header row and the |---| separator row.
+    for offset, raw in enumerate(table[2:], start=2):
+        cells = [c.strip() for c in raw.strip().strip("|").split("|")]
+        if len(cells) < 3:
+            continue
+        rule_names = BACKTICK_RE.findall(cells[1])
+        if not rule_names:
+            raise ValueError(f"{path.name}: precedence row has no rule name: {raw!r}")
+        rows.append(
+            PrecedenceRow(
+                line=table_start + offset + 1,
+                level=int(cells[0]),
+                rule=rule_names[0],
+                operators=tuple(BACKTICK_RE.findall(cells[2])),
+            )
+        )
+    return rows
+
+
+def check_precedence_table(path: Path) -> tuple[list[str], int]:
+    text = DEDUCE_LARK.read_text(encoding="utf-8")
+    terminals = parse_lark_terminals(text)
+    alternatives = parse_lark_alternatives(text)
+    edges = {r: fall_through_targets(rhs) for r, rhs in alternatives.items()}
+    operators = {r: rule_operators(rhs, terminals) for r, rhs in alternatives.items()}
+
+    rows = extract_precedence_table(path)
+    failures: list[str] = []
+    checked = 0
+
+    for row in rows:
+        loc = f"{path}:{row.line}"
+        if row.rule not in alternatives:
+            failures.append(f"{loc}: rule {row.rule!r} is not in Deduce.lark")
+            continue
+        # Level 0 lists descriptive forms, not plain operators.
+        if row.level == 0:
+            continue
+        documented = set(row.operators)
+        grammar_ops = operators[row.rule]
+        for op in row.operators:
+            checked += 1
+            if op not in grammar_ops:
+                failures.append(
+                    f"{loc}: operator {op!r} is documented at level {row.level} "
+                    f"({row.rule}) but is not an operator of {row.rule} in Deduce.lark"
+                )
+        allowed = INTENTIONALLY_UNDOCUMENTED.get(row.rule, set())
+        for op in sorted(grammar_ops - documented - allowed):
+            checked += 1
+            failures.append(
+                f"{loc}: operator {op!r} is a level-{row.level} ({row.rule}) "
+                f"operator in Deduce.lark but is missing from the precedence table"
+            )
+
+    # Verify the precedence chain: each looser rule falls through (transitively)
+    # to the next tighter rule.
+    ordered = [r for r in sorted(rows, key=lambda r: r.level)]
+    for tighter, looser in zip(ordered, ordered[1:]):
+        checked += 1
+        if looser.rule in alternatives and tighter.rule in alternatives:
+            if not reaches(looser.rule, tighter.rule, edges):
+                failures.append(
+                    f"{path}:{looser.line}: level {looser.level} ({looser.rule}) "
+                    f"does not fall through to level {tighter.level} "
+                    f"({tighter.rule}) in Deduce.lark"
+                )
+    return failures, checked
+
+
 def main() -> int:
     lark_rules = expand_passthrough_alternatives(parse_lark_rules(DEDUCE_LARK))
     failures: list[str] = []
@@ -222,11 +438,17 @@ def main() -> int:
                         parts.append("  Not present in Deduce.lark:\n" + format_alternatives(extra))
                     failures.append("\n".join(parts))
 
+    table_failures, table_checked = check_precedence_table(REFERENCE_MDS[0])
+    failures.extend(table_failures)
+
     if failures:
         print("\n\n".join(failures), file=sys.stderr)
         return 1
 
-    print(f"Checked {total_checked} reference grammar rule(s) against Deduce.lark.")
+    print(
+        f"Checked {total_checked} reference grammar rule(s) and "
+        f"{table_checked} operator-precedence entr(y/ies) against Deduce.lark."
+    )
     return 0
 
 
