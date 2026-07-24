@@ -1212,8 +1212,7 @@ class RecFun(Declaration):
 
   def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
     header = complete_name(self.name) \
-        + ('<' + ','.join([name2str(t) for t in self.type_params]) + '>' \
-           if len(self.type_params) > 0 else '') \
+        + angle_type_params(self.type_params) \
       + '(' + ','.join([str(ty) for ty in self.params]) + ')' \
       + ' -> ' + str(self.returns)
     ret = self.visibility_prefix() + 'recursive ' + header + '{\n' \
@@ -1233,6 +1232,14 @@ class RecFun(Declaration):
 
   def substitute(self, sub: object) -> Self:
     return self
+
+def angle_type_params(type_params: Sequence[str]) -> str:
+    """`<t1,t2,...>` (rendered via `name2str`) for a non-empty type-parameter
+    list, else the empty string -- the header form shared by the RecFun /
+    GenRecFun / ViewRecFun / ViewDecl pretty-printers."""
+    if len(type_params) == 0:
+        return ''
+    return '<' + ','.join([name2str(t) for t in type_params]) + '>'
 
 def pretty_print_function_header(
     name: str,
@@ -1327,8 +1334,7 @@ class GenRecFun(Declaration):
   def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
     pad = indent * ' '
     header = complete_name(self.name) \
-        + ('<' + ','.join([name2str(t) for t in self.type_params]) + '>' \
-           if len(self.type_params) > 0 else '') \
+        + angle_type_params(self.type_params) \
       + '(' + ', '.join([base_name(x) + ':' + str(t) if t else x for (x,t) in self.vars])\
       + ') -> ' + str(self.returns) \
       + '\n' + pad + '  measure ' + str(self.measure) \
@@ -1422,8 +1428,7 @@ class ViewRecFun(Declaration):
 
   def pretty_print(self, indent: int) -> str:
     header = complete_name(self.name) \
-        + ('<' + ','.join([name2str(t) for t in self.type_params]) + '>' \
-           if len(self.type_params) > 0 else '') \
+        + angle_type_params(self.type_params) \
       + '(' + ', '.join([base_name(x) + ':' + str(t) if t else x for (x,t) in self.vars])\
       + ') -> ' + str(self.returns)
     ret = self.visibility_prefix() + 'viewrec ' + header \
@@ -1486,8 +1491,7 @@ class ViewDecl(Declaration):
 
   def pretty_print(self, indent: int) -> str:
     header = complete_name(self.name) \
-      + ('<' + ','.join([name2str(t) for t in self.type_params]) + '>' \
-         if len(self.type_params) > 0 else '')
+      + angle_type_params(self.type_params)
     # The view's own declaration names its underlying source type
     # (e.g. `source Binary`); suppress the source→view-name alias so
     # that line doesn't self-referentially print as `source UInt`.
