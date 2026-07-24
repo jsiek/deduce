@@ -64,6 +64,12 @@ infix_precedence = {'+': 6, '-': 6, '∸': 6, '⊝': 6, '*': 7, '/': 7, '%': 7,
                     '++': 6, '⨄': 6, '∈':1, '∪':6, '∩':6, '⊆': 1, '⇔': 2,
                     '∘': 7, '^' : 8}
 prefix_precedence = {'-': 9, 'not': 4}
+# Operator symbols addressable as a term via the `operator` keyword but with
+# no infix/prefix precedence entry because they are pure sugar: `≠` desugars
+# to `not (x = y)`, so no Call/term node is ever headed by it. Pretty-printing
+# still needs the `operator` prefix to reparse a bare `Var('≠')` (the AST that
+# `operator ≠` produces); without it the printed `≠` fails to reparse.
+sugar_operators = {'≠'}
 recursion_depth = 0
 
 def name2str(s: str) -> str:

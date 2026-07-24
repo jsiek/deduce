@@ -570,6 +570,13 @@ PARSER_ROUND_TRIP_FILES = (
     # precedence level. `:` now folds into the same left-associative
     # `logical_term` loop as `and`/`or`, matching LALR. Refs #473.
     "./test/should-validate/annotation_precedence_rd_lalr.pf",
+    # `operator ≠` (and its ASCII synonym `operator /=`) produce a bare
+    # `Var('≠')`, but `≠` has no infix/prefix precedence entry (it is sugar
+    # for `not (x = y)`), so `is_operator_name` reported False and the term
+    # pretty-printed to a bare `≠` that no longer reparses. `≠` is now
+    # recognized as an operator name, so the `operator` prefix is preserved.
+    # Refs #931, #473.
+    "./test/should-error/operator_not_equal_synonym.pf",
 )
 
 
