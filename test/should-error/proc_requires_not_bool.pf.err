@@ -1,0 +1,2 @@
+./test/should-error/proc_requires_not_bool.pf:4.12-4.13: expected a term of type bool
+but got term x of type Nat

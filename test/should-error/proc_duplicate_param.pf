@@ -1,0 +1,4 @@
+// Phase 2b (issue #1111): procedure parameter names must be distinct.
+proc demo_bad(x: bool, x: bool)
+{
+}

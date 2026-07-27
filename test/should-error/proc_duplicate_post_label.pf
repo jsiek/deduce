@@ -1,0 +1,6 @@
+// Phase 2b (issue #1111): labelled postconditions must have distinct labels.
+proc demo_bad(x: bool)
+  ensures same: x = x
+  ensures same: x or not x
+{
+}

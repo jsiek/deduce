@@ -1,0 +1,1 @@
+./test/should-error/proc_call_as_term.pf:8.22-8.31: 'demo_proc' is a procedure and cannot be used as an ordinary term; procedures are invoked with a `call` statement inside a proc

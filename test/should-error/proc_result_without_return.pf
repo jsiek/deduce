@@ -1,0 +1,6 @@
+// Phase 2b (issue #1111): `result` is only in scope in the postconditions of
+// a procedure that declares a return type.
+proc demo_bad(x: bool)
+  ensures result
+{
+}

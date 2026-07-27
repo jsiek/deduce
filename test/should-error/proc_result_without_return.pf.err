@@ -1,0 +1,1 @@
+./test/should-error/proc_result_without_return.pf:4.11-4.17: undefined variable: result

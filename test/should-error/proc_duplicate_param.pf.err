@@ -1,0 +1,1 @@
+./test/should-error/proc_duplicate_param.pf:2.24-2.31: duplicate proc parameter name: x

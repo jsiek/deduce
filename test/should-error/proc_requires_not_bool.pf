@@ -1,0 +1,6 @@
+// Phase 2b (issue #1111): a `requires` clause must have type bool.
+import Nat
+proc demo_bad(x: Nat)
+  requires x
+{
+}

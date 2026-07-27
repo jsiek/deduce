@@ -259,7 +259,13 @@ end
 
 EXPERIMENTAL_IMPERATIVE_FILES = frozenset({
     "./test/should-warn/proc_declarations.pf",
+    "./test/should-warn/proc_signatures.pf",
     "./test/should-warn/observer_declarations.pf",
+    "./test/should-error/proc_requires_not_bool.pf",
+    "./test/should-error/proc_result_without_return.pf",
+    "./test/should-error/proc_duplicate_param.pf",
+    "./test/should-error/proc_duplicate_post_label.pf",
+    "./test/should-error/proc_call_as_term.pf",
     "./test/should-warn/imperative_false_proc.pf",
     "./test/should-warn/imperative_allocation.pf",
     "./test/should-error/imperative_new_pure_term.pf",
