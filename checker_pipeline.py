@@ -22,11 +22,13 @@ from abstract_syntax import (
     All, And, Array, ArrayGet, Assert, Associative, Auto, Bool,
     Call, Conditional, Constructor, Declaration, Define, Env, Export,
     Formula, FunCase, FunctionType, GenRecFun, Generic, GenericUnknownInst,
-    Hole, IfThen, Import, Inductive, Lambda, MakeArray, Module, ObjectDecl,
+    Hole, IfThen, ImpAlloc, ImpAssign, ImpCallExpr, ImpIf, ImpReturn, ImpStmt,
+    ImpVar, Import, Inductive, Lambda, LValueVar, MakeArray, Module,
+    MutableArrayType, ObjectDecl,
     ObjectField, ObserverDecl, Omitted, Or, OverloadType, OverloadedVar, PSorry, PVar,
     PatternBool, PatternCons, Postulate, Predicate, Print, ProcDecl, ProcParam,
     ProcSpec, RecFun, ResolvedVar, ResourceDecl, Rule, Some,
-    Statement, Switch, SwitchCase, TAnnote, TLet, Term, TermInst, Theorem,
+    Statement, Switch, SwitchCase, TAnnote, TermBinding, TLet, Term, TermInst, Theorem,
     Trace, Type, TypeAlias, TypeInst, TypeType, Union, Var, VarRef, VerboseLevel,
     ViewDecl, ViewRecFun, alpha_equiv, base_name, callable_name,
     check_post_typecheck_invariants, find_file, full_reduce, mkEqual,
@@ -139,6 +141,121 @@ def check_proc_signature(decl: ProcDecl, env: Env) -> tuple[Statement, Env]:
   new_env = env.declare_proc(loc, decl.name, decl.type_params, checked_params,
                              checked_return, checked_specs, decl.visibility)
   return checked_decl, new_env
+
+# Phase 2d (issue #1113): imperative statement forms whose *typing* is not yet
+# modeled by the verifier. Procedure calls, allocations, mutable-array reads
+# and writes, field writes, and `assert`/`assume`/loop obligations are all
+# later slices (#1116-#1122); a body that uses any of them is left untouched
+# here (and keeps emitting the Phase 1m "not verified" warning) rather than
+# risk a spurious type error. Straight-line bodies over ordinary local `var`,
+# assignment, `return`, and `if` are type-checked in full.
+def _imp_stmt_unmodeled(s: ImpStmt) -> bool:
+  match s:
+    case ImpVar(_, _, rhs, _) | ImpAssign(_, _, rhs):
+      if isinstance(rhs, (ImpCallExpr, ImpAlloc)):
+        return True
+      if isinstance(s, ImpAssign) and not isinstance(s.lhs, LValueVar):
+        return True
+      return False
+    case ImpIf(_, _, then_body, else_body):
+      return _block_unmodeled(then_body) \
+          or (else_body is not None and _block_unmodeled(else_body))
+    case ImpReturn():
+      return False
+    case _:
+      # `while`, `assert`, `assume`, and `call` statements.
+      return True
+
+def _block_unmodeled(stmts: list[ImpStmt]) -> bool:
+  return any(_imp_stmt_unmodeled(s) for s in stmts)
+
+def _proc_body_unmodeled(decl: ProcDecl) -> bool:
+  # Mutable-array parameters make even a `var y := a[i]` read untypeable until
+  # #1117 lands, so any proc that takes one is deferred wholesale.
+  if any(isinstance(p.typ, MutableArrayType) for p in decl.params):
+    return True
+  return _block_unmodeled(decl.body)
+
+def _block_always_returns(stmts: list[ImpStmt]) -> bool:
+  # Conservatively decide whether a straight-line block must execute a
+  # `return`. Only `true` when we are certain, so a body that can fall off the
+  # end is never mistaken for one that returns (the missing-return diagnostic
+  # stays sound; richer path analysis is a later slice).
+  if not stmts:
+    return False
+  match stmts[-1]:
+    case ImpReturn():
+      return True
+    case ImpIf(_, _, then_body, else_body):
+      return else_body is not None \
+          and _block_always_returns(then_body) \
+          and _block_always_returns(else_body)
+    case _:
+      return False
+
+def _type_check_imp_stmt(s: ImpStmt, env: Env,
+                         return_type: Optional[Type]) -> Env:
+  # Returns the environment as seen by the *following* statement in the same
+  # block: a `var` extends it with the new local; everything else leaves it
+  # unchanged. `Env` is functional, so nested `if` blocks type-check against a
+  # value derived from `env` without leaking their locals back out.
+  match s:
+    case ImpVar(loc, name, type_annot, rhs, _):
+      if type_annot is not None:
+        var_ty = check_type(type_annot, env)
+        type_check_term(cast(Term, rhs), var_ty, env, None, [])
+      else:
+        var_ty = type_synth_term(cast(Term, rhs), env, None, []).typeof
+      return env.declare_term_var(loc, name, var_ty, local=True)
+    case ImpAssign(loc, lhs, rhs):
+      target = cast(LValueVar, lhs)
+      binding = env.dict.get(target.name)
+      if not isinstance(binding, TermBinding):
+        user_error(loc, 'assignment to undefined variable: '
+                   + base_name(target.name))
+      if not binding.local:
+        user_error(loc, 'cannot assign to ' + base_name(target.name)
+                   + ' because it is not a local variable')
+      type_check_term(cast(Term, rhs), binding.typ, env, None, [])
+      return env
+    case ImpIf(loc, cond, then_body, else_body):
+      type_check_formula(cond, env)
+      _type_check_imp_block(then_body, env, return_type)
+      if else_body is not None:
+        _type_check_imp_block(else_body, env, return_type)
+      return env
+    case ImpReturn(loc, value):
+      if return_type is None:
+        user_error(loc, 'this procedure has no return type, so it may not '
+                   + 'return a value')
+      else:
+        type_check_term(value, return_type, env, None, [])
+      return env
+    case _:
+      return env
+
+def _type_check_imp_block(stmts: list[ImpStmt], env: Env,
+                          return_type: Optional[Type]) -> None:
+  for s in stmts:
+    env = _type_check_imp_stmt(s, env, return_type)
+
+def type_check_proc_body(decl: ProcDecl, env: Env) -> None:
+  # Phase 2d (issue #1113): type-check a procedure's straight-line body --
+  # annotated and inferred local `var` declarations, assignments to local
+  # variables, and `return` -- with lexical block scope. Bodies that use
+  # constructs not yet modeled (see `_proc_body_unmodeled`) are deferred to
+  # later slices. No specifications are proved here.
+  if _proc_body_unmodeled(decl):
+    return
+  loc = decl.location
+  type_env = env.declare_type_vars(loc, decl.type_params)
+  param_pairs = [(p.name, p.typ) for p in decl.params]
+  body_env = type_env.declare_term_vars(loc, param_pairs, local=True)
+  _type_check_imp_block(decl.body, body_env, decl.return_type)
+  if decl.return_type is not None and not _block_always_returns(decl.body):
+    user_error(loc, "procedure '" + base_name(decl.name)
+               + "' declares return type " + str(decl.return_type)
+               + ' but may finish without returning a value')
 
 def process_declaration_visibility(decl: Declaration, env: Env,
                                    module_chain: list[str],
@@ -933,7 +1050,14 @@ def type_check_stmt(stmt: Statement, env: Env,
     case ViewDecl():
       return stmt
 
-    case ObjectDecl() | ProcDecl() | ObserverDecl() | ResourceDecl():
+    case ProcDecl():
+      # Phase 2d (issue #1113): type-check the procedure's straight-line body.
+      # Specs are checked in `check_proc_signature` (Phase 2b); proving them is
+      # a later slice, so the Phase 1m "not verified" warning still fires.
+      type_check_proc_body(stmt, env)
+      return stmt
+
+    case ObjectDecl() | ObserverDecl() | ResourceDecl():
       # Phase 1 imperative declarations (issue #854): recognized for module
       # boundaries and tooling, but their bodies and specs are not verified
       # here -- pass them through unchanged.

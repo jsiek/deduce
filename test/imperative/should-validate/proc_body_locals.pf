@@ -1,0 +1,26 @@
+// Phase 2d (issue #1113): straight-line procedure bodies are now type-checked
+// -- annotated and inferred local `var` declarations, assignment to a local
+// variable, nested `if`-block scope, and a `return` matching the declared
+// result type. The body stays otherwise unverified, so the Phase 1m
+// "accepted but not verified" warning (issue #1108) still fires; the
+// `.pf.warn` sibling pins it under both parsers.
+union Color {
+  red
+  green
+}
+
+proc classify(flag: bool) -> Color
+  ensures flag or not flag
+{
+  var a : bool := flag       // annotated local
+  var b := a                 // inferred local, bool
+  var c := red               // inferred local, Color
+  b := flag                  // assignment to a local variable
+  if b {
+    var picked := green      // block-local, does not leak out of the `if`
+    c := picked
+  } else {
+    c := red
+  }
+  return c
+}

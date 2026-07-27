@@ -1,0 +1,1 @@
+./test/imperative/should-error/proc_body_assign_nonlocal.pf:7.3-7.12: cannot assign to g because it is not a local variable

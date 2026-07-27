@@ -1,0 +1,12 @@
+// Phase 2d (issue #1113): a `return` whose value does not match the declared
+// result type is rejected.
+union Color {
+  red
+  green
+}
+
+proc demo(flag: bool) -> bool
+{
+  var c := green
+  return c
+}

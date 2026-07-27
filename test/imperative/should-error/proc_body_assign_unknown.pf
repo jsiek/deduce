@@ -1,0 +1,6 @@
+// Phase 2d (issue #1113): assignment to a name that is not a local variable
+// is rejected. Here `missing` was never declared.
+proc demo(flag: bool)
+{
+  missing := flag
+}

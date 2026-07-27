@@ -1,0 +1,9 @@
+// Phase 2d (issue #1113): a local declared inside a nested `if` block does not
+// leak into the enclosing block, so referencing it afterwards is an error.
+proc demo(flag: bool) -> bool
+{
+  if flag {
+    var inner := flag
+  }
+  return inner
+}

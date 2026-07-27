@@ -1,0 +1,11 @@
+// Phase 2d (issue #1113): an annotated local `var` whose initializer has a
+// different type is rejected with a focused diagnostic.
+union Color {
+  red
+  green
+}
+
+proc demo(flag: bool)
+{
+  var bad : Color := flag
+}
