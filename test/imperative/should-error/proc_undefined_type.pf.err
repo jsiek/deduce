@@ -1,0 +1,1 @@
+./test/imperative/should-error/proc_undefined_type.pf:6.27-6.33: undefined variable: Widget

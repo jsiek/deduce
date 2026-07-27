@@ -1,0 +1,9 @@
+// Phase 2a (issue #1110): pins the *warning* side of the #1108 unchecked
+// boundary. A `proc` declaration parses and plumbs through all four pipeline
+// phases, but no verifier has run on its body or specs yet, so the checker
+// accepts it while emitting the "accepted but not verified" warning. The
+// `.pf.warn` sibling pins that exact diagnostic under both parsers.
+proc do_nothing(x: bool)
+  ensures x = x
+{
+}

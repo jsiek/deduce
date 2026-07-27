@@ -1,0 +1,9 @@
+// Phase 2a (issue #1110): a declaration-level *semantic* error that both
+// parsers report identically, exercising the single-golden path of the
+// imperative error lane. The proc signature refers to a type `Widget` that is
+// never defined; this is caught after parsing, so recursive-descent and LALR
+// agree on the diagnostic and share one `.pf.err` fixture.
+proc uses_unknown_type(x: Widget)
+  ensures x = x
+{
+}

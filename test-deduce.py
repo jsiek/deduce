@@ -32,14 +32,16 @@ Per-category flags (combinable):
                    divergences and parse-time-rejected fixtures are allowlisted
                    so CI catches new drift. Also round-trip representative ASTs
                    through the pretty-printer and both parsers.
-    --imperative   Phase 1 imperative tooling regression (issue #1109): the
+    --imperative   Imperative tooling regression (issues #1109, #1110): the
                    LSP symbol outline still lists proc/observer/object/resource,
-                   the experimental-imperative parser smoke test, and every
+                   the experimental-imperative parser smoke test, every
                    ``EXPERIMENTAL_IMPERATIVE_FILES`` fixture genuinely needs
-                   ``--experimental-imperative``. Runs in-process without the
-                   memory-heavy LSP suite. Also runs under ``--cli`` (and thus
-                   the passable-1 CI shard), so CI covers it without a dedicated
-                   workflow leg.
+                   ``--experimental-imperative``, and the ``test/imperative``
+                   should-validate / should-error fixture dirs (auto-discovered,
+                   run under both parsers with the flag auto-enabled). Runs
+                   in-process without the memory-heavy LSP suite. Also runs under
+                   ``--cli`` (and thus the passable-1 CI shard), so CI covers it
+                   without a dedicated workflow leg.
 
 Standalone modes (mutually exclusive with the above):
     --site             Generate ``doc_*.pf`` from ``gh_pages/doc/``
@@ -161,6 +163,8 @@ WARN_DIR = Path("test/should-warn")
 PRELUDE_DIR = Path("test/prelude")
 IMPORTS_DIR = Path("test/test-imports")
 PARSE_DIR = Path("test/parse")
+IMP_PASS_DIR = Path("test/imperative/should-validate")
+IMP_ERROR_DIR = Path("test/imperative/should-error")
 EXAMPLES_DIR = Path("examples")
 COMPILE_DIR = Path("test/compile")
 HOLE_FILL_EXAMPLES_DIR = Path("tools/claude_fill_hole/examples")
@@ -771,6 +775,26 @@ def _worker_prelude(task: tuple[str, bool]) -> tuple[str, bool, str, str]:
     return (f, result.ok, label, result.error_message or "")
 
 
+def _diff_against_fixture(fixture: str, actual: str) -> str | None:
+    """Diff ``actual`` stdout against the golden ``fixture`` file with the
+    historical ``diff --ignore-space-change`` semantics shared by the ``.err``,
+    ``.warn`` and imperative lanes. Returns the (truncated) diff text on
+    mismatch, or ``None`` when they agree."""
+    with tempfile.NamedTemporaryFile(
+        "w", suffix=".tmp", delete=False, encoding="utf-8"
+    ) as tf:
+        tf.write(actual)
+        tmp_path = tf.name
+    try:
+        cp = subprocess.run(
+            ["diff", "--ignore-space-change", fixture, tmp_path],
+            capture_output=True, text=True,
+        )
+        return cp.stdout[:500] if cp.returncode != 0 else None
+    finally:
+        os.unlink(tmp_path)
+
+
 def _check_against_err(f: str) -> tuple[str, bool, str]:
     """Run ``f`` and diff its captured stdout against ``f + '.err'``.
 
@@ -796,22 +820,10 @@ def _check_against_err(f: str) -> tuple[str, bool, str]:
         set_experimental_imperative(False)
     if result.ok:
         return (f, False, "expected error but file was valid")
-    actual = buf.getvalue()
-    with tempfile.NamedTemporaryFile(
-        "w", suffix=".tmp", delete=False, encoding="utf-8"
-    ) as tf:
-        tf.write(actual)
-        tmp_path = tf.name
-    try:
-        cp = subprocess.run(
-            ["diff", "--ignore-space-change", err_file, tmp_path],
-            capture_output=True, text=True,
-        )
-        if cp.returncode != 0:
-            return (f, False, f"error message diverged:\n{cp.stdout[:500]}")
-        return (f, True, "")
-    finally:
-        os.unlink(tmp_path)
+    diff = _diff_against_fixture(err_file, buf.getvalue())
+    if diff is not None:
+        return (f, False, f"error message diverged:\n{diff}")
+    return (f, True, "")
 
 
 def _check_against_warn(f: str) -> tuple[str, bool, str]:
@@ -837,22 +849,10 @@ def _check_against_warn(f: str) -> tuple[str, bool, str]:
     if not result.ok:
         return (f, False, f"expected valid + warnings but file errored:\n"
                           f"{(result.error_message or '')[:500]}")
-    actual = buf.getvalue()
-    with tempfile.NamedTemporaryFile(
-        "w", suffix=".tmp", delete=False, encoding="utf-8"
-    ) as tf:
-        tf.write(actual)
-        tmp_path = tf.name
-    try:
-        cp = subprocess.run(
-            ["diff", "--ignore-space-change", warn_file, tmp_path],
-            capture_output=True, text=True,
-        )
-        if cp.returncode != 0:
-            return (f, False, f"warning output diverged:\n{cp.stdout[:500]}")
-        return (f, True, "")
-    finally:
-        os.unlink(tmp_path)
+    diff = _diff_against_fixture(warn_file, buf.getvalue())
+    if diff is not None:
+        return (f, False, f"warning output diverged:\n{diff}")
+    return (f, True, "")
 
 
 # ---------------------------------------------------------------------------
@@ -1699,15 +1699,111 @@ def _check_imperative_flag_enrollment() -> list[tuple[str, str, str]]:
     return failures
 
 
-def run_imperative_regression() -> list[tuple[str, str, str]]:
-    """Focused CI lane for the Phase 1 imperative tooling (issue #1109).
+def run_imperative_validate() -> list[tuple[str, str, str]]:
+    """``test/imperative/should-validate`` fixtures (issue #1110, Phase 2a).
 
-    Bundles three fast, in-process checks so the imperative surface is
-    continuously covered without standing up the full LSP suite:
+    Every fixture must check successfully under BOTH parsers with
+    ``--experimental-imperative`` auto-enabled -- no path allowlist, so a new
+    ``.pf`` dropped in the directory is picked up automatically. Warnings pin
+    the #1108 unchecked boundary: a fixture with a ``.pf.warn`` sibling must
+    emit exactly those warnings (e.g. the "accepted but not verified" proc
+    warning), while a fixture without one must run warning-free (e.g. an inert
+    ``object`` declaration). All fixtures are prelude-free, so ``prelude=()``
+    skips the stdlib bootstrap."""
+    failures: list[tuple[str, str, str]] = []
+    set_quiet_mode(True)
+    set_experimental_imperative(True)
+    try:
+        for f in list_pf(IMP_PASS_DIR):
+            warn_file = f + ".warn"
+            has_warn = os.path.isfile(warn_file)
+            for rd in (True, False):
+                label = "recursive-descent" if rd else "lalr"
+                set_recursive_descent(rd)
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    result = check_file(f, prelude=())
+                if not result.ok:
+                    failures.append((
+                        f, label,
+                        "expected valid but errored:\n"
+                        f"{(result.error_message or '')[:500]}"))
+                    continue
+                actual = buf.getvalue()
+                if has_warn:
+                    diff = _diff_against_fixture(warn_file, actual)
+                    if diff is not None:
+                        failures.append((
+                            f, label, f"warning output diverged:\n{diff}"))
+                elif actual.strip():
+                    failures.append((
+                        f, label,
+                        "expected no warnings (no .pf.warn sibling) but got:\n"
+                        f"{actual[:500]}"))
+    finally:
+        set_experimental_imperative(False)
+        set_quiet_mode(False)
+        set_recursive_descent(True)
+    return failures
+
+
+def run_imperative_errors() -> list[tuple[str, str, str]]:
+    """``test/imperative/should-error`` fixtures (issue #1110, Phase 2a).
+
+    Every fixture must be REJECTED under BOTH parsers with
+    ``--experimental-imperative`` auto-enabled, and its captured stdout must
+    match the golden ``.pf.err`` file. One golden is shared by both parsers
+    when their diagnostics agree; when they genuinely diverge (e.g. the
+    recursive-descent parser adds a ``while parsing`` grammar frame that LALR
+    does not) a ``.pf.err.lalr`` sibling documents and pins the LALR-only
+    text. Auto-discovered from the directory; all fixtures are prelude-free."""
+    failures: list[tuple[str, str, str]] = []
+    set_quiet_mode(True)
+    set_experimental_imperative(True)
+    try:
+        for f in list_pf(IMP_ERROR_DIR):
+            for rd in (True, False):
+                label = "recursive-descent" if rd else "lalr"
+                set_recursive_descent(rd)
+                golden = f + ".err"
+                if not rd and os.path.isfile(f + ".err.lalr"):
+                    golden = f + ".err.lalr"
+                if not os.path.isfile(golden):
+                    failures.append((
+                        f, label,
+                        f"missing {os.path.basename(golden)} fixture"))
+                    continue
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    result = check_file(f, prelude=())
+                    if not result.ok:
+                        print(result.error_message)
+                if result.ok:
+                    failures.append((
+                        f, label, "expected error but file was valid"))
+                    continue
+                diff = _diff_against_fixture(golden, buf.getvalue())
+                if diff is not None:
+                    failures.append((
+                        f, label, f"error message diverged:\n{diff}"))
+    finally:
+        set_experimental_imperative(False)
+        set_quiet_mode(False)
+        set_recursive_descent(True)
+    return failures
+
+
+def run_imperative_regression() -> list[tuple[str, str, str]]:
+    """Focused CI lane for the imperative tooling (issues #1109, #1110).
+
+    Bundles fast, in-process checks so the imperative surface is continuously
+    covered without standing up the full LSP suite:
 
       * the LSP symbol outline still lists proc/observer/object/resource;
       * the experimental-imperative parser smoke test;
-      * every tracked imperative fixture genuinely needs the feature flag.
+      * every tracked imperative fixture genuinely needs the feature flag;
+      * the ``test/imperative`` should-validate / should-error fixture dirs,
+        run under both parsers with the flag auto-enabled (Phase 2a).
 
     Runs both standalone (``--imperative``) and under ``--cli`` so the
     passable-1 CI shard (``--passable --cli``) covers it without its own
@@ -1722,6 +1818,12 @@ def run_imperative_regression() -> list[tuple[str, str, str]]:
     failures.extend(fails)
     _, fails = time_section("flag enrollment",
                             _check_imperative_flag_enrollment)
+    failures.extend(fails)
+    _, fails = time_section("imperative should-validate",
+                            run_imperative_validate)
+    failures.extend(fails)
+    _, fails = time_section("imperative should-error",
+                            run_imperative_errors)
     failures.extend(fails)
     return failures
 

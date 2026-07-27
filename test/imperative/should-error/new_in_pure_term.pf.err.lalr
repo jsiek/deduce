@@ -1,0 +1,5 @@
+
+
+define x = new Node()
+           ^^^^^^^^^^
+./test/imperative/should-error/new_in_pure_term.pf:5.12-5.22: `new` allocation syntax is only available in imperative statement right-hand sides
