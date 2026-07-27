@@ -5,11 +5,16 @@ design is described in
 [docs/imperative-verification-plan.md](../../docs/imperative-verification-plan.md)
 and tracked by [issue #854](https://github.com/jsiek/deduce/issues/854).
 
-**Status:** Phase 1 (parser/AST only). The grammar entries below are
-recognized by both parsers and the pretty-printer round-trips them. The
-imperative verifier itself does not exist yet — the checker rejects
-every `proc`, `observer`, and `resource` declaration until later phases
-land.
+**Status:** Phase 1 (parser/AST + declaration plumbing). The grammar
+entries below are recognized by both parsers and the pretty-printer
+round-trips them. `proc`, `observer`, `object`, and `resource`
+declarations are currently *accepted* — they are threaded through
+imports/exports and LSP symbols, and public `proc`/`observer` contracts
+additionally go through the exported-contract visibility check — but
+their bodies and specifications are **not verified**. The imperative
+verifier itself does not exist yet, so a file containing these
+declarations reports `is valid` without any correctness guarantee.
+Verification lands in later phases.
 
 Most of the surface lives behind the `--experimental-imperative`
 flag. The exceptions are noted per-section.
@@ -108,8 +113,10 @@ observer sorted(a: [UInt]!) -> bool
 }
 ```
 
-Observer declarations require `--experimental-imperative`. The checker
-rejects them until the imperative verifier exists.
+Observer declarations require `--experimental-imperative`. They are
+accepted but not verified: the observer body is parsed and the
+declaration participates in module visibility and LSP symbols, but no
+proof semantics are attached until the imperative verifier exists.
 
 ## Procedure (Statement)
 
@@ -153,10 +160,12 @@ proc swap(a: [UInt]!, i: UInt, j: UInt)
 }
 ```
 
-Procedure declarations require `--experimental-imperative`. The checker
-rejects every procedure until the imperative verifier exists, so a
-procedure body is parsed but not yet type-checked or verified. Frame
-clauses use the [Frame Expression](#frame-expression) grammar.
+Procedure declarations require `--experimental-imperative`. They are
+accepted but not verified: a procedure body is parsed and the
+declaration participates in module visibility and LSP symbols, but its
+body and contract are not yet type-checked or verified against the
+verification goals until the imperative verifier exists. Frame clauses
+use the [Frame Expression](#frame-expression) grammar.
 
 ## Procedure Body (Statement Block)
 
@@ -263,8 +272,11 @@ resource list_seg(p: Node, q: Node)
 }
 ```
 
-Resource declarations require `--experimental-imperative`. The checker
-rejects them until the imperative verifier exists.
+Resource declarations require `--experimental-imperative`. They are
+accepted but not verified: the resource body is parsed and the
+declaration participates in module visibility and LSP symbols, but the
+separation-logic connectives it contains have no proof rules until the
+resource tier of the verifier exists.
 
 ## Resource Formulas
 
