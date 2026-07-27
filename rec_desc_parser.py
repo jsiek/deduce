@@ -217,6 +217,19 @@ def meta_from_tokens(start_token: Token, end_token: Token) -> Meta:
     meta.end_pos = require_token_position(end_token.end_pos, "end_pos")
     return meta
 
+def with_visibility_location(stmt: Statement, vis_token: Optional[Token]) -> Statement:
+    # When a visibility keyword (public/private/opaque) precedes a declaration,
+    # the parse_* helpers anchor the declaration's location at the declaration
+    # keyword, dropping the modifier. Extend the span back to the modifier so it
+    # matches the LALR parser, whose rule meta already covers the whole
+    # declaration. See issue #1135.
+    if vis_token is not None:
+        loc = stmt.location
+        loc.line = require_token_position(vis_token.line, "line")
+        loc.column = require_token_position(vis_token.column, "column")
+        loc.start_pos = require_token_position(vis_token.start_pos, "start_pos")
+    return stmt
+
 @contextmanager
 def parse_region(while_parsing: str) -> Iterator[Token]:
   """Wrap a parse of one construct, adding `while_parsing` context to errors.
@@ -2080,54 +2093,56 @@ def parse_statement() -> Statement:
   token = current_token()
 
   if token.type in accessiblity_keywords:
+    vis_token: Optional[Token] = token
     visibility = token.value
     advance()
   else:
+    vis_token = None
     visibility = 'default'
 
   token = current_token()
 
   if token.type == 'DEFINE':
-    return parse_define(visibility)
+    return with_visibility_location(parse_define(visibility), vis_token)
 
   elif token.type == 'FUN':
-    return parse_function(visibility)
+    return with_visibility_location(parse_function(visibility), vis_token)
 
   elif token.type == 'RECURSIVE':
-    return parse_recursive_function(visibility)
+    return with_visibility_location(parse_recursive_function(visibility), vis_token)
 
   elif token.value == 'proc':
-    return parse_proc_decl(visibility)
+    return with_visibility_location(parse_proc_decl(visibility), vis_token)
 
   elif token.type == 'UNION':
-    return parse_union(visibility)
+    return with_visibility_location(parse_union(visibility), vis_token)
 
   elif token.type == 'TYPE':
-    return parse_type_alias(visibility)
+    return with_visibility_location(parse_type_alias(visibility), vis_token)
 
   elif token.type == 'OBJECT':
-    return parse_object(visibility)
+    return with_visibility_location(parse_object(visibility), vis_token)
 
   elif token.type == 'OBSERVER':
-    return parse_observer_decl(visibility)
+    return with_visibility_location(parse_observer_decl(visibility), vis_token)
 
   elif token.type == 'RESOURCE':
-    return parse_resource_decl(visibility)
+    return with_visibility_location(parse_resource_decl(visibility), vis_token)
 
   elif token.type == 'PREDICATE':
-    return parse_predicate(visibility, 'predicate')
+    return with_visibility_location(parse_predicate(visibility, 'predicate'), vis_token)
 
   elif token.type == 'RELATION':
-    return parse_predicate(visibility, 'relation')
+    return with_visibility_location(parse_predicate(visibility, 'relation'), vis_token)
 
   elif token.type == 'RECFUN':
-    return parse_gen_rec_function(visibility)
+    return with_visibility_location(parse_gen_rec_function(visibility), vis_token)
 
   elif token.type == 'VIEW':
-    return parse_view_decl(visibility)
+    return with_visibility_location(parse_view_decl(visibility), vis_token)
 
   elif token.type == 'PROC':
-    return parse_proc_decl(visibility)
+    return with_visibility_location(parse_proc_decl(visibility), vis_token)
 
   elif token.type == 'ASSERT':
     while_parsing = 'while parsing assert\n' \
@@ -2142,7 +2157,7 @@ def parse_statement() -> Statement:
       raise ParseError(meta_from_tokens(token, previous_token()), "Unexpected error while parsing:\n\t" \
         + str(e))
   elif token.type == 'THEOREM' or token.type == 'LEMMA' or token.type == 'POSTULATE':
-    return parse_theorem(visibility)
+    return with_visibility_location(parse_theorem(visibility), vis_token)
 
   elif token.type == 'EXPORT':
     while_parsing = 'while parsing import\n' \
@@ -2176,9 +2191,11 @@ def parse_statement() -> Statement:
             using = names
           else:
             hiding = names
-        return Import(meta_from_tokens(token, previous_token()),
-                      name, using=using, hiding=hiding,
-                      visibility=visibility)
+        return with_visibility_location(
+                      Import(meta_from_tokens(token, previous_token()),
+                             name, using=using, hiding=hiding,
+                             visibility=visibility),
+                      vis_token)
     except ParseError as e:
       raise e.extend(meta_from_tokens(token, previous_token()), while_parsing)
     except Exception as e:
