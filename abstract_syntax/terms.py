@@ -163,10 +163,8 @@ class FunctionType(Type):
     return set().union(*fvs) - set(self.type_params)
 
   def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> FunctionType:
-    body_env = {x:y for (x,y) in env.items()}
-    new_type_params = [generate_name(t, ctx) for t in self.type_params]
-    for (old,new) in zip(self.type_params, new_type_params):
-      overwrite(body_env, old, new, self.location)
+    body_env, new_type_params = uniquify_type_params(
+        env, self.type_params, ctx, self.location, overwrite)
     new_param_types = [p.uniquify(body_env, ctx) for p in self.param_types]
     new_return_type = self.return_type.uniquify(body_env, ctx)
     return FunctionType(self.location, new_type_params,
@@ -377,10 +375,8 @@ class Generic(Term):
       return new_body == other.body
 
   def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> Generic:
-    body_env = {x:y for (x,y) in env.items()}
-    new_type_params = [generate_name(x, ctx) for x in self.type_params]
-    for (old,new) in zip(self.type_params, new_type_params):
-      overwrite(body_env, old, new, self.location)
+    body_env, new_type_params = uniquify_type_params(
+        env, self.type_params, ctx, self.location, overwrite)
     return Generic(self.location, self.typeof, new_type_params,
                    self.body.uniquify(body_env, ctx))
 
