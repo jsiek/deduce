@@ -1644,41 +1644,58 @@ def _check_imperative_symbol_outline() -> list[tuple[str, str, str]]:
 
 def _check_imperative_flag_enrollment() -> list[tuple[str, str, str]]:
     """Pin that every ``EXPERIMENTAL_IMPERATIVE_FILES`` entry genuinely needs
-    ``--experimental-imperative`` (issue #1109, acceptance box 3). If the flag
-    stopped being load-bearing for a tracked fixture, the enrollment is stale
-    and should be removed; if a positive fixture stopped validating with the
-    flag, the harness would silently run it wrong. All enrolled files are
-    prelude-free, so ``prelude=()`` keeps this off the expensive bootstrap."""
+    ``--experimental-imperative`` (issue #1109, acceptance box 3).
+
+    A fixture is load-bearing only if the flag actually changes its outcome, so
+    we compare the ``(ok, error_message)`` pair for a checked-with-flag run
+    against a checked-without-flag run and require that they *differ*. Merely
+    asserting "fails without the flag" is not enough: a ``should-error`` fixture
+    such as ``imperative_proc_undefined_label.pf`` fails for its own reason with
+    or without the flag, so a no-flag failure alone is no evidence the flag is
+    required. When the two runs are identical the flag is inert and the
+    enrollment is stale. Positive fixtures (should-validate / should-warn /
+    test-imports) must additionally still succeed with the flag. All enrolled
+    files are prelude-free, so ``prelude=()`` avoids the expensive bootstrap."""
     label = "flag-enrollment"
     failures: list[tuple[str, str, str]] = []
-    for path in sorted(EXPERIMENTAL_IMPERATIVE_FILES):
-        if not os.path.exists(path):
-            failures.append((path, label, "enrolled fixture does not exist"))
-            continue
-        try:
-            set_experimental_imperative(False)
-            without_flag = check_file(path, prelude=())
-            set_experimental_imperative(True)
-            with_flag = check_file(path, prelude=())
-        finally:
+    positive_dirs = ("./test/should-validate/", "./test/should-warn/",
+                     "./test/test-imports/")
+    set_quiet_mode(True)
+    sink = io.StringIO()
+    try:
+        for path in sorted(EXPERIMENTAL_IMPERATIVE_FILES):
+            if not os.path.exists(path):
+                failures.append((
+                    path, label, "enrolled fixture does not exist"))
+                continue
+            with contextlib.redirect_stdout(sink):
+                set_experimental_imperative(False)
+                off = check_file(path, prelude=())
+                set_experimental_imperative(True)
+                on = check_file(path, prelude=())
             set_experimental_imperative(False)
 
-        if without_flag.ok:
-            failures.append((
-                path, label,
-                "checks successfully without --experimental-imperative; the "
-                "enrollment is stale (remove it from "
-                "EXPERIMENTAL_IMPERATIVE_FILES)",
-            ))
-        # Positive fixtures must validate with the flag; a regression here
-        # means a tracked fixture would be reported as a spurious failure.
-        positive_dirs = ("./test/should-validate/", "./test/test-imports/")
-        if path.startswith(positive_dirs) and not with_flag.ok:
-            failures.append((
-                path, label,
-                "positive imperative fixture no longer validates with the "
-                f"flag:\n{(with_flag.error_message or '')[:500]}",
-            ))
+            inert = (on.ok == off.ok
+                     and (on.error_message or "") == (off.error_message or ""))
+            if inert:
+                failures.append((
+                    path, label,
+                    "checks identically with and without "
+                    "--experimental-imperative, so the flag is inert here; the "
+                    "enrollment is stale (drop it from "
+                    "EXPERIMENTAL_IMPERATIVE_FILES)",
+                ))
+            # Positive fixtures must validate with the flag; a regression here
+            # means a tracked fixture would be reported as a spurious failure.
+            if path.startswith(positive_dirs) and not on.ok:
+                failures.append((
+                    path, label,
+                    "positive imperative fixture no longer validates with the "
+                    f"flag:\n{(on.error_message or '')[:500]}",
+                ))
+    finally:
+        set_experimental_imperative(False)
+        set_quiet_mode(False)
     return failures
 
 
