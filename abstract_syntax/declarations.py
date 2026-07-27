@@ -532,10 +532,8 @@ class ProcDecl(Declaration):
     overwrite(env_map, self.name, new_name, self.location)
     env_map['no overload'][self.name] = 'proc'
 
-    proc_env = copy_dict(env_map)
-    new_type_params = [generate_name(t, uniq_ctx) for t in self.type_params]
-    for (old, new) in zip(self.type_params, new_type_params):
-      overwrite(proc_env, old, new, self.location)
+    proc_env, new_type_params = uniquify_type_params(
+        env_map, self.type_params, uniq_ctx, self.location, overwrite)
 
     new_params = []
     for param in self.params:
@@ -778,10 +776,8 @@ class Predicate(Declaration):
     env_map[rule_inv_base] = [rule_inv_unique]
     env_map['no overload'][rule_inv_base] = 'theorem'
 
-    body_env = copy_dict(env_map)
-    new_type_params = [generate_name(t, uniq_ctx) for t in self.type_params]
-    for (old, new) in zip(self.type_params, new_type_params):
-      extend(body_env, old, new, self.location)
+    body_env, new_type_params = uniquify_type_params(
+        env_map, self.type_params, uniq_ctx, self.location, extend)
 
     new_signature = self.signature.uniquify(body_env, uniq_ctx)
     new_rules = [rule.uniquify(env_map, body_env, uniq_ctx) for rule in self.rules]
@@ -839,10 +835,8 @@ class Union(Declaration):
     env_map[self.name] = [new_name]
     env_map['no overload'][self.name] = 'union'
 
-    body_env = copy_dict(env_map)
-    new_type_params = [generate_name(t, uniq_ctx) for t in self.type_params]
-    for (old, new) in zip(self.type_params, new_type_params):
-      extend(body_env, old, new, self.location)
+    body_env, new_type_params = uniquify_type_params(
+        env_map, self.type_params, uniq_ctx, self.location, extend)
 
     new_alts = [con.uniquify(env_map, body_env, uniq_ctx)
                 for con in self.alternatives]
@@ -889,10 +883,8 @@ class TypeAlias(Declaration):
     env_map[self.name] = [new_name]
     env_map['no overload'][self.name] = 'type alias'
 
-    body_env = copy_dict(env_map)
-    new_type_params = [generate_name(t, uniq_ctx) for t in self.type_params]
-    for old, new in zip(self.type_params, new_type_params):
-      extend(body_env, old, new, self.location)
+    body_env, new_type_params = uniquify_type_params(
+        env_map, self.type_params, uniq_ctx, self.location, extend)
 
     return TypeAlias(self.location, new_name, new_type_params,
                      self.body.uniquify(body_env, uniq_ctx),
@@ -949,10 +941,8 @@ class ObjectDecl(Declaration):
     env_map[self.name] = [new_name]
     env_map['no overload'][self.name] = 'object'
 
-    body_env = copy_dict(env_map)
-    new_type_params = [generate_name(t, uniq_ctx) for t in self.type_params]
-    for old, new in zip(self.type_params, new_type_params):
-      extend(body_env, old, new, self.location)
+    body_env, new_type_params = uniquify_type_params(
+        env_map, self.type_params, uniq_ctx, self.location, extend)
     new_fields = None if self.fields is None \
       else [field.uniquify(body_env, uniq_ctx) for field in self.fields]
     return ObjectDecl(self.location, new_name, new_type_params, new_fields,
@@ -996,10 +986,8 @@ class ObserverDecl(Declaration):
     overwrite(env_map, self.name, new_name, self.location)
     env_map['no overload'][self.name] = 'observer'
 
-    body_env = copy_dict(env_map)
-    new_type_params = [generate_name(t, uniq_ctx) for t in self.type_params]
-    for (old, new) in zip(self.type_params, new_type_params):
-      overwrite(body_env, old, new, self.location)
+    body_env, new_type_params = uniquify_type_params(
+        env_map, self.type_params, uniq_ctx, self.location, overwrite)
 
     new_params = []
     for param in self.params:
@@ -1067,10 +1055,8 @@ class ResourceDecl(Declaration):
     overwrite(env_map, self.name, new_name, self.location)
     env_map['no overload'][self.name] = 'resource'
 
-    body_env = copy_dict(env_map)
-    new_type_params = [generate_name(t, uniq_ctx) for t in self.type_params]
-    for (old, new) in zip(self.type_params, new_type_params):
-      overwrite(body_env, old, new, self.location)
+    body_env, new_type_params = uniquify_type_params(
+        env_map, self.type_params, uniq_ctx, self.location, overwrite)
 
     new_params = []
     for param in self.params:
@@ -1185,10 +1171,8 @@ class RecFun(Declaration):
     new_name = generate_name(self.name, uniq_ctx)
     extend(env_map, self.name, new_name, self.location)
 
-    body_env = copy_dict(env_map)
-    new_type_params = [generate_name(t, uniq_ctx) for t in self.type_params]
-    for (old, new) in zip(self.type_params, new_type_params):
-      extend(body_env, old, new, self.location)
+    body_env, new_type_params = uniquify_type_params(
+        env_map, self.type_params, uniq_ctx, self.location, extend)
 
     new_params = [ty.uniquify(body_env, uniq_ctx) for ty in self.params]
     new_returns = self.returns.uniquify(body_env, uniq_ctx)
@@ -1272,11 +1256,10 @@ class GenRecFun(Declaration):
     new_name = generate_name(self.name, uniq_ctx)
     extend(env_map, self.name, new_name, self.location)
 
-    body_env = copy_dict(env_map)
+    body_env, new_type_params = uniquify_type_params(
+        env_map, self.type_params, uniq_ctx, self.location, extend)
     terminates_env = copy_dict(env_map)
-    new_type_params = [generate_name(t, uniq_ctx) for t in self.type_params]
     for (old, new) in zip(self.type_params, new_type_params):
-      extend(body_env, old, new, self.location)
       extend(terminates_env, old, new, self.location)
 
     new_returns = self.returns.uniquify(body_env, uniq_ctx)
@@ -1362,10 +1345,8 @@ class ViewRecFun(Declaration):
     new_name = generate_name(self.name, ctx)
     extend(env, self.name, new_name, self.location)
 
-    body_env = copy_dict(env)
-    new_type_params = [generate_name(t, ctx) for t in self.type_params]
-    for (old, new) in zip(self.type_params, new_type_params):
-      extend(body_env, old, new, self.location)
+    body_env, new_type_params = uniquify_type_params(
+        env, self.type_params, ctx, self.location, extend)
 
     new_returns = self.returns.uniquify(body_env, ctx)
     new_var_types = [t.uniquify(body_env, ctx) if t else None
@@ -1437,10 +1418,8 @@ class ViewDecl(Declaration):
     env[self.name] = [new_name]
     env['no overload'][self.name] = 'view'
 
-    body_env = copy_dict(env)
-    new_type_params = [generate_name(t, ctx) for t in self.type_params]
-    for (old, new) in zip(self.type_params, new_type_params):
-      extend(body_env, old, new, self.location)
+    body_env, new_type_params = uniquify_type_params(
+        env, self.type_params, ctx, self.location, extend)
 
     def resolve_name(name: str, kind: str) -> str:
       if name not in env.keys():
@@ -1825,10 +1804,8 @@ class Associative(Statement):
 
   def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> Associative:
     new_op = self.op.uniquify(env, ctx)
-    body_env = {x:y for (x,y) in env.items()}
-    new_type_params = [generate_name(x, ctx) for x in self.type_params]
-    for (old, new) in zip(self.type_params, new_type_params):
-      overwrite(body_env, old, new, self.location)
+    body_env, new_type_params = uniquify_type_params(
+        env, self.type_params, ctx, self.location, overwrite)
     new_typeof = self.typeof.uniquify(body_env, ctx)
     return Associative(self.location, new_type_params, new_op, new_typeof)
 

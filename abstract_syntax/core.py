@@ -324,6 +324,27 @@ def generate_name(name: str, ctx: UniquifyContext) -> str:
   return base + '.' + ctx.scope + str(new_id)
 
 
+def uniquify_type_params(
+    env: UniquifyEnv,
+    type_params: List[str],
+    ctx: UniquifyContext,
+    loc: Meta,
+    bind: Callable[[UniquifyEnv, str, str, Meta], None],
+) -> Tuple[UniquifyEnv, List[str]]:
+  """Copy ``env`` and bind fresh names for ``type_params`` in the copy.
+
+  Shared by the ``uniquify`` methods of every type-parameterized
+  declaration and type.  Returns the extended body environment and the
+  freshly generated parameter names.  ``bind`` is ``extend`` or
+  ``overwrite`` depending on whether the caller allows overloading.
+  """
+  body_env = copy_dict(env)
+  new_type_params = [generate_name(t, ctx) for t in type_params]
+  for (old, new) in zip(type_params, new_type_params):
+    bind(body_env, old, new, loc)
+  return body_env, new_type_params
+
+
 def base_name(name: str) -> str:
   ls = name.split('.')
   return ls[0]
