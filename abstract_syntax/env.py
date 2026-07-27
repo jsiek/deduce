@@ -421,7 +421,15 @@ class Env:
     
   def type_var_is_defined(self, tyname: VarRef) -> bool:
     if isinstance(tyname, VarRef):
-      return tyname.get_name() in self.dict.keys()
+      name = tyname.get_name()
+      # A procedure name lives in the env (so `call` can resolve it) but is
+      # not a type. Exclude it here so a proc used in a type position gets a
+      # clean `check_type` "undefined type variable" diagnostic instead of
+      # silently type-checking or hitting the bare-Exception fallback in
+      # `_def_of_type_var` (which would escape the error sink and abort LSP
+      # checking).
+      return name in self.dict.keys() \
+        and not isinstance(self.dict[name], ProcBinding)
     raise Exception('expected a type name, not ' + str(tyname))
 
   def term_var_is_defined(self, tvar: VarRef) -> bool:

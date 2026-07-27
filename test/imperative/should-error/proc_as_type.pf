@@ -1,0 +1,9 @@
+// Phase 2b (issue #1111): a procedure name is registered in the environment so
+// `call` can resolve it, but it is not a type. Using a proc name in a type
+// position must be rejected with a clean "undefined type variable" diagnostic
+// (both parsers agree) rather than silently type-checking or crashing the
+// error sink via the bare-Exception fallback in `_def_of_type_var`.
+proc p() {
+}
+proc q(a: p) {
+}
