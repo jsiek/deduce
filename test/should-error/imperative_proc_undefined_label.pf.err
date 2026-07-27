@@ -1,0 +1,1 @@
+./test/should-error/imperative_proc_undefined_label.pf:9.19-9.32: undefined proof variable missing_label

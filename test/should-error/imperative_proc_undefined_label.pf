@@ -1,0 +1,15 @@
+// A malformed procedure proof-block entry: the body's `assert ... by`
+// references a proof label that the trailing `proof ... end` block never
+// defines. Phase 1 (issue #968) recognizes proc declarations but does not
+// verify bodies; the label reference is still resolved, so an undefined label
+// is rejected here rather than silently accepted. Regression for issue #1109.
+proc p(n: bool)
+  ensures n = n
+{
+  assert n = n by missing_label
+}
+proof
+  other_label {
+    .
+  }
+end

@@ -32,6 +32,14 @@ Per-category flags (combinable):
                    divergences and parse-time-rejected fixtures are allowlisted
                    so CI catches new drift. Also round-trip representative ASTs
                    through the pretty-printer and both parsers.
+    --imperative   Phase 1 imperative tooling regression (issue #1109): the
+                   LSP symbol outline still lists proc/observer/object/resource,
+                   the experimental-imperative parser smoke test, and every
+                   ``EXPERIMENTAL_IMPERATIVE_FILES`` fixture genuinely needs
+                   ``--experimental-imperative``. Runs in-process without the
+                   memory-heavy LSP suite. Also runs under ``--cli`` (and thus
+                   the passable-1 CI shard), so CI covers it without a dedicated
+                   workflow leg.
 
 Standalone modes (mutually exclusive with the above):
     --site             Generate ``doc_*.pf`` from ``gh_pages/doc/``
@@ -254,6 +262,7 @@ EXPERIMENTAL_IMPERATIVE_FILES = frozenset({
     "./test/should-error/imperative_new_operator_name.pf",
     "./test/should-validate/imperative_import.pf",
     "./test/should-error/resource_declarations.pf",
+    "./test/should-error/imperative_proc_undefined_label.pf",
     "./test/should-error/imperative_import_unknown.pf",
     "./test/should-error/imperative_import_field.pf",
     "./test/should-error/imperative_export_private_contract.pf",
@@ -660,6 +669,7 @@ class ParsedFlags(TypedDict):
     gen_parse: bool
     workers: int
     shard: Optional[tuple[int, int]]
+    imperative: bool
 
 
 T = TypeVar("T")
@@ -1573,6 +1583,149 @@ def run_experimental_imperative_parser_test() -> list[tuple[str, str, str]]:
     return failures
 
 
+# Source that declares one of every imperative top-level kind, mirroring
+# ``test/lsp/test_symbols.py::test_list_symbols_includes_imperative_declarations``
+# so the two stay in sync. Kept in ``bool``/type territory so no prelude is
+# needed.
+IMPERATIVE_OUTLINE_SOURCE = (
+    "object Box<T> {\n"
+    "  var data : T\n"
+    "}\n"
+    "\n"
+    "proc do_nothing(x: bool)\n"
+    "  ensures x = x\n"
+    "{\n"
+    "}\n"
+    "\n"
+    "observer peek(x: bool) -> bool\n"
+    "  reads x\n"
+    "{\n"
+    "  x\n"
+    "}\n"
+    "\n"
+    "resource cell(p: bool, v: bool)\n"
+)
+
+
+def _check_imperative_symbol_outline() -> list[tuple[str, str, str]]:
+    """Pin that ``proc``/``observer``/``object``/``resource`` still surface in
+    the LSP symbol outline (issue #1109, acceptance box 1). Runs
+    ``lsp.query.list_symbols`` in-process -- it depends only on ``lark``, not on
+    the memory-heavy LSP server SDKs, so this stays in the focused CI lane."""
+    from lsp.query import SymbolKind, list_symbols
+
+    label = "lsp-outline"
+    path = "__imperative_outline__.pf"
+    set_experimental_imperative(True)
+    try:
+        syms = list_symbols(path, IMPERATIVE_OUTLINE_SOURCE)
+    except Exception as exc:  # pragma: no cover -- defensive
+        return [(path, label, f"list_symbols raised: {exc}")]
+    finally:
+        set_experimental_imperative(False)
+
+    by_name = {s.name: s.kind for s in syms}
+    expected = {
+        "Box": SymbolKind.OBJECT,
+        "do_nothing": SymbolKind.PROC,
+        "peek": SymbolKind.OBSERVER,
+        "cell": SymbolKind.RESOURCE,
+    }
+    failures: list[tuple[str, str, str]] = []
+    for name, kind in expected.items():
+        if by_name.get(name) is not kind:
+            failures.append((
+                path, label,
+                f"imperative declaration {name!r} missing from the outline "
+                f"(expected {kind}, got {by_name.get(name)})",
+            ))
+    return failures
+
+
+def _check_imperative_flag_enrollment() -> list[tuple[str, str, str]]:
+    """Pin that every ``EXPERIMENTAL_IMPERATIVE_FILES`` entry genuinely needs
+    ``--experimental-imperative`` (issue #1109, acceptance box 3).
+
+    A fixture is load-bearing only if the flag actually changes its outcome, so
+    we compare the ``(ok, error_message)`` pair for a checked-with-flag run
+    against a checked-without-flag run and require that they *differ*. Merely
+    asserting "fails without the flag" is not enough: a ``should-error`` fixture
+    such as ``imperative_proc_undefined_label.pf`` fails for its own reason with
+    or without the flag, so a no-flag failure alone is no evidence the flag is
+    required. When the two runs are identical the flag is inert and the
+    enrollment is stale. Positive fixtures (should-validate / should-warn /
+    test-imports) must additionally still succeed with the flag. All enrolled
+    files are prelude-free, so ``prelude=()`` avoids the expensive bootstrap."""
+    label = "flag-enrollment"
+    failures: list[tuple[str, str, str]] = []
+    positive_dirs = ("./test/should-validate/", "./test/should-warn/",
+                     "./test/test-imports/")
+    set_quiet_mode(True)
+    sink = io.StringIO()
+    try:
+        for path in sorted(EXPERIMENTAL_IMPERATIVE_FILES):
+            if not os.path.exists(path):
+                failures.append((
+                    path, label, "enrolled fixture does not exist"))
+                continue
+            with contextlib.redirect_stdout(sink):
+                set_experimental_imperative(False)
+                off = check_file(path, prelude=())
+                set_experimental_imperative(True)
+                on = check_file(path, prelude=())
+            set_experimental_imperative(False)
+
+            inert = (on.ok == off.ok
+                     and (on.error_message or "") == (off.error_message or ""))
+            if inert:
+                failures.append((
+                    path, label,
+                    "checks identically with and without "
+                    "--experimental-imperative, so the flag is inert here; the "
+                    "enrollment is stale (drop it from "
+                    "EXPERIMENTAL_IMPERATIVE_FILES)",
+                ))
+            # Positive fixtures must validate with the flag; a regression here
+            # means a tracked fixture would be reported as a spurious failure.
+            if path.startswith(positive_dirs) and not on.ok:
+                failures.append((
+                    path, label,
+                    "positive imperative fixture no longer validates with the "
+                    f"flag:\n{(on.error_message or '')[:500]}",
+                ))
+    finally:
+        set_experimental_imperative(False)
+        set_quiet_mode(False)
+    return failures
+
+
+def run_imperative_regression() -> list[tuple[str, str, str]]:
+    """Focused CI lane for the Phase 1 imperative tooling (issue #1109).
+
+    Bundles three fast, in-process checks so the imperative surface is
+    continuously covered without standing up the full LSP suite:
+
+      * the LSP symbol outline still lists proc/observer/object/resource;
+      * the experimental-imperative parser smoke test;
+      * every tracked imperative fixture genuinely needs the feature flag.
+
+    Runs both standalone (``--imperative``) and under ``--cli`` so the
+    passable-1 CI shard (``--passable --cli``) covers it without its own
+    workflow leg.
+    """
+    failures: list[tuple[str, str, str]] = []
+    _, fails = time_section("lsp symbol outline",
+                            _check_imperative_symbol_outline)
+    failures.extend(fails)
+    _, fails = time_section("experimental imperative parser",
+                            run_experimental_imperative_parser_test)
+    failures.extend(fails)
+    _, fails = time_section("flag enrollment",
+                            _check_imperative_flag_enrollment)
+    failures.extend(fails)
+    return failures
+
+
 def run_examples_parallel(workers: int) -> list[tuple[str, str, str]]:
     """``examples/*.pf`` × RD parser only.
 
@@ -1688,7 +1841,7 @@ def parse_args(argv: list[str]) -> ParsedFlags:
         "examples": False, "regen_all": False, "regen_files": [],
         "regen_all_warns": False, "regen_warn_files": [],
         "gen_parse": False, "workers": max(1, (os.cpu_count() or 4)),
-        "shard": None,
+        "shard": None, "imperative": False,
     }
     i = 0
     while i < len(argv):
@@ -1704,6 +1857,7 @@ def parse_args(argv: list[str]) -> ParsedFlags:
         elif a == "--site": flags["site"] = True
         elif a == "--parser": flags["parser"] = True
         elif a == "--examples": flags["examples"] = True
+        elif a == "--imperative": flags["imperative"] = True
         elif a == "--regenerate-errors": flags["regen_all"] = True
         elif a == "--generate-error":
             flags["regen_files"].append(argv[i + 1])
@@ -1731,7 +1885,7 @@ def parse_args(argv: list[str]) -> ParsedFlags:
         or flags["errors"]
         or flags["warns"] or flags["site"] or flags["parser"]
         or flags["examples"] or flags["equiv"] or flags["equiv_full"]
-        or flags["regen_all"]
+        or flags["regen_all"] or flags["imperative"]
         or flags["regen_all_warns"] or flags["gen_parse"]
         or flags["regen_files"] or flags["regen_warn_files"]
     ):
@@ -1748,6 +1902,7 @@ def parse_args(argv: list[str]) -> ParsedFlags:
         ("errors", flags["errors"]),
         ("warns", flags["warns"]),
         ("equiv", flags["equiv"]),
+        ("imperative", flags["imperative"]),
     )
     standalone_flags = (
         ("site", flags["site"]),
@@ -1865,10 +2020,15 @@ def main(argv: list[str]) -> int:
             "deduce.py --no-stdlib theorem_true.pf", run_cli_test
         )
         total_failures.extend(fails)
-        _, fails = time_section(
-            "experimental imperative parser",
-            run_experimental_imperative_parser_test,
-        )
+
+    # Imperative tooling lane (issue #1109): LSP outline + parser smoke test +
+    # flag-enrollment pin. Rides on --cli so it is covered by the passable-1 CI
+    # shard (``--passable --cli``) without a dedicated workflow leg; ``--imperative``
+    # runs it standalone as a focused lane for local iteration.
+    if flags["cli"] or flags["imperative"]:
+        print("\n=== imperative: Phase 1 imperative tooling regression ===")
+        _, fails = time_section("imperative tooling",
+                                run_imperative_regression)
         total_failures.extend(fails)
 
     # Lib pool: clean state (no shared cache).
