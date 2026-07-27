@@ -1,0 +1,5 @@
+// Phase 2a (issue #1110): pins the *error* side of the boundary. `new Obj(..)`
+// allocation is only accepted directly after `:=` inside a `proc` body (Phase
+// 1l, issue #1107). Written in an ordinary pure term it must still be rejected
+// with the focused diagnostic even with --experimental-imperative on.
+define x = new Node()

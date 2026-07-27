@@ -1,0 +1,9 @@
+// Phase 2a (issue #1110): pins the *silent* side of the #1108 unchecked
+// boundary. An `object` declaration is inert plumbing in Phase 1 -- it parses
+// and type-checks without any verification obligation, and unlike proc /
+// observer / resource it emits NO warning. With no `.pf.warn` sibling the
+// imperative validate lane requires the run to be warning-free, so a future
+// change that started warning on objects would fail here.
+object Box<T> {
+  var data : T
+}
