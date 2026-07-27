@@ -243,8 +243,9 @@ end
 """
 
 EXPERIMENTAL_IMPERATIVE_FILES = frozenset({
-    "./test/should-validate/proc_declarations.pf",
-    "./test/should-validate/observer_declarations.pf",
+    "./test/should-warn/proc_declarations.pf",
+    "./test/should-warn/observer_declarations.pf",
+    "./test/should-warn/imperative_false_proc.pf",
     "./test/should-validate/imperative_import.pf",
     "./test/should-error/resource_declarations.pf",
     "./test/should-error/imperative_import_unknown.pf",
@@ -499,11 +500,11 @@ PARSER_ROUND_TRIP_FILES = (
     # Imperative procedure declarations (recognized in Phase 1i, #968; bodies
     # not verified). Both parsers must agree on the AST and the pretty-printer
     # must preserve the header and repeated specification clauses.
-    "./test/should-validate/proc_declarations.pf",
+    "./test/should-warn/proc_declarations.pf",
     # Imperative observer declarations. Both parsers must agree on the AST and
     # the pretty-printer must preserve repeated `reads` clauses and the optional
     # body.
-    "./test/should-validate/observer_declarations.pf",
+    "./test/should-warn/observer_declarations.pf",
     # Separation-resource declarations (#854 Phase 1h). The declarations are
     # recognized (Phase 1i) but the file stays in should-error because resource
     # formulas have no term semantics; both parsers must agree on the AST and
@@ -802,10 +803,14 @@ def _check_against_warn(f: str) -> tuple[str, bool, str]:
     if not os.path.isfile(warn_file):
         return (f, False, "missing .pf.warn fixture")
     set_recursive_descent(True)
+    set_experimental_imperative(_uses_experimental_imperative(f))
     set_quiet_mode(True)
     buf = io.StringIO()
-    with contextlib.redirect_stdout(buf):
-        result = check_file(f, prewarm_modules=_WORKER_PREWARM)
+    try:
+        with contextlib.redirect_stdout(buf):
+            result = check_file(f, prewarm_modules=_WORKER_PREWARM)
+    finally:
+        set_experimental_imperative(False)
     if not result.ok:
         return (f, False, f"expected valid + warnings but file errored:\n"
                           f"{(result.error_message or '')[:500]}")

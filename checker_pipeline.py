@@ -55,6 +55,7 @@ from checker_types import (
 from error import (
     Diagnostic, ErrorSink, MatchFailed, error_header, get_active_sink,
     get_active_warning_sink, internal_error, set_active_sink, user_error,
+    warning,
 )
 from flags import (
     get_check_imports, get_debugger, get_quiet_mode,
@@ -1156,6 +1157,29 @@ def find_rec_calls(name: str, term: Term | RecFun | GenRecFun,
                      'in find_rec_calls, unhandled ' + str(term))
     
 
+# Phase 1m transition guard (issue #1108): the experimental imperative
+# layer (issue #854) parses `proc`, `observer`, and `resource`
+# declarations and threads them through uniquify, module boundaries, and
+# tooling, but no verifier runs on their bodies or specifications yet.
+# Without this warning a deliberately false procedure -- `ensures result
+# = true` with `return false` -- would be presented as fully valid.
+#
+# Phase 2 slices retire this per construct: when procedure verification
+# lands, drop the `warn_unverified_imperative` call from the `ProcDecl`
+# case in `check_proofs` (below) and verify there instead, leaving the
+# observer and resource cases warning until their own verifier arrives.
+_IMPERATIVE_DECL_KIND = {ProcDecl: 'proc', ObserverDecl: 'observer',
+                         ResourceDecl: 'resource'}
+
+def warn_unverified_imperative(decl: Declaration) -> None:
+  kind = _IMPERATIVE_DECL_KIND[type(decl)]
+  warning(decl.location,
+          f"warning: {kind} '{base_name(decl.name)}' is accepted but not "
+          "verified -- parsing and declaration plumbing succeeded, but no "
+          "verifier has run on its body or specs yet (experimental "
+          "imperative layer, issue #854)")
+
+
 def check_proofs(stmt: Statement, env: Env) -> None:
   if get_verbose():
     print('\n\ncheck_proofs(' + str(stmt) + ')')
@@ -1238,12 +1262,17 @@ def check_proofs(stmt: Statement, env: Env) -> None:
     case TypeAlias():
       pass
 
-    case ObjectDecl() | ProcDecl() | ObserverDecl() | ResourceDecl():
+    case ObjectDecl():
+      # Object declarations are type-checked in earlier phases; nothing to
+      # verify here and no unchecked-semantics warning (issue #1108).
       pass
+
+    case ProcDecl() | ObserverDecl() | ResourceDecl():
+      warn_unverified_imperative(stmt)
 
     case ViewDecl():
       pass
-  
+
     case Export(loc, name):
       pass
   
@@ -1545,8 +1574,14 @@ def _check_deduce_body(ast: list[Statement], module_name: str, modified: bool,
         # statement's text and its dependency set, so two identical
         # ``print zero`` lines hash to the same key -- caching the
         # verdict would skip the side effect on every duplicate.
-        # Bypass the cache for them; ``check_proofs`` on these is
-        # cheap anyway.
+        # ``ProcDecl``/``ObserverDecl``/``ResourceDecl`` are the same:
+        # their only effect in ``check_proofs`` is the Phase 1m
+        # "accepted but not verified" warning (issue #1108).  When no
+        # warning sink is installed (``check_file(collect_errors=False)``,
+        # e.g. the CLI) ``warnings_emitted`` below stays ``False``, so
+        # the miss branch would cache them and a later re-check in a
+        # long-lived process would silently drop the warning.  Bypass
+        # the cache for all of these; ``check_proofs`` on them is cheap.
         try:
           _sink = get_active_sink()
           pre_n = len(_sink) if _sink is not None else 0
@@ -1563,7 +1598,8 @@ def _check_deduce_body(ast: list[Statement], module_name: str, modified: bool,
           if get_debugger() is not None:
             check_proofs(s, env)
             _record_miss("check_proofs")
-          elif isinstance(s, (Print, Assert)):
+          elif isinstance(s, (Print, Assert, ProcDecl, ObserverDecl,
+                              ResourceDecl)):
             check_proofs(s, env)
             _record_miss("check_proofs")
           elif key in _stmt_cache:

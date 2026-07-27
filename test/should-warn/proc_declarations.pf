@@ -2,6 +2,8 @@
 // slots, and call labels. Phase 1i (issue #968) recognizes proc declarations
 // as first-class for module boundaries and tooling, so this file validates;
 // the bodies and specs are not verified yet (Phase 2 adds the verifier).
+// Phase 1m (issue #1108) emits one "accepted but not verified" warning per
+// proc until that verifier lands -- see the sibling .warn fixture.
 public proc identity<T>(x: T, ghost witness: T) -> T
   requires x = x
   requires witness = witness
