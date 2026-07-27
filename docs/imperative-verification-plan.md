@@ -17,9 +17,12 @@ To keep the status precise, this plan distinguishes four levels of support:
 
 Phase 1 delivers *parsed* plus the declaration-level slice of *type-checked*:
 `proc`, `observer`, `object`, and `resource` declarations are recognized,
-threaded through imports/exports and the exported-contract visibility check
-(`checker_pipeline.check_exported_contract_visibility`), and surfaced as LSP
-symbols. Their bodies and specifications are **not** verified — the checker
+threaded through imports/exports, and surfaced as LSP symbols. Public `proc`
+and `observer` contracts additionally go through the exported-contract
+visibility check (`checker_pipeline.check_exported_contract_visibility`), which
+rejects a contract that mentions a private name; `object` and `resource`
+declarations do not yet have an analogous check. Their bodies and
+specifications are **not** verified — the checker
 passes them through unchanged, so a file full of `proc`s reports `is valid`
 without any correctness guarantee. Nothing below the declaration surface is
 verified or executable yet. The verifier, runtime, and everything Phases 2–6

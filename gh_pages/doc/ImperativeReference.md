@@ -9,11 +9,12 @@ and tracked by [issue #854](https://github.com/jsiek/deduce/issues/854).
 entries below are recognized by both parsers and the pretty-printer
 round-trips them. `proc`, `observer`, `object`, and `resource`
 declarations are currently *accepted* — they are threaded through
-imports/exports, the exported-contract visibility check, and LSP
-symbols — but their bodies and specifications are **not verified**. The
-imperative verifier itself does not exist yet, so a file containing
-these declarations reports `is valid` without any correctness
-guarantee. Verification lands in later phases.
+imports/exports and LSP symbols, and public `proc`/`observer` contracts
+additionally go through the exported-contract visibility check — but
+their bodies and specifications are **not verified**. The imperative
+verifier itself does not exist yet, so a file containing these
+declarations reports `is valid` without any correctness guarantee.
+Verification lands in later phases.
 
 Most of the surface lives behind the `--experimental-imperative`
 flag. The exceptions are noted per-section.
