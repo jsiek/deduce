@@ -189,6 +189,9 @@ proc body_forms<T>(a: [T]!, i: T, n: T, ghost g: T) -> T
   var y := a[i]
   ghost var z : T := g
   ghost var w := g
+  var alloc0 := new Cell(n)
+  var alloc1 : T := new Box<T>(x, n)
+  alloc0 := new Cell(y)
   x := n
   a[i] := a[n]
   a.header := x
@@ -246,6 +249,9 @@ EXPERIMENTAL_IMPERATIVE_FILES = frozenset({
     "./test/should-warn/proc_declarations.pf",
     "./test/should-warn/observer_declarations.pf",
     "./test/should-warn/imperative_false_proc.pf",
+    "./test/should-warn/imperative_allocation.pf",
+    "./test/should-error/imperative_new_pure_term.pf",
+    "./test/should-error/imperative_new_operator_name.pf",
     "./test/should-validate/imperative_import.pf",
     "./test/should-error/resource_declarations.pf",
     "./test/should-error/imperative_import_unknown.pf",
@@ -291,6 +297,8 @@ SHOULD_ERROR_PARSER_EQUIV_SKIP = frozenset({
     "./test/should-error/fn_missing_arrow.pf",
     "./test/should-error/fun_params_trailing_comma.pf",
     "./test/should-error/function_case_missing_equal.pf",
+    "./test/should-error/imperative_new_operator_name.pf",
+    "./test/should-error/imperative_new_pure_term.pf",
     "./test/should-error/lambda_empty_params.pf",
     "./test/should-error/literal_too_large.pf",
     "./test/should-error/missing-colon-in-have.pf",
@@ -501,6 +509,11 @@ PARSER_ROUND_TRIP_FILES = (
     # not verified). Both parsers must agree on the AST and the pretty-printer
     # must preserve the header and repeated specification clauses.
     "./test/should-warn/proc_declarations.pf",
+    # `new Obj<T..>(args)` allocation right-hand sides inside a `proc` body
+    # (Phase 1l, #1107). The `ImpAlloc` node is parsed as inert syntax; both
+    # parsers must agree on the AST and the pretty-printer must round-trip the
+    # object name, optional `<type args>`, and constructor argument list.
+    "./test/should-warn/imperative_allocation.pf",
     # Imperative observer declarations. Both parsers must agree on the AST and
     # the pretty-printer must preserve repeated `reads` clauses and the optional
     # body.

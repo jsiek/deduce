@@ -147,7 +147,7 @@ identifier: IDENT              -> identifier
     | ".0."                                        -> emptyset_literal
     | "emp"                                        -> emp_resource
     | "not" atomic_term                                -> logical_not
-    | "new" IDENT type_params_opt "(" term_list ")"    -> rejected_new_object
+    | "new" IDENT new_type_args "(" term_list ")"      -> rejected_new_object
     | "new"                                            -> rejected_new_term
     | identifier                                   -> term_var
     | "@" atomic_term "<" type_list ">"                -> term_inst
@@ -360,6 +360,12 @@ identifier: IDENT              -> identifier
 
 ?type_params_opt:                                -> empty
    | "<" identifier_list ">"
+
+// Optional type arguments of a `new Obj<T..>(args)` allocation (imperative
+// layer, #854 Phase 1l). Unlike `type_params_opt` these are types, not binding
+// identifiers, so a compound argument such as `new Node<List<T>>(...)` parses.
+?new_type_args:                                  -> empty
+   | "<" type_list ">"
 
 ?constructor: IDENT                                   -> constructor_id
     | IDENT "(" type_list ")"                    -> constructor_apply

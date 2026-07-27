@@ -1,0 +1,10 @@
+// The object name in a `new Obj(args)` allocation must be a bare identifier
+// (Phase 1l, issue #1107). The recursive-descent parser must NOT accept the
+// `operator <op>` spelling that `parse_identifier` allows elsewhere, since the
+// LALR grammar requires an IDENT and the `operator +` form would print to
+// `new +(...)`, which neither parser can reparse.
+proc make() -> bool
+{
+  var a := new operator +(x)
+  return true
+}

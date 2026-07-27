@@ -11,7 +11,7 @@ from abstract_syntax import (
     Define, Emp, EvaluateFact, EvaluateGoal, Export, FieldAccess, FrameEmpty,
     FrameFootprint, FrameTerm, FunCase, FunctionType,
     GenRecFun, Generic, Hole, IfThen, ImpIntro, Import,
-    ImpAssert, ImpAssign, ImpAssume, ImpCall, ImpCallExpr, ImpIf, ImpReturn,
+    ImpAlloc, ImpAssert, ImpAssign, ImpAssume, ImpCall, ImpCallExpr, ImpIf, ImpReturn,
     ImpStmt, ImpVar, ImpWhile, LValueField, LValueIndex, LValueVar,
     IndCase, Induction, Inductive, Lambda, MakeArray, Mark,
     Module, ModusPonens, MutableArrayType, ObjectDecl, ObjectField,
@@ -1889,9 +1889,11 @@ def parse_imp_lvalue() -> LValueVar | LValueIndex | LValueField:
     return LValueField(meta_from_tokens(start, previous_token()), name, field)
   return LValueVar(meta_from_tokens(start, previous_token()), name)
 
-def parse_imp_rhs() -> Term | ImpCallExpr:
-  # A `var`/assignment right-hand side is either a `call f(..)` expression
-  # (optionally labelled with `as h`) or an ordinary term.
+def parse_imp_rhs() -> Term | ImpCallExpr | ImpAlloc:
+  # A `var`/assignment right-hand side is a `call f(..)` expression (optionally
+  # labelled with `as h`), a `new Obj<T..>(args)` allocation, or an ordinary
+  # term. `new` is reachable here only in this imperative position; used as a
+  # pure term it is rejected in `parse_atom`.
   if current_token().value == 'call':
     start = current_token()
     advance()
@@ -1901,7 +1903,31 @@ def parse_imp_rhs() -> Term | ImpCallExpr:
       advance()
       label = parse_identifier()
     return ImpCallExpr(meta_from_tokens(start, previous_token()), call, label)
+  if current_token().type == 'NEW':
+    return parse_imp_alloc()
   return parse_term()
+
+def parse_imp_alloc() -> ImpAlloc:
+  # `new Obj<T..>(args)` -- inert allocation syntax (see `ImpAlloc`). The object
+  # name must be a bare IDENT to match the LALR grammar; `parse_identifier`'s
+  # `operator <op>` / `__` spellings are deliberately not accepted here (they
+  # would diverge from LALR and print to a form that no longer reparses).
+  start = current_token()
+  advance()  # consume "new"
+  name_token = current_token()
+  consume_token('IDENT', 'an object name', context='after "new"')
+  name = cast(str, name_token.value)
+  type_args: list[Type] = []
+  if not end_of_file() and current_token().type == 'LESSTHAN':
+    advance()
+    type_args = parse_type_list()
+    consume_token('MORETHAN', 'closing ">"',
+                  context='after allocation type arguments')
+  consume_token('LPAR', '"("', context='before allocation arguments')
+  args = parse_term_list('RPAR')
+  consume_token('RPAR', 'closing ")"', context='after allocation arguments')
+  return ImpAlloc(meta_from_tokens(start, previous_token()), name,
+                  type_args, args)
 
 def parse_imp_var(ghost: bool) -> ImpVar:
   start = current_token()
