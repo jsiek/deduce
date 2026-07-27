@@ -1,0 +1,16 @@
+// Allocation right-hand sides `new Obj<T..>(args)` inside a `proc` body
+// (Phase 1l, issue #1107). Parsed as inert imperative syntax: the object name
+// is not resolved and no fields, arity, or `Ref<T>` semantics are checked yet
+// (Phase 3). This file validates because proc bodies are not verified in
+// Phase 1; it exercises allocation as a `var` RHS (with and without type
+// arguments), a `ghost var` RHS, and an assignment RHS.
+proc allocations<T>(x: T, ghost g: T) -> T
+  requires x = x
+{
+  var a := new Cell(x)
+  var b : T := new Box<T>(x, g)
+  ghost var c := new Ghost<T>(g)
+  var d := new Empty()
+  a := new Cell(g)
+  return x
+}

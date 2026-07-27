@@ -6,7 +6,7 @@ from abstract_syntax import (
     FunctionType,
     FrameEmpty, FrameFootprint, FrameTerm, GenRecFun, Generic,
     Hole, IfThen, ImpIntro, Import,
-    ImpAssert, ImpAssign, ImpAssume, ImpCall, ImpCallExpr, ImpIf, ImpReturn,
+    ImpAlloc, ImpAssert, ImpAssign, ImpAssume, ImpCall, ImpCallExpr, ImpIf, ImpReturn,
     ImpVar, ImpWhile, LValueField, LValueIndex, LValueVar,
     IndCase, Induction, Inductive, IntType, Lambda, MakeArray,
     Mark, Module, ModusPonens, MutableArrayType, ObjectDecl, ObjectField,
@@ -236,6 +236,20 @@ def set_visibility(statement: Any, visibility: str) -> None:
     else:
         statement.visibility = 'public'
 
+def _imp_rhs_to_ast(e: ParseNode, parent: ParseParent) -> Any:
+    # A `var`/assignment right-hand side. `new Obj<T..>(args)` parses via the
+    # shared atomic-term `rejected_new_object` shape (which raises for pure
+    # terms); in this imperative position it is instead a first-class
+    # allocation expression. Everything else -- ordinary terms and the `call`
+    # forms -- goes through the general transformer.
+    if not isinstance(e, Token) and e.data == 'rejected_new_object':
+        setattr(e.meta, 'filename', get_filename())
+        _require_experimental_imperative(e.meta)
+        return ImpAlloc(e.meta, _token_text(e, 0),
+                        parse_tree_to_list(e.children[1], e),
+                        parse_tree_to_list(e.children[2], e))
+    return parse_tree_to_ast(e, parent)
+
 # Any: the lark-tree -> AST dispatch boundary. This is dispatched on the
 # grammar rule name and so is polymorphic over every node kind the grammar
 # can produce (Term/Formula/Proof/Type/Pattern/Statement, plus bare str
@@ -245,7 +259,7 @@ def set_visibility(statement: Any, visibility: str) -> None:
 def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
     if isinstance(e, Token):
         return e
-    
+
     setattr(e.meta, 'filename', get_filename())
 
     if e.data == 'nothing':
@@ -458,26 +472,26 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
     elif e.data == 'imp_var':
         _require_experimental_imperative(e.meta)
         return ImpVar(e.meta, parse_tree_to_ast(e.children[0], e), None,
-                      parse_tree_to_ast(e.children[1], e), False)
+                      _imp_rhs_to_ast(e.children[1], e), False)
     elif e.data == 'imp_var_annot':
         _require_experimental_imperative(e.meta)
         return ImpVar(e.meta, parse_tree_to_ast(e.children[0], e),
                       parse_tree_to_ast(e.children[1], e),
-                      parse_tree_to_ast(e.children[2], e), False)
+                      _imp_rhs_to_ast(e.children[2], e), False)
     elif e.data == 'imp_ghost_var':
         _require_experimental_imperative(e.meta)
         return ImpVar(e.meta, parse_tree_to_ast(e.children[0], e), None,
-                      parse_tree_to_ast(e.children[1], e), True)
+                      _imp_rhs_to_ast(e.children[1], e), True)
     elif e.data == 'imp_ghost_var_annot':
         _require_experimental_imperative(e.meta)
         return ImpVar(e.meta, parse_tree_to_ast(e.children[0], e),
                       parse_tree_to_ast(e.children[1], e),
-                      parse_tree_to_ast(e.children[2], e), True)
+                      _imp_rhs_to_ast(e.children[2], e), True)
     elif e.data == 'imp_assign':
         _require_experimental_imperative(e.meta)
         return ImpAssign(e.meta,
                          parse_tree_to_ast(e.children[0], e),
-                         parse_tree_to_ast(e.children[1], e))
+                         _imp_rhs_to_ast(e.children[1], e))
     elif e.data == 'imp_if':
         _require_experimental_imperative(e.meta)
         return ImpIf(e.meta,

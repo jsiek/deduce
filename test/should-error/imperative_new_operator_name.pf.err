@@ -1,0 +1,6 @@
+
+
+  var a := new operator +(x)
+               ^^^^^^^^
+./test/should-error/imperative_new_operator_name.pf:8.16-8.24: expected an object name after "new", not
+	operator

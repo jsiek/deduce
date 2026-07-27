@@ -1,0 +1,8 @@
+./test/should-error/imperative_new_pure_term.pf:4.1-4.11: while parsing
+	proof_stmt ::= "define" identifier "=" term
+
+
+define x = new Node()
+           ^^^
+
+./test/should-error/imperative_new_pure_term.pf:4.12-4.15: `new` allocation syntax is only available in imperative statement right-hand sides

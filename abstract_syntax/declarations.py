@@ -222,10 +222,27 @@ class ImpCallExpr(AST):
     return result
 
 @dataclass
+class ImpAlloc(AST):
+  # A `new Obj<T..>(args)` allocation used as the right-hand side of a
+  # `var`/assignment inside a `proc` body (Phase 1l, issue #1107). Parsed as
+  # inert syntax: no object allocation, `Ref<T>` checking, field visibility,
+  # or constructor arity checking (those are Phase 3). The pure-term `new`
+  # stays rejected -- allocation is only reachable directly after `:=`.
+  object_name: str
+  type_args: List[Type]
+  args: List[Term]
+
+  def __str__(self) -> str:
+    result = 'new ' + base_name(self.object_name)
+    if self.type_args:
+      result += '<' + ', '.join(str(t) for t in self.type_args) + '>'
+    return result + '(' + ', '.join(str(a) for a in self.args) + ')'
+
+@dataclass
 class ImpVar(ImpStmt):
   name: str
   type_annot: Optional[Type]
-  rhs: Term | ImpCallExpr
+  rhs: Term | ImpCallExpr | ImpAlloc
   ghost: bool = False
 
   def __str__(self) -> str:
@@ -236,7 +253,7 @@ class ImpVar(ImpStmt):
 @dataclass
 class ImpAssign(ImpStmt):
   lhs: LValueVar | LValueIndex | LValueField
-  rhs: Term | ImpCallExpr
+  rhs: Term | ImpCallExpr | ImpAlloc
 
   def __str__(self) -> str:
     return str(self.lhs) + ' := ' + str(self.rhs)
@@ -349,14 +366,20 @@ def _uniquify_lvalue(lv: LValueVar | LValueIndex | LValueField,
     return LValueField(lv.location, _resolve_local(lv.subject, env), lv.field)
   return LValueVar(lv.location, _resolve_local(lv.name, env))
 
-def _uniquify_imp_rhs(rhs: Term | ImpCallExpr, env: UniquifyEnv,
-                      ctx: UniquifyContext) -> Term | ImpCallExpr:
-  # A `var`/assignment right-hand side is either an ordinary term or a
-  # `call f(..) as h` expression. For the call form, resolve the call
-  # term's subparts but leave the label as-is (see the proof-clause note
-  # in `ProcDecl.uniquify`).
+def _uniquify_imp_rhs(rhs: Term | ImpCallExpr | ImpAlloc, env: UniquifyEnv,
+                      ctx: UniquifyContext) -> Term | ImpCallExpr | ImpAlloc:
+  # A `var`/assignment right-hand side is an ordinary term, a `call f(..) as h`
+  # expression, or a `new Obj<T..>(args)` allocation. For the call form,
+  # resolve the call term's subparts but leave the label as-is (see the
+  # proof-clause note in `ProcDecl.uniquify`). For the allocation form,
+  # resolve the type and term arguments but leave the object name as-is
+  # (object resolution is a later verifier phase).
   if isinstance(rhs, ImpCallExpr):
     return ImpCallExpr(rhs.location, rhs.call.uniquify(env, ctx), rhs.label)
+  if isinstance(rhs, ImpAlloc):
+    return ImpAlloc(rhs.location, rhs.object_name,
+                    [t.uniquify(env, ctx) for t in rhs.type_args],
+                    [a.uniquify(env, ctx) for a in rhs.args])
   return rhs.uniquify(env, ctx)
 
 def _uniquify_imp_proof(proof: Optional[Proof], env: UniquifyEnv,
