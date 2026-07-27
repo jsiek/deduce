@@ -2,8 +2,28 @@
 
 Tracking issue: #854.
 
-**Status:** design draft. Nothing in this document is implemented yet. The
-examples are proposed surface syntax and future acceptance tests.
+**Status:** Phase 1 (parser/AST + declaration plumbing) is implemented on
+`main`; Phases 2–6 are still a design draft.
+
+To keep the status precise, this plan distinguishes four levels of support:
+
+- **parsed** — the concrete syntax is accepted by both parsers (behind
+  `--experimental-imperative`) and the pretty-printer round-trips it;
+- **type-checked** — declarations are woven into the type environment,
+  imports/exports, module-boundary visibility checks, and LSP symbols;
+- **verified** — verification goals (bounds, frames, invariants,
+  postconditions) are computed and discharged;
+- **executable** — the procedure compiles and runs.
+
+Phase 1 delivers *parsed* plus the declaration-level slice of *type-checked*:
+`proc`, `observer`, `object`, and `resource` declarations are recognized,
+threaded through imports/exports and the exported-contract visibility check
+(`checker_pipeline.check_exported_contract_visibility`), and surfaced as LSP
+symbols. Their bodies and specifications are **not** verified — the checker
+passes them through unchanged, so a file full of `proc`s reports `is valid`
+without any correctness guarantee. Nothing below the declaration surface is
+verified or executable yet. The verifier, runtime, and everything Phases 2–6
+describe below are still proposed surface syntax and future acceptance tests.
 
 ## Goal
 
@@ -991,28 +1011,54 @@ terms.
 
 ## Implementation phases
 
-### Phase 1: Imperative AST and parser, no verifier
+### Phase 1: Imperative AST and parser, no verifier — implemented
+
+This phase has landed on `main` (sub-issues #960–#969, #473; tracked by #854).
 
 - Add AST nodes for `Proc`, imperative statements, spec clauses, frame
   expressions, observer declarations, object declarations, and resource
-  declarations.
-- Parser accepts the proposed syntax under a feature flag, for example
-  `--experimental-imperative`.
-- Type checker rejects procedure calls from pure terms.
+  declarations. **Done** (`imperative_syntax.py`, `abstract_syntax/`).
+- Parser accepts the proposed syntax under the `--experimental-imperative`
+  feature flag. **Done** in both parsers (`parser.py`, `rec_desc_parser.py`,
+  `parser_common.py`); the pretty-printer round-trips every form.
 - Pretty-printer and symbol outline include procedures, observers, objects, and
-  resources.
-- Import filters accept the new top-level declaration names.
+  resources. **Done** — LSP symbols cover all four declaration kinds.
+- Import filters accept the new top-level declaration names, and the
+  exported-contract visibility check
+  (`checker_pipeline.check_exported_contract_visibility`) rejects a public
+  `proc`/`observer` whose contract mentions a private name. **Done**.
+- The imperative surface is documented in
+  [gh_pages/doc/ImperativeReference.md](../gh_pages/doc/ImperativeReference.md).
 
-Acceptance:
+Note: declaration bodies and specifications are accepted but **not** verified —
+`type_check_stmt` passes `proc`/`observer`/`object`/`resource` through
+unchanged. There is no check that a pure `fun` cannot write mutable state,
+because mutable-state semantics do not exist yet; that guarantee arrives with
+the Phase 2 verifier.
 
-- parser fixtures for each new syntactic form;
-- type checker confirms pure `fun` cannot write mutable state;
+Remaining Phase 1 finishing work (open):
+
+- **#1107** (Phase 1l): parse `new`/allocation expressions, restricted to
+  imperative statement right-hand sides.
+- **#1108** (Phase 1m): warn when imperative declarations are accepted without
+  verification, so `is valid` does not read as "verified".
+- **#1109** (Phase 1n): run imperative parser and LSP-symbol regressions in CI.
+- **#1106** (Phase 1k): this documentation sync.
+
+Original acceptance targets:
+
+- parser fixtures for each new syntactic form; **done**
 - LSP symbols include `proc`, `observer`, `object`, and `resource`
-  declarations;
-- `import M using p` can import an exported procedure `p`;
-- a public procedure whose contract mentions a private name is rejected.
+  declarations; **done**
+- `import M using p` can import an exported procedure `p`; **done**
+- a public procedure whose contract mentions a private name is rejected. **done**
+- type checker confirms pure `fun` cannot write mutable state — deferred to
+  Phase 2, since there is no mutable-state semantics to write against yet.
 
 ### Phase 2: Mutable arrays and local variables
+
+This phase is broken into sub-issues #1110–#1133 (Phase 2a–2x), tracked by
+#854. It is not yet implemented.
 
 - Add `[T]!` handles and operations: length, read, write, allocation from
   a list.
