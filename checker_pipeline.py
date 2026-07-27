@@ -1574,8 +1574,14 @@ def _check_deduce_body(ast: list[Statement], module_name: str, modified: bool,
         # statement's text and its dependency set, so two identical
         # ``print zero`` lines hash to the same key -- caching the
         # verdict would skip the side effect on every duplicate.
-        # Bypass the cache for them; ``check_proofs`` on these is
-        # cheap anyway.
+        # ``ProcDecl``/``ObserverDecl``/``ResourceDecl`` are the same:
+        # their only effect in ``check_proofs`` is the Phase 1m
+        # "accepted but not verified" warning (issue #1108).  When no
+        # warning sink is installed (``check_file(collect_errors=False)``,
+        # e.g. the CLI) ``warnings_emitted`` below stays ``False``, so
+        # the miss branch would cache them and a later re-check in a
+        # long-lived process would silently drop the warning.  Bypass
+        # the cache for all of these; ``check_proofs`` on them is cheap.
         try:
           _sink = get_active_sink()
           pre_n = len(_sink) if _sink is not None else 0
@@ -1592,7 +1598,8 @@ def _check_deduce_body(ast: list[Statement], module_name: str, modified: bool,
           if get_debugger() is not None:
             check_proofs(s, env)
             _record_miss("check_proofs")
-          elif isinstance(s, (Print, Assert)):
+          elif isinstance(s, (Print, Assert, ProcDecl, ObserverDecl,
+                              ResourceDecl)):
             check_proofs(s, env)
             _record_miss("check_proofs")
           elif key in _stmt_cache:
