@@ -1,0 +1,1 @@
+./test/should-error/proc_duplicate_post_label.pf:4.3-4.27: duplicate postcondition label: same

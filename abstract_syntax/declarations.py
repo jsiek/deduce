@@ -494,6 +494,10 @@ class ProcDecl(Declaration):
   specs: List[ProcSpec]
   body: List[ImpStmt] = field(default_factory=list)
   proof_block: List[ProcProofEntry] = field(default_factory=list)
+  # The uniquified name bound to `result` inside postconditions. Filled in by
+  # `uniquify` for procedures with a return type (None otherwise), so the
+  # signature type-checker knows which name to give the declared return type.
+  result_name: Optional[str] = None
 
   def __str__(self) -> str:
     return self.pretty_print(0)
@@ -538,7 +542,12 @@ class ProcDecl(Declaration):
       overwrite(proc_env, old, new, self.location)
 
     new_params = []
+    seen_params: set[str] = set()
     for param in self.params:
+      if base_name(param.name) in seen_params:
+        user_error(param.location,
+                   "duplicate proc parameter name: " + base_name(param.name))
+      seen_params.add(base_name(param.name))
       new_typ = param.typ.uniquify(proc_env, uniq_ctx)
       new_param_name = generate_name(param.name, uniq_ctx)
       overwrite(proc_env, param.name, new_param_name, param.location)
@@ -550,9 +559,10 @@ class ProcDecl(Declaration):
         if self.return_type is not None
         else None
     )
+    new_result_name = None
     if new_return_type is not None:
-      overwrite(proc_env, 'result', generate_name('result', uniq_ctx),
-                self.location)
+      new_result_name = generate_name('result', uniq_ctx)
+      overwrite(proc_env, 'result', new_result_name, self.location)
     new_specs = [spec.uniquify(proc_env, uniq_ctx) for spec in self.specs]
     # Parser/AST only: uniquify resolves the body's term subparts (so no
     # pre-uniquify `Var` nodes leak past this pass) and alpha-renames local
@@ -575,7 +585,7 @@ class ProcDecl(Declaration):
     ]
     return ProcDecl(self.location, new_name, new_type_params, new_params,
                     new_return_type, new_specs, new_body, new_proof_block,
-                    visibility=self.visibility)
+                    new_result_name, visibility=self.visibility)
 
 @dataclass
 class Postulate(Declaration):

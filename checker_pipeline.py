@@ -24,8 +24,8 @@ from abstract_syntax import (
     Formula, FunCase, FunctionType, GenRecFun, Generic, GenericUnknownInst,
     Hole, IfThen, Import, Inductive, Lambda, MakeArray, Module, ObjectDecl,
     ObjectField, ObserverDecl, Omitted, Or, OverloadType, OverloadedVar, PSorry, PVar,
-    PatternBool, PatternCons, Postulate, Predicate, Print, ProcDecl, RecFun,
-    ResolvedVar, ResourceDecl, Rule, Some,
+    PatternBool, PatternCons, Postulate, Predicate, Print, ProcDecl, ProcParam,
+    ProcSpec, RecFun, ResolvedVar, ResourceDecl, Rule, Some,
     Statement, Switch, SwitchCase, TAnnote, TLet, Term, TermInst, Theorem,
     Trace, Type, TypeAlias, TypeInst, TypeType, Union, Var, VarRef, VerboseLevel,
     ViewDecl, ViewRecFun, alpha_equiv, base_name, callable_name,
@@ -71,12 +71,84 @@ ViewInfo = tuple[ViewDecl, Type, Type]
 PatternCoverage = dict[str, bool]
 ParamTypes = list[tuple[str, Type]]
 
+def check_proc_signature(decl: ProcDecl, env: Env) -> tuple[Statement, Env]:
+  # Phase 2b (issue #1111): type-check a procedure's signature -- its type
+  # parameters, ordinary and ghost parameter types, optional return type, and
+  # `requires`/`ensures`/`reads`/`modifies`/`decreases` spec clauses -- and
+  # register the checked signature in `Env` so later `call` resolution finds
+  # it. The body and proof slots are left to later slices. Duplicate proc
+  # names are already rejected in `uniquify`.
+  loc = decl.location
+  type_env = env.declare_type_vars(loc, decl.type_params)
+
+  # Parameter types. Duplicate parameter names are already rejected in
+  # `uniquify` (before any binding is created), so they never reach here.
+  checked_params: list[ProcParam] = []
+  param_pairs: list[tuple[str, Type]] = []
+  for p in decl.params:
+    checked_ty = check_type(p.typ, type_env)
+    checked_params.append(ProcParam(p.location, p.name, checked_ty, p.ghost))
+    param_pairs.append((p.name, checked_ty))
+
+  # `requires`, `reads`, `modifies`, and `decreases` see the parameters.
+  param_env = type_env.declare_term_vars(loc, param_pairs)
+
+  checked_return = None
+  if decl.return_type is not None:
+    checked_return = check_type(decl.return_type, type_env)
+
+  # Postconditions additionally see `result`, bound to the return type.
+  post_env = param_env
+  if checked_return is not None and decl.result_name is not None:
+    post_env = param_env.declare_term_var(loc, decl.result_name,
+                                          checked_return, local=True)
+
+  checked_specs: list[ProcSpec] = []
+  seen_post_labels: set[str] = set()
+  for spec in decl.specs:
+    match spec.keyword:
+      case 'requires':
+        value = check_formula(cast(Term, spec.value), param_env)
+        checked_specs.append(ProcSpec(spec.location, 'requires', value))
+      case 'ensures':
+        if spec.label is not None:
+          if base_name(spec.label) in seen_post_labels:
+            user_error(spec.location,
+                       'duplicate postcondition label: '
+                       + base_name(spec.label))
+          seen_post_labels.add(base_name(spec.label))
+        value = check_formula(cast(Term, spec.value), post_env)
+        checked_specs.append(ProcSpec(spec.location, 'ensures', value,
+                                      spec.label))
+      case 'decreases':
+        value = type_synth_term(cast(Term, spec.value), param_env, None, [])
+        checked_specs.append(ProcSpec(spec.location, 'decreases', value))
+      case _:  # 'reads' | 'modifies'
+        # Frame expressions are checked structurally only: `uniquify` has
+        # already resolved their subject names, but the footprint/heap
+        # semantics needed to type a mutable-array read (`a[i]`, #1117) or a
+        # `footprint(...)` (#1126) are later slices, so the frame list passes
+        # through unchanged here.
+        checked_specs.append(ProcSpec(spec.location, spec.keyword,
+                                      spec.value))
+
+  checked_decl = ProcDecl(loc, decl.name, decl.type_params, checked_params,
+                          checked_return, checked_specs, decl.body,
+                          decl.proof_block, decl.result_name,
+                          visibility=decl.visibility)
+  new_env = env.declare_proc(loc, decl.name, decl.type_params, checked_params,
+                             checked_return, checked_specs, decl.visibility)
+  return checked_decl, new_env
+
 def process_declaration_visibility(decl: Declaration, env: Env,
                                    module_chain: list[str],
                                    downstream_needs_checking: list[bool]
                                    ) -> tuple[Statement, Env]:
   match decl:
-    case ProcDecl() | ObserverDecl() | ResourceDecl():
+    case ProcDecl():
+      return check_proc_signature(decl, env)
+
+    case ObserverDecl() | ResourceDecl():
       return decl, env
 
     case Define(loc, name, ty, body):

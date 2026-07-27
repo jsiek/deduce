@@ -1,0 +1,33 @@
+// Phase 2b (issue #1111): procedure signatures and contracts are now
+// type-checked -- parameter and return types, requires/ensures (which must be
+// bool), reads/modifies frames, and decreases terms. Bodies and specs are
+// still only recognized, so each proc still emits the Phase 1m
+// "accepted but not verified" warning (issue #1108).
+import Nat
+
+// Generic signature: `result` is bound in postconditions to the return type.
+proc demo_pick<T>(x: T, y: T) -> T
+  requires x = x
+  ensures keep: result = result
+{
+  return x
+}
+
+// Non-generic signature with a ghost parameter, a mutable-array parameter,
+// frames, and a decreases term -- all checked structurally.
+proc demo_sweep(a: [Nat]!, ghost n: Nat) -> bool
+  requires n = n
+  reads a
+  modifies a
+  decreases n
+  ensures result or not result
+{
+  return true
+}
+
+// A procedure with no return type accepts requires/ensures over its params.
+proc demo_nudge(b: bool)
+  requires b = b
+  ensures b or not b
+{
+}

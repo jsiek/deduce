@@ -75,6 +75,25 @@ class ViewBinding(Binding):
   def __str__(self) -> str:
     return str(self.view)
 
+@dataclass
+class ProcBinding(Binding):
+  # A procedure's checked signature: its type parameters, ordinary and ghost
+  # parameters, optional return type, and ordered spec clauses. The body is
+  # deliberately absent -- callers only need the contract to resolve and
+  # instantiate a `call` (a later verifier phase, #854), and imports expose
+  # the signature without the body.
+  type_params: List[str]
+  params: List[ProcParam]
+  return_type: Optional[Type]
+  specs: List[ProcSpec]
+
+  def __str__(self) -> str:
+    header = 'proc ' + type_params_str(self.type_params) \
+      + '(' + ', '.join(str(p) for p in self.params) + ')'
+    if self.return_type is not None:
+      header += ' -> ' + str(self.return_type)
+    return header
+
 
 def type_params_str(type_params: Sequence[str]) -> str:
   if len(type_params) > 0:
@@ -168,6 +187,22 @@ class Env:
       register_view_source_alias(src_head, view.name)
     return new_env
   
+  def declare_proc(self, loc: Meta, name: str, type_params: List[str],
+                   params: List[ProcParam], return_type: Optional[Type],
+                   specs: List[ProcSpec], visibility: str = 'public') -> Env:
+    new_env = Env(self.dict)
+    new_env.dict[name] = ProcBinding(loc, type_params, params, return_type,
+                                     specs,
+                                     module=self.get_current_module(),
+                                     visibility=visibility)
+    return new_env
+
+  def get_proc(self, name: str | VarRef) -> Optional[ProcBinding]:
+    if isinstance(name, VarRef):
+      name = name.get_name()
+    binding = self.dict.get(name)
+    return binding if isinstance(binding, ProcBinding) else None
+
   def declare_term_var(self, loc: Meta, name: str, typ: Type,
                        local: bool = False, visibility: str = 'public') -> Env:
     if typ == None:
@@ -338,6 +373,10 @@ class Env:
         return TypeType(cast(Meta, None))
       elif isinstance(binding, ViewBinding):
         raise Exception('expected a term or type variable, not view ' + base_name(name))
+      elif isinstance(binding, ProcBinding):
+        raise Exception("'" + base_name(name) + "' is a procedure and cannot"
+                        + ' be used as an ordinary term; procedures are'
+                        + ' invoked with a `call` statement inside a proc')
       else:
         raise Exception('expected a term or type variable, not ' + base_name(name))
     else:

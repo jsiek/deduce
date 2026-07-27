@@ -1,0 +1,8 @@
+// Phase 2b (issue #1111): a procedure name may not be used as an ordinary
+// term. Procedures are invoked with a `call` statement inside a proc body.
+proc demo_proc(x: bool) -> bool
+  ensures result = result
+{
+  return x
+}
+define oops : bool = demo_proc(true)

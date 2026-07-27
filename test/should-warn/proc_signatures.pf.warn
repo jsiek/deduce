@@ -1,0 +1,3 @@
+./test/should-warn/proc_signatures.pf:9.1-14.2: warning: proc 'demo_pick' is accepted but not verified -- parsing and declaration plumbing succeeded, but no verifier has run on its body or specs yet (experimental imperative layer, issue #854)
+./test/should-warn/proc_signatures.pf:18.1-26.2: warning: proc 'demo_sweep' is accepted but not verified -- parsing and declaration plumbing succeeded, but no verifier has run on its body or specs yet (experimental imperative layer, issue #854)
+./test/should-warn/proc_signatures.pf:29.1-33.2: warning: proc 'demo_nudge' is accepted but not verified -- parsing and declaration plumbing succeeded, but no verifier has run on its body or specs yet (experimental imperative layer, issue #854)
