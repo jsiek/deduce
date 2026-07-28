@@ -268,6 +268,8 @@ EXPERIMENTAL_IMPERATIVE_FILES = frozenset({
     "./test/should-error/proc_call_as_term.pf",
     "./test/should-warn/imperative_false_proc.pf",
     "./test/should-warn/imperative_allocation.pf",
+    "./test/should-warn/imperative_mutable_array.pf",
+    "./test/should-error/imperative_mutable_array_bad_index.pf",
     "./test/should-error/imperative_new_pure_term.pf",
     "./test/should-error/imperative_new_operator_name.pf",
     "./test/should-validate/imperative_import.pf",

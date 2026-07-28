@@ -1666,6 +1666,24 @@ class ArrayGet(Term):
     return ArrayGet(self.location, self.typeof, subject_red, position_red)
 
 @dataclass
+class ArrayLength(Term):
+  # `length(a)` for a mutable-array handle (or a pure array). Produced only
+  # by the type checker when `length` is applied to an array-typed argument
+  # (issue #1117, Phase 2h); it is never parsed, so both parsers still see
+  # the surface `length(a)` as an ordinary `Call`. In Phase 2 an array's
+  # length is immutable for the lifetime of the handle, so this node has no
+  # runtime reduction -- the default `_map_children` walk only reduces the
+  # `subject`, leaving `length(a)` symbolic for use inside specifications and
+  # array-bounds obligations.
+  subject: Term
+
+  def __eq__(self, other: object) -> bool:
+    return eq_fields(self, other, 'subject')
+
+  def __str__(self) -> str:
+    return 'length(' + str(self.subject) + ')'
+
+@dataclass
 class TLet(Term):
   var: str
   rhs: Term

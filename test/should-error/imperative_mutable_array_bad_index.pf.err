@@ -1,0 +1,1 @@
+./test/should-error/imperative_mutable_array_bad_index.pf:7.13-7.17: a mutable-array index must be a UInt, Nat, Int, not bool
