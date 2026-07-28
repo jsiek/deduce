@@ -4,8 +4,7 @@ Scope: the primitives that locate ``Mark`` nodes inside a formula, swap
 them out for a replacement, and drive the formula-matching used by
 ``rewrite`` proofs. Includes ``count_marks``/``find_mark``/``MarkException``,
 the overloaded ``replace_mark`` family, ``remove_mark``, the equation
-``rewrite_aux``/``try_rewrite``/``formula_match`` engine, conjunction and
-disjunction flatteners (``extract_and``/``extract_or``), ``auto_rewrites``,
+``rewrite_aux``/``try_rewrite``/``formula_match`` engine, ``auto_rewrites``,
 and the small module-level state (``default_mark_LHS`` toggle,
 ``num_rewrites`` counter, ``call_arity``/``call_head_name`` helpers used
 to drive the matcher).
@@ -270,21 +269,6 @@ def build_equations_proof(loc: Meta, eqs: list[tuple[Term, Term, Proof]]) -> Pro
             result = PTransitive(loc, eq_proof, result)
     assert result is not None  # the equations grammar yields >= 1 step
     return result
-
-def extract_and(frm: Formula) -> list[Formula]:
-    match frm:
-      case And(_, _, args):
-        return args
-      case _:
-       return [frm]
-
-def extract_or(frm: Formula) -> list[Formula]:
-    match frm:
-      case Or(_, _, args):
-        return args
-      case _:
-       return [frm]
-
 
 num_rewrites = 0
 rewrite_debug: bool = False

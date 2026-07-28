@@ -52,8 +52,8 @@ def test_issue_587_env_method_parameters_are_annotated() -> None:
 def test_issue_587_helper_parameters_are_annotated() -> None:
     functions: list[tuple[Callable[..., Any], set[str]]] = [
         (ast.set_default_mark_LHS, {"b"}),
-        (ast.extract_and, {"frm"}),
-        (ast.extract_or, {"frm"}),
+        (ast.list_of_and, {"arg"}),
+        (ast.list_of_or, {"arg"}),
         (ast.check_post_typecheck_invariants, {"ast_list"}),
         (ast.make_switch_for, {"meta", "defs", "subject", "cases"}),
     ]
