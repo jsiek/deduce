@@ -1,0 +1,12 @@
+// Nested-block `var` shadowing must not emit a spurious "already defined"
+// warning: the inner `var a` is a distinct block-local that uniquify
+// alpha-renames, shadowing the outer `a` in a nested scope (issue #1144).
+proc demo(flag: bool)
+{
+  var a := flag
+  if flag {
+    var a := flag
+  } else {
+    var a := flag
+  }
+}

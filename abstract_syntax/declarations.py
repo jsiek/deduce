@@ -111,12 +111,13 @@ def extend(env: UniquifyEnv, name: str, new_name: str, loc: Meta) -> None:
     env[name] = [new_name]
 
 ## Overwrites a value in the environment, with a warning
-def overwrite(env: UniquifyEnv, name: str, new_name: str, loc: Meta) -> None:
+def overwrite(env: UniquifyEnv, name: str, new_name: str, loc: Meta,
+              warn: bool = True) -> None:
   if name in env['no overload']:
     ty = env['no overload'][name]
     user_error(loc, f"Cannot overload {ty} names. {name} is already defined as a {ty}")
 
-  if base_name(name) != "_" and name in env.keys():
+  if warn and base_name(name) != "_" and name in env.keys():
     warning(loc, f"WARNING: {name} is already defined")
   env[name] = [new_name]
 
@@ -393,16 +394,20 @@ def _uniquify_imp_proof(proof: Optional[Proof], env: UniquifyEnv,
   return proof.uniquify(env, ctx) if proof is not None else None
 
 def _uniquify_imp_stmt(s: ImpStmt, env: UniquifyEnv,
-                       ctx: UniquifyContext) -> ImpStmt:
+                       ctx: UniquifyContext, declared: set[str]) -> ImpStmt:
   # `env` is the enclosing block's environment; a `var` declaration mutates
   # it so later statements in the same block see the binding. Nested blocks
-  # receive a copy so their locals do not leak outward.
+  # receive a copy so their locals do not leak outward. `declared` names the
+  # vars bound *in this block*, so redeclaring a name in the same block warns
+  # while shadowing an outer-block binding (a distinct alpha-renamed local)
+  # does not.
   if isinstance(s, ImpVar):
     new_rhs = _uniquify_imp_rhs(s.rhs, env, ctx)
     new_type = (s.type_annot.uniquify(env, ctx)
                 if s.type_annot is not None else None)
     new_name = generate_name(s.name, ctx)
-    overwrite(env, s.name, new_name, s.location)
+    overwrite(env, s.name, new_name, s.location, warn=s.name in declared)
+    declared.add(s.name)
     return ImpVar(s.location, new_name, new_type, new_rhs, s.ghost)
   if isinstance(s, ImpAssign):
     return ImpAssign(s.location, _uniquify_lvalue(s.lhs, env, ctx),
@@ -439,7 +444,10 @@ def _uniquify_imp_stmt(s: ImpStmt, env: UniquifyEnv,
 
 def _uniquify_imp_block(stmts: List[ImpStmt], env: UniquifyEnv,
                         ctx: UniquifyContext) -> List[ImpStmt]:
-  return [_uniquify_imp_stmt(s, env, ctx) for s in stmts]
+  # A fresh `declared` set per block: names bound in an enclosing block are
+  # inherited via `env` but do not count as same-block redeclarations here.
+  declared: set[str] = set()
+  return [_uniquify_imp_stmt(s, env, ctx, declared) for s in stmts]
 
 @dataclass
 class ProcParam(AST):
