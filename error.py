@@ -136,15 +136,36 @@ class ErrorSink:
   def __len__(self) -> int:
     return len(self.errors)
 
-def user_error(location: Meta, msg: str) -> NoReturn:
+def _user_error_exc(location: Meta, msg: str) -> UserError:
+  """Build the ``UserError`` shared by the raising ``user_error`` and the
+  sink-recording ``add_diagnostic``. Attaches structured fields so
+  library/LSP/MCP callers can build ``Diagnostic`` objects without
+  regex-parsing ``str(exc)``. The CLI ignores these attributes; existing
+  ``print(str(exc))`` output is unchanged."""
   exc = UserError(error_header(location) + msg)
   exc.depth = 0
-  # Attach structured fields so library/LSP/MCP callers can build
-  # Diagnostic objects without regex-parsing str(exc). The CLI ignores
-  # these attributes; existing print(str(exc)) output is unchanged.
   exc.location = location
   exc.message_body = msg
-  raise exc
+  return exc
+
+def _incomplete_exc(location: Meta, msg: str,
+                    formula: Optional['Term'],
+                    env: Optional['Env']) -> IncompleteProof:
+  """Build the ``IncompleteProof`` shared by the raising ``incomplete_error``
+  and the sink-recording ``add_incomplete``. ``formula``/``env`` are the
+  optional structured fields for the LSP/MCP refine pipeline (the goal AST
+  and the type-checking env at the hole). The CLI ignores these; existing
+  ``print(str(exc))`` output is unchanged."""
+  exc = IncompleteProof(error_header(location) + msg)
+  exc.depth = 0
+  exc.location = location
+  exc.message_body = msg
+  exc.formula = formula
+  exc.env = env
+  return exc
+
+def user_error(location: Meta, msg: str) -> NoReturn:
+  raise _user_error_exc(location, msg)
 
 def internal_error(location: Meta, msg: str) -> NoReturn:
   raise InternalError(error_header(location) + msg)
@@ -152,16 +173,7 @@ def internal_error(location: Meta, msg: str) -> NoReturn:
 def incomplete_error(location: Meta, msg: str, *,
                      formula: Optional['Term'] = None,
                      env: Optional['Env'] = None) -> NoReturn:
-  exc = IncompleteProof(error_header(location) + msg)
-  exc.depth = 0
-  exc.location = location
-  exc.message_body = msg
-  # Optional structured fields for the LSP/MCP refine pipeline:
-  # the goal AST and the type-checking env at the hole. The CLI
-  # ignores these; print(str(exc)) output is unchanged.
-  exc.formula = formula
-  exc.env = env
-  raise exc
+  raise _incomplete_exc(location, msg, formula, env)
 
 @dataclass
 class WarningRecord:
@@ -329,11 +341,7 @@ def add_diagnostic(location: Meta, msg: str) -> None:
   global _active_sink
   if _active_sink is None or _speculative_depth > 0:
     user_error(location, msg)
-  exc = UserError(error_header(location) + msg)
-  exc.depth = 0
-  exc.location = location
-  exc.message_body = msg
-  _active_sink.add(exc)
+  _active_sink.add(_user_error_exc(location, msg))
 
 def add_incomplete(location: Meta, msg: str,
                    formula: Optional['Term'] = None,
@@ -350,16 +358,7 @@ def add_incomplete(location: Meta, msg: str,
   global _active_sink
   if _active_sink is None:
     incomplete_error(location, msg, formula=formula, env=env)
-  exc = IncompleteProof(error_header(location) + msg)
-  exc.depth = 0
-  exc.location = location
-  exc.message_body = msg
-  # Optional structured fields for the LSP/MCP refine pipeline:
-  # the goal AST and the type-checking env at the hole. The CLI
-  # ignores these; print(str(exc)) output is unchanged.
-  exc.formula = formula
-  exc.env = env
-  _active_sink.add(exc)
+  _active_sink.add(_incomplete_exc(location, msg, formula, env))
 
   
 class StaticError(Diagnostic):
