@@ -637,11 +637,10 @@ PARSER_EQUIV_FILES = PARSER_ROUND_TRIP_FILES + (
     "./lib/Nat.pf",
     "./lib/UInt.pf",
     "./lib/Int.pf",
-    # Warning fixtures add syntax that is not always present in validating
-    # examples. The ``test/should-error`` corpus is folded in wholesale by
-    # ``should_error_equiv_files`` below (everything both parsers accept at
-    # parse time), so individual should-error paths are not listed here.
-    "./test/should-warn/replace_auto_handled_922.pf",
+    # The ``test/should-error``, ``test/should-warn``, and ``test/prelude``
+    # corpora are folded in wholesale by ``should_error_equiv_files``,
+    # ``should_warn_equiv_files``, and ``prelude_equiv_files`` below, so their
+    # individual paths are not listed here.
 )
 
 
@@ -658,6 +657,30 @@ def should_error_equiv_files() -> tuple[str, ...]:
     """
     return tuple(p for p in list_pf(ERROR_DIR)
                  if p not in SHOULD_ERROR_PARSER_EQUIV_SKIP)
+
+
+def should_warn_equiv_files() -> tuple[str, ...]:
+    """Every ``test/should-warn`` fixture, folded into the equivalence corpus.
+
+    These files must check successfully, so both parsers accept them at parse
+    time by construction -- no parse-error skip baseline is needed (unlike
+    ``should_error_equiv_files``). They cover imperative proc/observer/
+    allocation surface syntax that the curated round-trip corpus does not, and
+    the directory grows as the imperative layer lands, so folding it in
+    wholesale keeps that syntax under drift detection automatically.
+    """
+    return tuple(list_pf(WARN_DIR))
+
+
+def prelude_equiv_files() -> tuple[str, ...]:
+    """Every ``test/prelude`` fixture, folded into the equivalence corpus.
+
+    These exercise import surface syntax (plain ``import``, ``import ... using
+    ...``, ``import ... hiding ...``) that the rest of the corpus barely
+    touches; like the should-warn fixtures they all parse cleanly under both
+    parsers, so no skip baseline is required.
+    """
+    return tuple(list_pf(PRELUDE_DIR))
 
 
 class ParsedFlags(TypedDict):
@@ -1248,6 +1271,8 @@ def run_parser_equivalence(workers: int) -> list[tuple[str, str, str]]:
     all_files = tuple(dict.fromkeys(
         PARSER_EQUIV_FILES
         + should_error_equiv_files()
+        + should_warn_equiv_files()
+        + prelude_equiv_files()
         + tuple(sorted(PARSER_EQUIV_EXPECTED_DIVERGENCES))
     ))
     files = shard(list(all_files))
