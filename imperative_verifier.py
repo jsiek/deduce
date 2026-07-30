@@ -28,12 +28,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Optional, Tuple
+from typing import List, Optional, Sequence, Set, Tuple, cast
 
 from lark.tree import Meta
 
 import style
-from abstract_syntax import And, Bool, Env, Formula, Proof, is_true
+from abstract_syntax import (
+    And, ArrayGet, ArrayLength, Bool, Call, Env, Formula, Proof, ResolvedVar,
+    is_true,
+)
 
 
 class ObligationKind(Enum):
@@ -147,3 +150,55 @@ class ImperativeObligation:
         + style.orange('Goal:') + '\n\t' + str(self.goal)
         + givens_str(env),
         formula=self.goal, env=env)
+
+
+# --- array-bounds obligations for mutable-array reads (issue #1117) ----------
+
+def array_bounds_goal(read: ArrayGet) -> Formula:
+  """The bounds proof goal ``i < length(a)`` for a mutable-array read ``a[i]``.
+
+  ``read`` is an already-type-checked ``ArrayGet`` over a mutable array. The
+  goal is built with a base-name ``ResolvedVar('<')`` over an ``ArrayLength``
+  node -- the same post-typecheck constructor idiom ``mkEqual`` uses for ``=``
+  -- so it matches a ``requires i < length(a)`` precondition (or loop
+  invariant) of the same shape once ``discharge`` reduces both sides."""
+  loc = read.location
+  length = ArrayLength(read.subject.location, None, read.subject)
+  return cast(Formula, Call(loc, None, ResolvedVar(loc, None, '<'),
+                            [read.position, length]))
+
+
+def _read_key(read: ArrayGet) -> Tuple[object, object, str]:
+  """Identity of a source array access: its source span plus its rendered
+  form, so the same syntactic ``a[i]`` visited more than once in a pass is
+  recorded only once while two distinct accesses stay separate."""
+  loc = read.location
+  return (getattr(loc, 'start_pos', None), getattr(loc, 'end_pos', None),
+          str(read))
+
+
+@dataclass
+class ArrayBoundsObligations:
+  """Collect array-bounds obligations for the mutable-array reads seen in one
+  verification pass, deduplicating repeated reads of the same source access so
+  a given ``a[i]`` yields at most one ``i < length(a)`` goal (#1117)."""
+
+  _seen: Set[Tuple[object, object, str]] = field(default_factory=set)
+  _obligations: List[ImperativeObligation] = field(default_factory=list)
+
+  def record(self, read: ArrayGet,
+             givens: Sequence[Tuple[str, Formula]] = ()) -> None:
+    """Record the bounds obligation for one mutable-array read. A read whose
+    source access was already recorded in this pass is ignored."""
+    key = _read_key(read)
+    if key in self._seen:
+      return
+    self._seen.add(key)
+    self._obligations.append(
+        ImperativeObligation(read.location, array_bounds_goal(read),
+                             ObligationKind.ARRAY_BOUNDS,
+                             givens=list(givens)))
+
+  def obligations(self) -> List[ImperativeObligation]:
+    """The recorded obligations, in first-seen order."""
+    return list(self._obligations)

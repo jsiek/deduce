@@ -24,6 +24,7 @@ from abstract_syntax import (
     And,
     Array,
     ArrayGet,
+    ArrayLength,
     ArrayType,
     Bool,
     BoolType,
@@ -113,6 +114,51 @@ def _var_ref_base_name(term: Term) -> str | None:
   if isinstance(term, VarRef):
     return cast(str, term.get_name()).split('.')[0]
   return None
+
+# A mutable-array index must be `UInt`: `length(a)` is typed as the stdlib list
+# length (`UInt`) and the `<` overloads compare homogeneous pairs, so only a
+# `UInt` index can form the natural `i < length(a)` bound. Checked on the
+# mutable-array path only (#1117); pure-array indexing is left untouched.
+def _check_array_index_type(index: Term) -> None:
+  if _type_named(index.typeof, 'UInt'):
+    return
+  user_error(index.location,
+             'a mutable-array index must be a UInt, not '
+             + str(index.typeof))
+
+def _array_length_result_type(loc: Meta, rator: Term) -> Type:
+  # The result type of `length` applied to an array handle is whatever the
+  # in-scope `length` function returns for a list (`UInt` in the stdlib). We
+  # read it off the resolved operator so no `UInt` node is fabricated here and
+  # `length(a)` on an array agrees with `length` on a list.
+  match rator.typeof:
+    case FunctionType(_, _, _, return_type):
+      return return_type
+    case OverloadType(_, overloads):
+      for _, overload_type in overloads:
+        if isinstance(overload_type, FunctionType):
+          return overload_type.return_type
+  user_error(loc, 'cannot determine the result type of length for an array; '
+                  'is the standard library imported?')
+
+def _length_of_array(
+    loc: Meta, rator: Term, args: list[Term], env: Env,
+    recfun: RecursiveName, subterms: SubtermNames,
+) -> Term | None:
+  # `length(a)` where `a` is a mutable-array handle `[T]!` types as the
+  # array-length type (`UInt`) and stays symbolic (#1117). Returns None for any
+  # other `length` call -- including on a pure `[T]` array -- so the caller
+  # falls back to the ordinary list-`length` resolution. Scoping the intercept
+  # to `[T]!` keeps `ArrayLength` confined to procedure specifications and
+  # array-bounds obligations, which never reach the recursive-call or compiler
+  # walkers that pure runtime terms do.
+  if len(args) != 1 or _var_ref_base_name(rator) != 'length':
+    return None
+  new_arg = type_synth_term(args[0], env, recfun, subterms)
+  if not isinstance(new_arg.typeof, MutableArrayType):
+    return None
+  new_rator = type_synth_term(rator, env, recfun, subterms)
+  return ArrayLength(loc, _array_length_result_type(loc, new_rator), new_arg)
 
 def _nat_constructor_literal_value(term: Term) -> int | None:
   match term:
@@ -988,8 +1034,26 @@ def type_synth_term(
       match new_array.typeof:
         case ArrayType(loc2, elt_type):
           ret = ArrayGet(loc, elt_type, new_array, new_index)
+        case MutableArrayType(loc2, elt_type):
+          # A mutable-array read `a[i]` has the element type, requires an
+          # unsigned/integer index, and (in a later verifier pass) carries an
+          # `i < length(a)` bounds obligation built by imperative_verifier.
+          _check_array_index_type(new_index)
+          ret = ArrayGet(loc, elt_type, new_array, new_index)
         case _:
           user_error(loc, 'expected an array, not ' + str(new_array.typeof))
+
+    case Call(loc, _, rator, [arg]) if _var_ref_base_name(rator) == 'length':
+      # `length(a)` on an array handle types as the array-length type (`UInt`)
+      # and stays symbolic (#1117); on any other argument it is an ordinary
+      # `length` call on a list, handled by the general Call path.
+      length_term = _length_of_array(loc, rator, [arg], env, recfun, subterms)
+      if length_term is not None:
+        ret = length_term
+      else:
+        ret = type_check_call(loc, rator, [arg], env, recfun, subterms, None,
+                              term)
+        check_recursive_call(ret, recfun, subterms)
           
     case Call(loc, _, (OverloadedVar(loc2, ty2, [op_name, *_])
                        | ResolvedVar(loc2, ty2, op_name)), args) \
@@ -1237,6 +1301,18 @@ def type_check_term(
               + ' but got ' + str(ty))
       return new_term
       
+    case Call(loc, _, rator, [arg]) if _var_ref_base_name(rator) == 'length':
+      length_term = _length_of_array(loc, rator, [arg], env, recfun, subterms)
+      if length_term is not None:
+        if length_term.typeof != typ:
+          user_error(loc, 'expected a term of type ' + str(typ)
+                     + '\nbut got ' + str(length_term) + ' of type '
+                     + str(length_term.typeof))
+        return length_term
+      ret = type_check_call(loc, rator, [arg], env, recfun, subterms, typ, term)
+      check_recursive_call(ret, recfun, subterms)
+      return ret
+
     case Call(loc, _, rator, args):
       ret = type_check_call(loc, rator, args, env, recfun, subterms, typ, term)
       check_recursive_call(ret, recfun, subterms)

@@ -104,6 +104,8 @@ def count_marks(formula: AST) -> int:
       return sum([count_marks(elt) for elt in elements])
     case MakeArray(_, _, subject):
       return count_marks(subject)
+    case ArrayLength(_, _, subject):
+      return count_marks(subject)
     case _:
       internal_error(formula.location, 'in count_marks function, unhandled ' + str(formula))
 
@@ -164,6 +166,8 @@ def find_mark(formula: AST) -> None:
       for elt in elements:
           find_mark(elt)
     case MakeArray(_, _, subject):
+      find_mark(subject)
+    case ArrayLength(_, _, subject):
       find_mark(subject)
     case _:
       internal_error(formula.location, 'in find_mark function, unhandled ' + str(formula))
@@ -238,6 +242,8 @@ def replace_mark(formula: Term | SwitchCase, replacement: Term) -> Term | Switch
                    [replace_mark(elt, replacement) for elt in elements])
     case MakeArray(loc2, tyof, subject):
       return MakeArray(loc2, tyof, replace_mark(subject, replacement))
+    case ArrayLength(loc2, tyof, subject):
+      return ArrayLength(loc2, tyof, replace_mark(subject, replacement))
     case _:
       internal_error(formula.location, 'in replace_mark function, unhandled ' + str(formula))
 
@@ -436,7 +442,11 @@ def rewrite_aux(loc: Meta, formula: Term | SwitchCase, equation: Formula | AutoR
     case MakeArray(loc2, tyof, subject):
       return MakeArray(loc, tyof,
                        rewrite_aux(loc, subject, equation, env, depth - 1))
-  
+
+    case ArrayLength(loc2, tyof, subject):
+      return ArrayLength(loc, tyof,
+                         rewrite_aux(loc, subject, equation, env, depth - 1))
+
     case TLet(loc2, tyof, var, rhs, body):
       return TLet(loc2, tyof, var, rewrite_aux(loc, rhs, equation, env, depth - 1),
                   rewrite_aux(loc, body, equation, env, depth - 1))

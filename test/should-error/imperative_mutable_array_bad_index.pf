@@ -1,0 +1,9 @@
+// Phase 2h (issue #1117): a mutable-array read must be indexed by an
+// unsigned/integer type. Indexing a `[UInt]!` handle by a `bool` is a type
+// error, caught while type-checking the postcondition.
+import UInt
+
+proc bad_index(a: [UInt]!)
+  ensures a[true] = a[true]
+{
+}

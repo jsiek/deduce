@@ -211,6 +211,10 @@ def _spec_ArrayGet() -> ast.ArrayGet:
     return ast.ArrayGet(_meta(), None, _var("xs"), ast.Int(_meta(), None, 0))
 
 
+def _spec_ArrayLength() -> ast.ArrayLength:
+    return ast.ArrayLength(_meta(), None, _var("xs"))
+
+
 def _spec_TLet() -> ast.TLet:
     return ast.TLet(_meta(), None, "x", _var("rhs"), _var("body"))
 
@@ -618,6 +622,7 @@ _SPECIMEN_FACTORIES: dict[type, Callable[[], ast.AST]] = {
     ast.Array: _spec_Array,
     ast.MakeArray: _spec_MakeArray,
     ast.ArrayGet: _spec_ArrayGet,
+    ast.ArrayLength: _spec_ArrayLength,
     ast.TLet: _spec_TLet,
     ast.And: _spec_And,
     ast.Or: _spec_Or,
