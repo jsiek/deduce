@@ -1,0 +1,6 @@
+// Phase 2d (issue #1113): a procedure with no declared result type may not
+// `return` a value.
+proc demo(flag: bool)
+{
+  return flag
+}

@@ -1,0 +1,1 @@
+./test/imperative/should-error/proc_body_missing_return.pf:3.1-6.2: procedure 'demo' declares return type bool but may finish without returning a value

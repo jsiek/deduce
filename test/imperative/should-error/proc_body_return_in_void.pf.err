@@ -1,0 +1,1 @@
+./test/imperative/should-error/proc_body_return_in_void.pf:5.3-5.9: this procedure has no return type, so it may not return a value

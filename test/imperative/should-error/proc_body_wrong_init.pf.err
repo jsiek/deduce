@@ -1,0 +1,2 @@
+./test/imperative/should-error/proc_body_wrong_init.pf:10.22-10.26: expected a term of type Color
+but got term flag of type bool

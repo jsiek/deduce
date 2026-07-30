@@ -1,0 +1,2 @@
+./test/imperative/should-error/proc_body_return_mismatch.pf:11.10-11.11: expected a term of type bool
+but got term c of type Color

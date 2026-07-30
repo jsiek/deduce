@@ -1,0 +1,11 @@
+// Phase 2d (issue #1113): a body whose only not-yet-modeled construct is an
+// allocation (or call) right-hand side in a `var` is deferred wholesale --
+// accepted with the Phase 1m "not verified" warning rather than type-checked.
+// Regression for a pattern-arity bug (PR #1145 review) where the deferral
+// gate read the wrong `ImpVar` field and let `var a := new C(..)` fall
+// through to the term checker as a hard error.
+proc make(x: bool) -> bool
+{
+  var a := new Cell(x)
+  return x
+}

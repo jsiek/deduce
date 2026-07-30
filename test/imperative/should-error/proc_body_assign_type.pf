@@ -1,0 +1,13 @@
+// Phase 2d (issue #1113): assignment to a local variable checks that the
+// right-hand side has the same type as the variable. Here `c` is inferred as
+// `Color`, so assigning a `bool` is rejected.
+union Color {
+  red
+  green
+}
+
+proc demo(flag: bool)
+{
+  var c := red
+  c := flag
+}

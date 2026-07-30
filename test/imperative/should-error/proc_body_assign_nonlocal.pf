@@ -1,0 +1,8 @@
+// Phase 2d (issue #1113): assignment to a global name (not a block-local
+// variable) is rejected.
+define g = true
+
+proc demo(flag: bool)
+{
+  g := flag
+}

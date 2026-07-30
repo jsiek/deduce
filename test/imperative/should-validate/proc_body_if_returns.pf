@@ -1,0 +1,20 @@
+// Phase 2d (issue #1113): a body that returns on every branch of an
+// `if`/`else` cannot fall through, so a trailing (unreachable) statement must
+// not trigger the missing-return diagnostic. Regression for a missing-return
+// bug (PR #1145 review) where only the *last* statement was inspected: the
+// guaranteed return here is not the last statement, so the earlier version
+// wrongly reported that `pick` could finish without returning.
+union Color {
+  red
+  green
+}
+
+proc pick(flag: bool) -> Color
+{
+  if flag {
+    return red
+  } else {
+    return green
+  }
+  var unreached := red
+}

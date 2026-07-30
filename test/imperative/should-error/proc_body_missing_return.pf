@@ -1,0 +1,6 @@
+// Phase 2d (issue #1113): a procedure that declares a result type but whose
+// straight-line body can finish without a `return` is rejected conservatively.
+proc demo(flag: bool) -> bool
+{
+  var b := flag
+}

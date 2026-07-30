@@ -1,0 +1,1 @@
+./test/imperative/should-error/proc_body_local_leak.pf:8.10-8.15: undefined variable: inner
