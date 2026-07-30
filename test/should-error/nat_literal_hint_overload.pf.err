@@ -1,4 +1,4 @@
-./test/should-error/nat_literal_hint_overload.pf:5.16-5.19: could not find a match for function call:
+./test/should-error/nat_literal_hint_overload.pf:5.14-5.19: could not find a match for function call:
 	2 * n
 argument types: UInt, Nat
 overloads:
