@@ -629,6 +629,18 @@ PARSER_ROUND_TRIP_FILES = (
     # modules exercised it before, none of them in the round-trip corpus, so the
     # pretty-printer's `export IDENT` form was unverified. Refs #931, #473.
     "./test/should-validate/export_decl.pf",
+    # `import M hiding <name> | <name>` (`Import.hiding` non-empty). The existing
+    # import fixtures only exercise the `using` form and the bare `import`; a
+    # field-level coverage sweep showed `Import.hiding` was never non-empty in
+    # the corpus, so a regression in `Import._filter_clause_str`'s `hiding`
+    # branch would have passed CI silently. Refs #931, #473.
+    "./test/should-validate/import_hiding.pf",
+    # A generic `view T<...> { ... }` declaration (`ViewDecl.type_params`
+    # non-empty). The `view_inverse_decl.pf` fixture covers a monomorphic view,
+    # but the same sweep showed `ViewDecl.type_params` was never exercised, so
+    # the pretty-printer's reproduction of a view's `<T>` type-parameter list was
+    # unverified. Refs #931, #473.
+    "./test/should-validate/viewrec_join_list.pf",
 )
 
 
