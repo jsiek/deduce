@@ -1,0 +1,17 @@
+// Phase 2d (issue #1113): a body that returns on every branch of a terminal
+// `if`/`else` needs no trailing `return`; the conservative missing-return
+// check must recognize the guaranteed return rather than flag it (PR #1145
+// review).
+union Color {
+  red
+  green
+}
+
+proc pick(flag: bool) -> Color
+{
+  if flag {
+    return red
+  } else {
+    return green
+  }
+}

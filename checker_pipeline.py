@@ -150,13 +150,15 @@ def check_proc_signature(decl: ProcDecl, env: Env) -> tuple[Statement, Env]:
 # risk a spurious type error. Straight-line bodies over ordinary local `var`,
 # assignment, `return`, and `if` are type-checked in full.
 def _imp_stmt_unmodeled(s: ImpStmt) -> bool:
+  # Field access (`s.rhs`/`s.lhs`) rather than positional matching: `ImpVar`
+  # and `ImpAssign` hold their right-hand side at different positions, so a
+  # shared positional pattern would silently read the wrong field.
   match s:
-    case ImpVar(_, _, rhs, _) | ImpAssign(_, _, rhs):
-      if isinstance(rhs, (ImpCallExpr, ImpAlloc)):
-        return True
-      if isinstance(s, ImpAssign) and not isinstance(s.lhs, LValueVar):
-        return True
-      return False
+    case ImpVar():
+      return isinstance(s.rhs, (ImpCallExpr, ImpAlloc))
+    case ImpAssign():
+      return isinstance(s.rhs, (ImpCallExpr, ImpAlloc)) \
+          or not isinstance(s.lhs, LValueVar)
     case ImpIf(_, _, then_body, else_body):
       return _block_unmodeled(then_body) \
           or (else_body is not None and _block_unmodeled(else_body))
@@ -176,14 +178,8 @@ def _proc_body_unmodeled(decl: ProcDecl) -> bool:
     return True
   return _block_unmodeled(decl.body)
 
-def _block_always_returns(stmts: list[ImpStmt]) -> bool:
-  # Conservatively decide whether a straight-line block must execute a
-  # `return`. Only `true` when we are certain, so a body that can fall off the
-  # end is never mistaken for one that returns (the missing-return diagnostic
-  # stays sound; richer path analysis is a later slice).
-  if not stmts:
-    return False
-  match stmts[-1]:
+def _stmt_always_returns(s: ImpStmt) -> bool:
+  match s:
     case ImpReturn():
       return True
     case ImpIf(_, _, then_body, else_body):
@@ -192,6 +188,14 @@ def _block_always_returns(stmts: list[ImpStmt]) -> bool:
           and _block_always_returns(else_body)
     case _:
       return False
+
+def _block_always_returns(stmts: list[ImpStmt]) -> bool:
+  # Conservatively decide whether a block must execute a `return`. Only `true`
+  # when we are certain, so a body that can fall off the end is never mistaken
+  # for one that returns (the missing-return diagnostic stays sound; richer
+  # path analysis is a later slice). Any statement that always returns makes
+  # the whole block always return -- everything after it is unreachable.
+  return any(_stmt_always_returns(s) for s in stmts)
 
 def _type_check_imp_stmt(s: ImpStmt, env: Env,
                          return_type: Optional[Type]) -> Env:
