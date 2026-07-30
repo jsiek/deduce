@@ -12,8 +12,8 @@ Two halves, both exercised without the CLI or the stdlib:
 from lark.tree import Meta
 
 from abstract_syntax import (
-    ArrayGet, ArrayLength, ArrayType, BoolType, Call, Env, IntType,
-    MutableArrayType, ResolvedVar, Var,
+    ArrayGet, ArrayLength, ArrayType, BoolType, Call, Env, MutableArrayType,
+    ResolvedVar,
 )
 from checker_types import type_synth_term
 from error import IncompleteProof, UserError
@@ -44,6 +44,12 @@ def _rv(name: str) -> ResolvedVar:
   return ResolvedVar(_meta(), None, name)
 
 
+def _uint_type() -> ResolvedVar:
+  # A stand-in for the `UInt` type: `_check_array_index_type` only inspects the
+  # type's base name, so a bare `UInt` reference is enough here -- no stdlib.
+  return ResolvedVar(_meta(), None, 'UInt')
+
+
 def _typing_env() -> Env:
   # A bare env with array/scalar term vars -- no stdlib needed because the
   # ArrayGet path only reads the subject's `typeof` and (for the mutable path)
@@ -53,7 +59,7 @@ def _typing_env() -> Env:
                              MutableArrayType(_meta(), BoolType(_meta())))
   env = env.declare_term_var(_meta(), 'parr',
                              ArrayType(_meta(), BoolType(_meta())))
-  env = env.declare_term_var(_meta(), 'idx', IntType(_meta()))
+  env = env.declare_term_var(_meta(), 'idx', _uint_type())
   env = env.declare_term_var(_meta(), 'flag', BoolType(_meta()))
   return env
 

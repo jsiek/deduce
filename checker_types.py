@@ -115,19 +115,16 @@ def _var_ref_base_name(term: Term) -> str | None:
     return cast(str, term.get_name()).split('.')[0]
   return None
 
-# A mutable-array index must be an unsigned/integer type, consistent with the
-# pure-array reduction (which handles UInt and Nat positions). Checked only on
-# the mutable-array path (#1117); pure-array indexing is left untouched.
-_ARRAY_INDEX_TYPES = ('UInt', 'Nat', 'Int')
-
+# A mutable-array index must be `UInt`: `length(a)` is typed as the stdlib list
+# length (`UInt`) and the `<` overloads compare homogeneous pairs, so only a
+# `UInt` index can form the natural `i < length(a)` bound. Checked on the
+# mutable-array path only (#1117); pure-array indexing is left untouched.
 def _check_array_index_type(index: Term) -> None:
-  ty = index.typeof
-  if isinstance(ty, IntType) \
-      or any(_type_named(ty, name) for name in _ARRAY_INDEX_TYPES):
+  if _type_named(index.typeof, 'UInt'):
     return
   user_error(index.location,
-             'a mutable-array index must be a '
-             + ', '.join(_ARRAY_INDEX_TYPES) + ', not ' + str(ty))
+             'a mutable-array index must be a UInt, not '
+             + str(index.typeof))
 
 def _array_length_result_type(loc: Meta, rator: Term) -> Type:
   # The result type of `length` applied to an array handle is whatever the
@@ -148,14 +145,17 @@ def _length_of_array(
     loc: Meta, rator: Term, args: list[Term], env: Env,
     recfun: RecursiveName, subterms: SubtermNames,
 ) -> Term | None:
-  # `length(a)` where `a` is an array handle (pure `[T]` or mutable `[T]!`)
-  # types as the array-length type (`UInt`) and stays symbolic (#1117).
-  # Returns None for any other `length` call so the caller falls back to the
-  # ordinary list-`length` resolution.
+  # `length(a)` where `a` is a mutable-array handle `[T]!` types as the
+  # array-length type (`UInt`) and stays symbolic (#1117). Returns None for any
+  # other `length` call -- including on a pure `[T]` array -- so the caller
+  # falls back to the ordinary list-`length` resolution. Scoping the intercept
+  # to `[T]!` keeps `ArrayLength` confined to procedure specifications and
+  # array-bounds obligations, which never reach the recursive-call or compiler
+  # walkers that pure runtime terms do.
   if len(args) != 1 or _var_ref_base_name(rator) != 'length':
     return None
   new_arg = type_synth_term(args[0], env, recfun, subterms)
-  if not isinstance(new_arg.typeof, (ArrayType, MutableArrayType)):
+  if not isinstance(new_arg.typeof, MutableArrayType):
     return None
   new_rator = type_synth_term(rator, env, recfun, subterms)
   return ArrayLength(loc, _array_length_result_type(loc, new_rator), new_arg)
