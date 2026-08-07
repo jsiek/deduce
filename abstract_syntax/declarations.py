@@ -494,6 +494,46 @@ class ProcProofEntry(AST):
   def __str__(self) -> str:
     return self.pretty_print(0)
 
+
+def _decl_signature_header(visibility_prefix: str, keyword: str, name: str,
+                           type_params: List[str],
+                           params: List[ProcParam]) -> str:
+  """Format the shared ``<vis> keyword name<T..>(params)`` head of a
+  procedure/observer/resource declaration. Callers append whatever follows
+  (return type, specs, reads clauses, or body)."""
+  if get_verbose():
+    shown_name = name
+    typarams = type_params
+  else:
+    shown_name = base_name(name)
+    typarams = [base_name(t) for t in type_params]
+  header = visibility_prefix + keyword + ' ' + shown_name
+  if typarams:
+    header += '<' + ','.join(typarams) + '>'
+  header += '(' + ', '.join(str(p) for p in params) + ')'
+  return header
+
+
+def _uniquify_decl_params(params: List[ProcParam], body_env: UniquifyEnv,
+                          uniq_ctx: UniquifyContext) -> List[ProcParam]:
+  """Alpha-rename a procedure/observer/resource parameter list into
+  ``body_env``, returning the freshly-named parameters."""
+  new_params: List[ProcParam] = []
+  for param in params:
+    new_typ = param.typ.uniquify(body_env, uniq_ctx)
+    new_param_name = generate_name(param.name, uniq_ctx)
+    overwrite(body_env, param.name, new_param_name, param.location)
+    new_params.append(ProcParam(param.location, new_param_name,
+                                new_typ, param.ghost))
+  return new_params
+
+
+def _indent_multiline(text: str, indent: int) -> str:
+  """Indent every line of ``text`` by ``indent`` spaces, trimming trailing
+  whitespace and terminating with a single newline."""
+  return indent * ' ' + text.replace('\n', '\n' + indent * ' ').rstrip() + '\n'
+
+
 @dataclass
 class ProcDecl(Declaration):
   type_params: List[str]
@@ -511,17 +551,10 @@ class ProcDecl(Declaration):
     return self.pretty_print(0)
 
   def pretty_print(self, indent: int) -> str:
-    if get_verbose():
-      shown_name = self.name
-      typarams = self.type_params
-    else:
-      shown_name = base_name(self.name)
-      typarams = [base_name(t) for t in self.type_params]
     pad = indent * ' '
-    header = pad + self.visibility_prefix() + 'proc ' + shown_name
-    if typarams:
-      header += '<' + ','.join(typarams) + '>'
-    header += '(' + ', '.join(str(p) for p in self.params) + ')'
+    header = pad + _decl_signature_header(self.visibility_prefix(), 'proc',
+                                          self.name, self.type_params,
+                                          self.params)
     if self.return_type is not None:
       header += ' -> ' + str(self.return_type)
     if self.specs:
@@ -1007,13 +1040,7 @@ class ObserverDecl(Declaration):
     body_env, new_type_params = uniquify_type_params(
         env_map, self.type_params, uniq_ctx, self.location, overwrite)
 
-    new_params = []
-    for param in self.params:
-      new_typ = param.typ.uniquify(body_env, uniq_ctx)
-      new_param_name = generate_name(param.name, uniq_ctx)
-      overwrite(body_env, param.name, new_param_name, param.location)
-      new_params.append(ProcParam(param.location, new_param_name,
-                                  new_typ, param.ghost))
+    new_params = _uniquify_decl_params(self.params, body_env, uniq_ctx)
 
     new_return_type = self.return_type.uniquify(body_env, uniq_ctx)
     new_reads = [
@@ -1027,16 +1054,8 @@ class ObserverDecl(Declaration):
                         new_body, visibility=self.visibility)
 
   def __str__(self) -> str:
-    if get_verbose():
-      shown_name = self.name
-      typarams = self.type_params
-    else:
-      shown_name = base_name(self.name)
-      typarams = [base_name(t) for t in self.type_params]
-    header = self.visibility_prefix() + 'observer ' + shown_name
-    if typarams:
-      header += '<' + ','.join(typarams) + '>'
-    header += '(' + ', '.join(str(p) for p in self.params) + ')'
+    header = _decl_signature_header(self.visibility_prefix(), 'observer',
+                                    self.name, self.type_params, self.params)
     header += ' -> ' + str(self.return_type)
     lines = [header]
     for clause in self.reads:
@@ -1047,8 +1066,7 @@ class ObserverDecl(Declaration):
     return s
 
   def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
-    return indent * ' ' \
-      + str(self).replace('\n', '\n' + indent * ' ').rstrip() + '\n'
+    return _indent_multiline(str(self), indent)
 
 
 @dataclass
@@ -1076,13 +1094,7 @@ class ResourceDecl(Declaration):
     body_env, new_type_params = uniquify_type_params(
         env_map, self.type_params, uniq_ctx, self.location, overwrite)
 
-    new_params = []
-    for param in self.params:
-      new_typ = param.typ.uniquify(body_env, uniq_ctx)
-      new_param_name = generate_name(param.name, uniq_ctx)
-      overwrite(body_env, param.name, new_param_name, param.location)
-      new_params.append(ProcParam(param.location, new_param_name,
-                                  new_typ, param.ghost))
+    new_params = _uniquify_decl_params(self.params, body_env, uniq_ctx)
 
     new_body = (self.body.uniquify(body_env, uniq_ctx)
                 if self.body is not None else None)
@@ -1090,23 +1102,14 @@ class ResourceDecl(Declaration):
                         new_params, new_body, visibility=self.visibility)
 
   def __str__(self) -> str:
-    if get_verbose():
-      shown_name = self.name
-      typarams = self.type_params
-    else:
-      shown_name = base_name(self.name)
-      typarams = [base_name(t) for t in self.type_params]
-    header = self.visibility_prefix() + 'resource ' + shown_name
-    if typarams:
-      header += '<' + ','.join(typarams) + '>'
-    header += '(' + ', '.join(str(p) for p in self.params) + ')'
+    header = _decl_signature_header(self.visibility_prefix(), 'resource',
+                                    self.name, self.type_params, self.params)
     if self.body is not None:
       header += ' {\n  ' + str(self.body) + '\n}'
     return header
 
   def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
-    return indent * ' ' \
-      + str(self).replace('\n', '\n' + indent * ' ').rstrip() + '\n'
+    return _indent_multiline(str(self), indent)
 
 
 @dataclass
