@@ -176,6 +176,30 @@ def test_assume_supplies_a_downstream_given() -> None:
   assert [str(f) for (_l, f) in obs[0].givens] == ['x']
 
 
+def test_locals_remain_in_the_discharge_environment() -> None:
+  # The returned discharge environment carries the body's locals, not just the
+  # parameters, so an attached inline-assert proof (`assert P by <proof>`) can
+  # reference a local even though goals and givens are substituted down to
+  # parameters. Regression for the PR #1165 review (P2).
+  decl = _proc('p', [_param('x')], None, [],
+               [ImpVar(_meta(), 'y', None, _rv('x')),
+                ImpAssert(_meta(), _rv('x'), None)])
+  env_out, _obs = proc_obligations(decl, _env())
+  assert 'x' in env_out.dict
+  assert 'y' in env_out.dict
+
+
+def test_branch_locals_reach_the_discharge_environment() -> None:
+  # A local declared inside a branch is likewise gathered into the discharge
+  # environment (uniquify keeps its name distinct, so no clash with same-named
+  # locals on other paths).
+  decl = _proc('q', [_param('x')], None, [],
+               [ImpIf(_meta(), _rv('x'),
+                      [ImpVar(_meta(), 'y', None, _rv('x'))], None)])
+  env_out, _obs = proc_obligations(decl, _env())
+  assert 'y' in env_out.dict
+
+
 def test_void_fall_through_checks_postconditions_without_a_result() -> None:
   # A procedure with no return value exits by falling off the end; its
   # postconditions must hold there and may not mention `result`.

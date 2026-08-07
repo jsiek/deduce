@@ -470,18 +470,24 @@ def proc_obligations(decl: ProcDecl,
   # branch is not visible on the other, and never before the statement itself.
   #
   # Obligations are emitted in path/source order, with per-path given labels
-  # derived from `len(givens)`, so the ordering is deterministic. Returns the
-  # parameter environment obligations discharge in (goals mention only
-  # parameters, so the locals are not needed) together with the obligations.
-  # Pure w.r.t. proof checking -- it only builds formulas -- so it can be
-  # unit-tested in isolation from `verify_proc`, which discharges what it
-  # returns.
+  # derived from `len(givens)`, so the ordering is deterministic. Pure w.r.t.
+  # proof checking -- it only builds formulas -- so it can be unit-tested in
+  # isolation from `verify_proc`, which discharges what it returns.
+  #
+  # Returns the environment obligations discharge in: the parameters plus every
+  # local declared anywhere in the body. Goals and givens are substituted
+  # through `state` and so mention only parameters, but an attached inline-
+  # assert proof (`assert P by <proof>`) is stored unchanged and may reference a
+  # body local in an intermediate step, so the locals must stay in scope for it
+  # to type-check. Uniquify makes every local name globally unique, so gathering
+  # them across all branch paths introduces no clashes.
   from imperative_verifier import ImperativeObligation, ObligationKind
   loc = decl.location
   type_env = env.declare_type_vars(loc, decl.type_params)
   base_env = type_env.declare_term_vars(
       loc, [(p.name, p.typ) for p in decl.params], local=True)
   obligations: list[ImperativeObligation] = []
+  local_bindings: dict[str, tuple[Meta, Type]] = {}
 
   def emit_posts(result: Optional[Term],
                  givens: list[tuple[str, Formula]]) -> None:
@@ -505,6 +511,7 @@ def proc_obligations(decl: ProcDecl,
             checked = type_synth_term(cast(Term, rhs), cur_env, None, [])
             var_ty = checked.typeof
             state[name] = cast(Term, checked.substitute(state))
+          local_bindings[name] = (vloc, var_ty)
           cur_env = cur_env.declare_term_var(vloc, name, var_ty, local=True)
         case ImpAssign(_, lhs, rhs):
           target = cast(LValueVar, lhs)
@@ -547,7 +554,11 @@ def proc_obligations(decl: ProcDecl,
     emit_posts(None, givens)
 
   walk(decl.body, {}, _proc_givens(decl), base_env)
-  return base_env, obligations
+  discharge_env = base_env
+  for (name, (vloc, var_ty)) in local_bindings.items():
+    discharge_env = discharge_env.declare_term_var(vloc, name, var_ty,
+                                                    local=True)
+  return discharge_env, obligations
 
 def verify_proc(decl: ProcDecl, env: Env) -> None:
   # Phase 2f (issue #1115): verify a straight-line procedure by discharging
