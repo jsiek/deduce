@@ -1,0 +1,4 @@
+./test/imperative/should-error/proc_assume_scope.pf:5.3-5.11: incomplete proof
+could not prove this assertion obligation
+Goal:
+	b

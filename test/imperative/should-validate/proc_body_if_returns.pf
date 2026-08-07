@@ -3,7 +3,9 @@
 // not trigger the missing-return diagnostic. Regression for a missing-return
 // bug (PR #1145 review) where only the *last* statement was inspected: the
 // guaranteed return here is not the last statement, so the earlier version
-// wrongly reported that `pick` could finish without returning.
+// wrongly reported that `pick` could finish without returning. `pick` has no
+// specs, so Phase 2g (issue #1116) verifies it with no obligations and no
+// warning.
 union Color {
   red
   green

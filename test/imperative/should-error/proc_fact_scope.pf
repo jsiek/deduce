@@ -1,0 +1,10 @@
+// Phase 2g (issue #1116): a fact established inside a branch is available only
+// within that branch, not after the `if`. `b` is asserted (and holds) inside
+// the then-branch, but the `assert b` after the `if` must also hold on the
+// else-path -- where the only given is `not b` -- so it fails there.
+proc leaky(b: bool) {
+  if b {
+    assert b
+  }
+  assert b
+}

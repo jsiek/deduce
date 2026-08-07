@@ -1,0 +1,7 @@
+// Phase 2g (issue #1116): an assumed fact becomes a given only for the
+// statements that follow the `assume`. Here the `assert b` precedes
+// `assume b`, so nothing in scope justifies it and the assertion fails.
+proc premature(b: bool) {
+  assert b
+  assume b
+}

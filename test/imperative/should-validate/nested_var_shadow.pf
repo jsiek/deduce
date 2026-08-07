@@ -1,6 +1,8 @@
 // Nested-block `var` shadowing must not emit a spurious "already defined"
 // warning: the inner `var a` is a distinct block-local that uniquify
 // alpha-renames, shadowing the outer `a` in a nested scope (issue #1144).
+// `demo` has no specs, so Phase 2g (issue #1116) verifies it (both `if`
+// branches, no obligations) and it is warning-free.
 proc demo(flag: bool)
 {
   var a := flag

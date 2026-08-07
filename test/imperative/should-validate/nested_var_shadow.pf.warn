@@ -1,1 +1,0 @@
-./test/imperative/should-validate/nested_var_shadow.pf:4.1-12.2: warning: proc 'demo' is accepted but not verified -- parsing and declaration plumbing succeeded, but no verifier has run on its body or specs yet (experimental imperative layer, issue #854)

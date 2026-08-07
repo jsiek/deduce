@@ -1,16 +1,17 @@
-// Phase 2d (issue #1113): straight-line procedure bodies are now type-checked
-// -- annotated and inferred local `var` declarations, assignment to a local
+// Phase 2d (issue #1113): straight-line procedure bodies are type-checked --
+// annotated and inferred local `var` declarations, assignment to a local
 // variable, nested `if`-block scope, and a `return` matching the declared
-// result type. The body stays otherwise unverified, so the Phase 1m
-// "accepted but not verified" warning (issue #1108) still fires; the
-// `.pf.warn` sibling pins it under both parsers.
+// result type. Phase 2g (issue #1116) now also verifies the `if`: `c` holds
+// `green` on the then-branch and `red` on the else-branch, so the
+// branch-covering postcondition `result = red or result = green` discharges
+// on both paths and no warning fires.
 union Color {
   red
   green
 }
 
 proc classify(flag: bool) -> Color
-  ensures flag or not flag
+  ensures result = red or result = green
 {
   var a : bool := flag       // annotated local
   var b := a                 // inferred local, bool

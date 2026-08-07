@@ -25,8 +25,8 @@ from abstract_syntax import (
     All, And, Array, ArrayGet, Assert, Associative, Auto, Bool,
     Call, Conditional, Constructor, Declaration, Define, Env, Export,
     Formula, FunCase, FunctionType, GenRecFun, Generic, GenericUnknownInst,
-    Hole, IfThen, ImpAlloc, ImpAssert, ImpAssign, ImpCallExpr, ImpIf,
-    ImpReturn, ImpStmt, ImpVar, ImpWhile, Import, Inductive, Lambda,
+    Hole, IfThen, ImpAlloc, ImpAssert, ImpAssign, ImpAssume, ImpCallExpr,
+    ImpIf, ImpReturn, ImpStmt, ImpVar, ImpWhile, Import, Inductive, Lambda,
     LValueField, LValueIndex, LValueVar, MakeArray, Module,
     MutableArrayType, ObjectDecl,
     ObjectField, ObserverDecl, Omitted, Or, OverloadType, OverloadedVar, PSorry, PVar,
@@ -166,10 +166,10 @@ def _imp_stmt_unmodeled(s: ImpStmt) -> bool:
     case ImpIf(_, _, then_body, else_body):
       return _block_unmodeled(then_body) \
           or (else_body is not None and _block_unmodeled(else_body))
-    case ImpReturn() | ImpAssert():
+    case ImpReturn() | ImpAssert() | ImpAssume():
       return False
     case _:
-      # `while`, `assume`, and `call` statements.
+      # `while` and `call` statements.
       return True
 
 def _block_unmodeled(stmts: list[ImpStmt]) -> bool:
@@ -242,6 +242,12 @@ def _type_check_imp_stmt(s: ImpStmt, env: Env,
     case ImpAssert(loc, formula, _):
       # The asserted formula must be a `bool`; the obligation that it actually
       # holds is discharged later in `verify_proc` (Phase 2f).
+      type_check_formula(formula, env)
+      return env
+    case ImpAssume(loc, formula):
+      # `assume` is proof-only: the formula must be a `bool`, and it becomes a
+      # given for the statements that follow (see `proc_obligations`). It has
+      # no runtime effect, so it never contributes to the state.
       type_check_formula(formula, env)
       return env
     case _:
@@ -362,13 +368,13 @@ def type_check_proc_body(decl: ProcDecl, env: Env) -> None:
                + "' declares return type " + str(decl.return_type)
                + ' but may finish without returning a value')
 
-# --- Phase 2f (issue #1115): straight-line procedure verification -----------
-# A procedure is *verifiable* by this slice when its body is entirely
-# straight-line over local state: local `var` declarations, assignments to a
-# local variable, `assert`, and a final `return`, all with ordinary-term
-# right-hand sides. Branches (`if`), loops (`while`), `assume`, procedure
-# calls, allocations, and mutable-array reads/writes are later slices, so a
-# body using any of them stays deferred (and keeps the Phase 1m warning). A
+# --- Phase 2f/2g (issues #1115, #1116): procedure verification --------------
+# A procedure is *verifiable* by these slices when its body is built from local
+# state and finite branching: local `var` declarations, assignments to a local
+# variable, `assert`, `assume`, `if`/`else` (recursively verifiable), and
+# `return`, all with ordinary-term right-hand sides. Loops (`while`), procedure
+# calls, allocations, and mutable-array reads/writes are later slices, so a body
+# using any of them stays deferred (and keeps the Phase 1m warning). A
 # mutable-array parameter also defers the whole procedure (its reads are not
 # modeled until those slices land).
 def _stmt_verifiable(s: ImpStmt) -> bool:
@@ -378,10 +384,14 @@ def _stmt_verifiable(s: ImpStmt) -> bool:
     case ImpAssign():
       return isinstance(s.lhs, LValueVar) \
           and not isinstance(s.rhs, (ImpCallExpr, ImpAlloc))
-    case ImpAssert() | ImpReturn():
+    case ImpAssert() | ImpAssume() | ImpReturn():
       return True
+    case ImpIf(_, _, then_body, else_body):
+      return all(_stmt_verifiable(t) for t in then_body) \
+          and (else_body is None
+               or all(_stmt_verifiable(t) for t in else_body))
     case _:
-      # `if`, `while`, `assume`, and `call` statements.
+      # `while` and `call` statements.
       return False
 
 def _assigns_to_a_parameter(decl: ProcDecl) -> bool:
@@ -389,11 +399,20 @@ def _assigns_to_a_parameter(decl: ProcDecl) -> bool:
   # one. Without an entry-state/`old` snapshot (a later slice, #1120) a
   # postcondition mentioning a reassigned parameter is ambiguous between its
   # entry and exit value, so such a procedure is deferred rather than verified
-  # against the entry value alone. A verifiable body has no nested blocks (`if`
-  # defers), so every assignment is at the top level.
+  # against the entry value alone. `if` branches nest, so the scan recurses.
   param_names = {p.name for p in decl.params}
-  return any(isinstance(s, ImpAssign) and isinstance(s.lhs, LValueVar)
-             and s.lhs.name in param_names for s in decl.body)
+  def assigns(stmts: list[ImpStmt]) -> bool:
+    for s in stmts:
+      match s:
+        case ImpAssign() if isinstance(s.lhs, LValueVar) \
+                and s.lhs.name in param_names:
+          return True
+        case ImpIf(_, _, then_body, else_body):
+          if assigns(then_body) \
+             or (else_body is not None and assigns(else_body)):
+            return True
+    return False
+  return assigns(decl.body)
 
 def _proc_verifiable(decl: ProcDecl) -> bool:
   if any(isinstance(p.typ, MutableArrayType) for p in decl.params):
@@ -436,70 +455,99 @@ def _proc_postconditions(decl: ProcDecl,
 
 def proc_obligations(decl: ProcDecl,
                      env: Env) -> tuple[Env, list['ImperativeObligation']]:
-  # Phase 2f (issue #1115): the verification conditions of a straight-line,
-  # `_proc_verifiable` procedure, by forward symbolic execution. `state` maps
-  # each local variable to its current value as a term over the parameters, so
-  # substituting it into an assertion or returned expression yields a goal
-  # mentioning only parameters. Returns the parameter environment obligations
-  # discharge in, together with the obligations in source order. Pure w.r.t.
-  # proof checking (it only builds formulas), so it can be unit-tested in
-  # isolation from `verify_proc`, which discharges what it returns.
+  # Phase 2f/2g (issues #1115, #1116): the verification conditions of a
+  # `_proc_verifiable` procedure, by path-sensitive forward symbolic execution.
+  # `state` maps each local variable to its current value as a term over the
+  # parameters, so substituting it into an assertion, returned expression, or
+  # branch condition yields a goal or given mentioning only parameters.
+  #
+  # `if` splits the current path in two: the then-path carries the condition as
+  # a given, the else-path its negation (a missing `else` is `skip`), and both
+  # continue through the statements that follow the `if`. A `return` ends its
+  # path (discharging the postconditions with the returned value); a path that
+  # falls off the end discharges the postconditions with `result` unbound. Each
+  # path keeps its own `state`/`givens`, so a fact asserted or assumed on one
+  # branch is not visible on the other, and never before the statement itself.
+  #
+  # Obligations are emitted in path/source order, with per-path given labels
+  # derived from `len(givens)`, so the ordering is deterministic. Returns the
+  # parameter environment obligations discharge in (goals mention only
+  # parameters, so the locals are not needed) together with the obligations.
+  # Pure w.r.t. proof checking -- it only builds formulas -- so it can be
+  # unit-tested in isolation from `verify_proc`, which discharges what it
+  # returns.
   from imperative_verifier import ImperativeObligation, ObligationKind
   loc = decl.location
   type_env = env.declare_type_vars(loc, decl.type_params)
-  cur_env = type_env.declare_term_vars(
+  base_env = type_env.declare_term_vars(
       loc, [(p.name, p.typ) for p in decl.params], local=True)
-  givens = _proc_givens(decl)
-  state: Substitution = {}
   obligations: list[ImperativeObligation] = []
 
-  def symbolic(rhs: Term, typ: Type) -> Term:
-    return cast(Term, type_check_term(rhs, typ, cur_env, None, [])
-                .substitute(state))
-
-  returned = False
-  for s in decl.body:
-    match s:
-      case ImpVar(vloc, name, type_annot, rhs, _):
-        if type_annot is not None:
-          var_ty = check_type(type_annot, cur_env)
-          state[name] = symbolic(cast(Term, rhs), var_ty)
-        else:
-          checked = type_synth_term(cast(Term, rhs), cur_env, None, [])
-          var_ty = checked.typeof
-          state[name] = cast(Term, checked.substitute(state))
-        cur_env = cur_env.declare_term_var(vloc, name, var_ty, local=True)
-      case ImpAssign(_, lhs, rhs):
-        target = cast(LValueVar, lhs)
-        binding = cast(TermBinding, cur_env.dict[target.name])
-        state[target.name] = symbolic(cast(Term, rhs), binding.typ)
-      case ImpAssert(aloc, formula, proof):
-        goal = cast(Formula,
-                    type_check_formula(formula, cur_env).substitute(state))
-        obligations.append(
-            ImperativeObligation(aloc, goal, ObligationKind.ASSERTION,
-                                 givens=list(givens), proof=proof))
-        # The asserted fact is available to everything downstream.
-        givens = givens + [('assert' + str(len(givens)), goal)]
-      case ImpReturn(_, value):
-        result = symbolic(value, cast(Type, decl.return_type))
-        for (post_loc, goal) in _proc_postconditions(decl, result):
-          obligations.append(
-              ImperativeObligation(post_loc, goal,
-                                   ObligationKind.POSTCONDITION,
-                                   givens=list(givens)))
-        returned = True
-        break  # a `return` is terminal; anything after it is unreachable.
-
-  if not returned:
-    # A procedure with no return value (or that falls off the end) exits with
-    # `result` unbound; its postconditions may not mention `result`.
-    for (post_loc, goal) in _proc_postconditions(decl, None):
+  def emit_posts(result: Optional[Term],
+                 givens: list[tuple[str, Formula]]) -> None:
+    for (post_loc, goal) in _proc_postconditions(decl, result):
       obligations.append(
           ImperativeObligation(post_loc, goal, ObligationKind.POSTCONDITION,
                                givens=list(givens)))
 
-  return cur_env, obligations
+  def walk(stmts: list[ImpStmt], state: Substitution,
+           givens: list[tuple[str, Formula]], cur_env: Env) -> None:
+    def symbolic(rhs: Term, typ: Type) -> Term:
+      return cast(Term, type_check_term(rhs, typ, cur_env, None, [])
+                  .substitute(state))
+    for idx, s in enumerate(stmts):
+      match s:
+        case ImpVar(vloc, name, type_annot, rhs, _):
+          if type_annot is not None:
+            var_ty = check_type(type_annot, cur_env)
+            state[name] = symbolic(cast(Term, rhs), var_ty)
+          else:
+            checked = type_synth_term(cast(Term, rhs), cur_env, None, [])
+            var_ty = checked.typeof
+            state[name] = cast(Term, checked.substitute(state))
+          cur_env = cur_env.declare_term_var(vloc, name, var_ty, local=True)
+        case ImpAssign(_, lhs, rhs):
+          target = cast(LValueVar, lhs)
+          binding = cast(TermBinding, cur_env.dict[target.name])
+          state[target.name] = symbolic(cast(Term, rhs), binding.typ)
+        case ImpAssert(aloc, formula, proof):
+          goal = cast(Formula,
+                      type_check_formula(formula, cur_env).substitute(state))
+          obligations.append(
+              ImperativeObligation(aloc, goal, ObligationKind.ASSERTION,
+                                   givens=list(givens), proof=proof))
+          # The asserted fact is available to everything downstream.
+          givens = givens + [('assert' + str(len(givens)), goal)]
+        case ImpAssume(_, formula):
+          # `assume` has no runtime effect; it only adds a proof-only given for
+          # the statements that follow it on this path.
+          fact = cast(Formula,
+                      type_check_formula(formula, cur_env).substitute(state))
+          givens = givens + [('assume' + str(len(givens)), fact)]
+        case ImpIf(iloc, cond, then_body, else_body):
+          cond_frm = cast(Formula,
+                          type_check_formula(cond, cur_env).substitute(state))
+          neg = IfThen(iloc, None, cond_frm, Bool(iloc, None, False))
+          rest = stmts[idx + 1:]
+          # Both branches are checked against the same continuation; each gets
+          # its own copy of `state` so a branch-local write does not leak out.
+          walk(cast(list[ImpStmt], then_body) + rest, dict(state),
+               givens + [('if' + str(len(givens)), cond_frm)], cur_env)
+          else_stmts = cast(list[ImpStmt], else_body) if else_body is not None \
+              else []
+          walk(else_stmts + rest, dict(state),
+               givens + [('if' + str(len(givens)), neg)], cur_env)
+          return  # both branch paths already handled the continuation
+        case ImpReturn(_, value):
+          result = symbolic(value, cast(Type, decl.return_type))
+          emit_posts(result, givens)
+          return  # a `return` is terminal; anything after it is unreachable
+    # This path fell off the end without returning: its postconditions hold
+    # with `result` unbound (so they may not mention `result`).
+    emit_posts(None, givens)
+
+  walk(decl.body, {}, _proc_givens(decl), base_env)
+  return base_env, obligations
 
 def verify_proc(decl: ProcDecl, env: Env) -> None:
   # Phase 2f (issue #1115): verify a straight-line procedure by discharging
