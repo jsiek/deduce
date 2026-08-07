@@ -156,10 +156,13 @@ class Env:
                        for (k,v) in reversed(self.dict.items()) \
                        if isinstance(v,TermBinding) and v.local])
   
-  def declare_type(self, loc: Meta, name: str, vis: str = 'public') -> Env:
+  def _with_binding(self, name: str, binding: object) -> Env:
     new_env = Env(self.dict)
-    new_env.dict[name] = TypeBinding(loc, module=self.get_current_module(), visibility=vis)
+    new_env.dict[name] = binding
     return new_env
+
+  def declare_type(self, loc: Meta, name: str, vis: str = 'public') -> Env:
+    return self._with_binding(name, TypeBinding(loc, module=self.get_current_module(), visibility=vis))
 
   def declare_type_vars(self, loc: Meta, type_vars: Sequence[str]) -> Env:
     new_env = self
@@ -171,9 +174,7 @@ class Env:
                   visibility: str = 'public') -> Env:
     if defn == None:
       internal_error(loc, 'None not allowed in define_type')
-    new_env = Env(self.dict)
-    new_env.dict[name] = TypeBinding(loc, defn, module=self.get_current_module(), visibility=visibility)
-    return new_env
+    return self._with_binding(name, TypeBinding(loc, defn, module=self.get_current_module(), visibility=visibility))
 
   def declare_view(self, loc: Meta, view: ViewDecl,
                    visibility: str = 'public') -> Env:
@@ -190,12 +191,10 @@ class Env:
   def declare_proc(self, loc: Meta, name: str, type_params: List[str],
                    params: List[ProcParam], return_type: Optional[Type],
                    specs: List[ProcSpec], visibility: str = 'public') -> Env:
-    new_env = Env(self.dict)
-    new_env.dict[name] = ProcBinding(loc, type_params, params, return_type,
-                                     specs,
-                                     module=self.get_current_module(),
-                                     visibility=visibility)
-    return new_env
+    return self._with_binding(name, ProcBinding(loc, type_params, params, return_type,
+                                                specs,
+                                                module=self.get_current_module(),
+                                                visibility=visibility))
 
   def get_proc(self, name: str | VarRef) -> Optional[ProcBinding]:
     if isinstance(name, VarRef):
@@ -207,11 +206,9 @@ class Env:
                        local: bool = False, visibility: str = 'public') -> Env:
     if typ == None:
       internal_error(loc, 'None not allowed as type of variable in declare_term_var')
-    new_env = Env(self.dict)
-    new_env.dict[name] = TermBinding(loc, typ, local=local,
-                                     module=self.get_current_module(),
-                                     visibility=visibility)
-    return new_env
+    return self._with_binding(name, TermBinding(loc, typ, local=local,
+                                                module=self.get_current_module(),
+                                                visibility=visibility))
 
   def declare_assoc(self, loc: Meta, opname: str, typarams: List[str],
                     typ: Type) -> Env:
@@ -308,11 +305,9 @@ class Env:
                       visibility: str = 'public') -> Env:
     if val == None:
       internal_error(loc, 'None not allowed as value in define_term_var')
-    new_env = Env(self.dict)
-    new_env.dict[name] = TermBinding(loc, cast(Type, typ), cast(Term, val),
-                                     module=self.get_current_module(),
-                                     visibility=visibility)
-    return new_env
+    return self._with_binding(name, TermBinding(loc, cast(Type, typ), cast(Term, val),
+                                                module=self.get_current_module(),
+                                                visibility=visibility))
 
   def define_term_vars(self, loc: Meta,
                        xv_pairs: Iterable[tuple[str, Term]]) -> Env:
@@ -322,20 +317,14 @@ class Env:
     return new_env
   
   def declare_proof_var(self, loc: Meta, name: str, frm: Formula) -> Env:
-    new_env = Env(self.dict)
-    new_env.dict[name] = ProofBinding(loc, frm, False, module=self.get_current_module())
-    return new_env
+    return self._with_binding(name, ProofBinding(loc, frm, False, module=self.get_current_module()))
 
   def declare_local_proof_var(self, loc: Meta, name: str,
                               frm: Formula) -> Env:
-    new_env = Env(self.dict)
-    new_env.dict[name] = ProofBinding(loc, frm, True, module=self.get_current_module())
-    return new_env
+    return self._with_binding(name, ProofBinding(loc, frm, True, module=self.get_current_module()))
 
   def declare_module(self, module: str) -> Env:
-    new_env = Env(self.dict)
-    new_env.dict['__current_module__'] = module
-    return new_env
+    return self._with_binding('__current_module__', module)
   
   def declare_tracing(self, function_name: str) -> Env:
     new_env = Env(self.dict)

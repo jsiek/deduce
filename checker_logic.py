@@ -274,20 +274,13 @@ def pattern_to_term(pat: Pattern) -> Term:
 def rewrite(loc: Meta, formula: Formula, equation: Formula | AutoRewriteRule,
             env: Env) -> Formula:
     num_marks = count_marks(formula)
+    subject = _single_marked_subject(loc, formula, num_marks, 'replace', 'replace')
+    ret = rewrite_aux(loc, subject, equation, env)
     if num_marks == 0:
-        ret = rewrite_aux(loc, formula, equation, env)
         print_verbose(lambda: '\trewrote ' + str(formula) + '\n\t    ==> ' + str(ret) \
                       + '\n\tusing ' + str(equation))
         return ret
-    elif num_marks == 1:
-        try:
-            find_mark(formula)
-            internal_error(loc, 'in replace, find_mark failed on formula:\n\t' + str(formula))
-        except MarkException as ex:
-            new_subject = rewrite_aux(loc, ex.subject, equation, env)
-            return replace_mark(formula, new_subject)
-    else:
-        internal_error(loc, 'in replace, formula contains more than one mark:\n\t' + str(formula))
+    return replace_mark(formula, ret)
 
 def facts_to_str(env: Mapping[str, object]) -> str:
   result = ''
