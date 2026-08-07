@@ -390,6 +390,17 @@ def alpha_equiv(t1: object, t2: object) -> bool:
   return _alpha_equiv(t1, t2, {}, {})
 
 
+def binder_eq(self: object, other: object, cls: type,
+              alpha: Callable[..., bool]) -> bool:
+  """Shared ``__eq__`` body for the alpha-renaming binder nodes
+  (``FunctionType`` / ``Lambda`` / ``All`` / ``Some`` / ``TLet``): reject a
+  mismatched operand type, then defer to the node's alpha-equivalence walk
+  with empty rename environments. These deliberately bypass the
+  ``_alpha_equiv`` empty-env fast path, which calls ``==`` and would recurse
+  straight back into these methods."""
+  return isinstance(other, cls) and alpha(self, other, {}, {})
+
+
 def _alpha_equiv(t1: object, t2: object,
                  env1: dict[str, object], env2: dict[str, object]) -> bool:
   # TermInst / TAnnote are transparent for equality -- existing
