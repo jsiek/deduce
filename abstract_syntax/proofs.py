@@ -325,6 +325,26 @@ def _postfix_base_str(p: Proof) -> str:
   return '(' + str(p) + ')'
 
 
+def _all_elim_str(univ: Proof, arg: object, pos: Tuple[int, int],
+                  open_b: str, close_b: str) -> str:
+  """Printed form of one argument in an ``AllElim`` / ``AllElimTypes`` chain.
+  ``pos`` is ``(index, count)``: the first argument (index 0) prints the
+  postfix base and the opening bracket, and the last argument appends the
+  closing bracket. ``open_b`` / ``close_b`` are ``[``/``]`` for terms and
+  ``<``/``>`` for types.
+  """
+  s, e = pos
+  if s == 0:
+    res = _postfix_base_str(univ) + f"{open_b}{arg}"
+  else:
+    res = str(univ) + f", {arg}"
+
+  if s + 1 == e:
+    res += close_b
+
+  return res
+
+
 @dataclass
 class AllElimTypes(Proof):
   univ: Proof
@@ -335,16 +355,7 @@ class AllElimTypes(Proof):
   pos: Tuple[int, int]
 
   def __str__(self) -> str:
-    s, e = self.pos
-    if s == 0:
-      res = _postfix_base_str(self.univ) + f"<{self.arg}"
-    else:
-      res = str(self.univ) + f", {self.arg}"
-
-    if s + 1 == e:
-      res += ">"
-
-    return res
+    return _all_elim_str(self.univ, self.arg, self.pos, "<", ">")
 
 @dataclass
 class AllElim(Proof):
@@ -356,16 +367,7 @@ class AllElim(Proof):
   pos: Tuple[int, int]
 
   def __str__(self) -> str:
-    s, e = self.pos
-    if s == 0:
-      res = _postfix_base_str(self.univ) + f"[{self.arg}"
-    else:
-      res = str(self.univ) + f", {self.arg}"
-
-    if s + 1 == e:
-      res += "]"
-
-    return res
+    return _all_elim_str(self.univ, self.arg, self.pos, "[", "]")
 
 @dataclass
 class SomeIntro(Proof):
