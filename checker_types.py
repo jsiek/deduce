@@ -731,6 +731,30 @@ def _type_alias_arity_error(loc: Meta, name: str, expected: int, got: int) -> No
         f"Expected type alias '{base_name(name)}' to have "
         f"{expected} type arguments, not {got}")
 
+def _resolve_type_var_ref(loc: Meta, typ: TypeExpr, resolved: TypeExpr,
+                          env: Env, arity_required: bool) -> TypeExpr:
+  """The shared tail of ``check_type`` for a bare type-variable reference.
+
+  ``typ`` is an already-defined ``OverloadedVar``/``ResolvedVar`` head and
+  ``resolved`` is the reference to return once it is confirmed to name a
+  plain union (the single-candidate promotion for an ``OverloadedVar``, or
+  ``typ`` itself for a ``ResolvedVar``). A bijective-view or type-alias head
+  is expanded instead; otherwise the union's zero-arity use is validated."""
+  view_info = _instantiate_view_type(loc, typ, env)
+  if view_info is not None:
+    _, source_ty, _ = view_info
+    return source_ty
+  alias = _lookup_type_alias(loc, typ, env)
+  if alias is not None:
+    if len(alias.type_params) != 0:
+      if arity_required:
+        _type_alias_arity_error(loc, alias.name, len(alias.type_params), 0)
+      return resolved
+    return alias.body
+  if arity_required:
+    _check_union_arity(typ, 0, env)
+  return resolved
+
 # Validate that ``typ`` is well-formed in ``env`` and return the type
 # with every single-candidate ``OverloadedVar`` narrowed to
 # ``ResolvedVar``. The returned type may share structure with ``typ``
@@ -750,38 +774,13 @@ def check_type(typ: TypeExpr, env: Env, arity_required: bool = True) -> TypeExpr
         user_error(loc, 'undefined type variable ' + str(typ))
       if len(rs) > 1:
         user_error(loc, 'type names may not be overloaded ' + str(typ))
-      view_info = _instantiate_view_type(loc, typ, env)
-      if view_info is not None:
-        _, source_ty, _ = view_info
-        return source_ty
-      alias = _lookup_type_alias(loc, typ, env)
-      if alias is not None:
-        if len(alias.type_params) != 0:
-          if arity_required:
-            _type_alias_arity_error(loc, alias.name, len(alias.type_params), 0)
-          return ResolvedVar(loc, tyof, rs[0])
-        return alias.body
-      if arity_required:
-        _check_union_arity(typ, 0, env)
       # len(rs) == 1: this is a non-overloaded type reference. Promote.
-      return ResolvedVar(loc, tyof, rs[0])
-    case ResolvedVar(loc, tyof, _):
+      return _resolve_type_var_ref(loc, typ, ResolvedVar(loc, tyof, rs[0]),
+                                   env, arity_required)
+    case ResolvedVar(loc, _, _):
       if not env.type_var_is_defined(typ):
         user_error(loc, 'undefined type variable ' + str(typ))
-      view_info = _instantiate_view_type(loc, typ, env)
-      if view_info is not None:
-        _, source_ty, _ = view_info
-        return source_ty
-      alias = _lookup_type_alias(loc, typ, env)
-      if alias is not None:
-        if len(alias.type_params) != 0:
-          if arity_required:
-            _type_alias_arity_error(loc, alias.name, len(alias.type_params), 0)
-          return typ
-        return alias.body
-      if arity_required:
-        _check_union_arity(typ, 0, env)
-      return typ
+      return _resolve_type_var_ref(loc, typ, typ, env, arity_required)
     case IntType(loc) | BoolType(loc) | TypeType(loc):
       return typ
     case FunctionType(loc, typarams, param_types, return_type):
