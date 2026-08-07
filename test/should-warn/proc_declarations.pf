@@ -17,7 +17,7 @@ public proc identity<T>(x: T, ghost witness: T) -> T
   ensures x = x
 {
   var a : T := x
-  var b := witness
+  var b := x
   ghost var c : T := x
   ghost var d := witness
   a := b

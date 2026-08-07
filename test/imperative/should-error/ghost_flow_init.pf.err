@@ -1,0 +1,1 @@
+./test/imperative/should-error/ghost_flow_init.pf:5.3-5.15: the initializer of runtime variable 'bad' may not depend on ghost variable g because ghost data is proof-only and cannot influence runtime behavior

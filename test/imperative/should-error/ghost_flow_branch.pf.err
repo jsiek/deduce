@@ -1,0 +1,1 @@
+./test/imperative/should-error/ghost_flow_branch.pf:5.3-7.4: a branch condition may not depend on ghost variable g because ghost data is proof-only and cannot influence runtime behavior

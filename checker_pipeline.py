@@ -23,7 +23,8 @@ from abstract_syntax import (
     Call, Conditional, Constructor, Declaration, Define, Env, Export,
     Formula, FunCase, FunctionType, GenRecFun, Generic, GenericUnknownInst,
     Hole, IfThen, ImpAlloc, ImpAssign, ImpCallExpr, ImpIf, ImpReturn, ImpStmt,
-    ImpVar, Import, Inductive, Lambda, LValueVar, MakeArray, Module,
+    ImpVar, ImpWhile, Import, Inductive, Lambda, LValueField, LValueIndex,
+    LValueVar, MakeArray, Module,
     MutableArrayType, ObjectDecl,
     ObjectField, ObserverDecl, Omitted, Or, OverloadType, OverloadedVar, PSorry, PVar,
     PatternBool, PatternCons, Postulate, Predicate, Print, ProcDecl, ProcParam,
@@ -242,6 +243,98 @@ def _type_check_imp_block(stmts: list[ImpStmt], env: Env,
                           return_type: Optional[Type]) -> None:
   for s in stmts:
     env = _type_check_imp_stmt(s, env, return_type)
+
+# Phase 2e (issue #1114): ghost-variable noninterference. `ghost` parameters
+# and `ghost var` locals are proof-only, so Phase 6 can erase them without
+# changing runtime behavior -- which is sound only if ghost data never
+# influences runtime behavior. `imp_ghost_dependencies` is the core dependency
+# predicate: the ghost names a term references. A runtime context whose result
+# is nonempty would let proof-only data flow into runtime behavior and is
+# rejected. Runtime data flowing *into* a ghost binding (and ghost bindings
+# referencing each other) stays valid, so ghost contexts are never checked.
+#
+# This pass is purely syntactic -- it depends on uniquified names, not on
+# types -- so unlike `type_check_proc_body` it runs on EVERY proc body,
+# including ones deferred by `_proc_body_unmodeled`; otherwise the guarantee
+# could be bypassed just by adding an unmodeled construct (e.g. a mutable-array
+# parameter would defer the whole body and let a `return g` slip through).
+# Contexts that need infrastructure not yet built are deliberately skipped: a
+# `call`'s argument positions cannot be classified runtime-vs-ghost until call
+# resolution knows which callee parameters are ghost (#1124/#1125), and a
+# `call`/`new` right-hand side likewise, so those are left to their own slices.
+# Proof-only contexts (`assert`/`assume`, loop invariants, decreases) may
+# freely mention ghost data and are never checked.
+def imp_ghost_dependencies(node: object, ghost_names: set[str]) -> set[str]:
+  return _referenced_names(node) & ghost_names
+
+def _reject_ghost_flow(loc: Meta, node: object, ghost_names: set[str],
+                       context: str) -> None:
+  refs = imp_ghost_dependencies(node, ghost_names)
+  if refs:
+    named = ', '.join(sorted(base_name(g) for g in refs))
+    noun = 'ghost variables ' if len(refs) > 1 else 'ghost variable '
+    user_error(loc, context + ' may not depend on ' + noun + named
+               + ' because ghost data is proof-only and cannot influence '
+               + 'runtime behavior')
+
+def _lvalue_is_ghost(lhs: LValueVar | LValueIndex | LValueField,
+                     ghost_names: set[str]) -> bool:
+  # A write target is ghost exactly when the variable/array/object it names is
+  # a ghost binding (mutable arrays are runtime today, so an indexed/field
+  # write is normally a runtime context). Attribute access, not positional
+  # matching: each `LValue*` dataclass leads with `location`, and the naming
+  # field lives at a different position in each, so a positional pattern would
+  # silently bind the wrong field.
+  match lhs:
+    case LValueVar():
+      return lhs.name in ghost_names
+    case LValueIndex():
+      return lhs.array in ghost_names
+    case _:
+      return cast(LValueField, lhs).subject in ghost_names
+
+def _ghost_check_stmt(s: ImpStmt, ghost_names: set[str]) -> None:
+  # `ghost_names` grows in place as ghost locals come into scope; nested blocks
+  # get a copy (see `_ghost_check_block`) so a branch/loop-local ghost
+  # declaration does not leak out.
+  match s:
+    case ImpVar(loc, name, _, rhs, ghost):
+      if ghost:
+        ghost_names.add(name)
+      elif not isinstance(rhs, (ImpCallExpr, ImpAlloc)):
+        _reject_ghost_flow(loc, rhs, ghost_names,
+                           "the initializer of runtime variable '"
+                           + base_name(name) + "'")
+    case ImpAssign(loc, lhs, rhs):
+      if not _lvalue_is_ghost(lhs, ghost_names) \
+         and not isinstance(rhs, (ImpCallExpr, ImpAlloc)):
+        if isinstance(lhs, LValueIndex):
+          _reject_ghost_flow(loc, lhs.index, ghost_names,
+                             'an array index of a runtime assignment')
+        _reject_ghost_flow(loc, rhs, ghost_names,
+                           "a runtime assignment to '" + str(lhs) + "'")
+    case ImpIf(loc, cond, then_body, else_body):
+      _reject_ghost_flow(loc, cond, ghost_names, 'a branch condition')
+      _ghost_check_block(then_body, ghost_names)
+      if else_body is not None:
+        _ghost_check_block(else_body, ghost_names)
+    case ImpWhile(loc, cond, _, _, _, body, _, _, _):
+      _reject_ghost_flow(loc, cond, ghost_names, 'a loop condition')
+      _ghost_check_block(body, ghost_names)
+    case ImpReturn(loc, value):
+      _reject_ghost_flow(loc, value, ghost_names, 'a return value')
+    case _:
+      # `assert`/`assume` are proof-only; `call` argument classification is a
+      # later slice (see the pass note above).
+      pass
+
+def _ghost_check_block(stmts: list[ImpStmt], ghost_names: set[str]) -> None:
+  ghost_names = set(ghost_names)
+  for s in stmts:
+    _ghost_check_stmt(s, ghost_names)
+
+def check_ghost_noninterference(decl: ProcDecl) -> None:
+  _ghost_check_block(decl.body, {p.name for p in decl.params if p.ghost})
 
 def type_check_proc_body(decl: ProcDecl, env: Env) -> None:
   # Phase 2d (issue #1113): type-check a procedure's straight-line body --
@@ -1058,6 +1151,9 @@ def type_check_stmt(stmt: Statement, env: Env,
       # Phase 2d (issue #1113): type-check the procedure's straight-line body.
       # Specs are checked in `check_proc_signature` (Phase 2b); proving them is
       # a later slice, so the Phase 1m "not verified" warning still fires.
+      # Phase 2e (issue #1114): the syntactic ghost-noninterference check runs
+      # regardless of whether the body is type-modeled (see its note).
+      check_ghost_noninterference(stmt)
       type_check_proc_body(stmt, env)
       return stmt
 

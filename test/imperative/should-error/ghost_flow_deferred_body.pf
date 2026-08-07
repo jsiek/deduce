@@ -1,0 +1,9 @@
+// Phase 2e (issue #1114): the ghost-noninterference check is syntactic and
+// runs even when the body is otherwise deferred for type-checking. Here a
+// mutable-array parameter defers the body (no `a[i]` typing until #1117), but
+// the runtime `return g` must still be rejected -- the guarantee cannot be
+// bypassed by adding an unmodeled construct.
+proc leak(a: [bool]!, ghost g: bool) -> bool
+{
+  return g
+}

@@ -1,0 +1,11 @@
+// Phase 2e (issue #1114): a body deferred from type-checking (mutable-array
+// parameter, allocation, and `call` are all still unmodeled) is still allowed
+// to move runtime data into ghost bindings and to read ghost data in a ghost
+// context. Only ghost-to-runtime flows are rejected, so this body validates
+// (still emitting the Phase 1m "accepted but not verified" warning).
+proc keep(a: [bool]!, x: bool, ghost g: bool)
+{
+  ghost var seen := g        // ghost <- ghost, ok
+  seen := x                  // runtime flows into a ghost local, ok
+  var slot := new Cell(x)    // deferred allocation, ghost check skips it
+}
