@@ -11,7 +11,7 @@ File charter:
   ``checker_types.py``.
 """
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from typing import TYPE_CHECKING, TypeAlias, cast
 
 from lark.tree import Meta
@@ -391,26 +391,21 @@ def auto_simplified_hint(new_formula: Formula) -> str:
   return ''
 
 
-def _ast_mentions_any(node: AST, target_names: set[str]) -> bool:
-  # AST traversal: does `node` reference any name in `target_names`?
-  # No general `free_vars` is defined across all Term subclasses, so we
-  # walk the dataclass fields directly.
+def _walk_ast(root: object) -> Iterator[object]:
+  # Yield every node reachable from `root` through its dataclass fields
+  # (recursing into lists/tuples/dict values, skipping scalars), id-deduplicated
+  # and in DFS pop-order. No general `free_vars` is defined across all Term
+  # subclasses, so callers that need to find every `VarRef` walk the fields
+  # directly via this generator.
   seen: set[int] = set()
-  stack: list[object] = [node]
+  stack: list[object] = [root]
   while stack:
     n = stack.pop()
     nid = id(n)
     if nid in seen:
       continue
     seen.add(nid)
-    if isinstance(n, VarRef):
-      if isinstance(n, OverloadedVar):
-        for nm in n.resolved_names:
-          if nm in target_names:
-            return True
-      else:
-        if n.get_name() in target_names:
-          return True
+    yield n
     if hasattr(n, '__dict__'):
       for v in vars(n).values():
         if isinstance(v, (list, tuple)):
@@ -419,6 +414,17 @@ def _ast_mentions_any(node: AST, target_names: set[str]) -> bool:
           stack.extend(v.values())
         elif v is not None and not isinstance(v, (str, int, float, bool)):
           stack.append(v)
+
+
+def _ast_mentions_any(node: AST, target_names: set[str]) -> bool:
+  # AST traversal: does `node` reference any name in `target_names`?
+  for n in _walk_ast(node):
+    if isinstance(n, VarRef):
+      if isinstance(n, OverloadedVar):
+        if any(nm in target_names for nm in n.resolved_names):
+          return True
+      elif n.get_name() in target_names:
+        return True
   return False
 
 
@@ -495,20 +501,13 @@ def _marked_equation_other_side(
   # label ('left-hand side' / 'right-hand side'); otherwise None. Shared by the
   # `expand`/`replace` backward-mark hints, which both suggest wrapping the
   # unmarked side in `#...#`.
-  if count_marks(formula) != 1:
+  side = _equation_marked_side(formula)
+  if side is None:
     return None
-  match formula:
-    case Call(_, _, rator, [side0, side1]) \
-         if isinstance(rator, VarRef) and rator.get_name() == '=':
-      marks0 = count_marks(side0)
-      marks1 = count_marks(side1)
-      if marks0 == 1 and marks1 == 0:
-        return side1, 'right-hand side'
-      if marks0 == 0 and marks1 == 1:
-        return side0, 'left-hand side'
-      return None
-    case _:
-      return None
+  assert isinstance(formula, Call) and len(formula.args) == 2
+  left, right = formula.args
+  return (right, 'right-hand side') if side == 'lhs' \
+      else (left, 'left-hand side')
 
 
 def _defs_mentioned_in(node: AST, defs: Sequence[Term]) -> list[str]:
@@ -606,44 +605,30 @@ def _collect_unfoldable_recfun_names(formula: Formula, env: Env) -> list[str]:
   # trip-up is forgetting to unfold a `recursive` definition, and naming
   # only those keeps the hint focused.
   names: list[str] = []
-  seen_ids: set[int] = set()
   seen_names: set[str] = set()
-  stack: list[object] = [formula]
-  while stack:
-    n = stack.pop()
-    nid = id(n)
-    if nid in seen_ids:
+  for n in _walk_ast(formula):
+    if not isinstance(n, VarRef):
       continue
-    seen_ids.add(nid)
-    if isinstance(n, VarRef):
-      if isinstance(n, OverloadedVar):
-        candidates = list(n.resolved_names)
-      else:
-        candidates = [n.get_name()]
-      for nm in candidates:
-        if nm not in env.dict:
-          continue
-        binding = env.dict[nm]
-        if not isinstance(binding, TermBinding):
-          continue
-        if not isinstance(binding.defn, (RecFun, GenRecFun, ViewRecFun)):
-          continue
-        if binding.visibility == 'opaque' \
-           and binding.module != env.get_current_module():
-          continue
-        display = base_name(nm)
-        if display in seen_names:
-          continue
-        seen_names.add(display)
-        names.append(display)
-    if hasattr(n, '__dict__'):
-      for v in vars(n).values():
-        if isinstance(v, (list, tuple)):
-          stack.extend(v)
-        elif isinstance(v, dict):
-          stack.extend(v.values())
-        elif v is not None and not isinstance(v, (str, int, float, bool)):
-          stack.append(v)
+    if isinstance(n, OverloadedVar):
+      candidates = list(n.resolved_names)
+    else:
+      candidates = [n.get_name()]
+    for nm in candidates:
+      if nm not in env.dict:
+        continue
+      binding = env.dict[nm]
+      if not isinstance(binding, TermBinding):
+        continue
+      if not isinstance(binding.defn, (RecFun, GenRecFun, ViewRecFun)):
+        continue
+      if binding.visibility == 'opaque' \
+         and binding.module != env.get_current_module():
+        continue
+      display = base_name(nm)
+      if display in seen_names:
+        continue
+      seen_names.add(display)
+      names.append(display)
   return names
 
 
