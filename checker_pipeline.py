@@ -1073,55 +1073,40 @@ def _check_view_function_type(loc: Meta, name: str, expected: Type,
                + " has type\n\t" + str(actual)
                + "\nbut expected\n\t" + str(expected))
 
-def _view_roundtrip_formula(loc: Meta, view: ViewDecl) -> Formula:
+def _view_composition_formula(loc: Meta, view: ViewDecl, val_type: Type,
+                              inner: str, outer: str) -> Formula:
+  """Build `all <type_params>. all v:val_type. outer(inner(v)) = v`."""
   value_name = generate_proof_name("v")
-  value = ResolvedVar(loc, view.target, value_name)
+  value = ResolvedVar(loc, val_type, value_name)
   formula = mkEqual(loc,
-                    view_call(loc, view.into,
-                               view_call(loc, view.out, value)),
+                    view_call(loc, outer, view_call(loc, inner, value)),
                     value)
-  formula = All(loc, None, (value_name, view.target), (0, 1), formula)
+  formula = All(loc, None, (value_name, val_type), (0, 1), formula)
   for i, tp in enumerate(reversed(view.type_params)):
     formula = All(loc, None, (tp, TypeType(loc)),
                   (i, len(view.type_params)), formula)
   return formula
 
-def _view_inverse_formula(loc: Meta, view: ViewDecl) -> Formula:
-  value_name = generate_proof_name("v")
-  value = ResolvedVar(loc, view.source, value_name)
-  formula = mkEqual(loc,
-                    view_call(loc, view.out,
-                               view_call(loc, view.into, value)),
-                    value)
-  formula = All(loc, None, (value_name, view.source), (0, 1), formula)
-  for i, tp in enumerate(reversed(view.type_params)):
-    formula = All(loc, None, (tp, TypeType(loc)),
-                  (i, len(view.type_params)), formula)
-  return formula
-
-def _check_view_roundtrip(loc: Meta, view: ViewDecl, env: Env) -> None:
-  expected = type_check_formula(_view_roundtrip_formula(loc, view), env)
-  actual = env.get_formula_of_proof_var(PVar(loc, view.roundtrip))
+def _check_view_composition(loc: Meta, env: Env, label: str, proof_name: str,
+                            formula: Formula) -> None:
+  expected = type_check_formula(formula, env)
+  actual = env.get_formula_of_proof_var(PVar(loc, proof_name))
   if actual is None:
-    user_error(loc, "undefined roundtrip proof for view: "
-               + base_name(view.roundtrip))
+    user_error(loc, "undefined " + label + " proof for view: "
+               + base_name(proof_name))
   if not alpha_equiv(actual, expected):
-    user_error(loc, "view roundtrip proof " + base_name(view.roundtrip)
+    user_error(loc, "view " + label + " proof " + base_name(proof_name)
                + " proves\n\t" + str(actual)
                + "\nbut expected\n\t" + str(expected))
 
-def _check_view_inverse(loc: Meta, view: ViewDecl, env: Env) -> None:
-  if view.inverse is None:
-    return
-  expected = type_check_formula(_view_inverse_formula(loc, view), env)
-  actual = env.get_formula_of_proof_var(PVar(loc, view.inverse))
-  if actual is None:
-    user_error(loc, "undefined inverse proof for view: "
-               + base_name(view.inverse))
-  if not alpha_equiv(actual, expected):
-    user_error(loc, "view inverse proof " + base_name(view.inverse)
-               + " proves\n\t" + str(actual)
-               + "\nbut expected\n\t" + str(expected))
+def _check_view_proofs(loc: Meta, view: ViewDecl, env: Env) -> None:
+  _check_view_composition(
+      loc, env, "roundtrip", view.roundtrip,
+      _view_composition_formula(loc, view, view.target, view.out, view.into))
+  if view.inverse is not None:
+    _check_view_composition(
+        loc, env, "inverse", view.inverse,
+        _view_composition_formula(loc, view, view.source, view.into, view.out))
 
 def _instantiate_view_for_subject(loc: Meta, view: ViewDecl,
                                   subject_ty: Type
@@ -1407,8 +1392,7 @@ def collect_env(stmt: Statement, env: Env) -> Env:
                                  stmt.visibility)
 
     case ViewDecl(loc, name, _, _, _, _, _, _, _):
-      _check_view_roundtrip(loc, stmt, env)
-      _check_view_inverse(loc, stmt, env)
+      _check_view_proofs(loc, stmt, env)
       return env.declare_view(loc, stmt, stmt.visibility)
       
     case Union(loc, name, typarams, _):
