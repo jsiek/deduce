@@ -249,6 +249,26 @@ This is parser/AST only: proof-slot goal generation, ambiguity checking
 between theorem names and slot labels, and tying `h.valid_post` to a
 call label all land with the verifier in a later phase.
 
+## Allocation (Term)
+
+```deduce-grammar
+atomic_term ::= "new" IDENT new_type_args "(" term_list ")"
+new_type_args ::= ε
+new_type_args ::= "<" type_list ">"
+```
+
+`new Obj<T..>(args)` allocates a fresh instance of an
+[object](#object-statement) type `Obj`, passing the constructor arguments
+`args`. The optional angle-bracket type arguments instantiate a generic
+object's type parameters; unlike a procedure/object binding list these are
+*types*, so a compound argument such as `new Node<List<T>>(...)` parses.
+
+Allocation is only valid as the right-hand side of a `var`/assignment inside a
+procedure body (for example `var c := new Cell<Nat>(0)`); the `new` keyword in
+any other, pure-term position is a parse error. It requires
+`--experimental-imperative` and, like the other imperative forms, is currently
+accepted but not verified.
+
 ## Resource (Statement)
 
 ```deduce-grammar
