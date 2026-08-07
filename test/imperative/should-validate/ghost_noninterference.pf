@@ -1,0 +1,22 @@
+// Phase 2e (issue #1114): ghost-variable noninterference. `ghost` parameters
+// and `ghost var` locals are proof-only. Runtime data may freely flow *into*
+// ghost bindings, and ghost bindings may reference each other, so every flow
+// below is accepted. (Ghost-to-runtime flows are rejected -- see the
+// `ghost_flow_*` fixtures under should-error.) The body stays otherwise
+// unverified, so the Phase 1m "accepted but not verified" warning still fires.
+proc mix(x: bool, ghost g: bool) -> bool
+  ensures g or not g
+{
+  ghost var gv := g          // ghost <- ghost, ok
+  ghost var gr := x          // ghost <- runtime, ok (runtime flows into ghost)
+  var r := x                 // runtime <- runtime, ok
+  gv := x                    // runtime assigned into a ghost local, ok
+  gr := gv                   // ghost <- ghost, ok
+  if x {                     // runtime branch condition, ok
+    r := x
+  } else {
+    ghost var branchghost := g   // ghost use inside a branch, ok
+    gr := branchghost
+  }
+  return r                   // runtime return value over runtime data, ok
+}

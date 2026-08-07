@@ -1,0 +1,6 @@
+// Phase 2e (issue #1114): a return value is runtime data and may not depend on
+// ghost data.
+proc demo(x: bool, ghost g: bool) -> bool
+{
+  return g
+}

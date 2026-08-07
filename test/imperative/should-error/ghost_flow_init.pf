@@ -1,0 +1,7 @@
+// Phase 2e (issue #1114): a runtime local's initializer may not depend on
+// ghost data -- proof-only values cannot influence runtime behavior.
+proc demo(x: bool, ghost g: bool) -> bool
+{
+  var bad := g
+  return x
+}

@@ -1,0 +1,9 @@
+// Phase 2e (issue #1114): a branch condition is runtime control flow and may
+// not depend on ghost data.
+proc demo(x: bool, ghost g: bool) -> bool
+{
+  if g {
+    return x
+  }
+  return x
+}

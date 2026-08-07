@@ -1,0 +1,8 @@
+// Phase 2e (issue #1114): an assignment to a runtime local may not depend on
+// ghost data.
+proc demo(x: bool, ghost g: bool) -> bool
+{
+  var r := x
+  r := g
+  return r
+}
