@@ -1,0 +1,4 @@
+./test/imperative/should-error/proc_false_assert.pf:7.3-7.19: incomplete proof
+could not prove this assertion obligation
+Goal:
+	x = (not x)

@@ -1,0 +1,1 @@
+./test/imperative/should-validate/proc_defer_param_assign.pf:10.1-15.2: warning: proc 'sneaky' is accepted but not verified -- parsing and declaration plumbing succeeded, but no verifier has run on its body or specs yet (experimental imperative layer, issue #854)

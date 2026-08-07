@@ -1,0 +1,8 @@
+// Phase 2f (issue #1115): an `assert` inside a straight-line procedure body
+// raises its own proof obligation, and an unprovable assertion fails at the
+// assertion's own source location. Here nothing in scope justifies
+// `x = not x`, so the assertion obligation cannot be discharged.
+proc claim(x: bool)
+{
+  assert x = not x
+}

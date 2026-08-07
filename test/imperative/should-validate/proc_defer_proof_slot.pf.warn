@@ -1,0 +1,1 @@
+./test/imperative/should-validate/proc_defer_proof_slot.pf:10.1-16.4: warning: proc 'slotted' is accepted but not verified -- parsing and declaration plumbing succeeded, but no verifier has run on its body or specs yet (experimental imperative layer, issue #854)

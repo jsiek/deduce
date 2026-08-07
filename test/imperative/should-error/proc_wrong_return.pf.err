@@ -1,0 +1,4 @@
+./test/imperative/should-error/proc_wrong_return.pf:7.3-7.21: incomplete proof
+could not prove this postcondition obligation
+Goal:
+	(not x) = x
