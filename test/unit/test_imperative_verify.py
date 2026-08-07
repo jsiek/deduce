@@ -157,6 +157,30 @@ def test_mutable_array_parameter_defers_verification() -> None:
   assert not _proc_verifiable(decl)
 
 
+def test_assignment_to_a_parameter_defers_verification() -> None:
+  # Assigning to a parameter is permitted (parameters are locals), but a
+  # postcondition mentioning it would be ambiguous between the entry and exit
+  # value without an `old` snapshot, so verification is deferred rather than
+  # checked against the entry value alone.
+  from abstract_syntax import Bool
+  decl = _proc('sneaky', [_param('x')], None,
+               [ProcSpec(_meta(), 'ensures', _rv('x'))],
+               [ImpAssign(_meta(), LValueVar(_meta(), 'x'),
+                          Bool(_meta(), None, True))])
+  assert not _proc_verifiable(decl)
+
+
+def test_proof_block_defers_verification() -> None:
+  # A `by <slot>` clause needs the out-of-line proof-block bindings, which are
+  # out of scope for this slice, so a procedure that declares one is deferred.
+  from abstract_syntax import PTrue
+  from abstract_syntax.declarations import ProcProofEntry
+  decl = ProcDecl(_meta(), 'slotted', [], [_param('x')], None, [],
+                  [ImpReturn(_meta(), _rv('x'))],
+                  [ProcProofEntry(_meta(), 'slot', PTrue(_meta()))], None)
+  assert not _proc_verifiable(decl)
+
+
 # --- discharge integration --------------------------------------------------
 
 def test_verify_proc_accepts_a_provable_procedure() -> None:

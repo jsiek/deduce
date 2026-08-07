@@ -384,8 +384,27 @@ def _stmt_verifiable(s: ImpStmt) -> bool:
       # `if`, `while`, `assume`, and `call` statements.
       return False
 
+def _assigns_to_a_parameter(decl: ProcDecl) -> bool:
+  # Parameters are declared as locals, so the body checker permits assigning to
+  # one. Without an entry-state/`old` snapshot (a later slice, #1120) a
+  # postcondition mentioning a reassigned parameter is ambiguous between its
+  # entry and exit value, so such a procedure is deferred rather than verified
+  # against the entry value alone. A verifiable body has no nested blocks (`if`
+  # defers), so every assignment is at the top level.
+  param_names = {p.name for p in decl.params}
+  return any(isinstance(s, ImpAssign) and isinstance(s.lhs, LValueVar)
+             and s.lhs.name in param_names for s in decl.body)
+
 def _proc_verifiable(decl: ProcDecl) -> bool:
   if any(isinstance(p.typ, MutableArrayType) for p in decl.params):
+    return False
+  # An out-of-line `proof ... end` block supplies proof slots cited by
+  # `by <slot>` clauses. Installing those slot bindings is out of scope for
+  # this slice, so a procedure that declares one is deferred (an inline
+  # `assert P by <proof>` with no proof block is still verified). #1115
+  if decl.proof_block:
+    return False
+  if _assigns_to_a_parameter(decl):
     return False
   return all(_stmt_verifiable(s) for s in decl.body)
 

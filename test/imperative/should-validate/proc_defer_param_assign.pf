@@ -1,0 +1,15 @@
+// Phase 2f (issue #1115): a procedure that assigns to a *parameter* is
+// deferred, not verified. Parameters are declared as locals, so the body
+// checker permits `x := true`; but without an entry-state/`old` snapshot (a
+// later slice, #1120) a postcondition mentioning the reassigned parameter is
+// ambiguous between its entry and exit value. Verifying `ensures not x`
+// against the entry value alone would unsoundly accept this deliberately
+// false contract, so the straight-line verifier stays off it and the Phase 1m
+// "accepted but not verified" warning (issue #1108) fires instead -- pinned by
+// the `.pf.warn` sibling under both parsers.
+proc sneaky(x: bool)
+  requires not x
+  ensures not x
+{
+  x := true
+}
