@@ -20,7 +20,7 @@ from abstract_syntax import (
     SimplifyGoal, Some, SomeElim, SomeIntro, Statement, Suffices, Switch,
     SwitchCase, SwitchProof, SwitchProofCase, TAnnote, TLet, TermInst,
     Theorem, Trace, TypeAlias, TypeInst, TypeType, Union, Var,
-    ViewDecl, build_equations_proof, extract_and, extract_or,
+    ViewDecl, build_equations_proof, list_of_and, list_of_or,
     extract_tuple, listToNodeList, mkIntLit,
     mkLitNat, mkUIntLit, remove_mark,
 )
@@ -274,16 +274,16 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
     elif e.data == 'iff_formula':
         left = parse_tree_to_ast(e.children[0], e)
         right = parse_tree_to_ast(e.children[1], e)
-        return And(e.meta, None, extract_and(IfThen(e.meta, None, left.copy(), right.copy())) 
-                               + extract_and(IfThen(e.meta, None, right.copy(), left.copy())))
+        return And(e.meta, None, list_of_and(IfThen(e.meta, None, left.copy(), right.copy()))
+                               + list_of_and(IfThen(e.meta, None, right.copy(), left.copy())))
     elif e.data == 'and_formula':
        left = parse_tree_to_ast(e.children[0], e)
        right = parse_tree_to_ast(e.children[1], e)
-       return And(e.meta, None, extract_and(left) + extract_and(right))
+       return And(e.meta, None, list_of_and(left) + list_of_and(right))
     elif e.data == 'or_formula':
        left = parse_tree_to_ast(e.children[0], e)
        right = parse_tree_to_ast(e.children[1], e)
-       return Or(e.meta, None, extract_or(left) + extract_or(right))
+       return Or(e.meta, None, list_of_or(left) + list_of_or(right))
     elif e.data == 'logical_not':
        subject = parse_tree_to_ast(e.children[0], e)
        return IfThen(e.meta, None, subject, Bool(e.meta, None, False))

@@ -27,7 +27,7 @@ from abstract_syntax import (
     Statement, Suffices, Switch, SwitchCase, SwitchProof, SwitchProofCase,
     TAnnote, TLet, Term, TermInst,
     Theorem, Trace, Type, TypeAlias, TypeInst, TypeType, Union, Var, ViewDecl,
-    build_equations_proof, extract_and, extract_or, extract_tuple,
+    build_equations_proof, list_of_and, list_of_or, extract_tuple,
     listToNodeList, mkIntLit, mkLitNat, mkUIntLit, remove_mark,
 )
 from lark import Lark, Token, exceptions
@@ -704,10 +704,10 @@ def parse_term_logic() -> Term:
     right = parse_term_sep()
     if opr == 'AND':
       term = And(meta_from_tokens(token, previous_token()), None,
-                 extract_and(term) + extract_and(right))
+                 list_of_and(term) + list_of_and(right))
     else:
       term = Or(meta_from_tokens(token, previous_token()), None,
-                extract_or(term) + extract_or(right))
+                list_of_or(term) + list_of_or(right))
   return term
 
 def parse_term_iff() -> Term:
@@ -1408,9 +1408,9 @@ def parse_equation_side_logic() -> Term:
     right = parse_term_compare()
     loc = meta_from_tokens(token, previous_token())
     if opr == 'AND':
-      term = And(loc, None, extract_and(term) + extract_and(right))
+      term = And(loc, None, list_of_and(term) + list_of_and(right))
     else:
-      term = Or(loc, None, extract_or(term) + extract_or(right))
+      term = Or(loc, None, list_of_or(term) + list_of_or(right))
   return term
 
 def parse_equation_side() -> Term:
