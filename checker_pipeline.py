@@ -23,7 +23,8 @@ from abstract_syntax import (
     Call, Conditional, Constructor, Declaration, Define, Env, Export,
     Formula, FunCase, FunctionType, GenRecFun, Generic, GenericUnknownInst,
     Hole, IfThen, ImpAlloc, ImpAssign, ImpCallExpr, ImpIf, ImpReturn, ImpStmt,
-    ImpVar, Import, Inductive, Lambda, LValueVar, MakeArray, Module,
+    ImpVar, ImpWhile, Import, Inductive, Lambda, LValueField, LValueIndex,
+    LValueVar, MakeArray, Module,
     MutableArrayType, ObjectDecl,
     ObjectField, ObserverDecl, Omitted, Or, OverloadType, OverloadedVar, PSorry, PVar,
     PatternBool, PatternCons, Postulate, Predicate, Print, ProcDecl, ProcParam,
@@ -197,14 +198,72 @@ def _block_always_returns(stmts: list[ImpStmt]) -> bool:
   # the whole block always return -- everything after it is unreachable.
   return any(_stmt_always_returns(s) for s in stmts)
 
+def _type_check_imp_stmt(s: ImpStmt, env: Env,
+                         return_type: Optional[Type]) -> Env:
+  # Returns the environment as seen by the *following* statement in the same
+  # block: a `var` extends it with the new local; everything else leaves it
+  # unchanged. `Env` is functional, so nested `if` blocks type-check against a
+  # value derived from `env` without leaking their locals back out.
+  match s:
+    case ImpVar(loc, name, type_annot, rhs, _):
+      if type_annot is not None:
+        var_ty = check_type(type_annot, env)
+        type_check_term(cast(Term, rhs), var_ty, env, None, [])
+      else:
+        var_ty = type_synth_term(cast(Term, rhs), env, None, []).typeof
+      return env.declare_term_var(loc, name, var_ty, local=True)
+    case ImpAssign(loc, lhs, rhs):
+      target = cast(LValueVar, lhs)
+      binding = env.dict.get(target.name)
+      if not isinstance(binding, TermBinding):
+        user_error(loc, 'assignment to undefined variable: '
+                   + base_name(target.name))
+      if not binding.local:
+        user_error(loc, 'cannot assign to ' + base_name(target.name)
+                   + ' because it is not a local variable')
+      type_check_term(cast(Term, rhs), binding.typ, env, None, [])
+      return env
+    case ImpIf(loc, cond, then_body, else_body):
+      type_check_formula(cond, env)
+      _type_check_imp_block(then_body, env, return_type)
+      if else_body is not None:
+        _type_check_imp_block(else_body, env, return_type)
+      return env
+    case ImpReturn(loc, value):
+      if return_type is None:
+        user_error(loc, 'this procedure has no return type, so it may not '
+                   + 'return a value')
+      else:
+        type_check_term(value, return_type, env, None, [])
+      return env
+    case _:
+      return env
+
+def _type_check_imp_block(stmts: list[ImpStmt], env: Env,
+                          return_type: Optional[Type]) -> None:
+  for s in stmts:
+    env = _type_check_imp_stmt(s, env, return_type)
+
 # Phase 2e (issue #1114): ghost-variable noninterference. `ghost` parameters
 # and `ghost var` locals are proof-only, so Phase 6 can erase them without
-# changing runtime behavior. `imp_ghost_dependencies` is the core dependency
-# predicate -- the ghost names a term references -- and a runtime context
-# (runtime local initializer, runtime assignment, branch condition, return
-# value) whose result is nonempty would let proof-only data flow into runtime
-# behavior, which is rejected. Runtime data flowing *into* a ghost binding is
-# fine, so ghost contexts are never checked.
+# changing runtime behavior -- which is sound only if ghost data never
+# influences runtime behavior. `imp_ghost_dependencies` is the core dependency
+# predicate: the ghost names a term references. A runtime context whose result
+# is nonempty would let proof-only data flow into runtime behavior and is
+# rejected. Runtime data flowing *into* a ghost binding (and ghost bindings
+# referencing each other) stays valid, so ghost contexts are never checked.
+#
+# This pass is purely syntactic -- it depends on uniquified names, not on
+# types -- so unlike `type_check_proc_body` it runs on EVERY proc body,
+# including ones deferred by `_proc_body_unmodeled`; otherwise the guarantee
+# could be bypassed just by adding an unmodeled construct (e.g. a mutable-array
+# parameter would defer the whole body and let a `return g` slip through).
+# Contexts that need infrastructure not yet built are deliberately skipped: a
+# `call`'s argument positions cannot be classified runtime-vs-ghost until call
+# resolution knows which callee parameters are ghost (#1124/#1125), and a
+# `call`/`new` right-hand side likewise, so those are left to their own slices.
+# Proof-only contexts (`assert`/`assume`, loop invariants, decreases) may
+# freely mention ghost data and are never checked.
 def imp_ghost_dependencies(node: object, ghost_names: set[str]) -> set[str]:
   return _referenced_names(node) & ghost_names
 
@@ -218,67 +277,64 @@ def _reject_ghost_flow(loc: Meta, node: object, ghost_names: set[str],
                + ' because ghost data is proof-only and cannot influence '
                + 'runtime behavior')
 
-def _type_check_imp_stmt(s: ImpStmt, env: Env, return_type: Optional[Type],
-                         ghost_names: set[str]) -> Env:
-  # Returns the environment as seen by the *following* statement in the same
-  # block: a `var` extends it with the new local; everything else leaves it
-  # unchanged. `Env` is functional, so nested `if` blocks type-check against a
-  # value derived from `env` without leaking their locals back out.
-  # `ghost_names` is threaded in the same spirit: a `ghost var` extends it in
-  # place, and nested `if` blocks receive a copy so a ghost local declared in
-  # a branch does not leak out.
+def _lvalue_is_ghost(lhs: LValueVar | LValueIndex | LValueField,
+                     ghost_names: set[str]) -> bool:
+  # A write target is ghost exactly when the variable/array/object it names is
+  # a ghost binding (mutable arrays are runtime today, so an indexed/field
+  # write is normally a runtime context). Attribute access, not positional
+  # matching: each `LValue*` dataclass leads with `location`, and the naming
+  # field lives at a different position in each, so a positional pattern would
+  # silently bind the wrong field.
+  match lhs:
+    case LValueVar():
+      return lhs.name in ghost_names
+    case LValueIndex():
+      return lhs.array in ghost_names
+    case _:
+      return cast(LValueField, lhs).subject in ghost_names
+
+def _ghost_check_stmt(s: ImpStmt, ghost_names: set[str]) -> None:
+  # `ghost_names` grows in place as ghost locals come into scope; nested blocks
+  # get a copy (see `_ghost_check_block`) so a branch/loop-local ghost
+  # declaration does not leak out.
   match s:
-    case ImpVar(loc, name, type_annot, rhs, ghost):
-      if type_annot is not None:
-        var_ty = check_type(type_annot, env)
-        type_check_term(cast(Term, rhs), var_ty, env, None, [])
-      else:
-        var_ty = type_synth_term(cast(Term, rhs), env, None, []).typeof
+    case ImpVar(loc, name, _, rhs, ghost):
       if ghost:
         ghost_names.add(name)
-      else:
+      elif not isinstance(rhs, (ImpCallExpr, ImpAlloc)):
         _reject_ghost_flow(loc, rhs, ghost_names,
                            "the initializer of runtime variable '"
                            + base_name(name) + "'")
-      return env.declare_term_var(loc, name, var_ty, local=True)
     case ImpAssign(loc, lhs, rhs):
-      target = cast(LValueVar, lhs)
-      binding = env.dict.get(target.name)
-      if not isinstance(binding, TermBinding):
-        user_error(loc, 'assignment to undefined variable: '
-                   + base_name(target.name))
-      if not binding.local:
-        user_error(loc, 'cannot assign to ' + base_name(target.name)
-                   + ' because it is not a local variable')
-      type_check_term(cast(Term, rhs), binding.typ, env, None, [])
-      if target.name not in ghost_names:
+      if not _lvalue_is_ghost(lhs, ghost_names) \
+         and not isinstance(rhs, (ImpCallExpr, ImpAlloc)):
+        if isinstance(lhs, LValueIndex):
+          _reject_ghost_flow(loc, lhs.index, ghost_names,
+                             'an array index of a runtime assignment')
         _reject_ghost_flow(loc, rhs, ghost_names,
-                           "assignment to runtime variable '"
-                           + base_name(target.name) + "'")
-      return env
+                           "a runtime assignment to '" + str(lhs) + "'")
     case ImpIf(loc, cond, then_body, else_body):
-      type_check_formula(cond, env)
       _reject_ghost_flow(loc, cond, ghost_names, 'a branch condition')
-      _type_check_imp_block(then_body, env, return_type, set(ghost_names))
+      _ghost_check_block(then_body, ghost_names)
       if else_body is not None:
-        _type_check_imp_block(else_body, env, return_type, set(ghost_names))
-      return env
+        _ghost_check_block(else_body, ghost_names)
+    case ImpWhile(loc, cond, _, _, _, body, _, _, _):
+      _reject_ghost_flow(loc, cond, ghost_names, 'a loop condition')
+      _ghost_check_block(body, ghost_names)
     case ImpReturn(loc, value):
-      if return_type is None:
-        user_error(loc, 'this procedure has no return type, so it may not '
-                   + 'return a value')
-      else:
-        type_check_term(value, return_type, env, None, [])
-        _reject_ghost_flow(loc, value, ghost_names, 'a return value')
-      return env
+      _reject_ghost_flow(loc, value, ghost_names, 'a return value')
     case _:
-      return env
+      # `assert`/`assume` are proof-only; `call` argument classification is a
+      # later slice (see the pass note above).
+      pass
 
-def _type_check_imp_block(stmts: list[ImpStmt], env: Env,
-                          return_type: Optional[Type],
-                          ghost_names: set[str]) -> None:
+def _ghost_check_block(stmts: list[ImpStmt], ghost_names: set[str]) -> None:
+  ghost_names = set(ghost_names)
   for s in stmts:
-    env = _type_check_imp_stmt(s, env, return_type, ghost_names)
+    _ghost_check_stmt(s, ghost_names)
+
+def check_ghost_noninterference(decl: ProcDecl) -> None:
+  _ghost_check_block(decl.body, {p.name for p in decl.params if p.ghost})
 
 def type_check_proc_body(decl: ProcDecl, env: Env) -> None:
   # Phase 2d (issue #1113): type-check a procedure's straight-line body --
@@ -292,9 +348,7 @@ def type_check_proc_body(decl: ProcDecl, env: Env) -> None:
   type_env = env.declare_type_vars(loc, decl.type_params)
   param_pairs = [(p.name, p.typ) for p in decl.params]
   body_env = type_env.declare_term_vars(loc, param_pairs, local=True)
-  # Ghost parameters seed the ghost-noninterference tracking (issue #1114).
-  ghost_names = {p.name for p in decl.params if p.ghost}
-  _type_check_imp_block(decl.body, body_env, decl.return_type, ghost_names)
+  _type_check_imp_block(decl.body, body_env, decl.return_type)
   if decl.return_type is not None and not _block_always_returns(decl.body):
     user_error(loc, "procedure '" + base_name(decl.name)
                + "' declares return type " + str(decl.return_type)
@@ -1097,6 +1151,9 @@ def type_check_stmt(stmt: Statement, env: Env,
       # Phase 2d (issue #1113): type-check the procedure's straight-line body.
       # Specs are checked in `check_proc_signature` (Phase 2b); proving them is
       # a later slice, so the Phase 1m "not verified" warning still fires.
+      # Phase 2e (issue #1114): the syntactic ghost-noninterference check runs
+      # regardless of whether the body is type-modeled (see its note).
+      check_ghost_noninterference(stmt)
       type_check_proc_body(stmt, env)
       return stmt
 
