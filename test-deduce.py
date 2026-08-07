@@ -266,7 +266,6 @@ EXPERIMENTAL_IMPERATIVE_FILES = frozenset({
     "./test/should-error/proc_duplicate_param.pf",
     "./test/should-error/proc_duplicate_post_label.pf",
     "./test/should-error/proc_call_as_term.pf",
-    "./test/should-warn/imperative_false_proc.pf",
     "./test/should-warn/imperative_allocation.pf",
     "./test/should-warn/imperative_mutable_array.pf",
     "./test/should-error/imperative_mutable_array_bad_index.pf",

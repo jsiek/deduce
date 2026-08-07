@@ -1,9 +1,11 @@
 // Procedure declarations, specs, imperative bodies, proof clauses, proof
 // slots, and call labels. Phase 1i (issue #968) recognizes proc declarations
-// as first-class for module boundaries and tooling, so this file validates;
-// the bodies and specs are not verified yet (Phase 2 adds the verifier).
-// Phase 1m (issue #1108) emits one "accepted but not verified" warning per
-// proc until that verifier lands -- see the sibling .warn fixture.
+// as first-class for module boundaries and tooling, so this file validates.
+// `identity` and `driver` use loops/calls/assume that the straight-line
+// verifier (Phase 2f, issue #1115) does not model yet, so they still emit the
+// Phase 1m "accepted but not verified" warning (issue #1108) -- see the
+// sibling .warn fixture. The straight-line `no_return` and `hidden` below are
+// now verified and no longer warn.
 public proc identity<T>(x: T, ghost witness: T) -> T
   requires x = x
   requires witness = witness

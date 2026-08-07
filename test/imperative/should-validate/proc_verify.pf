@@ -1,0 +1,52 @@
+// Phase 2f (issue #1115): straight-line procedures are verified by forward
+// symbolic execution -- `requires` clauses become entry givens, local `var`
+// declarations and assignments update the symbolic state, `assert`s raise
+// (and then contribute) facts, and each `ensures` is discharged with the
+// returned value substituted for `result`. Every procedure here is fully
+// verified, so none warns; the missing `.pf.warn` sibling pins that this run
+// is warning-free under both parsers.
+union Color { red green }
+
+// The identity procedure: the returned parameter satisfies `result = x`.
+proc identity(x: bool) -> bool
+  ensures result = x
+{
+  return x
+}
+
+// A local variable threads the returned value through the symbolic state.
+proc via_local(c: Color) -> Color
+  ensures result = c
+{
+  var tmp := c
+  return tmp
+}
+
+// A reassigned local: the last write is what `result` reflects.
+proc last_write(x: bool, y: bool) -> bool
+  ensures result = y
+{
+  var z := x
+  z := y
+  return z
+}
+
+// Multiple `requires` clauses are conjoined into the entry givens, and each
+// `ensures` is discharged separately (so each keeps its own location).
+proc keep_both(x: bool, y: bool)
+  requires x
+  requires y
+  ensures x
+  ensures y
+{
+}
+
+// An `assert` that follows from the entry givens is discharged and its fact is
+// then available to the postcondition.
+proc assert_then_return(x: bool, y: bool) -> bool
+  requires x = y
+  ensures result = y
+{
+  assert x = y
+  return x
+}

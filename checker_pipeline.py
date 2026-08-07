@@ -14,17 +14,20 @@ File charter:
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple, cast
+from typing import TYPE_CHECKING, List, Optional, Tuple, cast
 
 from lark.tree import Meta
+
+if TYPE_CHECKING:
+    from imperative_verifier import ImperativeObligation
 
 from abstract_syntax import (
     All, And, Array, ArrayGet, Assert, Associative, Auto, Bool,
     Call, Conditional, Constructor, Declaration, Define, Env, Export,
     Formula, FunCase, FunctionType, GenRecFun, Generic, GenericUnknownInst,
-    Hole, IfThen, ImpAlloc, ImpAssign, ImpCallExpr, ImpIf, ImpReturn, ImpStmt,
-    ImpVar, ImpWhile, Import, Inductive, Lambda, LValueField, LValueIndex,
-    LValueVar, MakeArray, Module,
+    Hole, IfThen, ImpAlloc, ImpAssert, ImpAssign, ImpCallExpr, ImpIf,
+    ImpReturn, ImpStmt, ImpVar, ImpWhile, Import, Inductive, Lambda,
+    LValueField, LValueIndex, LValueVar, MakeArray, Module,
     MutableArrayType, ObjectDecl,
     ObjectField, ObserverDecl, Omitted, Or, OverloadType, OverloadedVar, PSorry, PVar,
     PatternBool, PatternCons, Postulate, Predicate, Print, ProcDecl, ProcParam,
@@ -163,10 +166,10 @@ def _imp_stmt_unmodeled(s: ImpStmt) -> bool:
     case ImpIf(_, _, then_body, else_body):
       return _block_unmodeled(then_body) \
           or (else_body is not None and _block_unmodeled(else_body))
-    case ImpReturn():
+    case ImpReturn() | ImpAssert():
       return False
     case _:
-      # `while`, `assert`, `assume`, and `call` statements.
+      # `while`, `assume`, and `call` statements.
       return True
 
 def _block_unmodeled(stmts: list[ImpStmt]) -> bool:
@@ -235,6 +238,11 @@ def _type_check_imp_stmt(s: ImpStmt, env: Env,
                    + 'return a value')
       else:
         type_check_term(value, return_type, env, None, [])
+      return env
+    case ImpAssert(loc, formula, _):
+      # The asserted formula must be a `bool`; the obligation that it actually
+      # holds is discharged later in `verify_proc` (Phase 2f).
+      type_check_formula(formula, env)
       return env
     case _:
       return env
@@ -353,6 +361,137 @@ def type_check_proc_body(decl: ProcDecl, env: Env) -> None:
     user_error(loc, "procedure '" + base_name(decl.name)
                + "' declares return type " + str(decl.return_type)
                + ' but may finish without returning a value')
+
+# --- Phase 2f (issue #1115): straight-line procedure verification -----------
+# A procedure is *verifiable* by this slice when its body is entirely
+# straight-line over local state: local `var` declarations, assignments to a
+# local variable, `assert`, and a final `return`, all with ordinary-term
+# right-hand sides. Branches (`if`), loops (`while`), `assume`, procedure
+# calls, allocations, and mutable-array reads/writes are later slices, so a
+# body using any of them stays deferred (and keeps the Phase 1m warning). A
+# mutable-array parameter also defers the whole procedure (its reads are not
+# modeled until those slices land).
+def _stmt_verifiable(s: ImpStmt) -> bool:
+  match s:
+    case ImpVar():
+      return not isinstance(s.rhs, (ImpCallExpr, ImpAlloc))
+    case ImpAssign():
+      return isinstance(s.lhs, LValueVar) \
+          and not isinstance(s.rhs, (ImpCallExpr, ImpAlloc))
+    case ImpAssert() | ImpReturn():
+      return True
+    case _:
+      # `if`, `while`, `assume`, and `call` statements.
+      return False
+
+def _proc_verifiable(decl: ProcDecl) -> bool:
+  if any(isinstance(p.typ, MutableArrayType) for p in decl.params):
+    return False
+  return all(_stmt_verifiable(s) for s in decl.body)
+
+def _proc_givens(decl: ProcDecl) -> list[tuple[str, Formula]]:
+  # Entry givens: every `requires` clause, in source order. Repeated clauses
+  # are conjoined by the obligation's `givens_formula`. The generated
+  # `requiresN` labels are only for the `Givens:` presentation.
+  givens: list[tuple[str, Formula]] = []
+  for spec in decl.specs:
+    if spec.keyword == 'requires':
+      givens.append(('requires' + str(len(givens)), cast(Formula, spec.value)))
+  return givens
+
+def _proc_postconditions(decl: ProcDecl,
+                         result: Optional[Term]) -> list[tuple[Meta, Formula]]:
+  # One goal per `ensures` clause, anchored at that clause's own location so a
+  # failure points at the postcondition the user wrote. `result` (the symbolic
+  # returned value, or None for a fall-through with no return value) is
+  # substituted for the bound `result` name.
+  posts: list[tuple[Meta, Formula]] = []
+  for spec in decl.specs:
+    if spec.keyword != 'ensures':
+      continue
+    frm = cast(Formula, spec.value)
+    if result is not None and decl.result_name is not None:
+      frm = cast(Formula, frm.substitute({decl.result_name: result}))
+    posts.append((spec.location, frm))
+  return posts
+
+def proc_obligations(decl: ProcDecl,
+                     env: Env) -> tuple[Env, list['ImperativeObligation']]:
+  # Phase 2f (issue #1115): the verification conditions of a straight-line,
+  # `_proc_verifiable` procedure, by forward symbolic execution. `state` maps
+  # each local variable to its current value as a term over the parameters, so
+  # substituting it into an assertion or returned expression yields a goal
+  # mentioning only parameters. Returns the parameter environment obligations
+  # discharge in, together with the obligations in source order. Pure w.r.t.
+  # proof checking (it only builds formulas), so it can be unit-tested in
+  # isolation from `verify_proc`, which discharges what it returns.
+  from imperative_verifier import ImperativeObligation, ObligationKind
+  loc = decl.location
+  type_env = env.declare_type_vars(loc, decl.type_params)
+  cur_env = type_env.declare_term_vars(
+      loc, [(p.name, p.typ) for p in decl.params], local=True)
+  givens = _proc_givens(decl)
+  state: Substitution = {}
+  obligations: list[ImperativeObligation] = []
+
+  def symbolic(rhs: Term, typ: Type) -> Term:
+    return cast(Term, type_check_term(rhs, typ, cur_env, None, [])
+                .substitute(state))
+
+  returned = False
+  for s in decl.body:
+    match s:
+      case ImpVar(vloc, name, type_annot, rhs, _):
+        if type_annot is not None:
+          var_ty = check_type(type_annot, cur_env)
+          state[name] = symbolic(cast(Term, rhs), var_ty)
+        else:
+          checked = type_synth_term(cast(Term, rhs), cur_env, None, [])
+          var_ty = checked.typeof
+          state[name] = cast(Term, checked.substitute(state))
+        cur_env = cur_env.declare_term_var(vloc, name, var_ty, local=True)
+      case ImpAssign(_, lhs, rhs):
+        target = cast(LValueVar, lhs)
+        binding = cast(TermBinding, cur_env.dict[target.name])
+        state[target.name] = symbolic(cast(Term, rhs), binding.typ)
+      case ImpAssert(aloc, formula, proof):
+        goal = cast(Formula,
+                    type_check_formula(formula, cur_env).substitute(state))
+        obligations.append(
+            ImperativeObligation(aloc, goal, ObligationKind.ASSERTION,
+                                 givens=list(givens), proof=proof))
+        # The asserted fact is available to everything downstream.
+        givens = givens + [('assert' + str(len(givens)), goal)]
+      case ImpReturn(_, value):
+        result = symbolic(value, cast(Type, decl.return_type))
+        for (post_loc, goal) in _proc_postconditions(decl, result):
+          obligations.append(
+              ImperativeObligation(post_loc, goal,
+                                   ObligationKind.POSTCONDITION,
+                                   givens=list(givens)))
+        returned = True
+        break  # a `return` is terminal; anything after it is unreachable.
+
+  if not returned:
+    # A procedure with no return value (or that falls off the end) exits with
+    # `result` unbound; its postconditions may not mention `result`.
+    for (post_loc, goal) in _proc_postconditions(decl, None):
+      obligations.append(
+          ImperativeObligation(post_loc, goal, ObligationKind.POSTCONDITION,
+                               givens=list(givens)))
+
+  return cur_env, obligations
+
+def verify_proc(decl: ProcDecl, env: Env) -> None:
+  # Phase 2f (issue #1115): verify a straight-line procedure by discharging
+  # every obligation `proc_obligations` generates. A body this slice does not
+  # model keeps the Phase 1m "not verified" warning instead (issue #1108).
+  if not _proc_verifiable(decl):
+    warn_unverified_imperative(decl)
+    return
+  cur_env, obligations = proc_obligations(decl, env)
+  for obligation in obligations:
+    obligation.discharge(cur_env)
 
 def process_declaration_visibility(decl: Declaration, env: Env,
                                    module_chain: list[str],
@@ -1456,14 +1595,15 @@ def find_rec_calls(name: str, term: Term | RecFun | GenRecFun,
 # Phase 1m transition guard (issue #1108): the experimental imperative
 # layer (issue #854) parses `proc`, `observer`, and `resource`
 # declarations and threads them through uniquify, module boundaries, and
-# tooling, but no verifier runs on their bodies or specifications yet.
-# Without this warning a deliberately false procedure -- `ensures result
-# = true` with `return false` -- would be presented as fully valid.
+# tooling. Observer and resource bodies/specs are still not verified, so this
+# warning keeps a deliberately false one from being presented as fully valid.
 #
-# Phase 2 slices retire this per construct: when procedure verification
-# lands, drop the `warn_unverified_imperative` call from the `ProcDecl`
-# case in `check_proofs` (below) and verify there instead, leaving the
-# observer and resource cases warning until their own verifier arrives.
+# Phase 2 slices retire this per construct. Phase 2f (issue #1115) retired it
+# for the *straight-line* procedures its verifier fully models: `verify_proc`
+# in the `ProcDecl` case of `check_proofs` (below) verifies those and only
+# falls back to this warning for a procedure whose body it does not model yet
+# (branches, loops, calls, allocations, mutable arrays). The observer and
+# resource cases warn until their own verifier arrives.
 _IMPERATIVE_DECL_KIND = {ProcDecl: 'proc', ObserverDecl: 'observer',
                          ResourceDecl: 'resource'}
 
@@ -1563,7 +1703,12 @@ def check_proofs(stmt: Statement, env: Env) -> None:
       # verify here and no unchecked-semantics warning (issue #1108).
       pass
 
-    case ProcDecl() | ObserverDecl() | ResourceDecl():
+    case ProcDecl():
+      # Phase 2f (issue #1115): verify straight-line procedures; bodies this
+      # slice does not model keep warning (issue #1108).
+      verify_proc(stmt, env)
+
+    case ObserverDecl() | ResourceDecl():
       warn_unverified_imperative(stmt)
 
     case ViewDecl():

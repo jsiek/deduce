@@ -1,0 +1,10 @@
+// Phase 2f (issue #1115): a straight-line procedure whose returned value does
+// not satisfy a postcondition fails, and the diagnostic points at the
+// `ensures` clause it violates -- not at the `return`. Here `flip` promises
+// `result = x` but returns `not x`, so the postcondition obligation
+// `(not x) = x` cannot be discharged.
+proc flip(x: bool) -> bool
+  ensures result = x
+{
+  return not x
+}
