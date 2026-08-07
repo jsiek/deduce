@@ -1,0 +1,1 @@
+./test/should-error/imperative_array_write_type.pf:10.11-10.15: expected term of type UInt but got bool

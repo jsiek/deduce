@@ -1,0 +1,12 @@
+// Phase 2i (issue #1118): every executed mutable-array read `a[i]` owes an
+// in-bounds obligation `i < length(a)` (the design's "all array accesses are
+// in bounds" goal). With no `requires` bounding `i`, the read in `return a[i]`
+// cannot be proved in bounds and the procedure is rejected.
+import UInt
+import List
+
+proc read_unbounded(a: [UInt]!, i: UInt) -> UInt
+  ensures result = a[i]
+{
+  return a[i]
+}

@@ -1,0 +1,55 @@
+// Phase 2i (issue #1118): mutable-array element writes `a[i] := v` are modeled
+// in the verifier's symbolic state as a functional update, so downstream reads
+// reason by read-over-write and a straight-line procedure over writes is
+// verified (issue #1115). Each write also owes an in-bounds obligation
+// `i < length(a)`, discharged here from a `requires` premise of the same shape.
+import UInt
+import List
+
+// Read-over-write at the SAME (even symbolic) index: `a[i]` after `a[i] := v`
+// is `v`.
+proc write_then_read(a: [UInt]!, i: UInt, v: UInt) -> UInt
+  requires i < length(a)
+  ensures result = v
+{
+  a[i] := v
+  return a[i]
+}
+
+// An `assert` sees the write too.
+proc write_then_assert(a: [UInt]!, i: UInt, v: UInt)
+  requires i < length(a)
+{
+  a[i] := v
+  assert a[i] = v
+}
+
+// Read at a provably-different (concrete) index keeps the prior value: writing
+// index 0 leaves index 1 unchanged.
+proc distinct_index(a: [UInt]!, v: UInt)
+  requires 0 < length(a)
+  requires 1 < length(a)
+  requires a[1] = v
+  ensures a[1] = v
+{
+  a[0] := v
+}
+
+// Repeated writes to the same index compose in source order: the last write
+// wins.
+proc repeated_writes(a: [UInt]!, i: UInt, v: UInt, w: UInt)
+  requires i < length(a)
+{
+  a[i] := v
+  a[i] := w
+  assert a[i] = w
+}
+
+// A write preserves the array's length, so an in-bounds premise still holds
+// afterward.
+proc length_preserved(a: [UInt]!, i: UInt, v: UInt)
+  requires i < length(a)
+  ensures i < length(a)
+{
+  a[i] := v
+}

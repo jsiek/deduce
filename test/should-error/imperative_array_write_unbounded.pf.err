@@ -1,0 +1,4 @@
+./test/should-error/imperative_array_write_unbounded.pf:9.3-9.12: incomplete proof
+could not prove this array bounds obligation
+Goal:
+	i < length(a)

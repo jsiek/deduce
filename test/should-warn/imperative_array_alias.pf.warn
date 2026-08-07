@@ -1,0 +1,1 @@
+./test/should-warn/imperative_array_alias.pf:14.1-21.2: warning: proc 'write_through_alias' is accepted but not verified -- parsing and declaration plumbing succeeded, but no verifier has run on its body or specs yet (experimental imperative layer, issue #854)

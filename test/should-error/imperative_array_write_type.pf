@@ -1,0 +1,11 @@
+// Phase 2i (issue #1118): a mutable-array element write `a[i] := v` requires
+// the assigned value to have the array's element type. Writing a `bool` into a
+// `[UInt]!` is rejected.
+import UInt
+import List
+
+proc write_wrong_type(a: [UInt]!, i: UInt)
+  requires i < length(a)
+{
+  a[i] := true
+}

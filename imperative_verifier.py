@@ -159,9 +159,12 @@ def array_bounds_goal(read: ArrayGet) -> Formula:
 
   ``read`` is an already-type-checked ``ArrayGet`` over a mutable array. The
   goal is built with a base-name ``ResolvedVar('<')`` over an ``ArrayLength``
-  node -- the same post-typecheck constructor idiom ``mkEqual`` uses for ``=``
-  -- so it matches a ``requires i < length(a)`` precondition (or loop
-  invariant) of the same shape once ``discharge`` reduces both sides."""
+  node. NOTE (issue #1166): this bare-name ``<`` does not match a resolved
+  ``<`` from a ``requires`` clause once ``discharge`` reduces both sides --
+  discharging a bounds obligation against a real premise needs the operator
+  resolved against its operand types (see
+  ``checker_pipeline._array_bounds_obligation``, which builds the write-bounds
+  goal that way for #1118)."""
   loc = read.location
   length = ArrayLength(read.subject.location, None, read.subject)
   return cast(Formula, Call(loc, None, ResolvedVar(loc, None, '<'),
