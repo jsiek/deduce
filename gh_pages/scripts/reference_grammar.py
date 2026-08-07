@@ -56,6 +56,25 @@ SUBSET_RULES = {
     "visibility",
 }
 
+# Deduce.lark rules that intentionally have no ``deduce-grammar`` fragment in
+# the reference. Everything *not* listed here must be documented in some
+# checked block, so a newly-added user-facing rule cannot silently skip the
+# reference (the drift this whole checker guards against, but in the
+# Deduce.lark -> Reference.md direction). Each entry is either a structural
+# container, a passthrough/precedence helper, or a lexical wrapper -- none of
+# them a surface form a reader would look up on its own.
+INTERNAL_UNDOCUMENTED_RULES = {
+    "program",              # start rule: just a statement_list
+    "statement_list",       # container: a sequence of statements
+    "term",                 # passthrough to iff_term (documented as `formula`)
+    "atomic_type",          # passthrough helper inlined into `type`
+    "identifier",           # lexical wrapper around the IDENT terminal
+    "type_annotation_list",  # `id : type, ...` binding-list container
+    "equation_side",        # entry to the equations-block precedence chain
+    "eqs_iff_term",         # equations-block `iff` precedence helper
+    "eqs_logical_term",     # equations-block `and`/`or` precedence helper
+}
+
 
 @dataclass(frozen=True)
 class GrammarBlock:
@@ -410,6 +429,7 @@ def main() -> int:
     lark_rules = expand_passthrough_alternatives(parse_lark_rules(DEDUCE_LARK))
     failures: list[str] = []
     total_checked = 0
+    documented_rules: set[str] = set()
 
     for ref_md in REFERENCE_MDS:
         blocks = extract_marked_blocks(ref_md)
@@ -417,6 +437,7 @@ def main() -> int:
             failures.append(f"{ref_md.name} has no ```deduce-grammar blocks to check")
             continue
         for block in blocks:
+            documented_rules.update(block.productions)
             for rule, documented in block.productions.items():
                 total_checked += 1
                 expected = lark_rules.get(rule)
@@ -439,6 +460,24 @@ def main() -> int:
                         parts.append("  Not present in Deduce.lark:\n" + format_alternatives(extra))
                     failures.append("\n".join(parts))
 
+    # Reverse-direction coverage: every user-facing Deduce.lark rule must be
+    # documented in some ``deduce-grammar`` block (or be an explicitly-listed
+    # internal rule). This catches surface syntax added to the grammar but not
+    # to the reference.
+    undocumented = set(lark_rules) - documented_rules - INTERNAL_UNDOCUMENTED_RULES
+    for rule in sorted(undocumented):
+        failures.append(
+            f"Deduce.lark rule {rule!r} is not documented in any deduce-grammar "
+            f"block and is not in INTERNAL_UNDOCUMENTED_RULES; document it in "
+            f"a reference or add it to that allowlist with a rationale."
+        )
+    stale = INTERNAL_UNDOCUMENTED_RULES - set(lark_rules)
+    for rule in sorted(stale):
+        failures.append(
+            f"INTERNAL_UNDOCUMENTED_RULES lists {rule!r}, which is no longer a "
+            f"rule in Deduce.lark; remove the stale allowlist entry."
+        )
+
     table_failures, table_checked = check_precedence_table(REFERENCE_MDS[0])
     failures.extend(table_failures)
 
@@ -448,7 +487,9 @@ def main() -> int:
 
     print(
         f"Checked {total_checked} reference grammar rule(s) and "
-        f"{table_checked} operator-precedence entr(y/ies) against Deduce.lark."
+        f"{table_checked} operator-precedence entr(y/ies) against Deduce.lark; "
+        f"all {len(set(lark_rules) - INTERNAL_UNDOCUMENTED_RULES)} user-facing "
+        f"grammar rule(s) are documented."
     )
     return 0
 
