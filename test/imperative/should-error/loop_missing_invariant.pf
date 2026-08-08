@@ -1,0 +1,15 @@
+// Phase 2l (issue #1121): a loop without the invariant its continuation needs
+// fails at the postcondition. `y` is havoced across the loop (it is assigned
+// in the body), so with no invariant restating `y = x` the returned value
+// carries no information and `ensures result = x` cannot be proved. The only
+// given on exit is the negated loop condition.
+proc needs_invariant(x: bool, go: bool) -> bool
+  ensures result = x
+{
+  var y := x
+  while go
+  {
+    y := y
+  }
+  return y
+}

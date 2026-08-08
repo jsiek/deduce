@@ -1,0 +1,8 @@
+./test/imperative/should-error/loop_forgets_fact.pf:9.3-9.17: incomplete proof
+could not prove this postcondition obligation
+Goal:
+	y
+Givens:
+	condition2: not go,
+	invariant1: true,
+	requires0: x

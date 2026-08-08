@@ -1,0 +1,6 @@
+./test/imperative/should-error/loop_missing_invariant.pf:7.3-7.21: incomplete proof
+could not prove this postcondition obligation
+Goal:
+	y = x
+Givens:
+	condition0: not go
