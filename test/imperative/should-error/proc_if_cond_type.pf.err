@@ -1,0 +1,2 @@
+./test/imperative/should-error/proc_if_cond_type.pf:8.6-8.7: expected a term of type bool
+but got term c of type Color

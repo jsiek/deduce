@@ -1,0 +1,6 @@
+./test/imperative/should-error/proc_fact_scope.pf:9.3-9.11: incomplete proof
+could not prove this assertion obligation
+Goal:
+	b
+Givens:
+	if0: not b

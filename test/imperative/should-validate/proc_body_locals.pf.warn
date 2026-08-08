@@ -1,1 +1,0 @@
-./test/imperative/should-validate/proc_body_locals.pf:12.1-26.2: warning: proc 'classify' is accepted but not verified -- parsing and declaration plumbing succeeded, but no verifier has run on its body or specs yet (experimental imperative layer, issue #854)

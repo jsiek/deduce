@@ -2,10 +2,11 @@
 // and `ghost var` locals are proof-only. Runtime data may freely flow *into*
 // ghost bindings, and ghost bindings may reference each other, so every flow
 // below is accepted. (Ghost-to-runtime flows are rejected -- see the
-// `ghost_flow_*` fixtures under should-error.) The body stays otherwise
-// unverified, so the Phase 1m "accepted but not verified" warning still fires.
+// `ghost_flow_*` fixtures under should-error.) The straight-line/`if` body is
+// now verified (Phase 2g, issue #1116): `result` is the runtime value `x` on
+// both branches, so `ensures result = x` discharges and no warning fires.
 proc mix(x: bool, ghost g: bool) -> bool
-  ensures g or not g
+  ensures result = x
 {
   ghost var gv := g          // ghost <- ghost, ok
   ghost var gr := x          // ghost <- runtime, ok (runtime flows into ghost)

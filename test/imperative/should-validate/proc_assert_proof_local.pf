@@ -1,0 +1,22 @@
+// Phase 2g (issue #1116): an inline `assert P by <proof>` is verified with the
+// body's locals in scope, so the attached proof may reference a local in an
+// intermediate step even though the obligation goal and givens are substituted
+// down to the parameters. Here `y` is a local, and the proof's `have h: y = y`
+// step names it directly. Regression for PR #1165 review (P2): the verifier
+// briefly discharged obligations in a parameters-only environment, which
+// reported `undefined variable y` for exactly this shape. A branch-local
+// (`z`, declared inside the `if`) is likewise in scope for its branch's proof.
+proc p(x: bool) {
+  var y := x
+  assert true by {
+    have h: y = y by reflexive
+    .
+  }
+  if x {
+    var z := x
+    assert true by {
+      have h: z = z by reflexive
+      .
+    }
+  }
+}

@@ -1,0 +1,57 @@
+// Phase 2g (issue #1116): control-flow verification. An `if` splits the proof
+// into two paths -- the then-path carries the condition as a given, the
+// else-path its negation -- and both must satisfy everything that follows.
+// A missing `else` is treated as `skip`. An `assume` adds a proof-only given
+// for the statements after it. Every procedure here is fully verified, so the
+// missing `.pf.warn` sibling pins that this run is warning-free.
+union Sign {
+  neg
+  pos
+}
+
+// The postcondition depends on the branch taken: `result` is `pos` on the
+// then-path and `neg` on the else-path, and `result = pos or result = neg`
+// discharges on both.
+proc classify(b: bool) -> Sign
+  ensures result = pos or result = neg
+{
+  if b {
+    return pos
+  } else {
+    return neg
+  }
+}
+
+// The branch condition (and its negation) is available as a given inside the
+// corresponding branch, and an `else`-less `if` leaves the missing branch as
+// `skip` -- the continuation still verifies on the skipped path.
+proc guards(b: bool, c: bool) {
+  if b {
+    assert b
+  } else {
+    assert not b
+  }
+  if c {
+    assert c
+  }
+}
+
+// An `else` branch made unreachable by the entry `requires` discharges any
+// obligation (here `assert false`): the contradiction `b` and `not b` entails
+// everything.
+proc unreachable_else(b: bool)
+  requires b
+{
+  if b {
+    assert b
+  } else {
+    assert false
+  }
+}
+
+// An `assume` contributes its formula as a given to the statements that follow
+// it (and only those), letting the later `assert` discharge.
+proc assumed(b: bool) {
+  assume b
+  assert b
+}

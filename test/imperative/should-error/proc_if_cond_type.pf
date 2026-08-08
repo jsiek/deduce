@@ -1,0 +1,11 @@
+// Phase 2g (issue #1116): an `if` condition must have type `bool`.
+union Color {
+  red
+  green
+}
+
+proc badcond(c: Color) {
+  if c {
+    assert true
+  }
+}

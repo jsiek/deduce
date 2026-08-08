@@ -1,0 +1,1 @@
+./test/imperative/should-error/proc_if_partial_return.pf:5.1-9.2: procedure 'partial' declares return type bool but may finish without returning a value

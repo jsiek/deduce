@@ -1,17 +1,19 @@
-"""Unit tests for straight-line procedure verification (issue #1115, Phase 2f).
+"""Unit tests for procedure verification (issues #1115 Phase 2f, #1116 Phase
+2g).
 
-`checker_pipeline.proc_obligations` performs forward symbolic execution over a
-`_proc_verifiable` procedure and returns the verification conditions it
-generates (without discharging them), so the weakest-precondition formulas can
-be pinned here without the CLI or the stdlib. `verify_proc` then discharges
-what it returns -- exercised at the end for one provable and one false goal.
+`checker_pipeline.proc_obligations` performs path-sensitive forward symbolic
+execution over a `_proc_verifiable` procedure and returns the verification
+conditions it generates (without discharging them), so the weakest-precondition
+formulas can be pinned here without the CLI or the stdlib. `verify_proc` then
+discharges what it returns -- exercised at the end for one provable and one
+false goal.
 """
 
 from lark.tree import Meta
 
 from abstract_syntax import (
-    BoolType, Env, ImpAssert, ImpAssign, ImpIf, ImpReturn, ImpVar, LValueVar,
-    MutableArrayType, ResolvedVar,
+    Bool, BoolType, Env, ImpAssert, ImpAssign, ImpAssume, ImpIf, ImpReturn,
+    ImpVar, ImpWhile, LValueVar, MutableArrayType, ResolvedVar,
 )
 from abstract_syntax.declarations import ProcDecl, ProcParam, ProcSpec
 from abstract_syntax.literals import mkEqual
@@ -125,6 +127,79 @@ def test_assert_raises_a_goal_and_then_supplies_a_fact() -> None:
   assert [str(f) for (_l, f) in obs[1].givens] == ['x = y', 'x = y']
 
 
+def test_if_generates_a_postcondition_per_branch_with_the_condition() -> None:
+  # Phase 2g (issue #1116): an `if` splits verification into two paths. Each
+  # branch's `return` discharges the postcondition on its own path, carrying
+  # the branch condition (then) or its negation (else) as a given.
+  decl = _proc('pick', [_param('x')], _bool(),
+               [ProcSpec(_meta(), 'ensures', mkEqual(_meta(), _rv('result'),
+                                                     _rv('x')))],
+               [ImpIf(_meta(), _rv('x'),
+                      [ImpReturn(_meta(), _rv('x'))],
+                      [ImpReturn(_meta(), _rv('x'))])],
+               'result')
+  _env_out, obs = proc_obligations(decl, _env())
+  assert [str(o.kind) for o in obs] == ['postcondition', 'postcondition']
+  # `result` is `x` on both paths, so each goal is `x = x`.
+  assert [str(o.goal) for o in obs] == ['x = x', 'x = x']
+  # The then-path sees the condition; the else-path sees its negation.
+  assert [str(f) for (_l, f) in obs[0].givens] == ['x']
+  assert [str(f) for (_l, f) in obs[1].givens] == ['not x']
+
+
+def test_elseless_if_skips_the_missing_branch() -> None:
+  # A missing `else` is `skip`: the continuation is still checked on the
+  # else-path, with the negated condition as a given. Here the void proc's
+  # postcondition is checked on both the then-path (given `x`) and the
+  # fall-through else-path (given `not x`).
+  decl = _proc('guard', [_param('x')], None,
+               [ProcSpec(_meta(), 'ensures', _rv('x'))],
+               [ImpIf(_meta(), _rv('x'),
+                      [ImpAssert(_meta(), _rv('x'), None)], None)])
+  _env_out, obs = proc_obligations(decl, _env())
+  # then-path: the `assert` obligation, then the postcondition; else-path: just
+  # the postcondition.
+  assert [str(o.kind) for o in obs] == \
+      ['assertion', 'postcondition', 'postcondition']
+  assert [str(f) for (_l, f) in obs[0].givens] == ['x']
+  assert [str(f) for (_l, f) in obs[-1].givens] == ['not x']
+
+
+def test_assume_supplies_a_downstream_given() -> None:
+  # Phase 2g (issue #1116): `assume P` raises no obligation but adds `P` as a
+  # given for the statements that follow it (here the later `assert`).
+  decl = _proc('assumed', [_param('x')], None, [],
+               [ImpAssume(_meta(), _rv('x')),
+                ImpAssert(_meta(), _rv('x'), None)])
+  _env_out, obs = proc_obligations(decl, _env())
+  assert [str(o.kind) for o in obs] == ['assertion']
+  assert [str(f) for (_l, f) in obs[0].givens] == ['x']
+
+
+def test_locals_remain_in_the_discharge_environment() -> None:
+  # The returned discharge environment carries the body's locals, not just the
+  # parameters, so an attached inline-assert proof (`assert P by <proof>`) can
+  # reference a local even though goals and givens are substituted down to
+  # parameters. Regression for the PR #1165 review (P2).
+  decl = _proc('p', [_param('x')], None, [],
+               [ImpVar(_meta(), 'y', None, _rv('x')),
+                ImpAssert(_meta(), _rv('x'), None)])
+  env_out, _obs = proc_obligations(decl, _env())
+  assert 'x' in env_out.dict
+  assert 'y' in env_out.dict
+
+
+def test_branch_locals_reach_the_discharge_environment() -> None:
+  # A local declared inside a branch is likewise gathered into the discharge
+  # environment (uniquify keeps its name distinct, so no clash with same-named
+  # locals on other paths).
+  decl = _proc('q', [_param('x')], None, [],
+               [ImpIf(_meta(), _rv('x'),
+                      [ImpVar(_meta(), 'y', None, _rv('x'))], None)])
+  env_out, _obs = proc_obligations(decl, _env())
+  assert 'y' in env_out.dict
+
+
 def test_void_fall_through_checks_postconditions_without_a_result() -> None:
   # A procedure with no return value exits by falling off the end; its
   # postconditions must hold there and may not mention `result`.
@@ -144,9 +219,31 @@ def test_straight_line_body_is_verifiable() -> None:
   assert _proc_verifiable(decl)
 
 
-def test_branch_defers_verification() -> None:
+def test_branch_is_verifiable() -> None:
+  # Phase 2g (issue #1116): an `if` over otherwise-verifiable statements is now
+  # itself verifiable (was deferred in Phase 2f). A missing `else` is `skip`.
   decl = _proc('branchy', [_param('x')], None, [],
                [ImpIf(_meta(), _rv('x'), [], None)])
+  assert _proc_verifiable(decl)
+
+
+def test_branch_with_unmodeled_statement_defers() -> None:
+  # `_stmt_verifiable` recurses into branch bodies, so a still-unmodeled
+  # construct (here a `while`) nested inside a branch defers the whole proc.
+  loop = ImpWhile(_meta(), _rv('x'), [], [], None, [])
+  decl = _proc('loopy', [_param('x')], None, [],
+               [ImpIf(_meta(), _rv('x'), [loop], None)])
+  assert not _proc_verifiable(decl)
+
+
+def test_branch_assigning_to_a_parameter_defers() -> None:
+  # `_assigns_to_a_parameter` recurses into branches, so a parameter assignment
+  # nested in a branch still defers (entry/exit ambiguity, #1120).
+  decl = _proc('sneaky_branch', [_param('x')], None,
+               [ProcSpec(_meta(), 'ensures', _rv('x'))],
+               [ImpIf(_meta(), _rv('x'),
+                      [ImpAssign(_meta(), LValueVar(_meta(), 'x'),
+                                 Bool(_meta(), None, True))], None)])
   assert not _proc_verifiable(decl)
 
 

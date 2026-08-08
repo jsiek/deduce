@@ -1,0 +1,9 @@
+// Phase 2g (issue #1116): when only some branches of an `if` return, the
+// procedure can still finish without returning a value, so a declared return
+// type is rejected conservatively (partial-return diagnosis). The then-branch
+// returns, but the missing `else` falls through.
+proc partial(b: bool) -> bool {
+  if b {
+    return true
+  }
+}

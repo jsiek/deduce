@@ -1,0 +1,19 @@
+// Phase 2g (issue #1116): both branches of an `if` are verified against the
+// continuation, so a postcondition that holds on one branch but not the other
+// is rejected. The then-branch returns `pos` (satisfying `ensures result =
+// pos`), but the else-branch returns `neg`, which violates it -- the failure
+// is reported at the postcondition with the else-path given `not b` shown.
+union Sign {
+  neg
+  pos
+}
+
+proc bad(b: bool) -> Sign
+  ensures result = pos
+{
+  if b {
+    return pos
+  } else {
+    return neg
+  }
+}

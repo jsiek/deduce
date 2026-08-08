@@ -1,0 +1,6 @@
+./test/imperative/should-error/proc_if_postcondition.pf:12.3-12.23: incomplete proof
+could not prove this postcondition obligation
+Goal:
+	neg = pos
+Givens:
+	if0: not b
