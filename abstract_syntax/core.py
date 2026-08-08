@@ -55,7 +55,7 @@ from math import ceil
 import os
 
 if TYPE_CHECKING:
-    from .declarations import GenRecFun, RecFun
+    from .declarations import GenRecFun, RecFun, overwrite
     from .env import Env
 
 infix_precedence = {'+': 6, '-': 6, '∸': 6, '⊝': 6, '*': 7, '/': 7, '%': 7,
@@ -343,6 +343,25 @@ def uniquify_type_params(
   for (old, new) in zip(type_params, new_type_params):
     bind(body_env, old, new, loc)
   return body_env, new_type_params
+
+
+def uniquify_binder(
+    env: UniquifyEnv,
+    name: str,
+    ctx: UniquifyContext,
+    loc: Meta,
+) -> Tuple[UniquifyEnv, str]:
+  """Copy ``env`` and bind a single fresh name for ``name`` in the copy.
+
+  Shared by the ``uniquify`` methods of single-name shadowing binders
+  (``PLet``, ``PTLetNew``, ``ImpIntro``, ``TLet``).  Returns the extended
+  body environment and the freshly generated name.  These binders always
+  shadow rather than overload, so the binding uses ``overwrite``.
+  """
+  body_env = copy_dict(env)
+  new_name = generate_name(name, ctx)
+  overwrite(body_env, name, new_name, loc)
+  return body_env, new_name
 
 
 def base_name(name: str) -> str:
