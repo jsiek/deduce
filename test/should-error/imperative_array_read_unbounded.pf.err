@@ -1,0 +1,4 @@
+./test/should-error/imperative_array_read_unbounded.pf:11.11-11.14: incomplete proof
+could not prove this array bounds obligation
+Goal:
+	i < length(a)

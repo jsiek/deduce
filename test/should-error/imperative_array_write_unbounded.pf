@@ -1,0 +1,10 @@
+// Phase 2i (issue #1118): a mutable-array element write `a[i] := v` owes an
+// in-bounds obligation `i < length(a)`. With no `requires` premise bounding
+// `i`, the obligation cannot be discharged and the procedure is rejected.
+import UInt
+import List
+
+proc write_unbounded(a: [UInt]!, i: UInt, v: UInt)
+{
+  a[i] := v
+}

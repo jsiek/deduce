@@ -247,10 +247,22 @@ def test_branch_assigning_to_a_parameter_defers() -> None:
   assert not _proc_verifiable(decl)
 
 
-def test_mutable_array_parameter_defers_verification() -> None:
+def test_mutable_array_parameter_no_longer_defers_verification() -> None:
+  # Before #1118 a mutable-array parameter deferred the whole procedure; now
+  # reads (#1117) and element writes (#1118) are modeled, so a procedure over
+  # one is verifiable (here, trivially: empty body, no specs).
   decl = _proc('sweep', [ProcParam(_meta(), 'a',
                                    MutableArrayType(_meta(), _bool()))],
                None, [], [])
+  assert _proc_verifiable(decl)
+
+
+def test_frame_declaration_defers_verification() -> None:
+  # Frame semantics (#1119) are not modeled yet, so a `reads`/`modifies`
+  # clause defers verification (its subjects may name un-typeable constructs).
+  decl = _proc('framed', [ProcParam(_meta(), 'a',
+                                    MutableArrayType(_meta(), _bool()))],
+               None, [ProcSpec(_meta(), 'modifies', [_rv('a')])], [])
   assert not _proc_verifiable(decl)
 
 

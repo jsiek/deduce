@@ -1624,6 +1624,20 @@ class ArrayGet(Term):
     elif isUInt(position_red):
       index = uintToInt(position_red)
     match subject_red:
+      case ArraySet(_, _, arr, wpos, wval):
+        # Read-over-write (issue #1118, Phase 2i). `wpos`/`wval` are already
+        # reduced because `subject.reduce` reduced the `ArraySet`'s children.
+        # A read at the written index yields the written value; a read at a
+        # provably different index (both concrete) sees through the write to
+        # the prior array (recursing composes stacked writes); otherwise the
+        # access stays symbolic.
+        if position_red == wpos:
+          return wval
+        write_index = _array_position_int(wpos)
+        if index is not None and write_index is not None \
+           and index != write_index:
+          return ArrayGet(self.location, self.typeof,
+                          arr, position_red).reduce(env)
       case Array(loc2, _, elements):
         # If the index is not a concrete number (e.g. a free variable in
         # a proof), leave the access unreduced rather than erroring.
@@ -1665,16 +1679,43 @@ class ArrayGet(Term):
                 return new_get.reduce(env)
     return ArrayGet(self.location, self.typeof, subject_red, position_red)
 
+def _array_position_int(term: Term) -> Optional[int]:
+  # The concrete integer value of an array index, or None when the index is
+  # symbolic. Used by `ArrayGet.reduce` to decide read-over-write cases.
+  if isNat(term):
+    return natToInt(term)
+  if isUInt(term):
+    return uintToInt(term)
+  return None
+
+@dataclass
+class ArraySet(Term):
+  # The mutable array `subject` with index `position` updated to `value`, a
+  # verifier-only functional-update node (issue #1118, Phase 2i). Produced
+  # only by the imperative verifier to model an `a[i] := v` write in symbolic
+  # state; it is never parsed, so both parsers still see the surface program
+  # unchanged. `ArrayGet.reduce` implements read-over-write against it, and
+  # `ArrayLength.reduce` sees through it (a write preserves array length).
+  subject: Term
+  position: Term
+  value: Term
+
+  def __eq__(self, other: object) -> bool:
+    return eq_fields(self, other, 'subject', 'position', 'value')
+
+  def __str__(self) -> str:
+    return str(self.subject) + '[' + str(self.position) + ' := ' \
+        + str(self.value) + ']'
+
 @dataclass
 class ArrayLength(Term):
   # `length(a)` for a mutable-array handle (or a pure array). Produced only
   # by the type checker when `length` is applied to an array-typed argument
   # (issue #1117, Phase 2h); it is never parsed, so both parsers still see
   # the surface `length(a)` as an ordinary `Call`. In Phase 2 an array's
-  # length is immutable for the lifetime of the handle, so this node has no
-  # runtime reduction -- the default `_map_children` walk only reduces the
-  # `subject`, leaving `length(a)` symbolic for use inside specifications and
-  # array-bounds obligations.
+  # length is immutable for the lifetime of the handle, so a write leaves it
+  # unchanged: `reduce` sees through any `ArraySet` wrapper (issue #1118) so
+  # `length(a[i := v])` and `length(a)` reduce to the same symbolic term.
   subject: Term
 
   def __eq__(self, other: object) -> bool:
@@ -1682,6 +1723,12 @@ class ArrayLength(Term):
 
   def __str__(self) -> str:
     return 'length(' + str(self.subject) + ')'
+
+  def reduce(self, env: Env) -> Term:
+    subject_red = self.subject.reduce(env)
+    while isinstance(subject_red, ArraySet):
+      subject_red = subject_red.subject
+    return ArrayLength(self.location, self.typeof, subject_red)
 
 @dataclass
 class TLet(Term):

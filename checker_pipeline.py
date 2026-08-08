@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from imperative_verifier import ImperativeObligation
 
 from abstract_syntax import (
-    All, And, Array, ArrayGet, Assert, Associative, Auto, Bool,
+    All, And, Array, ArrayGet, ArraySet, Assert, AST, Associative, Auto, Bool,
     Call, Conditional, Constructor, Declaration, Define, Env, Export,
     Formula, FunCase, FunctionType, GenRecFun, Generic, GenericUnknownInst,
     Hole, IfThen, ImpAlloc, ImpAssert, ImpAssign, ImpAssume, ImpCallExpr,
@@ -52,9 +52,9 @@ from checker_induction import match_induction
 from checker_logic import pattern_to_term
 from checker_proofs import _try_check_proof_of, generate_proof_name
 from checker_types import (
-    check_constructor_pattern, check_formula, check_no_recfun_escape,
-    check_pattern, check_strict_positivity, check_type, dirty_files,
-    get_recursive_call_count, infer_param_polarities, is_modified,
+    _check_array_index_type, check_constructor_pattern, check_formula,
+    check_no_recfun_escape, check_pattern, check_strict_positivity, check_type,
+    dirty_files, get_recursive_call_count, infer_param_polarities, is_modified,
     lookup_union, reset_recursive_call_count, type_check_formula,
     type_check_term, type_synth_term,
 )
@@ -161,8 +161,11 @@ def _imp_stmt_unmodeled(s: ImpStmt) -> bool:
     case ImpVar():
       return isinstance(s.rhs, (ImpCallExpr, ImpAlloc))
     case ImpAssign():
+      # Local-variable assignment (`x := e`) and mutable-array element writes
+      # (`a[i] := v`, #1118) are modeled; object field writes (`p.f := v`)
+      # and call/allocation right-hand sides are later slices.
       return isinstance(s.rhs, (ImpCallExpr, ImpAlloc)) \
-          or not isinstance(s.lhs, LValueVar)
+          or isinstance(s.lhs, LValueField)
     case ImpIf(_, _, then_body, else_body):
       return _block_unmodeled(then_body) \
           or (else_body is not None and _block_unmodeled(else_body))
@@ -175,12 +178,21 @@ def _imp_stmt_unmodeled(s: ImpStmt) -> bool:
 def _block_unmodeled(stmts: list[ImpStmt]) -> bool:
   return any(_imp_stmt_unmodeled(s) for s in stmts)
 
+def _declares_frame(decl: ProcDecl) -> bool:
+  # Whether the procedure declares a `reads`/`modifies` frame. Frame semantics
+  # and enforcement are #1119 (Phase 2j); until then a frame-declaring
+  # procedure is not modeled (its body is neither type-checked nor verified) --
+  # the frame subjects can name constructs this slice cannot type
+  # (`footprint(p)`, object fields).
+  return any(spec.keyword in ('reads', 'modifies') for spec in decl.specs)
+
 def _proc_body_unmodeled(decl: ProcDecl) -> bool:
-  # Mutable-array parameters make even a `var y := a[i]` read untypeable until
-  # #1117 lands, so any proc that takes one is deferred wholesale.
-  if any(isinstance(p.typ, MutableArrayType) for p in decl.params):
-    return True
-  return _block_unmodeled(decl.body)
+  # Mutable-array parameters are typeable now that reads (#1117) and element
+  # writes (#1118) are modeled, so a proc is deferred only when it declares a
+  # frame (#1119, not yet modeled) or its body uses a statement form
+  # `_imp_stmt_unmodeled` still flags (calls, allocations, field writes,
+  # `while`).
+  return _declares_frame(decl) or _block_unmodeled(decl.body)
 
 def _stmt_always_returns(s: ImpStmt) -> bool:
   match s:
@@ -201,6 +213,29 @@ def _block_always_returns(stmts: list[ImpStmt]) -> bool:
   # the whole block always return -- everything after it is unreachable.
   return any(_stmt_always_returns(s) for s in stmts)
 
+def _array_write_element_type(loc: Meta, lhs: LValueIndex,
+                              env: Env) -> Type:
+  # The element type of the mutable array a write `a[i] := v` targets, after
+  # checking that `a` names a mutable-array binding in scope. Shared by body
+  # type-checking and verification so both agree on what a write means.
+  binding = env.dict.get(lhs.array)
+  if not isinstance(binding, TermBinding):
+    user_error(loc, 'assignment to undefined array: ' + base_name(lhs.array))
+  if not isinstance(binding.typ, MutableArrayType):
+    user_error(loc, 'cannot index-assign to ' + base_name(lhs.array)
+               + ' because it is not a mutable array; it has type '
+               + str(binding.typ))
+  return binding.typ.elt_type
+
+def _type_check_array_write(loc: Meta, lhs: LValueIndex, rhs: Term,
+                            env: Env) -> None:
+  # A mutable-array element write `a[i] := v` (#1118): the index must be a
+  # `UInt` (as for a read, #1117) and the value must have the element type.
+  elt_type = _array_write_element_type(loc, lhs, env)
+  new_index = type_synth_term(lhs.index, env, None, [])
+  _check_array_index_type(new_index)
+  type_check_term(rhs, elt_type, env, None, [])
+
 def _type_check_imp_stmt(s: ImpStmt, env: Env,
                          return_type: Optional[Type]) -> Env:
   # Returns the environment as seen by the *following* statement in the same
@@ -216,6 +251,9 @@ def _type_check_imp_stmt(s: ImpStmt, env: Env,
         var_ty = type_synth_term(cast(Term, rhs), env, None, []).typeof
       return env.declare_term_var(loc, name, var_ty, local=True)
     case ImpAssign(loc, lhs, rhs):
+      if isinstance(lhs, LValueIndex):
+        _type_check_array_write(loc, lhs, cast(Term, rhs), env)
+        return env
       target = cast(LValueVar, lhs)
       binding = env.dict.get(target.name)
       if not isinstance(binding, TermBinding):
@@ -368,21 +406,20 @@ def type_check_proc_body(decl: ProcDecl, env: Env) -> None:
                + "' declares return type " + str(decl.return_type)
                + ' but may finish without returning a value')
 
-# --- Phase 2f/2g (issues #1115, #1116): procedure verification --------------
+# --- Phase 2f/2g/2i (issues #1115, #1116, #1118): procedure verification -----
 # A procedure is *verifiable* by these slices when its body is built from local
 # state and finite branching: local `var` declarations, assignments to a local
-# variable, `assert`, `assume`, `if`/`else` (recursively verifiable), and
-# `return`, all with ordinary-term right-hand sides. Loops (`while`), procedure
-# calls, allocations, and mutable-array reads/writes are later slices, so a body
-# using any of them stays deferred (and keeps the Phase 1m warning). A
-# mutable-array parameter also defers the whole procedure (its reads are not
-# modeled until those slices land).
+# variable or a mutable-array element (`a[i] := v`, #1118), `assert`, `assume`,
+# `if`/`else` (recursively verifiable), and `return`, all with ordinary-term
+# right-hand sides. Loops (`while`), procedure calls, allocations, and object
+# field writes are later slices, so a body using any of them stays deferred
+# (and keeps the Phase 1m warning).
 def _stmt_verifiable(s: ImpStmt) -> bool:
   match s:
     case ImpVar():
       return not isinstance(s.rhs, (ImpCallExpr, ImpAlloc))
     case ImpAssign():
-      return isinstance(s.lhs, LValueVar) \
+      return isinstance(s.lhs, (LValueVar, LValueIndex)) \
           and not isinstance(s.rhs, (ImpCallExpr, ImpAlloc))
     case ImpAssert() | ImpAssume() | ImpReturn():
       return True
@@ -414,8 +451,64 @@ def _assigns_to_a_parameter(decl: ProcDecl) -> bool:
     return False
   return assigns(decl.body)
 
+def _body_has_array_write(stmts: list[ImpStmt]) -> bool:
+  # Whether the body performs a mutable-array element write `a[i] := v`
+  # anywhere, recursing into `if` branches.
+  for s in stmts:
+    match s:
+      case ImpAssign() if isinstance(s.lhs, LValueIndex):
+        return True
+      case ImpIf(_, _, then_body, else_body):
+        if _body_has_array_write(then_body) \
+           or (else_body is not None and _body_has_array_write(else_body)):
+          return True
+  return False
+
+def _array_write_aliasing_risk(decl: ProcDecl) -> bool:
+  # Phase 2i (#1118) models a write `a[i] := v` as a functional update of the
+  # verifier state keyed by the *handle name* `a`, which is sound only when no
+  # two handles can denote the same underlying array. The heap model that
+  # resolves aliasing by array identity + dynamic frames is a later phase (see
+  # docs/imperative-verification-plan.md, "One heap model"; frames are #1119).
+  # Until then a writing procedure is deferred whenever more than one mutable-
+  # array handle is reachable, because a write through one could be observed
+  # through an alias. The chosen end-state is the Dafny-style identity-keyed
+  # heap with dynamic frames (docs/imperative-verification-plan.md, "Aliasing
+  # and identity"), landing with modifies-frame enforcement in #1119; this
+  # deferral is the interim restriction until then. Reachable handles are the
+  # mutable-array parameters plus
+  # any local that copies a handle (`var y := a`); element reads (`var y :=
+  # a[i]`) and lengths are scalars, not handles. Allocation (`new`) is out of
+  # scope for this slice, so those are the only sources.
+  array_params = {p.name for p in decl.params
+                  if isinstance(p.typ, MutableArrayType)}
+  if not array_params or not _body_has_array_write(decl.body):
+    return False
+  if len(array_params) > 1:
+    return True
+
+  def copies_a_handle(stmts: list[ImpStmt]) -> bool:
+    for s in stmts:
+      match s:
+        case ImpVar() if isinstance(s.rhs, VarRef) \
+                and s.rhs.get_name() in array_params:
+          return True
+        case ImpIf(_, _, then_body, else_body):
+          if copies_a_handle(then_body) \
+             or (else_body is not None and copies_a_handle(else_body)):
+            return True
+    return False
+  return copies_a_handle(decl.body)
+
 def _proc_verifiable(decl: ProcDecl) -> bool:
-  if any(isinstance(p.typ, MutableArrayType) for p in decl.params):
+  # Frame semantics (#1119) are not modeled yet, so a frame-declaring proc is
+  # deferred rather than verified against an unenforced frame.
+  if _declares_frame(decl):
+    return False
+  # Aliasing between mutable-array handles is not modeled yet (#1118 keys the
+  # verifier state by handle name); defer a writing proc with more than one
+  # reachable array handle. See `_array_write_aliasing_risk`.
+  if _array_write_aliasing_risk(decl):
     return False
   # An out-of-line `proof ... end` block supplies proof slots cited by
   # `by <slot>` clauses. Installing those slot bindings is out of scope for
@@ -443,21 +536,69 @@ def _proc_givens(decl: ProcDecl) -> list[tuple[str, Formula]]:
       givens.append(('requires' + str(len(givens)), cast(Formula, spec.value)))
   return givens
 
-def _proc_postconditions(decl: ProcDecl,
+def _proc_postconditions(decl: ProcDecl, state: 'Substitution',
                          result: Optional[Term]) -> list[tuple[Meta, Formula]]:
   # One goal per `ensures` clause, anchored at that clause's own location so a
-  # failure points at the postcondition the user wrote. `result` (the symbolic
-  # returned value, or None for a fall-through with no return value) is
-  # substituted for the bound `result` name.
+  # failure points at the postcondition the user wrote. Each clause is
+  # evaluated in the exit state: `state` rewrites every mutated binding to its
+  # symbolic value (so a written mutable-array parameter `a` becomes its
+  # `ArraySet` update, #1118), and `result` (the symbolic returned value, or
+  # None for a fall-through with no return value) is substituted for the bound
+  # `result` name. Both happen in ONE pass -- `result` is already a value over
+  # the exit state, so a combined substitution avoids rewriting inside it twice
+  # (which would re-expand a mutated array handle unboundedly).
+  sub: Substitution = dict(state)
+  if result is not None and decl.result_name is not None:
+    sub[decl.result_name] = result
   posts: list[tuple[Meta, Formula]] = []
   for spec in decl.specs:
     if spec.keyword != 'ensures':
       continue
-    frm = cast(Formula, spec.value)
-    if result is not None and decl.result_name is not None:
-      frm = cast(Formula, frm.substitute({decl.result_name: result}))
+    frm = cast(Formula, cast(Formula, spec.value).substitute(sub))
     posts.append((spec.location, frm))
   return posts
+
+def _collect_array_gets(node: object, out: list[ArrayGet]) -> list[ArrayGet]:
+  # Every `ArrayGet` subterm of `node`, in a generic structural walk (the AST's
+  # `_map_children` visits each child field, including list elements, without
+  # enumerating constructors). Used to raise a bounds obligation per executed
+  # mutable-array read (#1118, and the design's "all array accesses are in
+  # bounds" goal).
+  if isinstance(node, ArrayGet):
+    out.append(node)
+  if isinstance(node, AST):
+    def visit(child: AST) -> AST:
+      _collect_array_gets(child, out)
+      return child
+    node._map_children(visit)
+  return out
+
+def _array_bounds_obligation(aloc: Meta, array_name: str,
+                             arr_binding: TermBinding, index: Term,
+                             givens: list[tuple[str, Formula]],
+                             env: Env) -> 'ImperativeObligation':
+  # The in-bounds obligation `i < length(a)` for a mutable-array access (#1118).
+  # Built by *type-checking* a `<`/`length` call so the operators resolve
+  # against their operand types exactly as a user's `requires i < length(a)`
+  # premise does -- a bare-name `<` (as `imperative_verifier.array_bounds_goal`
+  # builds for the unwired read path, #1166) would not match the resolved `<`
+  # in the premise once `discharge` reduces both sides. `length` is invariant
+  # under writes, so the base array handle is used regardless of earlier writes.
+  from imperative_verifier import ImperativeObligation, ObligationKind
+  base_handle = OverloadedVar(arr_binding.location, arr_binding.typ,
+                              [array_name])
+  length_names = [n for n in env.dict if base_name(n) == 'length']
+  lt_names = [n for n in env.dict if base_name(n) == '<']
+  if not length_names or not lt_names:
+    user_error(aloc, 'a mutable-array bounds check needs `length` and `<` in '
+               'scope; add `import List` and `import UInt`')
+  length_call = Call(aloc, None, OverloadedVar(aloc, None, length_names),
+                     [base_handle])
+  lt_call = Call(aloc, None, OverloadedVar(aloc, None, lt_names),
+                 [index, length_call])
+  goal = cast(Formula, type_check_formula(lt_call, env))
+  return ImperativeObligation(aloc, goal, ObligationKind.ARRAY_BOUNDS,
+                              givens=list(givens))
 
 def proc_obligations(decl: ProcDecl,
                      env: Env) -> tuple[Env, list['ImperativeObligation']]:
@@ -495,9 +636,9 @@ def proc_obligations(decl: ProcDecl,
   obligations: list[ImperativeObligation] = []
   local_bindings: dict[str, tuple[Meta, Type]] = {}
 
-  def emit_posts(result: Optional[Term],
+  def emit_posts(result: Optional[Term], state: Substitution,
                  givens: list[tuple[str, Formula]]) -> None:
-    for (post_loc, goal) in _proc_postconditions(decl, result):
+    for (post_loc, goal) in _proc_postconditions(decl, state, result):
       obligations.append(
           ImperativeObligation(post_loc, goal, ObligationKind.POSTCONDITION,
                                givens=list(givens)))
@@ -505,8 +646,28 @@ def proc_obligations(decl: ProcDecl,
   def walk(stmts: list[ImpStmt], state: Substitution,
            givens: list[tuple[str, Formula]], cur_env: Env) -> None:
     def symbolic(rhs: Term, typ: Type) -> Term:
-      return cast(Term, type_check_term(rhs, typ, cur_env, None, [])
-                  .substitute(state))
+      checked = type_check_term(rhs, typ, cur_env, None, [])
+      record_reads(checked, givens, cur_env)
+      return cast(Term, checked.substitute(state))
+
+    def record_reads(checked: object, givens: list[tuple[str, Formula]],
+                     cur_env: Env) -> None:
+      # Every executed mutable-array read `a[j]` in `checked` owes an in-bounds
+      # obligation `j < length(a)` (#1118; the design's "all array accesses are
+      # in bounds" goal). A read's handle is a parameter -- a proc that could
+      # alias handles is deferred (`_array_write_aliasing_risk`) -- so the
+      # subject is a `VarRef` naming a mutable-array binding.
+      for read in _collect_array_gets(checked, []):
+        subj = read.subject
+        if not isinstance(subj, VarRef):
+          continue
+        binding = cur_env.dict.get(subj.get_name())
+        if isinstance(binding, TermBinding) \
+           and isinstance(binding.typ, MutableArrayType):
+          idx = cast(Term, read.position.substitute(state))
+          obligations.append(_array_bounds_obligation(
+              read.location, subj.get_name(), binding, idx, givens, cur_env))
+
     for idx, s in enumerate(stmts):
       match s:
         case ImpVar(vloc, name, type_annot, rhs, _):
@@ -516,16 +677,38 @@ def proc_obligations(decl: ProcDecl,
           else:
             checked = type_synth_term(cast(Term, rhs), cur_env, None, [])
             var_ty = checked.typeof
+            record_reads(checked, givens, cur_env)
             state[name] = cast(Term, checked.substitute(state))
           local_bindings[name] = (vloc, var_ty)
           cur_env = cur_env.declare_term_var(vloc, name, var_ty, local=True)
+        case ImpAssign(aloc, lhs, rhs) if isinstance(lhs, LValueIndex):
+          # Mutable-array element write `a[i] := v` (#1118): model it as a
+          # functional `ArraySet` update of the array's symbolic state, so a
+          # downstream read `a[j]` reduces by read-over-write. The write owes an
+          # in-bounds obligation `i < length(a)`; `symbolic` also records the
+          # bounds of any reads inside the index and value.
+          arr_binding = cast(TermBinding, cur_env.dict[lhs.array])
+          elt_type = cast(MutableArrayType, arr_binding.typ).elt_type
+          new_index = type_synth_term(lhs.index, cur_env, None, [])
+          _check_array_index_type(new_index)
+          record_reads(new_index, givens, cur_env)
+          sym_index = cast(Term, new_index.substitute(state))
+          sym_value = symbolic(cast(Term, rhs), elt_type)
+          obligations.append(_array_bounds_obligation(
+              aloc, lhs.array, arr_binding, sym_index, givens, cur_env))
+          current = state.get(lhs.array,
+                              OverloadedVar(arr_binding.location,
+                                            arr_binding.typ, [lhs.array]))
+          state[lhs.array] = ArraySet(aloc, arr_binding.typ, current,
+                                      sym_index, sym_value)
         case ImpAssign(_, lhs, rhs):
           target = cast(LValueVar, lhs)
           binding = cast(TermBinding, cur_env.dict[target.name])
           state[target.name] = symbolic(cast(Term, rhs), binding.typ)
         case ImpAssert(aloc, formula, proof):
-          goal = cast(Formula,
-                      type_check_formula(formula, cur_env).substitute(state))
+          checked = type_check_formula(formula, cur_env)
+          record_reads(checked, givens, cur_env)
+          goal = cast(Formula, checked.substitute(state))
           obligations.append(
               ImperativeObligation(aloc, goal, ObligationKind.ASSERTION,
                                    givens=list(givens), proof=proof))
@@ -533,13 +716,15 @@ def proc_obligations(decl: ProcDecl,
           givens = givens + [('assert' + str(len(givens)), goal)]
         case ImpAssume(_, formula):
           # `assume` has no runtime effect; it only adds a proof-only given for
-          # the statements that follow it on this path.
+          # the statements that follow it on this path. Its reads are trusted
+          # (like a `requires`), so they raise no bounds obligation.
           fact = cast(Formula,
                       type_check_formula(formula, cur_env).substitute(state))
           givens = givens + [('assume' + str(len(givens)), fact)]
         case ImpIf(iloc, cond, then_body, else_body):
-          cond_frm = cast(Formula,
-                          type_check_formula(cond, cur_env).substitute(state))
+          checked_cond = type_check_formula(cond, cur_env)
+          record_reads(checked_cond, givens, cur_env)
+          cond_frm = cast(Formula, checked_cond.substitute(state))
           neg = IfThen(iloc, None, cond_frm, Bool(iloc, None, False))
           rest = stmts[idx + 1:]
           # Both branches are checked against the same continuation; each gets
@@ -553,11 +738,11 @@ def proc_obligations(decl: ProcDecl,
           return  # both branch paths already handled the continuation
         case ImpReturn(_, value):
           result = symbolic(value, cast(Type, decl.return_type))
-          emit_posts(result, givens)
+          emit_posts(result, state, givens)
           return  # a `return` is terminal; anything after it is unreachable
     # This path fell off the end without returning: its postconditions hold
     # with `result` unbound (so they may not mention `result`).
-    emit_posts(None, givens)
+    emit_posts(None, state, givens)
 
   walk(decl.body, {}, _proc_givens(decl), base_env)
   discharge_env = base_env

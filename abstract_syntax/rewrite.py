@@ -99,6 +99,8 @@ def count_marks(formula: AST) -> int:
       return 0
     case ArrayGet(_, _, arr, ind):
       return count_marks(arr) + count_marks(ind)
+    case ArraySet(_, _, arr, pos, val):
+      return count_marks(arr) + count_marks(pos) + count_marks(val)
     case Array(_, _, elements):
       return sum([count_marks(elt) for elt in elements])
     case MakeArray(_, _, subject):
@@ -161,6 +163,10 @@ def find_mark(formula: AST) -> None:
     case ArrayGet(_, _, arr, ind):
       find_mark(arr)
       find_mark(ind)
+    case ArraySet(_, _, arr, pos, val):
+      find_mark(arr)
+      find_mark(pos)
+      find_mark(val)
     case Array(_, _, elements):
       for elt in elements:
           find_mark(elt)
@@ -236,6 +242,10 @@ def replace_mark(formula: Term | SwitchCase, replacement: Term) -> Term | Switch
       return formula
     case ArrayGet(loc2, tyof, arr, ind):
       return ArrayGet(loc2, tyof, replace_mark(arr, replacement), replace_mark(ind, replacement))
+    case ArraySet(loc2, tyof, arr, pos, val):
+      return ArraySet(loc2, tyof, replace_mark(arr, replacement),
+                      replace_mark(pos, replacement),
+                      replace_mark(val, replacement))
     case Array(loc2, tyof, elements):
       return Array(loc2, tyof,
                    [replace_mark(elt, replacement) for elt in elements])
@@ -417,6 +427,12 @@ def rewrite_aux(loc: Meta, formula: Term | SwitchCase, equation: Formula | AutoR
     case ArrayGet(loc2, tyof, arr, ind):
       return ArrayGet(loc, tyof, rewrite_aux(loc, arr, equation, env, depth - 1),
                       rewrite_aux(loc, ind, equation, env, depth - 1))
+
+    case ArraySet(loc2, tyof, arr, pos, val):
+      return ArraySet(loc, tyof,
+                      rewrite_aux(loc, arr, equation, env, depth - 1),
+                      rewrite_aux(loc, pos, equation, env, depth - 1),
+                      rewrite_aux(loc, val, equation, env, depth - 1))
 
     case Array(loc2, tyof, elements):
       return Array(loc, tyof,

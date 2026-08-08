@@ -1,0 +1,21 @@
+// Phase 2i (issue #1118): aliasing between mutable-array handles is not
+// modeled yet -- the verifier keys write state by handle name, which is sound
+// only when no two handles denote the same array. A procedure that writes an
+// array while more than one mutable-array handle is reachable (here two
+// parameters that a caller could bind to the same array) is therefore DEFERRED
+// rather than verified: it keeps the Phase 1m "accepted but not verified"
+// warning. This pins that the unsound proof below is NOT accepted as verified
+// (were aliasing ignored, `ensures a[i] = w` would wrongly discharge after a
+// write through `b`). Resolving aliasing by array identity + dynamic frames is
+// a later phase (see docs/imperative-verification-plan.md, "One heap model").
+import UInt
+import List
+
+proc write_through_alias(a: [UInt]!, b: [UInt]!, i: UInt, v: UInt, w: UInt)
+  requires i < length(a)
+  requires i < length(b)
+  requires a[i] = w
+  ensures a[i] = w
+{
+  b[i] := v
+}

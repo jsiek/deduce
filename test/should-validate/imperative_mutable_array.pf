@@ -1,0 +1,15 @@
+// Phase 2h/2i (issues #1117, #1118): `length(a)` and mutable-array reads
+// `a[i]` on a `[T]!` handle are typed inside procedure specifications, and a
+// straight-line procedure over them is now verified (issue #1115). A
+// read-only procedure whose postcondition is `result = a[i]` discharges
+// automatically -- the returned value IS `a[i]` -- so it verifies with no
+// "accepted but not verified" warning.
+import UInt
+import List
+
+proc read_demo(a: [UInt]!, i: UInt) -> UInt
+  requires i < length(a)
+  ensures result = a[i]
+{
+  return a[i]
+}

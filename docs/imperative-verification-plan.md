@@ -240,7 +240,8 @@ Open questions for this surface:
 - Whether nullable links should be spelled with `Option<Ref<T>>` only, or with
   dedicated `null`.
 - Whether references should be first-class pure values outside `proc`. The
-  likely answer is yes, but field reads and writes stay effectful.
+  answer is yes: identities are first-class comparable values (see "Aliasing
+  and identity" above); field reads and writes stay effectful.
 
 ### Ghost models
 
@@ -295,6 +296,39 @@ The heap maps locations to values. A location is an array cell or object field:
 Loc ::= array_cell(array_id, index)
       | object_field(object_id, field_name)
 ```
+
+### Aliasing and identity (Dafny-style)
+
+Two handles may denote the same heap object (`a` and `b` can be the same
+`[T]!`, so a write through one is observed through the other). The verifier
+follows the mainstream **dynamic-frames** design (Kassios; Dafny):
+
+- **Array and object identities are first-class, comparable values.** The
+  assertion language can compare them with `=` / `≠` (reference identity, not
+  element-wise contents), so a procedure states non-aliasing explicitly when it
+  needs it, e.g. `requires a ≠ b`.
+- **Frames denote sets of those identities.** `reads` / `modifies` /
+  `footprint(x)` are sets of `array_id` / `object_id`, and framing is disjointness
+  of footprints. A location outside the effective `modifies` frame is unchanged,
+  which is what a write through one handle *cannot* silently violate for a
+  disjoint handle.
+- **Fresh allocations are disjoint for free.** `new` yields an identity not in
+  the allocation set, so a freshly allocated array is provably distinct from
+  every pre-existing handle without an explicit `≠`.
+
+This is one heap model with two views (per the section above): the
+dynamic-frames surface here, and — for cyclic, aliased, pointer-rich structures
+— a separation-logic view where disjointness is carried implicitly by
+permissions (implicit dynamic frames) rather than written as `≠`.
+
+Until modifies-frame enforcement lands (Phase 2j, issue #1119), the verifier
+stays in the fragment where aliasing cannot arise: a procedure that *writes* a
+mutable array while more than one mutable-array handle is reachable is deferred
+rather than verified (see `checker_pipeline._array_write_aliasing_risk`, issue
+#1118). With a single reachable handle there is nothing to alias with, so the
+per-handle update model coincides with the identity-keyed heap. The restriction
+lifts once `modifies` frames over identities are checked and `≠` / `fresh`
+supply the non-aliasing facts.
 
 ### Computation type
 
