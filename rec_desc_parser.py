@@ -2,7 +2,7 @@
 # is to provide better error messages. -Jeremy
 
 from contextlib import contextmanager
-from typing import Iterator, Optional, cast
+from typing import Callable, Iterator, Optional, cast
 
 from abstract_syntax import (
     All, AllElim, AllElimTypes, AllIntro, And, ApplyDefsFact,
@@ -573,66 +573,36 @@ def parse_make_array() -> Term:
     return parse_call()
 
 
-def parse_term_expt() -> Term:
+def parse_left_assoc_binop(next_level: Callable[[], Term],
+                           operators: set[str]) -> Term:
+  # Shared left-associative binary-operator loop: parse the tighter level,
+  # then fold each `<op> <next_level>` into a `Call` of the operator's `Var`.
   token = current_token()
-  term = parse_make_array()
-
-  while (not end_of_file()) and current_token().value in expt_operators:
+  term = next_level()
+  while (not end_of_file()) and current_token().value in operators:
     rator = Var(meta_from_tokens(current_token(), current_token()),
                 None, to_unicode.get(current_token().value,
                                      current_token().value))
     advance()
-    right = parse_make_array()
+    right = next_level()
     term = Call(meta_from_tokens(token, previous_token()), None,
                 rator, [term,right])
-
   return term
+
+def parse_term_expt() -> Term:
+  return parse_left_assoc_binop(parse_make_array, expt_operators)
 
 def parse_term_mult() -> Term:
-  token = current_token()
-  term = parse_term_expt()
-
-  while (not end_of_file()) and current_token().value in mult_operators:
-    rator = Var(meta_from_tokens(current_token(), current_token()),
-                None, to_unicode.get(current_token().value,
-                                     current_token().value))
-    advance()
-    right = parse_term_expt()
-    term = Call(meta_from_tokens(token, previous_token()), None,
-                rator, [term,right])
-
-  return term
+  return parse_left_assoc_binop(parse_term_expt, mult_operators)
 
 def parse_term_add() -> Term:
-  token = current_token()
-  term = parse_term_mult()
-
-  while (not end_of_file()) and current_token().value in add_operators:
-    rator = Var(meta_from_tokens(current_token(), current_token()),
-                None, to_unicode.get(current_token().value, current_token().value))
-    advance()
-    right = parse_term_mult()
-    term = Call(meta_from_tokens(token, previous_token()), None,
-                rator, [term,right])
-
-  return term
+  return parse_left_assoc_binop(parse_term_mult, add_operators)
 
 def parse_term_compare() -> Term:
-  token = current_token()
-  term = parse_term_add()
-
-  while (not end_of_file()) and current_token().value in compare_operators:
-    rator = Var(meta_from_tokens(current_token(), current_token()),
-                None, to_unicode.get(current_token().value, current_token().value))
-    advance()
-    # Left-associative, matching the LALR grammar
-    # (`comparison_term "<" additive_term`): recurse into the tighter level,
-    # not back into `parse_term_compare`, so `a < b < c` is `(a < b) < c`.
-    right = parse_term_add()
-    term = Call(meta_from_tokens(token, previous_token()), None,
-                rator, [term,right])
-
-  return term
+  # Left-associative, matching the LALR grammar
+  # (`comparison_term "<" additive_term`): recurse into the tighter level,
+  # not back into `parse_term_compare`, so `a < b < c` is `(a < b) < c`.
+  return parse_left_assoc_binop(parse_term_add, compare_operators)
 
 def parse_term_equal() -> Term:
   token = current_token()
@@ -710,17 +680,21 @@ def parse_term_logic() -> Term:
                 list_of_or(term) + list_of_or(right))
   return term
 
-def parse_term_iff() -> Term:
+def parse_iff_chain(next_level: Callable[[], Term]) -> Term:
+  # Desugar `p iff q` into `(if p then q) and (if q then p)`, left-associatively.
   token = current_token()
-  term = parse_term_logic()
+  term = next_level()
   while (not end_of_file()) and (current_token().value in iff_operators):
     advance()
-    right = parse_term_logic()
+    right = next_level()
     loc = meta_from_tokens(token, previous_token())
     left_right = IfThen(loc, None, term.copy(), right.copy())
     right_left = IfThen(loc, None, right.copy(), term.copy())
     term = And(loc, None, [left_right, right_left])
   return term
+
+def parse_term_iff() -> Term:
+  return parse_iff_chain(parse_term_logic)
 
 def parse_term() -> Term:
   if end_of_file():
@@ -1418,16 +1392,7 @@ def parse_equation_side() -> Term:
   # `iff`/`and`/`or` (which sit below `=` in the normal precedence ladder) by
   # parsing them on top of comparison terms, leaving the top-level `=` to
   # separate the two sides of the step. See Deduce.lark `equation_side`.
-  token = current_token()
-  term = parse_equation_side_logic()
-  while (not end_of_file()) and (current_token().value in iff_operators):
-    advance()
-    right = parse_equation_side_logic()
-    loc = meta_from_tokens(token, previous_token())
-    left_right = IfThen(loc, None, term.copy(), right.copy())
-    right_left = IfThen(loc, None, right.copy(), term.copy())
-    term = And(loc, None, [left_right, right_left])
-  return term
+  return parse_iff_chain(parse_equation_side_logic)
 
 def parse_equation() -> tuple[Term, Term, Proof]:
   lhs = parse_equation_side()
