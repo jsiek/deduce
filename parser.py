@@ -288,7 +288,11 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
        subject = parse_tree_to_ast(e.children[0], e)
        return IfThen(e.meta, None, subject, Bool(e.meta, None, False))
     elif e.data == 'emp_resource':
-        _require_experimental_imperative(e.meta)
+        if not get_experimental_imperative_enabled():
+            # With the imperative layer off, `emp` is an ordinary identifier
+            # (issue #473), matching the recursive-descent parser, which
+            # demotes the keyword to IDENT in that mode.
+            return Var(e.meta, None, 'emp')
         return Emp(e.meta, None)
     elif e.data == 'sep_conj':
         _require_experimental_imperative(e.meta)
@@ -305,6 +309,12 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
         return FieldAccess(e.meta, None,
                            parse_tree_to_ast(e.children[0], e),
                            _field_name(e, 1))
+    elif e.data == 'rejected_new_term' \
+            and not get_experimental_imperative_enabled():
+        # A bare `new` in a pure term is an ordinary (here, undefined)
+        # identifier when the imperative layer is off (issue #473), matching
+        # the recursive-descent parser's keyword demotion.
+        return Var(e.meta, None, 'new')
     elif e.data == 'rejected_new_object' or e.data == 'rejected_new_term':
         raise ParseError(
             e.meta,

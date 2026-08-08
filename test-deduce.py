@@ -650,6 +650,11 @@ PARSER_EQUIV_FILES = PARSER_ROUND_TRIP_FILES + (
     "./lib/Nat.pf",
     "./lib/UInt.pf",
     "./lib/Int.pf",
+    # Experimental-imperative keywords used as ordinary identifiers with the
+    # flag off, including `emp`/`new` in reference position (issue #473): both
+    # parsers must agree these are plain variables, not the resource/allocation
+    # literals.
+    "./test/should-validate/experimental_imperative_keywords_as_identifiers.pf",
     # The ``test/should-error``, ``test/should-warn``, and ``test/prelude``
     # corpora are folded in wholesale by ``should_error_equiv_files``,
     # ``should_warn_equiv_files``, and ``prelude_equiv_files`` below, so their

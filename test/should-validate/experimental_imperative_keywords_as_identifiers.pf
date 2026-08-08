@@ -18,6 +18,11 @@ define preserved = true
 define established = false
 define observer = true
 define resource = false
+// `emp` and `new` also have dedicated term-position meaning under the
+// imperative layer (the `Emp` resource literal and `new` allocation), so with
+// the flag off both parsers must still treat them as ordinary identifiers in
+// reference position -- not just as binding names (issue #473).
+define new = true
 
 // `while` in binding position (a parameter) and in reference position.
 fun negate(while : bool) {
@@ -26,6 +31,16 @@ fun negate(while : bool) {
 
 theorem experimental_keywords_are_identifiers:
   negate(call) = return
+proof
+  evaluate
+end
+
+// Reference `emp` and `new` in term position: before the fix the LALR parser
+// parsed these as the `Emp` resource literal / `new` allocation form even with
+// `--experimental-imperative` off and rejected them, while the recursive-
+// descent parser accepted them as identifiers.
+theorem experimental_keywords_referenceable_in_terms:
+  (emp = false) and (new = true)
 proof
   evaluate
 end
