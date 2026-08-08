@@ -133,6 +133,21 @@ def is_equation(formula: Formula) -> bool:
     case _:
       return False
 
+def _base_is(node: object, base: str, *, allow_var: bool = False) -> bool:
+  # True when `node` is a bare variable reference (a constructor name)
+  # whose base name is `base`. The recognizers below split on whether a
+  # not-yet-uniquified `Var` counts: the *value-type* recognizers
+  # (isNat/isUInt/isInt) exclude it on purpose (see the comment on
+  # `isUInt`), while the `lit`-shape and *-to-int readers set
+  # `allow_var=True` because they also run on pre-uniquify ASTs.
+  match node:
+    case OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n):
+      return base_name(n) == base
+    case Var(_, _, n) if allow_var:
+      return base_name(n) == base
+    case _:
+      return False
+
 def isUInt(t: Term) -> bool:
   # Value-type recognizer: only matches the *post-uniquify* shape.
   # Pre-uniquify, the UInt-literal path goes through ``isLitUInt`` /
@@ -141,41 +156,32 @@ def isUInt(t: Term) -> bool:
   # (via ``isDeduceInt``) into ``+N`` / ``-(N+1)`` — which then re-parses
   # to a unary-minus AST rather than the original constructor and breaks
   # the round-trip (see int1.pf).
+  if _base_is(t, 'bzero'):
+    return True
   match t:
-    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'bzero':
-      return True
-    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
-      if base_name(n) == 'inc_dub':
-        return isUInt(arg)
-    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
-      if base_name(n) == 'dub_inc':
-        return isUInt(arg)
-    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
-      if base_name(n) == 'fromNat':
-        return isNat(arg)
+    case Call(_, _, rator, [arg]) if _base_is(rator, 'inc_dub'):
+      return isUInt(arg)
+    case Call(_, _, rator, [arg]) if _base_is(rator, 'dub_inc'):
+      return isUInt(arg)
+    case Call(_, _, rator, [arg]) if _base_is(rator, 'fromNat'):
+      return isNat(arg)
     case _:
       return False
 
 def isBZero(t: Term) -> bool:
-  match t:
-    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'bzero':
-      return True
-    case _:
-      return False
+  return _base_is(t, 'bzero')
 
 def isDubInc(t: Term) -> bool:
   match t:
-    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [_]) \
-      if base_name(n) == 'dub_inc':
-        return True
+    case Call(_, _, rator, [_]) if _base_is(rator, 'dub_inc'):
+      return True
     case _:
       return False
 
 def isIncDub(t: Term) -> bool:
   match t:
-    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [_]) \
-      if base_name(n) == 'inc_dub':
-        return True
+    case Call(_, _, rator, [_]) if _base_is(rator, 'inc_dub'):
+      return True
     case _:
       return False
 
@@ -199,8 +205,7 @@ def mkDubInc(loc: Meta, arg: Term, cname: str = 'dub_inc',
 
 def isSuc(t: Term) -> bool:
   match t:
-    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [_]) \
-         if base_name(n) == 'suc':
+    case Call(_, _, rator, [_]) if _base_is(rator, 'suc'):
       return True
     case _:
       return False
@@ -340,14 +345,12 @@ def intToNat(
 def isNat(t: Term) -> bool:
   # Value-type recognizer — see the comment on ``isUInt`` for why
   # plain ``Var`` is intentionally excluded.
+  if _base_is(t, 'zero'):
+    return True
   match t:
-    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'zero':
-      return True
-    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
-         if base_name(n) == 'suc':
+    case Call(_, _, rator, [arg]) if _base_is(rator, 'suc'):
       return isNat(arg)
-    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
-         if base_name(n) == 'lit':
+    case Call(_, _, rator, [arg]) if _base_is(rator, 'lit'):
       return isNat(arg)
     case _:
       return False
@@ -358,40 +361,35 @@ def isRawNat(t: Term) -> bool:
   # ``lit(lit(suc^n(zero)))``) is NOT collapsed to ``ℕn``: that
   # surface form has an extra ``lit`` wrapper the pretty-printer
   # must preserve so the AST round-trips.
+  if _base_is(t, 'zero', allow_var=True):
+    return True
   match t:
-    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)) if base_name(n) == 'zero':
-      return True
-    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)), [arg]) \
-         if base_name(n) == 'suc':
+    case Call(_, _, rator, [arg]) if _base_is(rator, 'suc', allow_var=True):
       return isRawNat(arg)
     case _:
       return False
 
 def isLitNat(t: Term) -> bool:
   match t:
-    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)), [arg]) \
-         if base_name(n) == 'lit':
+    case Call(_, _, rator, [arg]) if _base_is(rator, 'lit', allow_var=True):
       return isRawNat(arg)
     case _:
       return False
 
 def isLitUInt(t: Term) -> bool:
   match t:
-    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)), [arg]) \
-         if base_name(n) == 'fromNat':
+    case Call(_, _, rator, [arg]) if _base_is(rator, 'fromNat', allow_var=True):
       return isLitNat(arg)
     case _:
       return False
-  
+
 def isInt(t: Term) -> bool:
   # Value-type recognizer — see the comment on ``isUInt`` for why
   # plain ``Var`` is intentionally excluded.
   match t:
-    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
-      if base_name(n) == 'pos':
+    case Call(_, _, rator, [arg]) if _base_is(rator, 'pos'):
       return isUInt(arg)
-    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
-      if base_name(n) == 'negsuc':
+    case Call(_, _, rator, [arg]) if _base_is(rator, 'negsuc'):
       return isUInt(arg)
     case _:
       return False
@@ -696,10 +694,11 @@ def mkIntLit(loc: Meta, n: int, sign: str) -> Term:
     return mkNeg(loc, mkUIntLit(loc, n - 1))
 
 def isDeduceInt(t: Term) -> bool:
+  # Like ``isInt`` but also accepts a pre-uniquify ``Var`` rator.
   match t:
-    case Call(_, _, (Var(_, _, name) | OverloadedVar(_, _, [name, *_]) | ResolvedVar(_, _, name)), [arg]) if base_name(name) == 'pos':
+    case Call(_, _, rator, [arg]) if _base_is(rator, 'pos', allow_var=True):
       return isUInt(arg)
-    case Call(_, _, (Var(_, _, name) | OverloadedVar(_, _, [name, *_]) | ResolvedVar(_, _, name)), [arg]) if base_name(name) == 'negsuc':
+    case Call(_, _, rator, [arg]) if _base_is(rator, 'negsuc', allow_var=True):
       return isUInt(arg)
     case _:
       return False
