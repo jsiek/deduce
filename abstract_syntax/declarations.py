@@ -580,12 +580,11 @@ class ProcDecl(Declaration):
     body_env = copy_dict(proc_env)
     # Pre-bind each out-of-line `proof ... end` slot label so a bare `by <slot>`
     # clause in the body resolves to it (Phase 2n, #1123). A slot label may not
-    # repeat within one block, nor share a name with an in-scope theorem or
-    # other declaration -- a bare `by <label>` would otherwise be ambiguous
-    # between the slot and that name. Pre-binding is `warn=False`: shadowing a
-    # parameter or local name with a slot label is harmless (a slot is a proof,
-    # not a value), and a clash with a `no overload` name is already rejected
-    # above with the clearer proof-slot diagnostic.
+    # repeat within one block. A slot may shadow any other in-scope name here;
+    # binding it directly (not via `overwrite`) is deliberate -- a slot that
+    # shadows an in-scope theorem is ambiguous, but `verify_proc` makes that
+    # call against the typed proof environment, which reaches imported theorems
+    # that uniquify's `no overload` set (local declarations only) would miss.
     seen_slots: dict[str, Meta] = {}
     for entry in self.proof_block:
       if entry.label in seen_slots:
@@ -593,16 +592,10 @@ class ProcDecl(Declaration):
                    "duplicate proof-slot label '" + base_name(entry.label)
                    + "' in this proc's `proof ... end` block")
       seen_slots[entry.label] = entry.location
-      if entry.label in body_env['no overload']:
-        user_error(entry.location,
-                   "proof-slot label '" + base_name(entry.label)
-                   + "' is ambiguous: it is also an in-scope "
-                   + body_env['no overload'][entry.label]
-                   + "; rename the proof slot")
     new_labels = [generate_name(entry.label, uniq_ctx)
                   for entry in self.proof_block]
     for entry, new_label in zip(self.proof_block, new_labels):
-      overwrite(body_env, entry.label, new_label, entry.location, warn=False)
+      body_env[entry.label] = [new_label]
     new_body = _uniquify_imp_block(self.body, copy_dict(body_env), uniq_ctx)
     new_proof_block = [
         ProcProofEntry(entry.location, new_label,

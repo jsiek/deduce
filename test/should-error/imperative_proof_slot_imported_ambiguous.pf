@@ -1,0 +1,14 @@
+// Phase 2n (issue #1123): a proof-slot label may not share a name with an
+// in-scope theorem -- and that includes a theorem *imported* from another
+// module, not just one declared locally. Here `ex_mid` names a theorem from
+// `Base`, so `by ex_mid` would be ambiguous between the import and the slot.
+// Regression for the Codex review of PR #1173 (imported theorems reach the
+// typed proof environment but not uniquify's `no overload` set).
+import Base
+proc p(x: bool)
+{
+  assert x = x by ex_mid
+}
+proof
+  ex_mid { . }
+end
