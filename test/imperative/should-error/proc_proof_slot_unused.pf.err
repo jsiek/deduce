@@ -1,0 +1,1 @@
+./test/imperative/should-error/proc_proof_slot_unused.pf:10.3-10.14: unused proof slot 'extra': no `by extra` clause in this proc cites it

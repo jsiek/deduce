@@ -1,0 +1,9 @@
+// Phase 2n (issue #1123): a `by <slot>` clause naming neither an in-scope
+// theorem nor a proof slot of this procedure is an undefined proof reference.
+proc p(x: bool)
+{
+  assert x = x by missing
+}
+proof
+  present { . }
+end

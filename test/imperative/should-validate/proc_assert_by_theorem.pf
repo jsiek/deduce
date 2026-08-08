@@ -1,0 +1,12 @@
+// Phase 2n (issue #1123): a `by <proof>` clause naming an ordinary in-scope
+// theorem is checked against the assertion obligation, not merely parsed. Here
+// the assertion is discharged by citing the theorem `always` rather than by
+// the automatic attempt, so a `by` clause and a proof slot share the same
+// resolution path (a bare name is a theorem unless it is a proof slot).
+theorem always: true
+proof . end
+
+proc p(x: bool)
+{
+  assert true by always
+}

@@ -1,0 +1,10 @@
+// Phase 2n (issue #1123): a `by <slot>` proof is genuinely checked against the
+// assertion's obligation, not merely parsed. The out-of-line `wrong` slot does
+// not prove `x = not x`, so the assertion fails at its own source location.
+proc claim(x: bool)
+{
+  assert x = not x by wrong
+}
+proof
+  wrong { . }
+end

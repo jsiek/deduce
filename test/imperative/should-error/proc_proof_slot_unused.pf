@@ -1,0 +1,11 @@
+// Phase 2n (issue #1123): every entry of a procedure's `proof ... end` block
+// must be cited by exactly one `by <slot>` clause. `extra` is never cited, so
+// it is rejected as an unused proof slot.
+proc p(x: bool)
+{
+  assert x = x by refl
+}
+proof
+  refl { . }
+  extra { . }
+end

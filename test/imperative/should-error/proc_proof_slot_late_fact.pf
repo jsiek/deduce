@@ -1,0 +1,12 @@
+// Phase 2n (issue #1123): a proof slot is checked in the givens captured where
+// its `by` clause appears, NOT at the end of the procedure. `early` runs before
+// the `assume`, so `x = true` is not yet in scope and cannot be recalled, even
+// though a later statement does establish it.
+proc p(x: bool)
+{
+  assert true by early
+  assume x = true
+}
+proof
+  early { conclude true by recall (x = true) }
+end

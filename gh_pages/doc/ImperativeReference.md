@@ -245,9 +245,18 @@ proc_proof_entry_list ::= proc_proof_entry proc_proof_entry_list
 proc_proof_entry ::= identifier "{" proof "}"
 ```
 
-This is parser/AST only: proof-slot goal generation, ambiguity checking
-between theorem names and slot labels, and tying `h.valid_post` to a
-call label all land with the verifier in a later phase.
+For a procedure the verifier fully models (Phase 2n, issue #1123), each
+`by <slot>` clause is matched to exactly one entry, and that entry's proof
+is checked against the very goal and givens the inline form would see at the
+`by` clause -- not at the end of the procedure, so a fact established later
+in the body is not in scope for an earlier slot. A slot label may not repeat
+within a block, nor share a name with an in-scope theorem (a bare
+`by <label>` would then be ambiguous), and every entry must be cited by some
+`by` clause -- a duplicate, ambiguous, or unused slot is rejected. Proof-slot
+labels are local to their procedure and are not module exports.
+
+Tying `h.valid_post` to a call label still lands with call verification in a
+later phase.
 
 ## Allocation (Term)
 

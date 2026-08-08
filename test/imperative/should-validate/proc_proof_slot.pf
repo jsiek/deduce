@@ -1,0 +1,24 @@
+// Phase 2n (issue #1123): an out-of-line `proof ... end` block supplies the
+// proofs for the `by <slot>` clauses in the body. Each slot is checked against
+// the exact goal and givens captured where its `by` clause appears -- not at
+// the end of the procedure -- so a moved-out proof sees the same context an
+// inline `by { ... }` would (compare `proc_assert_proof_local.pf`). Here `keep`
+// proves an assertion that depends on the `requires` given (reached with
+// `recall`), and `refl` is a multi-step proof moved out of line. Each slot is
+// cited exactly once; a wrong, unused, duplicate, or ambiguous slot is rejected
+// (see the `proc_proof_slot_*` should-error siblings).
+proc p(x: bool)
+  requires x = true
+{
+  assert x = true by keep
+  assert x = x by refl
+}
+proof
+  keep {
+    conclude x = true by recall (x = true)
+  }
+  refl {
+    have h: x = x by reflexive
+    conclude x = x by h
+  }
+end

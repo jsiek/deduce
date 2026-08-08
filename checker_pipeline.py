@@ -548,12 +548,6 @@ def _proc_verifiable(decl: ProcDecl) -> bool:
   # reachable array handle. See `_array_write_aliasing_risk`.
   if _array_write_aliasing_risk(decl):
     return False
-  # An out-of-line `proof ... end` block supplies proof slots cited by
-  # `by <slot>` clauses. Installing those slot bindings is out of scope for
-  # this slice, so a procedure that declares one is deferred (an inline
-  # `assert P by <proof>` with no proof block is still verified). #1115
-  if decl.proof_block:
-    return False
   if _assigns_to_a_parameter(decl):
     return False
   return all(_stmt_verifiable(s) for s in decl.body)
@@ -564,10 +558,11 @@ def _proc_givens(decl: ProcDecl) -> list[tuple[str, Formula]]:
   # `requiresN` labels (like the `assertN`/`assumeN`/`ifN` labels
   # `proc_obligations` generates) are internal: they drive auto-discharge and
   # the `Givens:` presentation, but are deliberately not citable by name from a
-  # manual inline proof (uniquify, which resolves proof `PVar`s, runs before
-  # these are created). Binding in-scope givens for manual imperative proofs is
-  # the proof-slot/context work of Phase 2n (#1123); keeping auto-labeled facts
-  # available only to automation (not by a fabricated name) matches #1125.
+  # manual inline or out-of-line proof (uniquify, which resolves proof `PVar`s,
+  # runs before these are created). A manual proof still reaches these facts by
+  # their formula via `recall (<given>)` -- Phase 2n (#1123) binds them as the
+  # local proof hypotheses a slot/inline proof is checked against; keeping the
+  # auto-labels themselves out of reach (not a fabricated name) matches #1125.
   givens: list[tuple[str, Formula]] = []
   for spec in decl.specs:
     if spec.keyword == 'requires':
@@ -871,15 +866,35 @@ def proc_obligations(decl: ProcDecl,
   return discharge_env, obligations
 
 def verify_proc(decl: ProcDecl, env: Env) -> None:
-  # Phase 2f (issue #1115): verify a straight-line procedure by discharging
-  # every obligation `proc_obligations` generates. A body this slice does not
-  # model keeps the Phase 1m "not verified" warning instead (issue #1108).
+  # Phase 2f/2n (issues #1115, #1123): verify a straight-line procedure by
+  # discharging every obligation `proc_obligations` generates. A body this
+  # slice does not model keeps the Phase 1m "not verified" warning instead
+  # (issue #1108).
+  #
+  # A `by <slot>` clause resolves to a bare `PVar` naming an out-of-line
+  # `proof ... end` entry (uniquify pre-binds the slot labels, and rejects a
+  # duplicate label or one that clashes with an in-scope theorem). We inline
+  # that entry's proof into the obligation it discharges, so the moved-out
+  # proof is checked against the very same goal and givens the inline form
+  # would see -- the obligation captured them at the source annotation, not at
+  # the end of the procedure. A slot no obligation cites is an unused entry.
   if not _proc_verifiable(decl):
     warn_unverified_imperative(decl)
     return
+  slots = {entry.label: entry for entry in decl.proof_block}
   cur_env, obligations = proc_obligations(decl, env)
+  used: set[str] = set()
   for obligation in obligations:
+    proof = obligation.proof
+    if isinstance(proof, PVar) and proof.name in slots:
+      used.add(proof.name)
+      obligation.proof = slots[proof.name].proof
     obligation.discharge(cur_env)
+  for (label, entry) in slots.items():
+    if label not in used:
+      user_error(entry.location,
+                 "unused proof slot '" + base_name(label) + "': no `by "
+                 + base_name(label) + "` clause in this proc cites it")
 
 def process_declaration_visibility(decl: Declaration, env: Env,
                                    module_chain: list[str],
