@@ -577,26 +577,16 @@ def _array_bounds_obligation(aloc: Meta, array_name: str,
                              arr_binding: TermBinding, index: Term,
                              givens: list[tuple[str, Formula]],
                              env: Env) -> 'ImperativeObligation':
-  # The in-bounds obligation `i < length(a)` for a mutable-array access (#1118).
-  # Built by *type-checking* a `<`/`length` call so the operators resolve
-  # against their operand types exactly as a user's `requires i < length(a)`
-  # premise does -- a bare-name `<` (as `imperative_verifier.array_bounds_goal`
-  # builds for the unwired read path, #1166) would not match the resolved `<`
-  # in the premise once `discharge` reduces both sides. `length` is invariant
-  # under writes, so the base array handle is used regardless of earlier writes.
-  from imperative_verifier import ImperativeObligation, ObligationKind
+  # The in-bounds obligation `i < length(a)` for a mutable-array write `a[i]`
+  # (#1118). The goal is built by `index_in_bounds_goal`, shared with the read
+  # path so both resolve `<`/`length` identically (#1166). `length` is
+  # invariant under writes, so the base array handle -- not any symbolic write
+  # state -- is used as the `length` argument regardless of earlier writes.
+  from imperative_verifier import (
+      ImperativeObligation, ObligationKind, index_in_bounds_goal)
   base_handle = OverloadedVar(arr_binding.location, arr_binding.typ,
                               [array_name])
-  length_names = [n for n in env.dict if base_name(n) == 'length']
-  lt_names = [n for n in env.dict if base_name(n) == '<']
-  if not length_names or not lt_names:
-    user_error(aloc, 'a mutable-array bounds check needs `length` and `<` in '
-               'scope; add `import List` and `import UInt`')
-  length_call = Call(aloc, None, OverloadedVar(aloc, None, length_names),
-                     [base_handle])
-  lt_call = Call(aloc, None, OverloadedVar(aloc, None, lt_names),
-                 [index, length_call])
-  goal = cast(Formula, type_check_formula(lt_call, env))
+  goal = index_in_bounds_goal(aloc, base_handle, index, env)
   return ImperativeObligation(aloc, goal, ObligationKind.ARRAY_BOUNDS,
                               givens=list(givens))
 
