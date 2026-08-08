@@ -1717,6 +1717,10 @@ class TLet(Term):
       return False
     return _alpha_equiv_tlet(self, other, {}, {})
 
+def reduce_lets(term: Term, env: Env) -> Term:
+  """Collapse a leading ``TLet`` binding via ``reduceLets``; pass other terms through."""
+  return term.reduceLets(env) if isinstance(term, TLet) else term
+
 @dataclass
 class Hole(Term):
 

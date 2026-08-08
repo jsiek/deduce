@@ -74,9 +74,7 @@ def mkEqualVar(loc: Meta, arg1: Term, arg2: Term) -> Formula:
   return cast(Formula, ret)
 
 def split_equation(loc: Meta, equation: Term, env: Env) -> tuple[Term, Term]:
-  if isinstance(equation, TLet):
-    equation = equation.reduceLets(env)
-    
+  equation = reduce_lets(equation, env)
   match equation:
     case Call(_, _, rator, [L, R]) if isinstance(rator, VarRef) and rator.get_name() == '=':
       return (L, R)
@@ -88,9 +86,7 @@ def split_equation(loc: Meta, equation: Term, env: Env) -> tuple[Term, Term]:
 def split_auto_rule(loc: Meta, equation: Formula, env: Env) -> AutoRewriteRule:
   variables: list[Term] = []
   premises: list[Formula] = []
-  body = equation
-  if isinstance(body, TLet):
-    body = cast(Formula, body.reduceLets(env))
+  body = cast(Formula, reduce_lets(equation, env))
 
   while isinstance(body, All):
     x, typ = body.var
