@@ -484,6 +484,19 @@ class VarRef(Term):
     # name / brace forms. Only overridden by `ResolvedVar`.
     return None
 
+  def _post_uniquify_eq(self, other: object) -> bool:
+    # Shared equality for the post-uniquify forms (`OverloadedVar` /
+    # `ResolvedVar`): two references are equal iff their canonical names
+    # match. A named callable (`RecFun` / `GenRecFun`) matches by its
+    # name too, `TermInst` / `TAnnote` wrappers are transparent, and a
+    # pre-uniquify `Var` (or anything else) never matches.
+    if isinstance(other, (OverloadedVar, ResolvedVar, RecFun, GenRecFun)):
+      return self.get_name() == other.name
+    elif isinstance(other, (TermInst, TAnnote)):
+      return self == other.subject
+    else:
+      return False
+
   def copy(self) -> Self:
     return self._rebuild(self.typeof)
 
@@ -642,24 +655,7 @@ class OverloadedVar(VarRef):
            + '{' + ','.join(self.resolved_names) + '}'
 
   def __eq__(self, other: object) -> bool:
-    if isinstance(other, OverloadedVar):
-      return self.resolved_names[0] == other.resolved_names[0]
-    elif isinstance(other, ResolvedVar):
-      # Symmetric with ResolvedVar.__eq__ (see comment there).
-      return self.resolved_names[0] == other.name
-    elif isinstance(other, RecFun):
-      return self.resolved_names[0] == other.name
-    elif isinstance(other, GenRecFun):
-      return self.resolved_names[0] == other.name
-    elif isinstance(other, TermInst):
-      return self == other.subject
-    elif isinstance(other, TAnnote):
-      return self == other.subject
-    elif isinstance(other, Var):
-      # Pre- and post-uniquify references are not interchangeable.
-      return False
-    else:
-      return False
+    return self._post_uniquify_eq(other)
 
   def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> OverloadedVar:
     # Already uniquified — re-uniquify is a no-op (we'd hit this if
@@ -698,27 +694,7 @@ class ResolvedVar(VarRef):
     return name2str(self.name) + '{' + self.name + '}'
 
   def __eq__(self, other: object) -> bool:
-    if isinstance(other, ResolvedVar):
-      return self.name == other.name
-    elif isinstance(other, OverloadedVar):
-      # A resolved name matches an overloaded reference iff it's
-      # the chosen candidate. Comparing across the boundary lets
-      # post-typecheck code keep working with code that hasn't yet
-      # narrowed (e.g. equality reduction in mixed sub-ASTs).
-      return self.name == other.resolved_names[0]
-    elif isinstance(other, RecFun):
-      return self.name == other.name
-    elif isinstance(other, GenRecFun):
-      return self.name == other.name
-    elif isinstance(other, TermInst):
-      return self == other.subject
-    elif isinstance(other, TAnnote):
-      return self == other.subject
-    elif isinstance(other, Var):
-      # Pre- and post-uniquify references are not interchangeable.
-      return False
-    else:
-      return False
+    return self._post_uniquify_eq(other)
 
   def _special_str(self) -> str | None:
     # UInt zero is the value `bzero`; render it as the decimal literal `0`,
