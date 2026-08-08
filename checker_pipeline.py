@@ -430,7 +430,13 @@ def _proc_verifiable(decl: ProcDecl) -> bool:
 def _proc_givens(decl: ProcDecl) -> list[tuple[str, Formula]]:
   # Entry givens: every `requires` clause, in source order. Repeated clauses
   # are conjoined by the obligation's `givens_formula`. The generated
-  # `requiresN` labels are only for the `Givens:` presentation.
+  # `requiresN` labels (like the `assertN`/`assumeN`/`ifN` labels
+  # `proc_obligations` generates) are internal: they drive auto-discharge and
+  # the `Givens:` presentation, but are deliberately not citable by name from a
+  # manual inline proof (uniquify, which resolves proof `PVar`s, runs before
+  # these are created). Binding in-scope givens for manual imperative proofs is
+  # the proof-slot/context work of Phase 2n (#1123); keeping auto-labeled facts
+  # available only to automation (not by a fabricated name) matches #1125.
   givens: list[tuple[str, Formula]] = []
   for spec in decl.specs:
     if spec.keyword == 'requires':
