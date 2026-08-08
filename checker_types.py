@@ -14,7 +14,7 @@ File charter:
 """
 
 from pathlib import Path
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import TypeAlias as TypingTypeAlias, cast
 
 from lark.tree import Meta
@@ -890,6 +890,46 @@ def type_check_term_inst_var(
                       tyargs, inferred)
   internal_error(loc, 'internal error, expected variable, not ' + str(subject_var))
 
+def _process_switch_case(
+    c: SwitchCase,
+    ty: TypeExpr,
+    env: Env,
+    result_type: list[TypeExpr | None],
+    cases_present: PatternCoverage,
+    check_body: Callable[[Term, Env], Term],
+) -> SwitchCase:
+  """Type-check one switch case: bind the pattern, check the body with
+  ``check_body`` (the synth-mode or check-mode body checker), and ensure every
+  case body shares the same type (tracked through the boxed ``result_type``)."""
+  new_env = check_pattern(c.pattern, ty, env, cases_present)
+  new_body = check_body(c.body, new_env)
+  case_type = new_body.typeof
+  if result_type[0] == None:
+    result_type[0] = case_type
+  elif case_type != result_type[0]:
+    user_error(c.location, 'bodies of cases must have same type, but ' \
+          + str(case_type) + ' ≠ ' + str(result_type[0]))
+  return SwitchCase(c.location, c.pattern, new_body)
+
+def _check_union_switch_exhaustive(
+    loc: Meta,
+    ty: TypeExpr,
+    cases_present: PatternCoverage,
+    env: Env,
+    missing_prefix: str,
+) -> None:
+  """Require that a switch over union type ``ty`` has a case for every
+  constructor. ``missing_prefix`` is prepended to the missing constructor in the
+  diagnostic so each caller keeps its own wording."""
+  dfn = lookup_union(loc, ty, env)
+  match dfn:
+    case Union(loc2, name, typarams, alts):
+      for alt in alts:
+          if alt.name not in cases_present.keys():
+              user_error(loc, missing_prefix + str(alt))
+    case _:
+      user_error(loc, 'expected a union type, not ' + str(ty))
+
 def type_synth_term(
     term: Term, env: Env, recfun: RecursiveName, subterms: SubtermNames
 ) -> Term:
@@ -1079,24 +1119,12 @@ def type_synth_term(
         new_subject, ty = view_subject
 
       cases_present: PatternCoverage = {}
-      result_type: list[TypeExpr | None] = [None] # boxed to allow mutable update in process_case
+      result_type: list[TypeExpr | None] = [None] # boxed to allow mutable update in _process_switch_case
 
-      def process_case(
-          c: SwitchCase,
-          result_type: list[TypeExpr | None],
-          cases_present: PatternCoverage,
-      ) -> SwitchCase:
-        new_env = check_pattern(c.pattern, ty, env, cases_present)
-        new_body = type_synth_term(c.body, new_env, recfun, subterms)
-        case_type = new_body.typeof
-        if result_type[0] == None:
-          result_type[0] = case_type
-        elif case_type != result_type[0]:
-          user_error(c.location, 'bodies of cases must have same type, but ' \
-                + str(case_type) + ' ≠ ' + str(result_type[0]))
-        return SwitchCase(c.location, c.pattern, new_body)
-
-      new_cases = [process_case(c, result_type, cases_present) \
+      new_cases = [_process_switch_case(
+                       c, ty, env, result_type, cases_present,
+                       lambda body, e: type_synth_term(body, e, recfun,
+                                                        subterms))
                    for c in cases]
       ret = Switch(loc, result_type[0], new_subject, new_cases)
       
@@ -1119,15 +1147,9 @@ def type_synth_term(
           if not has_false_case:
             user_error(loc, 'missing case for false')
         case _:
-          dfn = lookup_union(loc, ty, env)
-          match dfn:
-            case Union(loc2, name, typarams, alts):
-              for alt in alts:
-                  if alt.name not in cases_present.keys():
-                      user_error(loc, 'this switch is missing a case for: ' \
-                            + str(alt))
-            case _:
-              user_error(loc, 'expected a union type, not ' + str(ty))
+          _check_union_switch_exhaustive(
+              loc, ty, cases_present, env,
+              'this switch is missing a case for: ')
 
       # An empty switch (over an uninhabited type) is vacuously exhaustive
       # but has no inferrable result type; ask for an annotation.
@@ -1326,25 +1348,13 @@ def type_check_term(
         new_subject, ty = view_subject
 
       cases_present: PatternCoverage = {}
-      result_type: list[TypeExpr | None] = [None] # boxed to allow mutable update in process_case
+      result_type: list[TypeExpr | None] = [None] # boxed to allow mutable update in _process_switch_case
 
-      def process_case(
-          c: SwitchCase,
-          result_type: list[TypeExpr | None],
-          cases_present: PatternCoverage,
-      ) -> SwitchCase:
-        new_env = check_pattern(c.pattern, ty, env, cases_present)
-        #print('\n$\n' + str(c) + '\nnew env:\n' + str(new_env))
-        new_body = type_check_term(c.body, typ, new_env, recfun, subterms)
-        case_type = new_body.typeof
-        if result_type[0] == None:
-          result_type[0] = case_type
-        elif case_type != result_type[0]:
-          user_error(c.location, 'bodies of cases must have same type, but ' \
-                + str(case_type) + ' ≠ ' + str(result_type[0]))
-        return SwitchCase(c.location, c.pattern, new_body)
-
-      new_cases = [process_case(c, result_type, cases_present) for c in cases]
+      new_cases = [_process_switch_case(
+                       c, ty, env, result_type, cases_present,
+                       lambda body, e: type_check_term(body, typ, e, recfun,
+                                                        subterms))
+                   for c in cases]
       # An empty switch (over an uninhabited type) runs no case, so
       # `result_type` was never set; the switch has the expected type.
       if result_type[0] is None:
@@ -1358,15 +1368,8 @@ def type_check_term(
           if 'False' not in cases_present.keys():
             user_error(loc, 'missing case for false')
         case _:
-          dfn = lookup_union(loc, ty, env)
-          match dfn:
-            case Union(loc2, name, typarams, alts):
-              for alt in alts:
-                  if alt.name not in cases_present.keys():
-                      user_error(loc, 'missing a case for:\n\t' \
-                            + str(alt))
-            case _:
-              user_error(loc, 'expected a union type, not ' + str(ty))
+          _check_union_switch_exhaustive(
+              loc, ty, cases_present, env, 'missing a case for:\n\t')
       
       return Switch(loc, result_type[0], new_subject, new_cases)
       
