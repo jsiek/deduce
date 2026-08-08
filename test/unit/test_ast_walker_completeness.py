@@ -7,8 +7,17 @@ from dataclasses import fields as dc_fields
 from dataclasses import is_dataclass
 from typing import Any, Iterable
 
+import pytest
+
 import abstract_syntax as ast
 import proof_checker
+from abstract_syntax.rewrite import (
+    MarkException,
+    count_marks,
+    find_mark,
+    remove_mark,
+    replace_mark,
+)
 from test_ast_invariants import _SPECIMEN_FACTORIES, _make, _meta
 
 
@@ -113,3 +122,43 @@ def test_check_proofs_hash_walker_includes_ast_child_fields() -> None:
                 missed_fields.append(f"{cls.__name__}.{field.name}")
 
     assert missed_fields == []
+
+
+# ---------------------------------------------------------------------------
+# Mark-walker agreement (issue #1169)
+# ---------------------------------------------------------------------------
+#
+# ``count_marks``/``find_mark``/``replace_mark`` in ``abstract_syntax.rewrite``
+# must traverse the same set of node types. ``GenRecFun`` and ``Omitted`` were
+# handled only by ``count_marks``, so the other two walkers fell through to
+# their ``_`` arm and raised ``internal_error`` on those subterms. These build
+# a formula that embeds each opaque node and assert all three walkers agree.
+
+# GenRecFun and Omitted are the two node types the sibling walkers used to miss;
+# RecFun and Hole are their already-handled siblings, included as controls.
+_OPAQUE_SUBTERM_SPECIMENS = ["GenRecFun", "Omitted", "RecFun", "Hole"]
+
+
+@pytest.mark.parametrize("spec_name", _OPAQUE_SUBTERM_SPECIMENS)
+def test_mark_walkers_agree_on_opaque_subterms(spec_name: str) -> None:
+    """find_mark/replace_mark traverse the nodes count_marks already handles."""
+    factory = next(
+        f for cls, f in _SPECIMEN_FACTORIES.items() if cls.__name__ == spec_name
+    )
+    opaque = factory()
+
+    # No mark present: every walker must complete without an internal_error.
+    no_mark = ast.And(_meta(), None, [opaque])
+    assert count_marks(no_mark) == 0
+    assert find_mark(no_mark) is None
+    assert replace_mark(no_mark, ast.Var(_meta(), None, "r")) == no_mark
+
+    # Mark placed after the opaque subterm forces the walkers to traverse the
+    # opaque node before reaching the mark.
+    subject = ast.Var(_meta(), None, "s")
+    marked = ast.And(_meta(), None, [opaque, ast.Mark(_meta(), None, subject)])
+    assert count_marks(marked) == 1
+    with pytest.raises(MarkException) as exc:
+        find_mark(marked)
+    assert exc.value.subject == subject
+    assert remove_mark(marked) == ast.And(_meta(), None, [opaque, subject])

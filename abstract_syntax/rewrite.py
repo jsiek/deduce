@@ -145,6 +145,8 @@ def find_mark(formula: AST) -> None:
       find_mark(body)
     case RecFun(_, _, _, _, _, cases):
       pass
+    case GenRecFun(_, _, _, _, _, _, _, body, _):
+      pass
     case Conditional(_, _, cond, thn, els):
       find_mark(cond)
       find_mark(thn)
@@ -159,6 +161,8 @@ def find_mark(formula: AST) -> None:
       find_mark(rhs)
       find_mark(body)
     case Hole(_, _):
+      pass
+    case Omitted(_, _):
       pass
     case ArrayGet(_, _, arr, ind):
       find_mark(arr)
@@ -225,6 +229,8 @@ def replace_mark(formula: Term | SwitchCase, replacement: Term) -> Term | Switch
       return SwitchCase(loc2, pat, replace_mark(body, replacement))
     case RecFun(_, _, typarams, _, _, cases):
       return formula
+    case GenRecFun(_, _, _, _, _, _, _, body, _):
+      return formula
     case Conditional(loc2, tyof, cond, thn, els):
       return Conditional(loc2, tyof, replace_mark(cond, replacement),
                          replace_mark(thn, replacement),
@@ -239,6 +245,8 @@ def replace_mark(formula: Term | SwitchCase, replacement: Term) -> Term | Switch
       return TLet(loc2, tyof, var, replace_mark(rhs, replacement),
                   replace_mark(body, replacement))
     case Hole(loc2, tyof):
+      return formula
+    case Omitted(loc2, tyof):
       return formula
     case ArrayGet(loc2, tyof, arr, ind):
       return ArrayGet(loc2, tyof, replace_mark(arr, replacement), replace_mark(ind, replacement))
@@ -410,6 +418,8 @@ def rewrite_aux(loc: Meta, formula: Term | SwitchCase, equation: Formula | AutoR
     case SwitchCase(loc2, pat, body):
       return SwitchCase(loc2, pat, rewrite_aux(loc, body, equation, env, depth - 1))
     case RecFun(loc, _, typarams, _, _, cases):
+      return formula
+    case GenRecFun(_, _, _, _, _, _, _, body, _):
       return formula
     case Conditional(loc2, tyof, cond, thn, els):
       return Conditional(loc2, tyof, rewrite_aux(loc, cond, equation, env, depth - 1),
