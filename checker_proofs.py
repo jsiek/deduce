@@ -33,7 +33,7 @@ from abstract_syntax import (
     Union, Var, VarRef, ViewDecl, base_name, bijective_view_for_source_type,
     callable_name, formula_match,
     get_predicate_decl, get_type_name, is_constructor, is_equation, is_true,
-    mkEqual, remove_mark, set_dont_reduce_opaque, set_reduce_all,
+    mkEqual, reduce_lets, remove_mark, set_dont_reduce_opaque, set_reduce_all,
     get_reduce_only, set_reduce_only, split_equation, type_match,
 )
 from checker_common import *
@@ -164,8 +164,7 @@ def _check_proof_true(proof: PTrue, env: Env) -> CheckedFormula:
 def _check_proof_and_elim(proof: PAndElim, env: Env) -> CheckedFormula:
   loc = proof.location
   formula = check_proof(proof.subject, env)
-  if isinstance(formula, TLet):
-    formula = formula.reduceLets(env)
+  formula = reduce_lets(formula, env)
 
   match formula:
     case And(_, _, args):
@@ -305,8 +304,7 @@ def _check_proof_all_elim(proof: AllElim, env: Env) -> CheckedFormula:
   loc = proof.location
   allfrm = check_proof(proof.univ, env)
 
-  if isinstance(allfrm, TLet):
-    allfrm = allfrm.reduceLets(env)
+  allfrm = reduce_lets(allfrm, env)
 
   match allfrm:
     case All(_, _, var, _, _):
@@ -335,8 +333,7 @@ def _check_proof_all_elim_types(proof: AllElimTypes, env: Env) -> CheckedFormula
   loc = proof.location
   allfrm = check_proof(proof.univ, env)
 
-  if isinstance(allfrm, TLet):
-    allfrm = allfrm.reduceLets(env)
+  allfrm = reduce_lets(allfrm, env)
 
   match allfrm:
     case All(_, _, vars, _, _):
@@ -1479,8 +1476,7 @@ def _check_proof_of_all_intro(proof: AllIntro, formula: CheckedFormula, env: Env
   x, ty = var
   checked_ty = check_type(ty, env)
 
-  if isinstance(formula, TLet):
-    formula = formula.reduceLets(env)
+  formula = reduce_lets(formula, env)
 
   match formula:
     case All(_, _, var2, (s, _), formula2):
@@ -1510,8 +1506,7 @@ def _check_proof_of_some_intro(proof: SomeIntro, formula: CheckedFormula, env: E
   # room for improvement, if var has type annotation, could type_check the witness
   witnesses = [type_synth_term(trm, env, None, []) for trm in proof.witnesses]
 
-  if isinstance(formula, TLet):
-    formula = formula.reduceLets(env)
+  formula = reduce_lets(formula, env)
 
   match formula:
     case Some(_, _, vars, formula2):
@@ -1526,8 +1521,7 @@ def _check_proof_of_some_elim(proof: SomeElim, formula: CheckedFormula, env: Env
   loc = proof.location
   someFormula = check_proof(proof.some, env)
 
-  if isinstance(someFormula, TLet):
-    someFormula = someFormula.reduceLets(env)
+  someFormula = reduce_lets(someFormula, env)
 
   match someFormula:
     case Some(loc2, _, vars, formula2):
@@ -1551,8 +1545,7 @@ def _check_proof_of_imp_intro(proof: ImpIntro, formula: CheckedFormula, env: Env
   loc = proof.location
 
   if proof.premise is None:
-    if isinstance(formula, TLet):
-      formula = formula.reduceLets(env)
+    formula = reduce_lets(formula, env)
 
     match formula:
       case IfThen(_, _, prem, conc):
@@ -1662,9 +1655,7 @@ def _check_proof_of_cases(proof: Cases, formula: CheckedFormula, env: Env) -> No
   sub_frm = check_proof(proof.subject, env)
 
   # sub_red = sub_frm.reduce(env)
-  sub_red = sub_frm
-  if isinstance(sub_frm, TLet):
-    sub_red = sub_frm.reduceLets(env)
+  sub_red = reduce_lets(sub_frm, env)
 
   match sub_red:
     case Or(_, _, frms):
@@ -1751,8 +1742,7 @@ def _check_proof_of_induction(proof: Induction, formula: CheckedFormula, env: En
   typ = check_type(proof.typ, env)
   cases = proof.cases
 
-  if isinstance(formula, TLet):
-    formula = formula.reduceLets(env)
+  formula = reduce_lets(formula, env)
   match formula:
     case All(_, _, (_,ty), _, _):
       if typ != ty:

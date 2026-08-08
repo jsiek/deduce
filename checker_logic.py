@@ -38,7 +38,6 @@ from abstract_syntax import (
     Switch,
     SwitchCase,
     TermBinding,
-    TLet,
     Term,
     Type,
     VarRef,
@@ -55,6 +54,7 @@ from abstract_syntax import (
     is_equation,
     is_true,
     name2str,
+    reduce_lets,
     replace_mark,
     reset_num_rewrites,
     reset_reduced_defs,
@@ -340,8 +340,7 @@ def collect_all_if_then(loc: Meta, frm: Formula,
                         env: Env) -> tuple[list[Term], list[ImplicationPremise]]:
     """Returns a list of all variables that need be instantiated, and anythings that need applied"""
 
-    if isinstance(frm, TLet):
-      frm = cast(Formula, frm.reduceLets(env))
+    frm = cast(Formula, reduce_lets(frm, env))
 
     match frm:
       case All(loc2, _, var, _, frm):
