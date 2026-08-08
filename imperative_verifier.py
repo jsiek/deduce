@@ -34,8 +34,8 @@ from lark.tree import Meta
 
 import style
 from abstract_syntax import (
-    And, ArrayGet, ArrayLength, Bool, Call, Env, Formula, Proof, ResolvedVar,
-    is_true,
+    And, ArrayGet, Bool, Call, Env, Formula, OverloadedVar, Proof, Term,
+    base_name, is_true,
 )
 
 
@@ -154,21 +154,46 @@ class ImperativeObligation:
 
 # --- array-bounds obligations for mutable-array reads (issue #1117) ----------
 
-def array_bounds_goal(read: ArrayGet) -> Formula:
+def index_in_bounds_goal(loc: Meta, handle: Term, index: Term,
+                         env: Env) -> Formula:
+  """The in-bounds goal ``index < length(handle)`` for a mutable-array access.
+
+  Built by *type-checking* a surface ``index < length(handle)`` call against
+  ``env`` so the ``<`` and ``length`` operators resolve against their operand
+  types exactly as a user's ``requires i < length(a)`` premise does. Unlike
+  ``=`` -- which the checker treats specially -- ``<`` is an ordinary stdlib
+  function, so a bare-name ``ResolvedVar('<')`` would not match the
+  resolved/uniquified ``<`` a real premise carries and the obligation would
+  never discharge (issue #1166). ``length(handle)`` on a mutable-array handle
+  type-checks to the symbolic ``ArrayLength`` node the premise also carries.
+
+  Shared by the read path (``array_bounds_goal``) and the write path
+  (``checker_pipeline._array_bounds_obligation``) so both build the identical
+  goal -- the ``handle`` term is the only thing they supply differently (the
+  read's array subject vs. the write's base array handle, which ignores earlier
+  writes in the symbolic state)."""
+  from checker_types import type_check_formula
+  from error import user_error
+  length_names = [n for n in env.dict if base_name(n) == 'length']
+  lt_names = [n for n in env.dict if base_name(n) == '<']
+  if not length_names or not lt_names:
+    user_error(loc, 'a mutable-array bounds check needs `length` and `<` in '
+               'scope; add `import List` and `import UInt`')
+  length_call = Call(handle.location, None,
+                     OverloadedVar(handle.location, None, length_names),
+                     [handle])
+  lt_call = Call(loc, None, OverloadedVar(loc, None, lt_names),
+                 [index, length_call])
+  return cast(Formula, type_check_formula(lt_call, env))
+
+
+def array_bounds_goal(read: ArrayGet, env: Env) -> Formula:
   """The bounds proof goal ``i < length(a)`` for a mutable-array read ``a[i]``.
 
-  ``read`` is an already-type-checked ``ArrayGet`` over a mutable array. The
-  goal is built with a base-name ``ResolvedVar('<')`` over an ``ArrayLength``
-  node. NOTE (issue #1166): this bare-name ``<`` does not match a resolved
-  ``<`` from a ``requires`` clause once ``discharge`` reduces both sides --
-  discharging a bounds obligation against a real premise needs the operator
-  resolved against its operand types (see
-  ``checker_pipeline._array_bounds_obligation``, which builds the write-bounds
-  goal that way for #1118)."""
-  loc = read.location
-  length = ArrayLength(read.subject.location, None, read.subject)
-  return cast(Formula, Call(loc, None, ResolvedVar(loc, None, '<'),
-                            [read.position, length]))
+  ``read`` is an already-type-checked ``ArrayGet`` over a mutable array; the
+  goal resolves its ``<``/``length`` operators against ``env`` -- see
+  ``index_in_bounds_goal`` (issue #1166)."""
+  return index_in_bounds_goal(read.location, read.subject, read.position, env)
 
 
 def _read_key(read: ArrayGet) -> Tuple[object, object, str]:
@@ -189,16 +214,18 @@ class ArrayBoundsObligations:
   _seen: Set[Tuple[object, object, str]] = field(default_factory=set)
   _obligations: List[ImperativeObligation] = field(default_factory=list)
 
-  def record(self, read: ArrayGet,
+  def record(self, read: ArrayGet, env: Env,
              givens: Sequence[Tuple[str, Formula]] = ()) -> None:
-    """Record the bounds obligation for one mutable-array read. A read whose
-    source access was already recorded in this pass is ignored."""
+    """Record the bounds obligation for one mutable-array read. ``env`` is the
+    scope the read appears in -- the ``<``/``length`` operators of the goal
+    resolve against it. A read whose source access was already recorded in
+    this pass is ignored."""
     key = _read_key(read)
     if key in self._seen:
       return
     self._seen.add(key)
     self._obligations.append(
-        ImperativeObligation(read.location, array_bounds_goal(read),
+        ImperativeObligation(read.location, array_bounds_goal(read, env),
                              ObligationKind.ARRAY_BOUNDS,
                              givens=list(givens)))
 
