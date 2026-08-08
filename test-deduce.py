@@ -288,7 +288,15 @@ EXPERIMENTAL_IMPERATIVE_FILES = frozenset({
 
 
 def _uses_experimental_imperative(path: str) -> bool:
-    return path in EXPERIMENTAL_IMPERATIVE_FILES
+    # Everything under ``test/imperative/`` is an imperative fixture by
+    # construction, so it always needs the flag; enrolling the directory keeps
+    # new fixtures covered without touching ``EXPERIMENTAL_IMPERATIVE_FILES``,
+    # which stays the explicit set for imperative fixtures that live *outside*
+    # that tree (in ``should-validate``/``should-warn``/``should-error``/
+    # ``test-imports``) and is vetted for staleness by
+    # ``_check_imperative_flag_enrollment``.
+    return (path in EXPERIMENTAL_IMPERATIVE_FILES
+            or "test/imperative/" in path)
 
 
 # Current parser-equivalence baseline. These files parse successfully with
@@ -705,6 +713,23 @@ def prelude_equiv_files() -> tuple[str, ...]:
     parsers, so no skip baseline is required.
     """
     return tuple(list_pf(PRELUDE_DIR))
+
+
+def imperative_validate_equiv_files() -> tuple[str, ...]:
+    """Every ``test/imperative/should-validate`` fixture, folded into the
+    parser-equivalence and round-trip corpus.
+
+    This is the only corpus exercising the experimental-imperative surface
+    syntax under drift detection: proc/observer/resource declarations,
+    ``while``/``call``/``return``/``assert`` statements, ``new`` allocation,
+    and ``modifies``/``reads`` frames. Every fixture checks successfully under
+    both parsers with ``--experimental-imperative`` auto-enabled (see
+    ``run_imperative_validate``), so both accept it at parse time and no
+    parse-error skip baseline is needed. ``_uses_experimental_imperative``
+    enables the flag for these paths by directory, and the directory is swept
+    so new imperative fixtures join drift detection automatically.
+    """
+    return tuple(list_pf(IMP_PASS_DIR))
 
 
 class ParsedFlags(TypedDict):
@@ -1286,7 +1311,9 @@ def run_parser_equivalence(workers: int) -> list[tuple[str, str, str]]:
     later phase but parse cleanly under both parsers, so their ASTs are still
     meaningful surface-syntax samples. The ``SHOULD_ERROR_PARSER_EQUIV_SKIP``
     baseline excludes only the fixtures where at least one parser rejects at
-    parse time today.
+    parse time today. The ``test/imperative/should-validate`` fixtures are
+    folded in too so the experimental-imperative surface syntax stays under
+    RD/LALR drift detection.
 
     ``test/parse`` remains RD-only because those fixtures intentionally lock
     down beginner-facing RD diagnostics, while the LALR parser is kept as an
@@ -1297,6 +1324,7 @@ def run_parser_equivalence(workers: int) -> list[tuple[str, str, str]]:
         + should_error_equiv_files()
         + should_warn_equiv_files()
         + prelude_equiv_files()
+        + imperative_validate_equiv_files()
         + tuple(sorted(PARSER_EQUIV_EXPECTED_DIVERGENCES))
     ))
     files = shard(list(all_files))
@@ -1428,7 +1456,8 @@ def _check_should_error_skip_set() -> list[tuple[str, str, str]]:
 
 def run_parser_round_trip(workers: int) -> list[tuple[str, str, str]]:
     """Pretty-print representative ASTs and re-parse with both parsers."""
-    files = shard(list(PARSER_ROUND_TRIP_FILES))
+    files = shard(list(PARSER_ROUND_TRIP_FILES
+                       + imperative_validate_equiv_files()))
     failures: list[tuple[str, str, str]] = []
     for file_failures in _map_or_serial(
         _parser_workers(workers, len(files)),
@@ -1454,6 +1483,10 @@ def run_parser_round_trip(workers: int) -> list[tuple[str, str, str]]:
 #     which must parse and check to be compiled.
 #   * ``tools/claude_fill_hole/examples`` -- hole-fill fixtures exercising the
 #     ``?`` / ``help`` hole syntax.
+#   * ``test/imperative/should-validate`` -- the experimental-imperative
+#     surface syntax (proc/observer declarations, ``while``/``call``/``new``,
+#     ``modifies``/``reads`` frames). ``_uses_experimental_imperative`` turns
+#     the flag on for these paths by directory.
 #
 # ``test/should-error`` files are meant to fail, but most fail in a *later*
 # phase (type/proof check) while parsing cleanly under both parsers -- their
@@ -1464,7 +1497,8 @@ def run_parser_round_trip(workers: int) -> list[tuple[str, str, str]]:
 # staleness check shrinks that set as parsers converge). This is the full-corpus
 # counterpart to the curated ``PARSER_ROUND_TRIP_FILES`` set.
 FULL_ROUND_TRIP_DIRS = (LIB_DIR, PASS_DIR, WARN_DIR, PRELUDE_DIR, EXAMPLES_DIR,
-                        IMPORTS_DIR, COMPILE_DIR, HOLE_FILL_EXAMPLES_DIR)
+                        IMPORTS_DIR, COMPILE_DIR, HOLE_FILL_EXAMPLES_DIR,
+                        IMP_PASS_DIR)
 
 
 def list_pf_recursive(d: Path) -> list[str]:
