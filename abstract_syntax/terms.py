@@ -1801,6 +1801,35 @@ def is_true(b: Formula) -> bool:
     case _:
         return False
 
+def _reduce_connective(
+    formula: And | Or, env: Env,
+    flatten: Callable[[Sequence[Formula]], list[Formula]],
+    identity: bool,
+    cls: type[And] | type[Or],
+) -> Formula:
+  """Normalize an ``and``/``or`` monoid: reduce and flatten the arguments,
+  drop the identity constant (``true`` for ``and``, ``false`` for ``or``), and
+  short-circuit on the absorbing constant (``false``/``true``). Returns the
+  sole survivor unwrapped, the identity ``Bool`` when none survive, or a
+  rebuilt ``cls`` node."""
+  new_args = flatten([arg.reduce(env) for arg in formula.args])
+  newer_args = []
+  for arg in new_args:
+    match arg:
+      case Bool(_, _, val):
+        if val == identity:  # identity element: throw this away
+          pass
+        else:                # absorbing element: the whole thing collapses to it
+          return arg
+      case _:
+        newer_args.append(arg)
+  if len(newer_args) == 0:
+    return Bool(formula.location, BoolType(formula.location), identity)
+  elif len(newer_args) == 1:
+    return newer_args[0]
+  else:
+    return cls(formula.location, formula.typeof, newer_args)
+
 @dataclass
 class And(Formula):
   args: list[Formula]
@@ -1836,24 +1865,7 @@ class And(Formula):
     return eq_arg_list(self, other)
 
   def reduce(self, env: Env) -> Formula:
-    #new_args = [arg.reduce(env) for arg in self.args]
-    new_args = flatten_and([arg.reduce(env) for arg in self.args])
-    newer_args = []
-    for arg in new_args:
-      match arg:
-        case Bool(_, _, val):
-          if val:  # true: throw this away
-            pass
-          else:    # false: the whole thing is false
-            return arg
-        case _:
-          newer_args.append(arg)
-    if len(newer_args) == 0:
-      return Bool(self.location, BoolType(self.location), True)
-    elif len(newer_args) == 1:
-      return newer_args[0]
-    else:
-      return And(self.location, self.typeof, newer_args)
+    return _reduce_connective(self, env, flatten_and, True, And)
 
 def list_of_or(arg: Formula) -> list[Formula]:
   match arg:
@@ -1879,23 +1891,7 @@ class Or(Formula):
     return eq_arg_list(self, other)
 
   def reduce(self, env: Env) -> Formula:
-    new_args = flatten_or([arg.reduce(env) for arg in self.args])
-    newer_args = []
-    for arg in new_args:
-      match arg:
-        case Bool(_, _, val):
-          if val:  # true: the whole thing is true
-            return arg 
-          else:    # false: throw this away
-            pass
-        case _:
-          newer_args.append(arg)
-    if len(newer_args) == 0:
-      return Bool(self.location, BoolType(self.location), False)
-    elif len(newer_args) == 1:
-      return newer_args[0]
-    else:
-      return Or(self.location, self.typeof, newer_args)
+    return _reduce_connective(self, env, flatten_or, False, Or)
 
 @dataclass
 class IfThen(Formula):
