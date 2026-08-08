@@ -521,19 +521,12 @@ def parse_postfix_chain(term: Term, start_token: Token) -> Term:
       # array access" context points at the bracket, matching the
       # original parse_array_get behavior captured by the parse/
       # error fixtures.
-      bracket_token = current_token()
-      try:
+      with parse_region(while_parsing) as bracket_token:
         advance()
         index = parse_term()
         consume_token('RSQB', 'closing bracket "]"')
         term = ArrayGet(meta_from_tokens(bracket_token, previous_token()),
                         None, term, index)
-      except ParseError as e:
-        raise e.extend(meta_from_tokens(bracket_token, previous_token()),
-                       while_parsing)
-      except Exception as e:
-        raise ParseError(meta_from_tokens(bracket_token, previous_token()),
-                         "Unexpected error while parsing:\n\t" + str(e))
     elif tt == 'FIELDACCESS':
       # Field access `subject.field` (#854 Phase 1h). The FIELDACCESS token
       # carries its leading `.`; the field name drops it.
@@ -556,18 +549,12 @@ def parse_make_array() -> Term:
   if current_token().value == 'array':
     while_parsing = 'while parsing array creation\n' \
         + '\tterm ::= "array" "(" term ")"\n'
-    start_token = current_token()
-    advance()
-    try:
+    with parse_region(while_parsing) as start_token:
+      advance()
       consume_token('LPAR', 'open parenthesis "("')
       arg = parse_term()
       consume_token('RPAR', 'closing parenthesis ")"')
       term = MakeArray(meta_from_tokens(start_token, previous_token()),None,arg)
-    except ParseError as e:
-      raise e.extend(meta_from_tokens(start_token, previous_token()), while_parsing)
-    except Exception as e:
-      raise ParseError(meta_from_tokens(start_token, previous_token()), "Unexpected error while parsing:\n\t" \
-        + str(e))
     return parse_postfix_chain(term, start_token)
   else:
     return parse_call()
@@ -791,64 +778,44 @@ def parse_proof_hi() -> Proof:
   if token.type == 'APPLY':
     while_parsing = 'while parsing apply-to (use a logical implication)\n' \
         + '\tconclusion ::= "apply" proof "to" proof\n'
-    advance()
-    try:
+    with parse_region(while_parsing) as start_token:
+      advance()
       imp = parse_proof()
       consume_token('TO', '"to"', context='after implication part of "apply"')
       arg = parse_proof()
-      return ModusPonens(meta_from_tokens(token, previous_token()), imp, arg)
-    except ParseError as e:
-      raise e.extend(meta_from_tokens(token, previous_token()), while_parsing)
-    except Exception as e:
-      raise ParseError(meta_from_tokens(token, previous_token()), "Unexpected error while parsing:\n\t" \
-        + str(e))
+      return ModusPonens(meta_from_tokens(start_token, previous_token()), imp, arg)
 
   elif token.type == 'CONTRADICT':
     while_parsing = 'while parsing contracit (use a logical negation)\n' \
         + '\tconclusion ::= "contradict" proof "," proof\n'
-    advance()
-    try:
+    with parse_region(while_parsing) as start_token:
+      advance()
       child1 = parse_proof()
       child2 = child1.copy()
-      return ModusPonens(meta_from_tokens(token, previous_token()), child1, child2)
-    except ParseError as e:
-      raise e.extend(meta_from_tokens(token, previous_token()), while_parsing)
-    except Exception as e:
-      raise ParseError(meta_from_tokens(token, previous_token()), "Unexpected error while parsing:\n\t" \
-        + str(e))
+      return ModusPonens(meta_from_tokens(start_token, previous_token()), child1, child2)
 
   elif token.type == 'CASES':
     while_parsing = 'while parsing cases (use a logical or)\n' \
         + '\tconclusion ::= "cases" proof case_clause*\n' \
         + '\tcase_clause ::= "case" identifier ":" term "{" proof "}"\n'
-    advance()
-    try:
+    with parse_region(while_parsing) as start_token:
+      advance()
       subject = parse_proof(allow_missing=False)
       cases = []
       while (not end_of_file()) and current_token().type == 'CASE':
           c = parse_case()
           cases.append(c)
-      meta = meta_from_tokens(token, previous_token())
+      meta = meta_from_tokens(start_token, previous_token())
       return Cases(meta, subject, cases)
-    except ParseError as e:
-      raise e.extend(meta_from_tokens(token, previous_token()), while_parsing)
-    except Exception as e:
-      raise ParseError(meta_from_tokens(token, previous_token()), "Unexpected error while parsing:\n\t" \
-        + str(e))
 
   elif token.type == 'CONCLUDE':
     while_parsing = 'while parsing\n' \
         + '\tconclusion ::= "conclude" formula "by" proof\n'
-    advance()
-    try:
+    with parse_region(while_parsing) as start_token:
+      advance()
       claim = parse_term()
       reason = parse_reason()
-      return PAnnot(meta_from_tokens(token, previous_token()), claim, reason)
-    except ParseError as e:
-      raise e.extend(meta_from_tokens(token, previous_token()), while_parsing)
-    except Exception as e:
-      raise ParseError(meta_from_tokens(token, previous_token()), "Unexpected error while parsing:\n\t" \
-        + str(e))
+      return PAnnot(meta_from_tokens(start_token, previous_token()), claim, reason)
 
   elif token.type == 'CONJUNCT':
     advance()
@@ -2173,36 +2140,26 @@ def parse_statement() -> Statement:
   elif token.type == 'ASSERT':
     while_parsing = 'while parsing assert\n' \
         + '\tstatement ::= "assert" formula\n'
-    advance()
-    try:
+    with parse_region(while_parsing) as start_token:
+        advance()
         body = parse_term()
-        return Assert(meta_from_tokens(token, previous_token()), body)
-    except ParseError as e:
-      raise e.extend(meta_from_tokens(token, previous_token()), while_parsing)
-    except Exception as e:
-      raise ParseError(meta_from_tokens(token, previous_token()), "Unexpected error while parsing:\n\t" \
-        + str(e))
+        return Assert(meta_from_tokens(start_token, previous_token()), body)
   elif token.type == 'THEOREM' or token.type == 'LEMMA' or token.type == 'POSTULATE':
     return with_visibility_location(parse_theorem(visibility), vis_token)
 
   elif token.type == 'EXPORT':
     while_parsing = 'while parsing import\n' \
         + '\tstatement ::= "export" identifier\n'
-    advance()
-    try:
+    with parse_region(while_parsing) as start_token:
+        advance()
         name = parse_identifier()
-        return Export(meta_from_tokens(token, previous_token()), name)
-    except ParseError as e:
-      raise e.extend(meta_from_tokens(token, previous_token()), while_parsing)
-    except Exception as e:
-      raise ParseError(meta_from_tokens(token, previous_token()), "Unexpected error while parsing:\n\t" \
-        + str(e))
+        return Export(meta_from_tokens(start_token, previous_token()), name)
 
   elif token.type == 'IMPORT':
     while_parsing = 'while parsing import\n' \
         + '\tstatement ::= "import" identifier ["using" | "hiding" name ("|" name)*]\n'
-    advance()
-    try:
+    with parse_region(while_parsing) as start_token:
+        advance()
         name = parse_identifier()
         using = None
         hiding = None
@@ -2218,29 +2175,19 @@ def parse_statement() -> Statement:
           else:
             hiding = names
         return with_visibility_location(
-                      Import(meta_from_tokens(token, previous_token()),
+                      Import(meta_from_tokens(start_token, previous_token()),
                              name, using=using, hiding=hiding,
                              visibility=visibility),
                       vis_token)
-    except ParseError as e:
-      raise e.extend(meta_from_tokens(token, previous_token()), while_parsing)
-    except Exception as e:
-      raise ParseError(meta_from_tokens(token, previous_token()), "Unexpected error while parsing:\n\t" \
-        + str(e))
 
   elif token.type == 'PRINT':
     while_parsing = 'while parsing\n' \
         + '\tstatement ::= "print" term\n'
-    advance()
-    try:
+    with parse_region(while_parsing) as start_token:
+        advance()
         subject = parse_term()
-        meta = meta_from_tokens(token, previous_token())
+        meta = meta_from_tokens(start_token, previous_token())
         return Print(meta, subject)
-    except ParseError as e:
-        raise e.extend(meta_from_tokens(token, previous_token()), while_parsing)
-    except Exception as e:
-        raise ParseError(meta_from_tokens(token, previous_token()), "Unexpected error while parsing:\n\t" \
-          + str(e))
 
   elif token.type == 'AUTO':
     advance()
