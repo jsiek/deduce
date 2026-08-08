@@ -1,0 +1,5 @@
+./test/imperative/should-error/proc_proof_slot_late_fact.pf:11.28-11.45: Could not find a proof of
+	x = true
+in the current scope
+Givens:
+

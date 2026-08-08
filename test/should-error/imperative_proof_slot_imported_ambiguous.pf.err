@@ -1,0 +1,1 @@
+./test/should-error/imperative_proof_slot_imported_ambiguous.pf:13.3-13.15: proof-slot label 'ex_mid' is ambiguous: it is also an in-scope theorem; rename the proof slot

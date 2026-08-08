@@ -456,15 +456,15 @@ def test_assignment_to_a_parameter_defers_verification() -> None:
   assert not _proc_verifiable(decl)
 
 
-def test_proof_block_defers_verification() -> None:
-  # A `by <slot>` clause needs the out-of-line proof-block bindings, which are
-  # out of scope for this slice, so a procedure that declares one is deferred.
+def test_proof_block_is_verifiable() -> None:
+  # Phase 2n (#1123): a procedure with an out-of-line `proof ... end` block is
+  # no longer deferred -- its slots are matched to obligations and checked.
   from abstract_syntax import PTrue
   from abstract_syntax.declarations import ProcProofEntry
   decl = ProcDecl(_meta(), 'slotted', [], [_param('x')], None, [],
                   [ImpReturn(_meta(), _rv('x'))],
                   [ProcProofEntry(_meta(), 'slot', PTrue(_meta()))], None)
-  assert not _proc_verifiable(decl)
+  assert _proc_verifiable(decl)
 
 
 # --- discharge integration --------------------------------------------------
@@ -491,3 +491,30 @@ def test_verify_proc_reports_a_false_postcondition() -> None:
     assert False, 'expected an IncompleteProof'
   except IncompleteProof as e:
     assert 'postcondition' in str(e)
+
+
+def test_verify_proc_inlines_a_used_proof_slot() -> None:
+  # Phase 2n (#1123): `assert true by slot` is discharged by inlining the
+  # out-of-line `slot { . }` entry's proof, so `verify_proc` returns normally.
+  from abstract_syntax import Bool, PTrue, PVar
+  from abstract_syntax.declarations import ProcProofEntry
+  decl = ProcDecl(_meta(), 'slotted', [], [_param('x')], None, [],
+                  [ImpAssert(_meta(), Bool(_meta(), None, True),
+                             PVar(_meta(), 'slot'))],
+                  [ProcProofEntry(_meta(), 'slot', PTrue(_meta()))], None)
+  verify_proc(decl, _env())  # returns normally; the slot proof discharges it
+
+
+def test_verify_proc_reports_an_unused_proof_slot() -> None:
+  # Phase 2n (#1123): a `proof ... end` entry no `by` clause cites is rejected.
+  from abstract_syntax import Bool, PTrue
+  from abstract_syntax.declarations import ProcProofEntry
+  from error import UserError
+  decl = ProcDecl(_meta(), 'slotted', [], [_param('x')], None, [],
+                  [ImpAssert(_meta(), Bool(_meta(), None, True), None)],
+                  [ProcProofEntry(_meta(), 'extra', PTrue(_meta()))], None)
+  try:
+    verify_proc(decl, _env())
+    assert False, 'expected an unused-proof-slot error'
+  except UserError as e:
+    assert 'unused proof slot' in str(e)

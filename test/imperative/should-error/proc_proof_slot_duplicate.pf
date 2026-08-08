@@ -1,0 +1,10 @@
+// Phase 2n (issue #1123): two entries in a `proof ... end` block may not share
+// a label -- a bare `by dup` could not name exactly one of them.
+proc p(x: bool)
+{
+  assert x = x by dup
+}
+proof
+  dup { . }
+  dup { . }
+end

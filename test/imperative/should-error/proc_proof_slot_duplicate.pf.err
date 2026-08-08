@@ -1,0 +1,1 @@
+./test/imperative/should-error/proc_proof_slot_duplicate.pf:9.3-9.12: duplicate proof-slot label 'dup' in this proc's `proof ... end` block

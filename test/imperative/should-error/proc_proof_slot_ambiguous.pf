@@ -1,0 +1,13 @@
+// Phase 2n (issue #1123): a proof-slot label may not share a name with an
+// in-scope theorem, because a bare `by trivial` would then be ambiguous
+// between the slot and the theorem.
+theorem trivial: true
+proof . end
+
+proc p(x: bool)
+{
+  assert x = x by trivial
+}
+proof
+  trivial { . }
+end

@@ -1,0 +1,13 @@
+// Phase 2n (issue #1123): proof-slot labels are local to their procedure and
+// are not module exports. A later declaration cannot cite `helper` as a proof;
+// it resolves to nothing, exactly as if the slot had never existed.
+proc p(x: bool)
+{
+  assert x = x by helper
+}
+proof
+  helper { . }
+end
+
+theorem t: true
+proof helper end

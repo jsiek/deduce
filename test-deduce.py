@@ -282,6 +282,7 @@ EXPERIMENTAL_IMPERATIVE_FILES = frozenset({
     "./test/should-error/imperative_import_unknown.pf",
     "./test/should-error/imperative_import_field.pf",
     "./test/should-error/imperative_export_private_contract.pf",
+    "./test/should-error/imperative_proof_slot_imported_ambiguous.pf",
     "./test/test-imports/ImpExports.pf",
 })
 

@@ -1,0 +1,1 @@
+./test/imperative/should-error/proc_proof_slot_ambiguous.pf:12.3-12.16: proof-slot label 'trivial' is ambiguous: it is also an in-scope theorem; rename the proof slot
