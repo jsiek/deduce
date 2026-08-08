@@ -1,0 +1,56 @@
+// Phase 2l (issue #1121): local-state `while` loops are verified against
+// user-written invariants. Each invariant must hold on entry, be preserved by
+// one arbitrary iteration, and -- together with the negated loop condition --
+// carry the continuation. The locals a loop assigns are havoced before the
+// preservation and exit checks, so nothing about them survives past the loop
+// unless an invariant restates it. Every procedure here is fully verified, so
+// the missing `.pf.warn` sibling pins that this run is warning-free.
+
+// The invariant `y = x` holds on entry (`y` starts at `x`), is preserved by
+// the no-op body, and lets the postcondition `result = x` discharge after the
+// loop even though `y` has been havoced.
+proc echo(x: bool, go: bool) -> bool
+  ensures result = x
+{
+  var y := x
+  while go
+    invariant y = x
+  {
+    y := y
+  }
+  return y
+}
+
+// Multiple invariants each keep their own source location and are checked
+// separately on entry and preservation. Only the invariant needed by the
+// continuation (`a = x`) feeds the returned value; both are still verified.
+proc echo_two(x: bool, z: bool, go: bool) -> bool
+  ensures result = x
+{
+  var a := x
+  var b := z
+  while go
+    invariant a = x
+    invariant b = z
+  {
+    a := a
+    b := b
+  }
+  return a
+}
+
+// A local the loop never assigns is not havoced, so a fact established before
+// the loop about it survives to the continuation without any invariant. Here
+// `kept` is returned and `result = x` discharges from the pre-loop state, even
+// though the loop-assigned `y` carries no invariant.
+proc retains_unwritten(x: bool, go: bool) -> bool
+  ensures result = x
+{
+  var kept := x
+  var y := x
+  while go
+  {
+    y := y
+  }
+  return kept
+}

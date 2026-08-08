@@ -1,0 +1,18 @@
+// Phase 2l (issue #1121): a fact that holds before the loop about a
+// loop-modified local is not retained after the loop unless an invariant
+// restates it. Here `x` is required, so `y := x` makes `y` true before the
+// loop, but `y` is assigned in the body and therefore havoced; the useless
+// `invariant true` carries nothing about `y`, so `ensures result` cannot be
+// proved from the pre-loop value.
+proc forgets(x: bool, go: bool) -> bool
+  requires x
+  ensures result
+{
+  var y := x
+  while go
+    invariant true
+  {
+    y := y
+  }
+  return y
+}

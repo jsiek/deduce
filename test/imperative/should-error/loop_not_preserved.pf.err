@@ -1,0 +1,7 @@
+./test/imperative/should-error/loop_not_preserved.pf:12.15-12.20: incomplete proof
+could not prove this loop invariant preservation obligation
+Goal:
+	(not y) = x
+Givens:
+	condition1: go,
+	invariant0: y = x

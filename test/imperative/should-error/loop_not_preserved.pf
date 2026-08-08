@@ -1,0 +1,17 @@
+// Phase 2l (issue #1121): an invariant that holds on entry but is broken by
+// the body is rejected at the invariant annotation. `invariant y = x` holds
+// when the loop is reached (`y` starts at `x`), so the entry obligation
+// discharges, but the body flips `y`, so the preservation obligation -- checked
+// in the post-iteration state with the invariant and loop condition as givens
+// -- fails at the invariant.
+proc breaks_invariant(x: bool, go: bool) -> bool
+  ensures result = x
+{
+  var y := x
+  while go
+    invariant y = x
+  {
+    y := not y
+  }
+  return y
+}

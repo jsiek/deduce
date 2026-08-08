@@ -14,7 +14,7 @@ File charter:
 """
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, List, Optional, Tuple, cast
+from typing import TYPE_CHECKING, Callable, List, Optional, Tuple, cast
 
 from lark.tree import Meta
 
@@ -31,7 +31,7 @@ from abstract_syntax import (
     MutableArrayType, ObjectDecl,
     ObjectField, ObserverDecl, Omitted, Or, OverloadType, OverloadedVar, PSorry, PVar,
     PatternBool, PatternCons, Postulate, Predicate, Print, ProcDecl, ProcParam,
-    ProcSpec, RecFun, ResolvedVar, ResourceDecl, Rule, Some,
+    ProcSpec, Proof, RecFun, ResolvedVar, ResourceDecl, Rule, Some,
     Statement, Switch, SwitchCase, TAnnote, TermBinding, TLet, Term, TermInst, Theorem,
     Trace, Type, TypeAlias, TypeInst, TypeType, Union, Var, VarRef, VerboseLevel,
     ViewDecl, ViewRecFun, alpha_equiv, base_name, callable_name,
@@ -171,8 +171,13 @@ def _imp_stmt_unmodeled(s: ImpStmt) -> bool:
           or (else_body is not None and _block_unmodeled(else_body))
     case ImpReturn() | ImpAssert() | ImpAssume():
       return False
+    case ImpWhile():
+      # A local-state `while` (Phase 2l, #1116/#1121) is modeled as long as its
+      # body is: a body that writes an array or calls a procedure keeps the
+      # whole loop -- and so the procedure -- deferred.
+      return _block_unmodeled(s.body)
     case _:
-      # `while` and `call` statements.
+      # `call` statements.
       return True
 
 def _block_unmodeled(stmts: list[ImpStmt]) -> bool:
@@ -287,6 +292,16 @@ def _type_check_imp_stmt(s: ImpStmt, env: Env,
       # given for the statements that follow (see `proc_obligations`). It has
       # no runtime effect, so it never contributes to the state.
       type_check_formula(formula, env)
+      return env
+    case ImpWhile(loc, cond, invariants, _, _, body, _, _, _):
+      # Phase 2l (#1121): the loop condition and each invariant must be a
+      # `bool`, and the body type-checks against the enclosing environment
+      # (its own locals stay block-scoped, matching uniquify). The `decreases`
+      # measure is left for the termination slice (#1122).
+      type_check_formula(cond, env)
+      for inv in invariants:
+        type_check_formula(inv, env)
+      _type_check_imp_block(body, env, return_type)
       return env
     case _:
       return env
@@ -414,6 +429,24 @@ def type_check_proc_body(decl: ProcDecl, env: Env) -> None:
 # right-hand sides. Loops (`while`), procedure calls, allocations, and object
 # field writes are later slices, so a body using any of them stays deferred
 # (and keeps the Phase 1m warning).
+def _loop_body_verifiable(s: ImpStmt) -> bool:
+  # Phase 2l (#1121): the body of a verifiable local-state `while` is
+  # straight-line local state -- local `var`/assignment (ordinary right-hand
+  # sides), `assert`, and `assume`. Branching, nested loops, `return`, calls,
+  # and mutable-array element writes inside a loop body are later slices
+  # (array loops are #1128), so a loop containing any of them keeps the whole
+  # procedure deferred.
+  match s:
+    case ImpVar():
+      return not isinstance(s.rhs, (ImpCallExpr, ImpAlloc))
+    case ImpAssign():
+      return isinstance(s.lhs, LValueVar) \
+          and not isinstance(s.rhs, (ImpCallExpr, ImpAlloc))
+    case ImpAssert() | ImpAssume():
+      return True
+    case _:
+      return False
+
 def _stmt_verifiable(s: ImpStmt) -> bool:
   match s:
     case ImpVar():
@@ -427,8 +460,10 @@ def _stmt_verifiable(s: ImpStmt) -> bool:
       return all(_stmt_verifiable(t) for t in then_body) \
           and (else_body is None
                or all(_stmt_verifiable(t) for t in else_body))
+    case ImpWhile():
+      return all(_loop_body_verifiable(t) for t in s.body)
     case _:
-      # `while` and `call` statements.
+      # `call` statements.
       return False
 
 def _assigns_to_a_parameter(decl: ProcDecl) -> bool:
@@ -447,6 +482,9 @@ def _assigns_to_a_parameter(decl: ProcDecl) -> bool:
         case ImpIf(_, _, then_body, else_body):
           if assigns(then_body) \
              or (else_body is not None and assigns(else_body)):
+            return True
+        case ImpWhile():
+          if assigns(s.body):
             return True
     return False
   return assigns(decl.body)
@@ -633,8 +671,11 @@ def proc_obligations(decl: ProcDecl,
           ImperativeObligation(post_loc, goal, ObligationKind.POSTCONDITION,
                                givens=list(givens)))
 
+  PathEnd = Callable[[Substitution, list[tuple[str, Formula]], Env], None]
+
   def walk(stmts: list[ImpStmt], state: Substitution,
-           givens: list[tuple[str, Formula]], cur_env: Env) -> None:
+           givens: list[tuple[str, Formula]], cur_env: Env,
+           on_end: PathEnd) -> None:
     def symbolic(rhs: Term, typ: Type) -> Term:
       checked = type_check_term(rhs, typ, cur_env, None, [])
       record_reads(checked, givens, cur_env)
@@ -720,21 +761,109 @@ def proc_obligations(decl: ProcDecl,
           # Both branches are checked against the same continuation; each gets
           # its own copy of `state` so a branch-local write does not leak out.
           walk(cast(list[ImpStmt], then_body) + rest, dict(state),
-               givens + [('if' + str(len(givens)), cond_frm)], cur_env)
+               givens + [('if' + str(len(givens)), cond_frm)], cur_env, on_end)
           else_stmts = cast(list[ImpStmt], else_body) if else_body is not None \
               else []
           walk(else_stmts + rest, dict(state),
-               givens + [('if' + str(len(givens)), neg)], cur_env)
+               givens + [('if' + str(len(givens)), neg)], cur_env, on_end)
           return  # both branch paths already handled the continuation
+        case ImpWhile():
+          handle_while(s, stmts[idx + 1:], state, givens, cur_env, on_end)
+          return  # the loop owns the continuation on every exit path
         case ImpReturn(_, value):
           result = symbolic(value, cast(Type, decl.return_type))
           emit_posts(result, state, givens)
           return  # a `return` is terminal; anything after it is unreachable
-    # This path fell off the end without returning: its postconditions hold
-    # with `result` unbound (so they may not mention `result`).
-    emit_posts(None, state, givens)
+    on_end(state, givens, cur_env)
 
-  walk(decl.body, {}, _proc_givens(decl), base_env)
+  def handle_while(s: ImpWhile, rest: list[ImpStmt], state: Substitution,
+                   givens: list[tuple[str, Formula]], cur_env: Env,
+                   on_end: PathEnd) -> None:
+    # Phase 2l (#1121): a local-state `while` loop. Its invariants must hold on
+    # ENTRY (in the current state), be PRESERVED by one arbitrary iteration, and
+    # -- with the negated loop condition -- carry the EXIT continuation. The
+    # `decreases` measure (termination, #1122) and `modifies` frames (#1119) are
+    # out of scope here; loop bodies are straight-line local state
+    # (`_loop_body_verifiable`), so preservation is a single path.
+    inv_checked = [cast(Formula, type_check_formula(inv, cur_env))
+                   for inv in s.invariants]
+    cond_checked = cast(Formula, type_check_formula(s.cond, cur_env))
+
+    def invariant_goals(sub: Substitution) -> list[tuple[Meta, Formula]]:
+      return [(inv.location, cast(Formula, checked.substitute(sub)))
+              for (inv, checked) in zip(s.invariants, inv_checked)]
+
+    def emit_invariants(sub: Substitution,
+                        path_givens: list[tuple[str, Formula]],
+                        kind: 'ObligationKind',
+                        proof: Optional[Proof]) -> None:
+      goals = invariant_goals(sub)
+      if not goals:
+        return
+      if proof is not None:
+        # A user `established`/`preserved` proof covers the whole invariant
+        # conjunction, so it drives one combined obligation at the loop header.
+        conj = goals[0][1] if len(goals) == 1 \
+            else cast(Formula, And(s.location, None, [g for (_l, g) in goals]))
+        obligations.append(
+            ImperativeObligation(goals[0][0], conj, kind,
+                                 givens=list(path_givens), proof=proof))
+      else:
+        for (goal_loc, goal) in goals:
+          obligations.append(
+              ImperativeObligation(goal_loc, goal, kind,
+                                   givens=list(path_givens)))
+
+    # Entry: the invariants must hold in the current (pre-loop) state.
+    emit_invariants(state, givens, ObligationKind.LOOP_ENTRY, s.established)
+
+    # Havoc the locals the loop assigns. Dropping them from the state leaves
+    # them symbolic (as themselves), constrained only by the invariants and the
+    # loop condition. A carried given that mentions one describes its pre-loop
+    # value and would be unsound to keep (e.g. an invariant an *earlier* loop
+    # exported about a local this loop reassigns), so such givens are dropped
+    # too; the invariants are the only facts about a modified local afterwards.
+    modified = {t.lhs.name for t in s.body
+                if isinstance(t, ImpAssign) and isinstance(t.lhs, LValueVar)}
+    havoc_state = {k: v for (k, v) in state.items() if k not in modified}
+    havoc_givens = [(lbl, frm) for (lbl, frm) in givens
+                    if not (_referenced_names(frm) & modified)]
+
+    def loop_givens(negate_cond: bool) -> list[tuple[str, Formula]]:
+      g = list(havoc_givens)
+      for (_l, inv) in invariant_goals(havoc_state):
+        g.append(('invariant' + str(len(g)), inv))
+      guard = cast(Formula, cond_checked.substitute(havoc_state))
+      if negate_cond:
+        guard = IfThen(s.cond.location, None, guard,
+                       Bool(s.cond.location, None, False))
+      g.append(('condition' + str(len(g)), guard))
+      return g
+
+    # Preservation: assume the invariants and the loop condition, run one
+    # iteration of the body, then re-check the invariants in the resulting
+    # state (the body's fall-through continuation).
+    def preserved_end(body_state: Substitution,
+                      body_givens: list[tuple[str, Formula]],
+                      _body_env: Env) -> None:
+      emit_invariants(body_state, body_givens,
+                      ObligationKind.LOOP_PRESERVATION, s.preserved)
+    walk(list(s.body), dict(havoc_state), loop_givens(negate_cond=False),
+         cur_env, preserved_end)
+
+    # Exit: continue past the loop with the invariants and the negated loop
+    # condition as givens, over the havoced state.
+    walk(rest, dict(havoc_state), loop_givens(negate_cond=True), cur_env,
+         on_end)
+
+  def top_end(state: Substitution, path_givens: list[tuple[str, Formula]],
+              _env: Env) -> None:
+    # A path that falls off the end of the procedure without returning: its
+    # postconditions hold with `result` unbound (so they may not mention
+    # `result`). The fall-through state still rewrites any mutated binding.
+    emit_posts(None, state, path_givens)
+
+  walk(decl.body, {}, _proc_givens(decl), base_env, top_end)
   discharge_env = base_env
   for (name, (vloc, var_ty)) in local_bindings.items():
     discharge_env = discharge_env.declare_term_var(vloc, name, var_ty,
