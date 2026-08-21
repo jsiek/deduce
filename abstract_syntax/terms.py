@@ -63,6 +63,7 @@ if TYPE_CHECKING:
         _alpha_equiv_binders,
         _alpha_equiv_function_type,
         _alpha_equiv_tlet,
+        binder_eq,
         callable_name,
         explicit_term_inst,
         flatten_assoc_list,
@@ -153,9 +154,7 @@ class FunctionType(Type):
       + ' -> ' + str(self.return_type) + ')'
 
   def __eq__(self, other: object) -> bool:
-    if not isinstance(other, FunctionType):
-      return False
-    return _alpha_equiv_function_type(self, other, {}, {})
+    return binder_eq(self, other, FunctionType, _alpha_equiv_function_type)
 
   def free_vars(self) -> Set[str]:
     fvs = [pt.free_vars() for pt in self.param_types] \
@@ -753,9 +752,7 @@ class Lambda(Term):
         + indent*' ' + '}'
 
   def __eq__(self, other: object) -> bool:
-      if not isinstance(other, Lambda):
-        return False
-      return _alpha_equiv_binders(self, other, {}, {})
+    return binder_eq(self, other, Lambda, _alpha_equiv_binders)
 
   def reduce(self, env: Env) -> Lambda:
     if get_eval_all():
@@ -1736,9 +1733,7 @@ class TLet(Term):
     return TLet(self.location, self.typeof, new_var, new_rhs, new_body)
 
   def __eq__(self, other: object) -> bool:
-    if not isinstance(other, TLet):
-      return False
-    return _alpha_equiv_tlet(self, other, {}, {})
+    return binder_eq(self, other, TLet, _alpha_equiv_tlet)
 
 def reduce_lets(term: Term, env: Env) -> Term:
   """Collapse a leading ``TLet`` binding via ``reduceLets``; pass other terms through."""
@@ -2051,9 +2046,7 @@ class All(Formula):
                    new_body)
 
   def __eq__(self, other: object) -> bool:
-    if not isinstance(other, All):
-      return False
-    return _alpha_equiv_all(self, other, {}, {})
+    return binder_eq(self, other, All, _alpha_equiv_all)
 
   def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> All:
     body_env = {x:y for (x,y) in env.items()}
@@ -2101,7 +2094,5 @@ class Some(Formula):
     return Some(self.location, self.typeof, new_vars, new_body)
 
   def __eq__(self, other: object) -> bool:
-    if not isinstance(other, Some):
-      return False
-    return _alpha_equiv_binders(self, other, {}, {})
+    return binder_eq(self, other, Some, _alpha_equiv_binders)
   
