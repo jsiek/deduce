@@ -1729,9 +1729,7 @@ class TLet(Term):
 
   def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> TLet:
     new_rhs = self.rhs.uniquify(env, ctx)
-    body_env = {x:y for (x,y) in env.items()}
-    new_var = generate_name(self.var, ctx)
-    overwrite(body_env, self.var, new_var, self.location)
+    body_env, new_var = uniquify_binder(env, self.var, ctx, self.location)
     new_body = self.body.uniquify(body_env, ctx)
     return TLet(self.location, self.typeof, new_var, new_rhs, new_body)
 
