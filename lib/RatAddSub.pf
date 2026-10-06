@@ -1,0 +1,230 @@
+module Rat
+
+import Nat
+import UInt
+import Int
+import Base
+import RatPos
+import RatDefs
+import RatFrac
+
+/*
+  Theorems about Rat addition, negation, and subtraction.
+*/
+
+theorem rat_add_commute: all x:Rat, y:Rat. x + y = y + x
+proof
+  arbitrary x:Rat, y:Rat
+  expand operator+
+  replace int_add_commute[num(x) * pos(den(y)), num(y) * pos(den(x))]
+        | uint_mult_commute[den(x), den(y)].
+end
+
+theorem rat_add_assoc: all x:Rat, y:Rat, z:Rat. (x + y) + z = x + (y + z)
+proof
+  arbitrary x:Rat, y:Rat, z:Rat
+  obtain a, d where hx: 0 < d and x = frac(a, d) from rat_frac_rep[x]
+  obtain b, e where hy: 0 < e and y = frac(b, e) from rat_frac_rep[y]
+  obtain c, f where hz: 0 < f and z = frac(c, f) from rat_frac_rep[z]
+  have d_pos: 0 < d by hx
+  have e_pos: 0 < e by hy
+  have f_pos: 0 < f by hz
+  replace conjunct 1 of hx | conjunct 1 of hy | conjunct 1 of hz
+        | apply rat_add_frac[a, d, b, e] to d_pos, e_pos
+        | apply rat_add_frac[b, e, c, f] to e_pos, f_pos
+        | apply rat_add_frac[a * pos(e) + b * pos(d), d * e, c, f]
+          to (apply uint_mult_pos[d, e] to d_pos, e_pos), f_pos
+        | apply rat_add_frac[a, d, b * pos(f) + c * pos(e), e * f]
+          to d_pos, (apply uint_mult_pos[e, f] to e_pos, f_pos)
+        | symmetric mult_pos_pos[d, e] | symmetric mult_pos_pos[e, f]
+        | int_dist_mult_add_right
+        | int_mult_commute[pos(f), pos(d)] | int_mult_commute[pos(e), pos(d)].
+end
+
+associative operator+ in Rat
+
+lemma rat_zero_rzero: rat(+0) = rzero
+proof
+  expand rat | frac.
+end
+
+theorem rat_frac_zero: all d:UInt. frac(+0, d) = rat(+0)
+proof
+  arbitrary d:UInt
+  replace rat_zero_rzero
+  expand frac
+  switch d = 0 {
+    case true { . }
+    case false { . }
+  }
+end
+
+lemma rat_num_rzero: num(rzero) = +0
+proof
+  expand num.
+end
+
+lemma rat_den_rzero: den(rzero) = 1
+proof
+  expand den.
+end
+
+theorem rat_zero_add: all x:Rat. rat(+0) + x = x
+proof
+  arbitrary x:Rat
+  replace rat_zero_rzero
+  expand operator+
+  replace rat_num_rzero | rat_den_rzero | rat_frac_num_den.
+end
+
+auto rat_zero_add
+
+theorem rat_add_zero: all x:Rat. x + rat(+0) = x
+proof
+  arbitrary x:Rat
+  replace rat_add_commute.
+end
+
+auto rat_add_zero
+
+theorem rat_neg_involutive: all x:Rat. - - x = x
+proof
+  arbitrary x:Rat
+  switch x {
+    case rzero { expand operator-. }
+    case rpos(p) { expand operator-. }
+    case rneg(p) { expand operator-. }
+  }
+end
+
+
+theorem rat_neg_zero: - rat(+0) = rat(+0)
+proof
+  replace rat_zero_rzero
+  expand operator-.
+end
+
+auto rat_neg_zero
+
+theorem rat_add_inverse: all x:Rat. x + - x = rat(+0)
+proof
+  arbitrary x:Rat
+  obtain a, d where hx: 0 < d and x = frac(a, d) from rat_frac_rep[x]
+  have d_pos: 0 < d by hx
+  replace conjunct 1 of hx | symmetric rat_frac_neg[a, d]
+        | apply rat_add_frac[a, d, - a, d] to d_pos, d_pos
+        | symmetric dist_neg_mult[a, pos(d)] | int_add_inverse
+        | rat_frac_zero.
+end
+
+theorem rat_add_left_inverse: all x:Rat. - x + x = rat(+0)
+proof
+  arbitrary x:Rat
+  replace rat_add_commute[- x, x]
+  rat_add_inverse[x]
+end
+
+theorem rat_neg_distr_add: all x:Rat, y:Rat. - (x + y) = - x + - y
+proof
+  arbitrary x:Rat, y:Rat
+  obtain a, d where hx: 0 < d and x = frac(a, d) from rat_frac_rep[x]
+  obtain b, e where hy: 0 < e and y = frac(b, e) from rat_frac_rep[y]
+  have d_pos: 0 < d by hx
+  have e_pos: 0 < e by hy
+  replace conjunct 1 of hx | conjunct 1 of hy
+        | apply rat_add_frac[a, d, b, e] to d_pos, e_pos
+        | symmetric rat_frac_neg[a, d] | symmetric rat_frac_neg[b, e]
+        | symmetric rat_frac_neg[a * pos(e) + b * pos(d), d * e]
+        | apply rat_add_frac[- a, d, - b, e] to d_pos, e_pos
+        | neg_distr_add | dist_neg_mult.
+end
+
+theorem rat_neg_injective: all x:Rat, y:Rat. if - x = - y then x = y
+proof
+  arbitrary x:Rat, y:Rat
+  assume eq
+  have h: - (- x) = - (- y) by replace eq.
+  replace rat_neg_involutive in h
+end
+
+// Subtraction
+
+theorem rat_sub_def: all x:Rat, y:Rat. x - y = x + - y
+proof
+  arbitrary x:Rat, y:Rat
+  expand 2* operator-.
+end
+
+theorem rat_sub_cancel: all x:Rat. x - x = rat(+0)
+proof
+  arbitrary x:Rat
+  replace rat_sub_def
+  rat_add_inverse[x]
+end
+
+auto rat_sub_cancel
+
+theorem rat_sub_zero: all x:Rat. x - rat(+0) = x
+proof
+  arbitrary x:Rat
+  replace rat_sub_def.
+end
+
+auto rat_sub_zero
+
+theorem rat_zero_sub: all x:Rat. rat(+0) - x = - x
+proof
+  arbitrary x:Rat
+  replace rat_sub_def.
+end
+
+auto rat_zero_sub
+
+theorem rat_sub_add_cancel: all x:Rat, y:Rat. (x - y) + y = x
+proof
+  arbitrary x:Rat, y:Rat
+  replace rat_sub_def | rat_add_left_inverse.
+end
+
+theorem rat_add_sub_cancel: all x:Rat, y:Rat. (x + y) - y = x
+proof
+  arbitrary x:Rat, y:Rat
+  replace rat_sub_def | rat_add_inverse.
+end
+
+theorem rat_add_both_sides_of_equal: all x:Rat, y:Rat, z:Rat.
+  (x + y = x + z) = (y = z)
+proof
+  arbitrary x:Rat, y:Rat, z:Rat
+  have fwd: if x + y = x + z then y = z by {
+    assume eq
+    have h: - x + (x + y) = - x + (x + z) by replace eq.
+    replace rat_add_left_inverse in h
+  }
+  have bwd: if y = z then x + y = x + z by {
+    assume eq
+    replace eq.
+  }
+  apply iff_equal to fwd, bwd
+end
+
+theorem rat_add_both_sides_of_equal_right: all x:Rat, y:Rat, z:Rat.
+  (y + x = z + x) = (y = z)
+proof
+  arbitrary x:Rat, y:Rat, z:Rat
+  replace rat_add_commute[y, x] | rat_add_commute[z, x]
+  rat_add_both_sides_of_equal[x, y, z]
+end
+
+theorem rat_neg_sub: all x:Rat, y:Rat. - (x - y) = y - x
+proof
+  arbitrary x:Rat, y:Rat
+  replace rat_sub_def | rat_neg_distr_add | rat_neg_involutive | rat_add_commute[- x, y].
+end
+
+theorem rat_sub_eq_zero_iff: all x:Rat, y:Rat. (x - y = rat(+0)) = (x = y)
+proof
+  arbitrary x:Rat, y:Rat
+  replace symmetric rat_add_both_sides_of_equal_right[y, x - y, rat(+0)]
+        | rat_sub_add_cancel.
+end

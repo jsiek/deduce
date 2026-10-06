@@ -387,3 +387,33 @@ proof
         | apply int_pos_mult_less_iff[pos(den(frac(n, d))) * pos(den(frac(m, e))),
                                     n * pos(e), m * pos(d)] to DE_pos.
 end
+
+theorem rat_frac_rep: all x:Rat. some n:Int, d:UInt. 0 < d and x = frac(n, d)
+proof
+  arbitrary x:Rat
+  choose num(x), den(x)
+  rat_den_pos[x], symmetric rat_frac_num_den[x]
+end
+
+theorem rat_frac_eq_iff: all n:Int, d:UInt, m:Int, e:UInt.
+  if 0 < d and 0 < e then (frac(n, d) = frac(m, e)) = (n * pos(e) = m * pos(d))
+proof
+  arbitrary n:Int, d:UInt, m:Int, e:UInt
+  assume prem
+  have fwd: if frac(n, d) = frac(m, e) then n * pos(e) = m * pos(d) by {
+    assume eq
+    apply rat_frac_eq_cross[n, d, m, e] to prem, eq
+  }
+  have bwd: if n * pos(e) = m * pos(d) then frac(n, d) = frac(m, e) by {
+    assume eq
+    apply rat_frac_cross_eq[n, d, m, e] to prem, eq
+  }
+  apply iff_equal to fwd, bwd
+end
+
+lemma uint_mult_pos: all a:UInt, b:UInt. if 0 < a and 0 < b then 0 < a * b
+proof
+  arbitrary a:UInt, b:UInt
+  assume prem
+  apply uint_pos_mult_both_sides_of_less[a, 0, b] to prem
+end
