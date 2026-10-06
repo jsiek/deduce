@@ -16,5 +16,10 @@ Only the top-level module files (such as `UInt.pf`) are listed below. Each modul
 - ([`Nat.thm`](../lib/Nat.thm), [`Nat.pf`](../lib/Nat.pf)): Natural numbers
 - ([`Option.pf`](../lib/Option.pf)): Optional values
 - ([`Pair.pf`](../lib/Pair.pf)): Pairs
+- ([`Rat.thm`](../lib/Rat.thm), [`Rat.pf`](../lib/Rat.pf)): Rational numbers.
+  Write `frac(n, d)` for the rational `n / d` (an `Int` over a `UInt`)
+  and `rat(n)` for an integer, e.g. `frac(+3, 4) + rat(+1) = frac(+7, 4)`.
+  The representation is canonical, so `=` is equality of rationals.
+  Division by zero gives zero: `x / rat(+0) = rat(+0)`.
 - ([`Set.thm`](../lib/Set.thm), [`Set.pf`](../lib/Set.pf)): Sets
 - ([`UInt.thm`](../lib/UInt.thm), [`UInt.pf`](../lib/UInt.pf)): Unsigned integers

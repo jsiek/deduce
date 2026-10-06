@@ -2,7 +2,7 @@ module Rat
 
 import Nat
 import UInt
-import Int
+public import Int
 import Base
 import RatPos
 

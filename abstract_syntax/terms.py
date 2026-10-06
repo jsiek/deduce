@@ -54,6 +54,7 @@ if TYPE_CHECKING:
         natToInt,
         nodeListToList,
         nodeListToString,
+        ratToStr,
         try_fast_lit_nat_arith,
         try_fast_uint_arith,
         uintToInt,
@@ -704,6 +705,8 @@ class ResolvedVar(VarRef):
     # the pre-consolidation behavior of #1062.
     if isBZero(self) and not get_verbose():
       return '0'
+    if not get_verbose():
+      return ratToStr(self)
     return None
 
   def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> ResolvedVar:
@@ -1158,6 +1161,8 @@ class Call(Term):
       return operator_display_name(self.rator) + " " + op_arg_str(self, self.args[0])
     elif isDeduceInt(self):
       return deduceIntToInt(self)
+    elif (rat := ratToStr(self)) is not None and not get_verbose():
+      return rat
     elif isLitNat(self): # and not get_verbose():
       return 'ℕ' + str(natToInt(self))
     # elif isNat(self): # and not get_verbose():

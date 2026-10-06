@@ -709,6 +709,44 @@ def deduceIntToInt(t: Term) -> str:
     case _:
       internal_error(t.location, 'deduceIntToInt: expected an int, not ' + str(t))
 
+def _con_name(t: Term) -> str | None:
+  match t:
+    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)):
+      return base_name(n)
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), _):
+      return base_name(n)
+    case _:
+      return None
+
+def _pos_to_fraction(t: Term) -> tuple[int, int] | None:
+  # The stdlib's private `Pos` (lib/RatPos.pf): pint(n) is 1 + n and
+  # pfrac(q, y) is q + 1 / (1 + y).
+  match t:
+    case Call(_, _, _, [n]) if _con_name(t) == 'pint' and isUInt(n):
+      return (1 + uintToInt(n), 1)
+    case Call(_, _, _, [q, y]) if _con_name(t) == 'pfrac' and isUInt(q):
+      frac = _pos_to_fraction(y)
+      if frac is None:
+        return None
+      a, b = frac
+      return (uintToInt(q) * (a + b) + b, a + b)
+    case _:
+      return None
+
+def ratToStr(t: Term) -> str | None:
+  # Render a concrete `Rat` value (lib/RatDefs.pf) as the source that
+  # builds it: `rat(+n)` for integers, `frac(+n, d)` otherwise.
+  name = _con_name(t)
+  if name == 'rzero' and not isinstance(t, Call):
+    return 'rat(+0)'
+  if name not in ('rpos', 'rneg') or not isinstance(t, Call) or len(t.args) != 1:
+    return None
+  frac = _pos_to_fraction(t.args[0])
+  if frac is None:
+    return None
+  n = ('+' if name == 'rpos' else '-') + str(frac[0])
+  return 'rat(' + n + ')' if frac[1] == 1 else 'frac(' + n + ', ' + str(frac[1]) + ')'
+
 def is_constructor(constr_name: str, env: Env) -> bool:
   for (name,binding) in env.dict.items():
     if isinstance(binding, TypeBinding):

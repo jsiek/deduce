@@ -175,7 +175,7 @@ end
 
 auto rat_inv_zero
 
-lemma rat_frac_self: all k:UInt. if 0 < k then frac(pos(k), k) = rat(+1)
+theorem rat_frac_self: all k:UInt. if 0 < k then frac(pos(k), k) = rat(+1)
 proof
   arbitrary k:UInt
   assume k_pos
