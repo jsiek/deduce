@@ -222,3 +222,649 @@ proof
   apply rat_less_trans_less_equal_right[x, y, z]
     to prem, (apply rat_less_implies_less_equal[y, z] to prem)
 end
+
+// Signs
+
+theorem rat_num_neg: all x:Rat. num(- x) = - num(x)
+proof
+  arbitrary x:Rat
+  switch x {
+    case rzero { expand operator- | num. }
+    case rpos(p) { expand operator- | num. }
+    case rneg(p) { expand operator- | num  replace neg_involutive. }
+  }
+end
+
+theorem rat_den_neg: all x:Rat. den(- x) = den(x)
+proof
+  arbitrary x:Rat
+  switch x {
+    case rzero { expand operator-. }
+    case rpos(p) { expand operator- | den. }
+    case rneg(p) { expand operator- | den. }
+  }
+end
+
+theorem rat_zero_le_frac: all n:Int, d:UInt. if 0 < d then (rat(+0) ≤ frac(n, d)) = (+0 ≤ n)
+proof
+  arbitrary n:Int, d:UInt
+  assume d_pos
+  have z: rat(+0) = frac(+0, 1) by expand rat.
+  replace z | apply rat_le_frac[+0, 1, n, d] to uint_zero_less_one_add[0], d_pos.
+end
+
+theorem rat_zero_less_frac: all n:Int, d:UInt. if 0 < d then (rat(+0) < frac(n, d)) = (+0 < n)
+proof
+  arbitrary n:Int, d:UInt
+  assume d_pos
+  have z: rat(+0) = frac(+0, 1) by expand rat.
+  replace z | apply rat_less_frac[+0, 1, n, d] to uint_zero_less_one_add[0], d_pos.
+end
+
+theorem rat_zero_le_num: all x:Rat. (rat(+0) ≤ x) = (+0 ≤ num(x))
+proof
+  arbitrary x:Rat
+  replace symmetric rat_frac_num_den[x]
+  replace apply rat_zero_le_frac[num(x), den(x)] to rat_den_pos[x]
+        | rat_frac_num_den.
+end
+
+theorem rat_zero_less_num: all x:Rat. (rat(+0) < x) = (+0 < num(x))
+proof
+  arbitrary x:Rat
+  replace symmetric rat_frac_num_den[x]
+  replace apply rat_zero_less_frac[num(x), den(x)] to rat_den_pos[x]
+        | rat_frac_num_den.
+end
+
+lemma rat_sub_frac: all x:Rat, y:Rat.
+  y - x = frac(num(y) * pos(den(x)) - num(x) * pos(den(y)), den(y) * den(x))
+proof
+  arbitrary x:Rat, y:Rat
+  replace rat_sub_def
+  expand operator+
+  replace rat_num_neg | rat_den_neg
+  expand operator-
+  replace dist_neg_mult[num(x), pos(den(y))].
+end
+
+theorem rat_le_iff_sub_nonneg: all x:Rat, y:Rat. (x ≤ y) = (rat(+0) ≤ y - x)
+proof
+  arbitrary x:Rat, y:Rat
+  replace rat_sub_frac[x, y]
+        | apply rat_zero_le_frac[num(y) * pos(den(x)) - num(x) * pos(den(y)), den(y) * den(x)]
+          to apply uint_mult_pos[den(y), den(x)] to rat_den_pos[y], rat_den_pos[x]
+        | rat_le_def
+  apply iff_equal to int_le_iff_diff_nonneg[num(x) * pos(den(y)), num(y) * pos(den(x))]
+end
+
+theorem rat_less_iff_sub_pos: all x:Rat, y:Rat. (x < y) = (rat(+0) < y - x)
+proof
+  arbitrary x:Rat, y:Rat
+  replace rat_sub_frac[x, y]
+        | apply rat_zero_less_frac[num(y) * pos(den(x)) - num(x) * pos(den(y)), den(y) * den(x)]
+          to apply uint_mult_pos[den(y), den(x)] to rat_den_pos[y], rat_den_pos[x]
+        | rat_less_def
+  apply iff_equal to int_less_iff_diff_pos[num(x) * pos(den(y)), num(y) * pos(den(x))]
+end
+
+theorem rat_le_zero_num: all x:Rat. (x ≤ rat(+0)) = (num(x) ≤ +0)
+proof
+  arbitrary x:Rat
+  replace rat_le_def | rat_zero_rzero | rat_num_rzero | rat_den_rzero.
+end
+
+theorem rat_less_zero_num: all x:Rat. (x < rat(+0)) = (num(x) < +0)
+proof
+  arbitrary x:Rat
+  replace rat_less_def | rat_zero_rzero | rat_num_rzero | rat_den_rzero.
+end
+
+theorem rat_zero_le_neg: all x:Rat. (rat(+0) ≤ - x) = (x ≤ rat(+0))
+proof
+  arbitrary x:Rat
+  replace rat_zero_le_num | rat_num_neg | rat_le_zero_num
+  symmetric apply iff_equal to int_neg_le_iff[num(x), +0]
+end
+
+theorem rat_zero_less_neg: all x:Rat. (rat(+0) < - x) = (x < rat(+0))
+proof
+  arbitrary x:Rat
+  replace rat_zero_less_num | rat_num_neg | rat_less_zero_num
+  symmetric apply iff_equal to int_neg_less_iff[num(x), +0]
+end
+
+// Compatibility with addition
+
+lemma rat_sub_add_both: all x:Rat, y:Rat, z:Rat. (x + z) - (x + y) = z - y
+proof
+  arbitrary x:Rat, y:Rat, z:Rat
+  replace rat_sub_def | rat_neg_distr_add | rat_add_commute[z, - x] | rat_add_inverse.
+end
+
+theorem rat_add_both_sides_of_less_equal: all x:Rat, y:Rat, z:Rat.
+  (x + y ≤ x + z) = (y ≤ z)
+proof
+  arbitrary x:Rat, y:Rat, z:Rat
+  replace rat_le_iff_sub_nonneg[x + y, x + z] | rat_le_iff_sub_nonneg[y, z]
+        | rat_sub_add_both.
+end
+
+theorem rat_add_both_sides_of_less: all x:Rat, y:Rat, z:Rat.
+  (x + y < x + z) = (y < z)
+proof
+  arbitrary x:Rat, y:Rat, z:Rat
+  replace rat_less_iff_sub_pos[x + y, x + z] | rat_less_iff_sub_pos[y, z]
+        | rat_sub_add_both.
+end
+
+theorem rat_add_both_sides_of_less_equal_right: all x:Rat, y:Rat, z:Rat.
+  (y + x ≤ z + x) = (y ≤ z)
+proof
+  arbitrary x:Rat, y:Rat, z:Rat
+  replace rat_add_commute[y, x] | rat_add_commute[z, x]
+  rat_add_both_sides_of_less_equal[x, y, z]
+end
+
+theorem rat_add_both_sides_of_less_right: all x:Rat, y:Rat, z:Rat.
+  (y + x < z + x) = (y < z)
+proof
+  arbitrary x:Rat, y:Rat, z:Rat
+  replace rat_add_commute[y, x] | rat_add_commute[z, x]
+  rat_add_both_sides_of_less[x, y, z]
+end
+
+theorem rat_add_mono_less_equal: all a:Rat, b:Rat, c:Rat, d:Rat.
+  if a ≤ c and b ≤ d then a + b ≤ c + d
+proof
+  arbitrary a:Rat, b:Rat, c:Rat, d:Rat
+  assume prem
+  have h1: a + b ≤ c + b by { replace rat_add_both_sides_of_less_equal_right  conjunct 0 of prem }
+  have h2: c + b ≤ c + d by { replace rat_add_both_sides_of_less_equal  conjunct 1 of prem }
+  apply rat_less_equal_trans[a + b, c + b, c + d] to h1, h2
+end
+
+theorem rat_add_mono_less: all a:Rat, b:Rat, c:Rat, d:Rat.
+  if a < c and b < d then a + b < c + d
+proof
+  arbitrary a:Rat, b:Rat, c:Rat, d:Rat
+  assume prem
+  have h1: a + b < c + b by { replace rat_add_both_sides_of_less_right  conjunct 0 of prem }
+  have h2: c + b < c + d by { replace rat_add_both_sides_of_less  conjunct 1 of prem }
+  apply rat_less_trans[a + b, c + b, c + d] to h1, h2
+end
+
+theorem rat_neg_le_iff: all x:Rat, y:Rat. (- y ≤ - x) = (x ≤ y)
+proof
+  arbitrary x:Rat, y:Rat
+  replace rat_le_iff_sub_nonneg[- y, - x] | rat_le_iff_sub_nonneg[x, y]
+        | rat_sub_def | rat_neg_involutive | rat_add_commute[- x, y].
+end
+
+theorem rat_neg_less_iff: all x:Rat, y:Rat. (- y < - x) = (x < y)
+proof
+  arbitrary x:Rat, y:Rat
+  replace rat_less_iff_sub_pos[- y, - x] | rat_less_iff_sub_pos[x, y]
+        | rat_sub_def | rat_neg_involutive | rat_add_commute[- x, y].
+end
+
+// Compatibility with multiplication
+
+theorem rat_zero_less_one: rat(+0) < rat(+1)
+proof
+  replace rat_one_frac | apply rat_zero_less_frac[+1, 1] to uint_zero_less_one_add[0].
+end
+
+theorem rat_mult_nonneg: all x:Rat, y:Rat.
+  if rat(+0) ≤ x and rat(+0) ≤ y then rat(+0) ≤ x * y
+proof
+  arbitrary x:Rat, y:Rat
+  assume prem
+  have nx: +0 ≤ num(x) by replace rat_zero_le_num in conjunct 0 of prem
+  have ny: +0 ≤ num(y) by replace rat_zero_le_num in conjunct 1 of prem
+  expand operator*
+  replace apply rat_zero_le_frac[num(x) * num(y), den(x) * den(y)]
+          to apply uint_mult_pos[den(x), den(y)] to rat_den_pos[x], rat_den_pos[y]
+  conclude +0 ≤ num(x) * num(y)
+    by apply int_nonneg_mult_mono_le_left[num(x), +0, num(y)] to nx, ny
+end
+
+theorem rat_mult_pos: all x:Rat, y:Rat.
+  if rat(+0) < x and rat(+0) < y then rat(+0) < x * y
+proof
+  arbitrary x:Rat, y:Rat
+  assume prem
+  have nx: +0 < num(x) by replace rat_zero_less_num in conjunct 0 of prem
+  have ny: +0 < num(y) by replace rat_zero_less_num in conjunct 1 of prem
+  expand operator*
+  replace apply rat_zero_less_frac[num(x) * num(y), den(x) * den(y)]
+          to apply uint_mult_pos[den(x), den(y)] to rat_den_pos[x], rat_den_pos[y]
+  conclude +0 < num(x) * num(y)
+    by apply int_pos_mult_mono_less_left[num(x), +0, num(y)] to nx, ny
+end
+
+theorem rat_nonneg_mult_mono_le_right: all z:Rat, x:Rat, y:Rat.
+  if rat(+0) ≤ z and x ≤ y then x * z ≤ y * z
+proof
+  arbitrary z:Rat, x:Rat, y:Rat
+  assume prem
+  replace rat_le_iff_sub_nonneg[x * z, y * z] | symmetric rat_dist_mult_sub_right[z, y, x]
+  apply rat_mult_nonneg[y - x, z]
+    to (replace rat_le_iff_sub_nonneg in conjunct 1 of prem), conjunct 0 of prem
+end
+
+theorem rat_nonneg_mult_mono_le_left: all z:Rat, x:Rat, y:Rat.
+  if rat(+0) ≤ z and x ≤ y then z * x ≤ z * y
+proof
+  arbitrary z:Rat, x:Rat, y:Rat
+  assume prem
+  replace rat_mult_commute[z, x] | rat_mult_commute[z, y]
+  apply rat_nonneg_mult_mono_le_right[z, x, y] to prem
+end
+
+theorem rat_pos_mult_mono_less_right: all z:Rat, x:Rat, y:Rat.
+  if rat(+0) < z and x < y then x * z < y * z
+proof
+  arbitrary z:Rat, x:Rat, y:Rat
+  assume prem
+  replace rat_less_iff_sub_pos[x * z, y * z] | symmetric rat_dist_mult_sub_right[z, y, x]
+  apply rat_mult_pos[y - x, z]
+    to (replace rat_less_iff_sub_pos in conjunct 1 of prem), conjunct 0 of prem
+end
+
+theorem rat_pos_mult_mono_less_left: all z:Rat, x:Rat, y:Rat.
+  if rat(+0) < z and x < y then z * x < z * y
+proof
+  arbitrary z:Rat, x:Rat, y:Rat
+  assume prem
+  replace rat_mult_commute[z, x] | rat_mult_commute[z, y]
+  apply rat_pos_mult_mono_less_right[z, x, y] to prem
+end
+
+theorem rat_pos_mult_le_iff: all z:Rat, x:Rat, y:Rat.
+  if rat(+0) < z then (x * z ≤ y * z) = (x ≤ y)
+proof
+  arbitrary z:Rat, x:Rat, y:Rat
+  assume z_pos
+  have fwd: if x * z ≤ y * z then x ≤ y by {
+    assume h
+    cases rat_dichotomy[x, y]
+    case le { le }
+    case gt {
+      have yx: y * z < x * z by apply rat_pos_mult_mono_less_right[z, y, x] to z_pos, gt
+      conclude false by apply (apply rat_less_equal_iff_not_greater[x * z, y * z] to h) to yx
+    }
+  }
+  have bwd: if x ≤ y then x * z ≤ y * z by {
+    assume h
+    apply rat_nonneg_mult_mono_le_right[z, x, y]
+      to (apply rat_less_implies_less_equal[rat(+0), z] to z_pos), h
+  }
+  apply iff_equal to fwd, bwd
+end
+
+theorem rat_pos_mult_less_iff: all z:Rat, x:Rat, y:Rat.
+  if rat(+0) < z then (x * z < y * z) = (x < y)
+proof
+  arbitrary z:Rat, x:Rat, y:Rat
+  assume z_pos
+  have fwd: if x * z < y * z then x < y by {
+    assume h
+    cases rat_dichotomy[y, x]
+    case le {
+      have yx: y * z ≤ x * z
+        by apply rat_nonneg_mult_mono_le_right[z, y, x]
+           to (apply rat_less_implies_less_equal[rat(+0), z] to z_pos), le
+      conclude false by apply (apply rat_less_equal_iff_not_greater[y * z, x * z] to yx) to h
+    }
+    case gt { gt }
+  }
+  have bwd: if x < y then x * z < y * z by {
+    assume h
+    apply rat_pos_mult_mono_less_right[z, x, y] to z_pos, h
+  }
+  apply iff_equal to fwd, bwd
+end
+
+theorem rat_square_nonneg: all x:Rat. rat(+0) ≤ x * x
+proof
+  arbitrary x:Rat
+  cases rat_dichotomy[rat(+0), x]
+  case nonneg { apply rat_mult_nonneg[x, x] to nonneg, nonneg }
+  case neg {
+    have nx: rat(+0) ≤ - x by {
+      replace rat_zero_le_neg
+      apply rat_less_implies_less_equal to neg
+    }
+    replace symmetric rat_neg_mult_neg[x, x]
+    apply rat_mult_nonneg[- x, - x] to nx, nx
+  }
+end
+
+theorem rat_inv_pos: all x:Rat. if rat(+0) < x then rat(+0) < inv(x)
+proof
+  arbitrary x:Rat
+  assume x_pos
+  have xnz: not (x = rat(+0)) by {
+    assume xz
+    have zz: rat(+0) < rat(+0) by replace xz in x_pos
+    conclude false by apply rat_less_irreflexive to zz
+  }
+  cases rat_dichotomy[inv(x), rat(+0)]
+  case le {
+    have h: inv(x) * x ≤ rat(+0) * x
+      by apply rat_nonneg_mult_mono_le_right[x, inv(x), rat(+0)]
+         to (apply rat_less_implies_less_equal[rat(+0), x] to x_pos), le
+    have h2: rat(+1) ≤ rat(+0) by replace apply rat_inv_mult[x] to xnz in h
+    conclude false
+      by apply (apply rat_less_equal_iff_not_greater[rat(+1), rat(+0)] to h2) to rat_zero_less_one
+  }
+  case gt { gt }
+end
+
+// Maximum and minimum
+
+theorem rat_max_equal_greater_right: all x:Rat, y:Rat. if x ≤ y then max(x, y) = y
+proof
+  arbitrary x:Rat, y:Rat
+  assume x_y
+  expand max
+  cases apply rat_less_equal_iff_less_or_equal[x, y] to x_y
+  case lt { replace apply eq_true to lt. }
+  case eq { replace eq | apply eq_false to rat_less_irreflexive[y]. }
+end
+
+theorem rat_max_equal_greater_left: all x:Rat, y:Rat. if y ≤ x then max(x, y) = x
+proof
+  arbitrary x:Rat, y:Rat
+  assume y_x
+  expand max
+  have nxy: not (x < y) by apply rat_less_equal_iff_not_greater[y, x] to y_x
+  replace apply eq_false to nxy.
+end
+
+theorem rat_min_equal_less_left: all x:Rat, y:Rat. if x ≤ y then min(x, y) = x
+proof
+  arbitrary x:Rat, y:Rat
+  assume x_y
+  expand min
+  cases apply rat_less_equal_iff_less_or_equal[x, y] to x_y
+  case lt { replace apply eq_true to lt. }
+  case eq { replace eq | apply eq_false to rat_less_irreflexive[y]. }
+end
+
+theorem rat_min_equal_less_right: all x:Rat, y:Rat. if y ≤ x then min(x, y) = y
+proof
+  arbitrary x:Rat, y:Rat
+  assume y_x
+  expand min
+  have nxy: not (x < y) by apply rat_less_equal_iff_not_greater[y, x] to y_x
+  replace apply eq_false to nxy.
+end
+
+theorem rat_max_greater_left: all x:Rat, y:Rat. x ≤ max(x, y)
+proof
+  arbitrary x:Rat, y:Rat
+  cases rat_dichotomy[x, y]
+  case le { replace apply rat_max_equal_greater_right[x, y] to le  le }
+  case gt {
+    replace apply rat_max_equal_greater_left[x, y] to apply rat_less_implies_less_equal to gt
+    rat_less_equal_refl[x]
+  }
+end
+
+theorem rat_max_greater_right: all x:Rat, y:Rat. y ≤ max(x, y)
+proof
+  arbitrary x:Rat, y:Rat
+  cases rat_dichotomy[x, y]
+  case le {
+    replace apply rat_max_equal_greater_right[x, y] to le
+    rat_less_equal_refl[y]
+  }
+  case gt {
+    have yx: y ≤ x by apply rat_less_implies_less_equal to gt
+    replace apply rat_max_equal_greater_left[x, y] to yx
+    yx
+  }
+end
+
+theorem rat_min_less_equal_left: all x:Rat, y:Rat. min(x, y) ≤ x
+proof
+  arbitrary x:Rat, y:Rat
+  cases rat_dichotomy[x, y]
+  case le {
+    replace apply rat_min_equal_less_left[x, y] to le
+    rat_less_equal_refl[x]
+  }
+  case gt {
+    have yx: y ≤ x by apply rat_less_implies_less_equal to gt
+    replace apply rat_min_equal_less_right[x, y] to yx
+    yx
+  }
+end
+
+theorem rat_min_less_equal_right: all x:Rat, y:Rat. min(x, y) ≤ y
+proof
+  arbitrary x:Rat, y:Rat
+  cases rat_dichotomy[x, y]
+  case le {
+    replace apply rat_min_equal_less_left[x, y] to le
+    le
+  }
+  case gt {
+    replace apply rat_min_equal_less_right[x, y] to apply rat_less_implies_less_equal to gt
+    rat_less_equal_refl[y]
+  }
+end
+
+theorem rat_max_symmetric: all x:Rat, y:Rat. max(x, y) = max(y, x)
+proof
+  arbitrary x:Rat, y:Rat
+  cases rat_dichotomy[x, y]
+  case le {
+    replace apply rat_max_equal_greater_right[x, y] to le
+          | apply rat_max_equal_greater_left[y, x] to le.
+  }
+  case gt {
+    have yx: y ≤ x by apply rat_less_implies_less_equal to gt
+    replace apply rat_max_equal_greater_left[x, y] to yx
+          | apply rat_max_equal_greater_right[y, x] to yx.
+  }
+end
+
+theorem rat_min_symmetric: all x:Rat, y:Rat. min(x, y) = min(y, x)
+proof
+  arbitrary x:Rat, y:Rat
+  cases rat_dichotomy[x, y]
+  case le {
+    replace apply rat_min_equal_less_left[x, y] to le
+          | apply rat_min_equal_less_right[y, x] to le.
+  }
+  case gt {
+    have yx: y ≤ x by apply rat_less_implies_less_equal to gt
+    replace apply rat_min_equal_less_right[x, y] to yx
+          | apply rat_min_equal_less_left[y, x] to yx.
+  }
+end
+
+theorem rat_max_less_equal: all x:Rat, y:Rat, z:Rat.
+  if x ≤ z and y ≤ z then max(x, y) ≤ z
+proof
+  arbitrary x:Rat, y:Rat, z:Rat
+  assume prem
+  cases rat_dichotomy[x, y]
+  case le { replace apply rat_max_equal_greater_right[x, y] to le  conjunct 1 of prem }
+  case gt {
+    replace apply rat_max_equal_greater_left[x, y] to apply rat_less_implies_less_equal to gt
+    conjunct 0 of prem
+  }
+end
+
+theorem rat_min_greatest_less_equal: all x:Rat, y:Rat, z:Rat.
+  if z ≤ x and z ≤ y then z ≤ min(x, y)
+proof
+  arbitrary x:Rat, y:Rat, z:Rat
+  assume prem
+  cases rat_dichotomy[x, y]
+  case le { replace apply rat_min_equal_less_left[x, y] to le  conjunct 0 of prem }
+  case gt {
+    replace apply rat_min_equal_less_right[x, y] to apply rat_less_implies_less_equal to gt
+    conjunct 1 of prem
+  }
+end
+
+// Absolute value
+
+theorem rat_abs_nonneg_eq: all x:Rat. if rat(+0) ≤ x then abs(x) = x
+proof
+  arbitrary x:Rat
+  assume x_nn
+  switch x {
+    case rzero { expand abs. }
+    case rpos(p) { expand abs. }
+    case rneg(p) assume xeq {
+      have h: +0 ≤ - pos(pnum(p)) by expand num in replace rat_zero_le_num | xeq in x_nn
+      have pp: +0 < pos(pnum(p)) by pos_pnum_pos[p]
+      have np: - pos(pnum(p)) < +0
+        by apply int_neg_less_mono[+0, pos(pnum(p))] to pp
+      conclude false
+        by apply (apply int_less_equal_iff_not_greater[+0, - pos(pnum(p))] to h) to np
+    }
+  }
+end
+
+theorem rat_abs_neg: all x:Rat. abs(- x) = abs(x)
+proof
+  arbitrary x:Rat
+  switch x {
+    case rzero { expand operator-. }
+    case rpos(p) { expand operator- | abs. }
+    case rneg(p) { expand operator- | abs. }
+  }
+end
+
+theorem rat_abs_nonpos_eq: all x:Rat. if x ≤ rat(+0) then abs(x) = - x
+proof
+  arbitrary x:Rat
+  assume x_np
+  have nx: rat(+0) ≤ - x by {
+    replace rat_zero_le_neg
+    x_np
+  }
+  replace symmetric rat_abs_neg[x]
+  apply rat_abs_nonneg_eq[- x] to nx
+end
+
+theorem rat_abs_nonneg: all x:Rat. rat(+0) ≤ abs(x)
+proof
+  arbitrary x:Rat
+  cases rat_dichotomy[rat(+0), x]
+  case nn { replace apply rat_abs_nonneg_eq[x] to nn  nn }
+  case neg {
+    replace apply rat_abs_nonpos_eq[x] to apply rat_less_implies_less_equal to neg
+    replace rat_zero_le_neg
+    apply rat_less_implies_less_equal to neg
+  }
+end
+
+theorem rat_abs_mult: all x:Rat, y:Rat. abs(x * y) = abs(x) * abs(y)
+proof
+  arbitrary x:Rat, y:Rat
+  cases rat_dichotomy[rat(+0), x]
+  case xnn {
+    cases rat_dichotomy[rat(+0), y]
+    case ynn {
+      replace apply rat_abs_nonneg_eq[x] to xnn | apply rat_abs_nonneg_eq[y] to ynn
+      apply rat_abs_nonneg_eq[x * y] to apply rat_mult_nonneg[x, y] to xnn, ynn
+    }
+    case yneg {
+      have ynn: rat(+0) ≤ - y by {
+        replace rat_zero_le_neg
+        apply rat_less_implies_less_equal to yneg
+      }
+      replace symmetric rat_abs_neg[y] | symmetric rat_abs_neg[x * y]
+            | symmetric rat_mult_neg[x, y]
+            | apply rat_abs_nonneg_eq[x] to xnn | apply rat_abs_nonneg_eq[- y] to ynn
+      apply rat_abs_nonneg_eq[x * - y] to apply rat_mult_nonneg[x, - y] to xnn, ynn
+    }
+  }
+  case xneg {
+    have xnn: rat(+0) ≤ - x by {
+      replace rat_zero_le_neg
+      apply rat_less_implies_less_equal to xneg
+    }
+    cases rat_dichotomy[rat(+0), y]
+    case ynn {
+      replace symmetric rat_abs_neg[x] | symmetric rat_abs_neg[x * y]
+            | symmetric rat_neg_mult[x, y]
+            | apply rat_abs_nonneg_eq[- x] to xnn | apply rat_abs_nonneg_eq[y] to ynn
+      apply rat_abs_nonneg_eq[- x * y] to apply rat_mult_nonneg[- x, y] to xnn, ynn
+    }
+    case yneg {
+      have ynn: rat(+0) ≤ - y by {
+        replace rat_zero_le_neg
+        apply rat_less_implies_less_equal to yneg
+      }
+      replace symmetric rat_abs_neg[x] | symmetric rat_abs_neg[y]
+            | symmetric rat_neg_mult_neg[x, y]
+            | apply rat_abs_nonneg_eq[- x] to xnn | apply rat_abs_nonneg_eq[- y] to ynn
+      apply rat_abs_nonneg_eq[- x * - y] to apply rat_mult_nonneg[- x, - y] to xnn, ynn
+    }
+  }
+end
+
+theorem rat_le_abs: all x:Rat. x ≤ abs(x)
+proof
+  arbitrary x:Rat
+  cases rat_dichotomy[rat(+0), x]
+  case nn {
+    replace apply rat_abs_nonneg_eq[x] to nn
+    rat_less_equal_refl[x]
+  }
+  case neg {
+    apply rat_less_equal_trans[x, rat(+0), abs(x)]
+      to (apply rat_less_implies_less_equal to neg), rat_abs_nonneg[x]
+  }
+end
+
+theorem rat_neg_abs_le: all x:Rat. - abs(x) ≤ x
+proof
+  arbitrary x:Rat
+  have h: - x ≤ abs(x) by replace rat_abs_neg in rat_le_abs[- x]
+  have h2: - abs(x) ≤ - - x by { replace rat_neg_le_iff[- x, abs(x)]  h }
+  replace rat_neg_involutive in h2
+end
+
+theorem rat_abs_le_iff: all x:Rat, y:Rat. (abs(x) ≤ y) = (- y ≤ x and x ≤ y)
+proof
+  arbitrary x:Rat, y:Rat
+  have fwd: if abs(x) ≤ y then - y ≤ x and x ≤ y by {
+    assume h
+    have a: - y ≤ - abs(x) by { replace rat_neg_le_iff  h }
+    (apply rat_less_equal_trans[- y, - abs(x), x] to a, rat_neg_abs_le[x]),
+    (apply rat_less_equal_trans[x, abs(x), y] to rat_le_abs[x], h)
+  }
+  have bwd: if - y ≤ x and x ≤ y then abs(x) ≤ y by {
+    assume h
+    cases rat_dichotomy[rat(+0), x]
+    case nn { replace apply rat_abs_nonneg_eq[x] to nn  conjunct 1 of h }
+    case neg {
+      replace apply rat_abs_nonpos_eq[x] to apply rat_less_implies_less_equal to neg
+      have h1: - x ≤ - - y by { replace rat_neg_le_iff  conjunct 0 of h }
+      replace rat_neg_involutive in h1
+    }
+  }
+  apply iff_equal to fwd, bwd
+end
+
+theorem rat_abs_add: all x:Rat, y:Rat. abs(x + y) ≤ abs(x) + abs(y)
+proof
+  arbitrary x:Rat, y:Rat
+  replace rat_abs_le_iff
+  have lo: - (abs(x) + abs(y)) ≤ x + y by {
+    replace rat_neg_distr_add
+    apply rat_add_mono_less_equal[- abs(x), - abs(y), x, y]
+      to rat_neg_abs_le[x], rat_neg_abs_le[y]
+  }
+  lo, (apply rat_add_mono_less_equal[x, y, abs(x), abs(y)] to rat_le_abs[x], rat_le_abs[y])
+end
