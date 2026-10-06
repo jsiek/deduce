@@ -28,6 +28,7 @@ Does NOT go here:
 
 from __future__ import annotations
 
+import math
 from typing import TYPE_CHECKING
 
 from .core import *
@@ -469,7 +470,7 @@ def try_fast_lit_nat_arith(loc: Meta, rator: Term, args: list[Term],
   if not isinstance(rator, (Var, OverloadedVar, ResolvedVar)):
     return None
   op = base_name(rator.get_name())
-  if op not in ('+', '*', '^', '∸', '/', '%', '≤', '<'):
+  if op not in ('+', '*', '^', '∸', '/', '%', 'gcd', '≤', '<'):
     return None
   values: list[int] = []
   lit_name: str | None = None
@@ -511,6 +512,9 @@ def try_fast_lit_nat_arith(loc: Meta, rator: Term, args: list[Term],
     if values[1] == 0:
       return None
     result_int = values[0] % values[1]
+  elif op == 'gcd':
+    # Agrees with the Euclidean `gcd` in lib/Nat.pf, including gcd(a, 0) = a.
+    result_int = math.gcd(values[0], values[1])
   elif op == '≤':
     return Bool(loc, ty, values[0] <= values[1])
   elif op == '<':

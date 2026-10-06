@@ -90,6 +90,17 @@ proof
   }
 end
 
+// Literal-form right zero, so `lit(x) * lit(0)` rewrites under auto.
+theorem nat_mult_zero: all x:Nat.
+  lit(x) * lit(zero) = lit(zero)
+proof
+  arbitrary x:Nat
+  expand lit
+  mult_zero[x]
+end
+
+auto nat_mult_zero
+
 // Literal-form of `mult_suc` for both sides.
 theorem lit_mult_lit_suc: all m:Nat, n:Nat.
   lit(m) * lit(suc(n)) = lit(m) + lit(m) * lit(n)

@@ -378,3 +378,35 @@ proof
   assume ynz
   replace rat_div_def | apply rat_mult_inv[y] to ynz.
 end
+
+theorem rat_inv_neg: all x:Rat. inv(- x) = - inv(x)
+proof
+  arbitrary x:Rat
+  switch x = rat(+0) {
+    case true assume xz { replace xz. }
+    case false assume xnz {
+      apply rat_inv_unique[- x, - inv(x)] to
+      replace rat_neg_mult_neg
+      apply rat_mult_inv[x] to xnz
+    }
+  }
+end
+
+theorem rat_inv_frac: all a:UInt, d:UInt.
+  if 0 < a and 0 < d then inv(frac(pos(a), d)) = frac(pos(d), a)
+proof
+  arbitrary a:UInt, d:UInt
+  assume prem
+  apply rat_inv_unique[frac(pos(a), d), frac(pos(d), a)] to
+  replace apply rat_mult_frac[pos(a), d, pos(d), a] to prem
+        | mult_pos_pos | uint_mult_commute[a, d]
+  apply rat_frac_self[d * a] to apply uint_mult_pos[d, a] to (conjunct 1 of prem), (conjunct 0 of prem)
+end
+
+theorem rat_inv_frac_neg: all a:UInt, d:UInt.
+  if 0 < a and 0 < d then inv(frac(- pos(a), d)) = frac(- pos(d), a)
+proof
+  arbitrary a:UInt, d:UInt
+  assume prem
+  replace rat_frac_neg | rat_inv_neg | apply rat_inv_frac[a, d] to prem.
+end

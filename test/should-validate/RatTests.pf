@@ -22,6 +22,46 @@ assert abs(frac(-5, 7)) = frac(+5, 7)
 assert max(frac(+1, 3), frac(+1, 2)) = frac(+1, 2)
 assert min(frac(+1, 3), frac(+1, 2)) = frac(+1, 3)
 
+// Concrete facts are proved by the auto-rules in RatLit.pf
+
+theorem concrete_arith:
+  frac(+1, 2) + frac(+1, 3) = frac(+5, 6)
+  and frac(+2, 4) = frac(+1, 2)
+  and frac(+1, 2) * rat(+2) = rat(+1)
+  and frac(-1, 2) * frac(-2, 3) = frac(+1, 3)
+  and rat(+3) - frac(+1, 2) = frac(+5, 2)
+  and frac(+1, 2) / frac(+3, 4) = frac(+2, 3)
+  and rat(+1) / rat(-4) = frac(-1, 4)
+  and inv(frac(-2, 3)) = frac(-3, 2)
+  and - frac(+3, 4) + frac(+3, 4) = rat(+0)
+  and frac(+6, 3) = rat(+2)
+  and frac(+7, 0) = rat(+0)
+proof
+  .
+end
+
+theorem concrete_order:
+  frac(+1, 3) < frac(+1, 2)
+  and frac(-1, 2) ≤ frac(-1, 3)
+  and not (frac(+1, 2) ≤ frac(+1, 3))
+  and rat(+0) < frac(+1, 360)
+  and frac(+7, 2) < rat(+4)
+  and rat(-1) ≤ frac(-1, 2)
+proof
+  .
+end
+
+// Concrete fractions are reduced to lowest terms, even inside symbolic goals.
+
+theorem lowest_terms: all a:Rat.
+  frac(+1, 2) * (rat(+2) * a) = a
+  and frac(-4, 6) * a = frac(-2, 3) * a
+  and frac(+1, 6) + frac(+1, 3) + a = frac(+1, 2) + a
+proof
+  arbitrary a:Rat
+  .
+end
+
 print frac(+6, 8)
 print frac(-10, 5)
 print rat(+0)
@@ -72,9 +112,8 @@ theorem square_of_sum: all x:Rat, y:Rat.
   (x + y) * (x + y) = x * x + rat(+2) * x * y + y * y
 proof
   arbitrary x:Rat, y:Rat
-  have two: rat(+2) * x = x + x by {
-    replace symmetric rat_int_add[+1, +1] | rat_dist_mult_add_right.
-  }
+  have two: rat(+2) * x = x + x
+    by rat_dist_mult_add_right[x, rat(+1), rat(+1)]
   replace two | rat_dist_mult_add | rat_dist_mult_add_right
         | rat_mult_commute[y, x].
 end
@@ -114,20 +153,14 @@ theorem midpoint_between: all a:Rat, b:Rat.
 proof
   arbitrary a:Rat, b:Rat
   assume a_b
-  have two_pos: (0:UInt) < 2 by .
   have half: frac(+1, 2) * (a + a) = a by {
-    have two: a + a = rat(+2) * a by {
-      replace symmetric rat_int_add[+1, +1] | rat_dist_mult_add_right.
-    }
-    have h: frac(+1, 2) * rat(+2) = rat(+1) by {
-      replace rat_int_frac[+2] | apply rat_mult_frac[+1, 2, +2, 1] to two_pos, .
-      apply rat_frac_self[2] to two_pos
-    }
-    replace two | h.
+    have two: a + a = rat(+2) * a
+      by symmetric rat_dist_mult_add_right[a, rat(+1), rat(+1)]
+    replace two.
   }
   have h1: a + a ≤ a + b by { replace rat_add_both_sides_of_less_equal  a_b }
   have h2: frac(+1, 2) * (a + a) ≤ frac(+1, 2) * (a + b)
     by apply rat_nonneg_mult_mono_le_left[frac(+1, 2), a + a, a + b]
-       to (replace apply rat_zero_le_frac[+1, 2] to two_pos.), h1
+       to ., h1
   replace half in h2
 end

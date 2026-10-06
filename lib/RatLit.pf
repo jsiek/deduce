@@ -1,0 +1,406 @@
+module Rat
+
+import Nat
+import UInt
+import Int
+import Base
+import RatPos
+import RatDefs
+import RatFrac
+import RatAddSub
+import RatMult
+import RatLess
+import RatInt
+
+/*
+  Auto-rules for arithmetic on concrete rationals.
+
+  A concrete rational is `rat(n)` or `frac(n, d)` where the denominator
+  `d` is a UInt literal, i.e. `fromNat(lit(suc(y)))`.  These rules turn
+  +, -, *, inv, /, =, ≤, and < on concrete rationals into Int and UInt
+  literal arithmetic, which the Int and UInt auto-rules then compute.
+  Results are not reduced to lowest terms, but `=`, `≤`, and `<` on
+  them are decided by cross-multiplication, so goals such as
+  `frac(+1, 2) * rat(+2) = rat(+1)` are proved by `.`.
+*/
+
+lemma lit_pos: all y:Nat. 0 < fromNat(lit(suc(y)))
+proof
+  arbitrary y:Nat
+  .
+end
+
+// Integers
+
+theorem rat_int_eq: all n:Int, m:Int. (rat(n) = rat(m)) = (n = m)
+proof
+  arbitrary n:Int, m:Int
+  have fwd: if rat(n) = rat(m) then n = m by rat_int_injective[n, m]
+  have bwd: if n = m then rat(n) = rat(m) by { assume eq  replace eq. }
+  apply iff_equal to fwd, bwd
+end
+
+auto rat_int_eq
+auto rat_int_add
+auto rat_int_mult
+auto rat_int_neg
+auto rat_int_le
+auto rat_int_less
+
+// Fractions with a literal denominator
+
+theorem rat_frac_lit_one: all n:Int. frac(n, fromNat(lit(suc(zero)))) = rat(n)
+proof
+  arbitrary n:Int
+  symmetric rat_int_frac[n]
+end
+
+auto rat_frac_lit_one
+
+theorem rat_frac_lit_zero: all n:Int. frac(n, fromNat(lit(zero))) = rat(+0)
+proof
+  arbitrary n:Int
+  replace rat_zero_rzero
+  expand frac.
+end
+
+auto rat_frac_lit_zero
+
+theorem rat_frac_lit_add: all n:Int, y:Nat, m:Int, z:Nat.
+  frac(n, fromNat(lit(suc(y)))) + frac(m, fromNat(lit(suc(z))))
+  = frac(n * pos(fromNat(lit(suc(z)))) + m * pos(fromNat(lit(suc(y)))),
+         fromNat(lit(suc(y))) * fromNat(lit(suc(z))))
+proof
+  arbitrary n:Int, y:Nat, m:Int, z:Nat
+  apply rat_add_frac[n, fromNat(lit(suc(y))), m, fromNat(lit(suc(z)))] to lit_pos[y], lit_pos[z]
+end
+
+auto rat_frac_lit_add
+
+theorem rat_frac_lit_mult: all n:Int, y:Nat, m:Int, z:Nat.
+  frac(n, fromNat(lit(suc(y)))) * frac(m, fromNat(lit(suc(z))))
+  = frac(n * m, fromNat(lit(suc(y))) * fromNat(lit(suc(z))))
+proof
+  arbitrary n:Int, y:Nat, m:Int, z:Nat
+  apply rat_mult_frac[n, fromNat(lit(suc(y))), m, fromNat(lit(suc(z)))] to lit_pos[y], lit_pos[z]
+end
+
+auto rat_frac_lit_mult
+
+theorem rat_frac_lit_neg: all n:Int, y:Nat.
+  - frac(n, fromNat(lit(suc(y)))) = frac(- n, fromNat(lit(suc(y))))
+proof
+  arbitrary n:Int, y:Nat
+  symmetric rat_frac_neg[n, fromNat(lit(suc(y)))]
+end
+
+auto rat_frac_lit_neg
+
+theorem rat_frac_lit_eq: all n:Int, y:Nat, m:Int, z:Nat.
+  (frac(n, fromNat(lit(suc(y)))) = frac(m, fromNat(lit(suc(z)))))
+  = (n * pos(fromNat(lit(suc(z)))) = m * pos(fromNat(lit(suc(y)))))
+proof
+  arbitrary n:Int, y:Nat, m:Int, z:Nat
+  apply rat_frac_eq_iff[n, fromNat(lit(suc(y))), m, fromNat(lit(suc(z)))] to lit_pos[y], lit_pos[z]
+end
+
+auto rat_frac_lit_eq
+
+theorem rat_frac_lit_le: all n:Int, y:Nat, m:Int, z:Nat.
+  (frac(n, fromNat(lit(suc(y)))) ≤ frac(m, fromNat(lit(suc(z)))))
+  = (n * pos(fromNat(lit(suc(z)))) ≤ m * pos(fromNat(lit(suc(y)))))
+proof
+  arbitrary n:Int, y:Nat, m:Int, z:Nat
+  apply rat_le_frac[n, fromNat(lit(suc(y))), m, fromNat(lit(suc(z)))] to lit_pos[y], lit_pos[z]
+end
+
+auto rat_frac_lit_le
+
+theorem rat_frac_lit_less: all n:Int, y:Nat, m:Int, z:Nat.
+  (frac(n, fromNat(lit(suc(y)))) < frac(m, fromNat(lit(suc(z)))))
+  = (n * pos(fromNat(lit(suc(z)))) < m * pos(fromNat(lit(suc(y)))))
+proof
+  arbitrary n:Int, y:Nat, m:Int, z:Nat
+  apply rat_less_frac[n, fromNat(lit(suc(y))), m, fromNat(lit(suc(z)))] to lit_pos[y], lit_pos[z]
+end
+
+auto rat_frac_lit_less
+
+// Mixing integers and fractions.  In these proofs the auto-rule
+// `rat_frac_lit_one` turns `frac(m, 1)` back into `rat(m)`.
+
+theorem rat_frac_lit_add_int: all n:Int, y:Nat, m:Int.
+  frac(n, fromNat(lit(suc(y)))) + rat(m) = frac(n + m * pos(fromNat(lit(suc(y)))), fromNat(lit(suc(y))) * 1)
+proof
+  arbitrary n:Int, y:Nat, m:Int
+  apply rat_add_frac[n, fromNat(lit(suc(y))), m, 1] to lit_pos[y], lit_pos[zero]
+end
+
+auto rat_frac_lit_add_int
+
+theorem rat_int_add_frac_lit: all m:Int, n:Int, y:Nat.
+  rat(m) + frac(n, fromNat(lit(suc(y)))) = frac(m * pos(fromNat(lit(suc(y)))) + n, 1 * fromNat(lit(suc(y))))
+proof
+  arbitrary m:Int, n:Int, y:Nat
+  apply rat_add_frac[m, 1, n, fromNat(lit(suc(y)))] to lit_pos[zero], lit_pos[y]
+end
+
+auto rat_int_add_frac_lit
+
+theorem rat_frac_lit_mult_int: all n:Int, y:Nat, m:Int.
+  frac(n, fromNat(lit(suc(y)))) * rat(m) = frac(n * m, fromNat(lit(suc(y))) * 1)
+proof
+  arbitrary n:Int, y:Nat, m:Int
+  apply rat_mult_frac[n, fromNat(lit(suc(y))), m, 1] to lit_pos[y], lit_pos[zero]
+end
+
+auto rat_frac_lit_mult_int
+
+theorem rat_int_mult_frac_lit: all m:Int, n:Int, y:Nat.
+  rat(m) * frac(n, fromNat(lit(suc(y)))) = frac(m * n, 1 * fromNat(lit(suc(y))))
+proof
+  arbitrary m:Int, n:Int, y:Nat
+  apply rat_mult_frac[m, 1, n, fromNat(lit(suc(y)))] to lit_pos[zero], lit_pos[y]
+end
+
+auto rat_int_mult_frac_lit
+
+theorem rat_frac_lit_eq_int: all n:Int, y:Nat, m:Int.
+  (frac(n, fromNat(lit(suc(y)))) = rat(m)) = (n = m * pos(fromNat(lit(suc(y)))))
+proof
+  arbitrary n:Int, y:Nat, m:Int
+  apply rat_frac_eq_iff[n, fromNat(lit(suc(y))), m, 1] to lit_pos[y], lit_pos[zero]
+end
+
+auto rat_frac_lit_eq_int
+
+theorem rat_int_eq_frac_lit: all m:Int, n:Int, y:Nat.
+  (rat(m) = frac(n, fromNat(lit(suc(y))))) = (m * pos(fromNat(lit(suc(y)))) = n)
+proof
+  arbitrary m:Int, n:Int, y:Nat
+  apply rat_frac_eq_iff[m, 1, n, fromNat(lit(suc(y)))] to lit_pos[zero], lit_pos[y]
+end
+
+auto rat_int_eq_frac_lit
+
+theorem rat_frac_lit_le_int: all n:Int, y:Nat, m:Int.
+  (frac(n, fromNat(lit(suc(y)))) ≤ rat(m)) = (n ≤ m * pos(fromNat(lit(suc(y)))))
+proof
+  arbitrary n:Int, y:Nat, m:Int
+  apply rat_le_frac[n, fromNat(lit(suc(y))), m, 1] to lit_pos[y], lit_pos[zero]
+end
+
+auto rat_frac_lit_le_int
+
+theorem rat_int_le_frac_lit: all m:Int, n:Int, y:Nat.
+  (rat(m) ≤ frac(n, fromNat(lit(suc(y))))) = (m * pos(fromNat(lit(suc(y)))) ≤ n)
+proof
+  arbitrary m:Int, n:Int, y:Nat
+  apply rat_le_frac[m, 1, n, fromNat(lit(suc(y)))] to lit_pos[zero], lit_pos[y]
+end
+
+auto rat_int_le_frac_lit
+
+theorem rat_frac_lit_less_int: all n:Int, y:Nat, m:Int.
+  (frac(n, fromNat(lit(suc(y)))) < rat(m)) = (n < m * pos(fromNat(lit(suc(y)))))
+proof
+  arbitrary n:Int, y:Nat, m:Int
+  apply rat_less_frac[n, fromNat(lit(suc(y))), m, 1] to lit_pos[y], lit_pos[zero]
+end
+
+auto rat_frac_lit_less_int
+
+theorem rat_int_less_frac_lit: all m:Int, n:Int, y:Nat.
+  (rat(m) < frac(n, fromNat(lit(suc(y))))) = (m * pos(fromNat(lit(suc(y)))) < n)
+proof
+  arbitrary m:Int, n:Int, y:Nat
+  apply rat_less_frac[m, 1, n, fromNat(lit(suc(y)))] to lit_pos[zero], lit_pos[y]
+end
+
+auto rat_int_less_frac_lit
+
+auto rat_frac_zero
+
+// Reciprocals
+
+theorem rat_inv_int_lit_pos: all x:Nat.
+  inv(rat(pos(fromNat(lit(suc(x)))))) = frac(+1, fromNat(lit(suc(x))))
+proof
+  arbitrary x:Nat
+  apply rat_inv_unique[rat(pos(fromNat(lit(suc(x))))), frac(+1, fromNat(lit(suc(x))))]
+  to .
+end
+
+auto rat_inv_int_lit_pos
+
+theorem rat_inv_int_lit_neg: all x:Nat.
+  inv(rat(negsuc(fromNat(lit(x))))) = frac(-1, fromNat(lit(suc(x))))
+proof
+  arbitrary x:Nat
+  apply rat_inv_unique[rat(negsuc(fromNat(lit(x)))), frac(-1, fromNat(lit(suc(x))))]
+  to .
+end
+
+auto rat_inv_int_lit_neg
+
+theorem rat_inv_frac_lit_pos: all x:Nat, y:Nat.
+  inv(frac(pos(fromNat(lit(suc(x)))), fromNat(lit(suc(y)))))
+  = frac(pos(fromNat(lit(suc(y)))), fromNat(lit(suc(x))))
+proof
+  arbitrary x:Nat, y:Nat
+  apply rat_inv_frac[fromNat(lit(suc(x))), fromNat(lit(suc(y)))] to lit_pos[x], lit_pos[y]
+end
+
+auto rat_inv_frac_lit_pos
+
+theorem rat_inv_frac_lit_neg: all x:Nat, y:Nat.
+  inv(frac(negsuc(fromNat(lit(x))), fromNat(lit(suc(y)))))
+  = frac(- pos(fromNat(lit(suc(y)))), fromNat(lit(suc(x))))
+proof
+  arbitrary x:Nat, y:Nat
+  apply rat_inv_frac_neg[fromNat(lit(suc(x))), fromNat(lit(suc(y)))] to lit_pos[x], lit_pos[y]
+end
+
+auto rat_inv_frac_lit_neg
+
+// Subtraction and division of concrete rationals
+
+auto rat_int_sub
+
+theorem rat_frac_lit_sub: all n:Int, y:Nat, m:Int, z:Nat.
+  frac(n, fromNat(lit(suc(y)))) - frac(m, fromNat(lit(suc(z))))
+  = frac(n, fromNat(lit(suc(y)))) + frac(- m, fromNat(lit(suc(z))))
+proof
+  arbitrary n:Int, y:Nat, m:Int, z:Nat
+  replace rat_sub_def.
+end
+
+auto rat_frac_lit_sub
+
+theorem rat_frac_lit_sub_int: all n:Int, y:Nat, m:Int.
+  frac(n, fromNat(lit(suc(y)))) - rat(m) = frac(n, fromNat(lit(suc(y)))) + rat(- m)
+proof
+  arbitrary n:Int, y:Nat, m:Int
+  replace rat_sub_def.
+end
+
+auto rat_frac_lit_sub_int
+
+theorem rat_int_sub_frac_lit: all m:Int, n:Int, y:Nat.
+  rat(m) - frac(n, fromNat(lit(suc(y)))) = rat(m) + frac(- n, fromNat(lit(suc(y))))
+proof
+  arbitrary m:Int, n:Int, y:Nat
+  replace rat_sub_def.
+end
+
+auto rat_int_sub_frac_lit
+
+theorem rat_int_div: all n:Int, m:Int. rat(n) / rat(m) = rat(n) * inv(rat(m))
+proof
+  arbitrary n:Int, m:Int
+  rat_div_def[rat(n), rat(m)]
+end
+
+auto rat_int_div
+
+theorem rat_frac_lit_div: all n:Int, y:Nat, m:Int, z:Nat.
+  frac(n, fromNat(lit(suc(y)))) / frac(m, fromNat(lit(suc(z))))
+  = frac(n, fromNat(lit(suc(y)))) * inv(frac(m, fromNat(lit(suc(z)))))
+proof
+  arbitrary n:Int, y:Nat, m:Int, z:Nat
+  rat_div_def[frac(n, fromNat(lit(suc(y)))), frac(m, fromNat(lit(suc(z))))]
+end
+
+auto rat_frac_lit_div
+
+theorem rat_frac_lit_div_int: all n:Int, y:Nat, m:Int.
+  frac(n, fromNat(lit(suc(y)))) / rat(m) = frac(n, fromNat(lit(suc(y)))) * inv(rat(m))
+proof
+  arbitrary n:Int, y:Nat, m:Int
+  rat_div_def[frac(n, fromNat(lit(suc(y)))), rat(m)]
+end
+
+auto rat_frac_lit_div_int
+
+theorem rat_int_div_frac_lit: all m:Int, n:Int, y:Nat.
+  rat(m) / frac(n, fromNat(lit(suc(y)))) = rat(m) * inv(frac(n, fromNat(lit(suc(y)))))
+proof
+  arbitrary m:Int, n:Int, y:Nat
+  rat_div_def[rat(m), frac(n, fromNat(lit(suc(y))))]
+end
+
+auto rat_int_div_frac_lit
+
+// Reducing concrete fractions to lowest terms
+
+lemma rat_frac_cancel: all a:Nat, b:Nat, g:Nat, k:Nat, l:Nat.
+  if g * k = a and g * l = b and zero < g
+  then frac(pos(fromNat(a)), fromNat(b)) = frac(pos(fromNat(a / g)), fromNat(b / g))
+proof
+  arbitrary a:Nat, b:Nat, g:Nat, k:Nat, l:Nat
+  assume prem
+  have ga: g * k = a by prem
+  have gb: g * l = b by prem
+  have z: fromNat(zero) = (0:UInt) by evaluate
+  have g_pos: 0 < fromNat(g)
+    by replace z in apply less_fromNat[zero, g] to conjunct 2 of prem
+  replace symmetric fromNat_div[a, g] | symmetric fromNat_div[b, g]
+        | symmetric ga | symmetric gb | fromNat_mult
+        | apply uint_mult_div_left_inverse[fromNat(k), fromNat(g)] to g_pos
+        | apply uint_mult_div_left_inverse[fromNat(l), fromNat(g)] to g_pos
+        | symmetric mult_pos_pos[fromNat(g), fromNat(k)]
+  apply rat_frac_scale[fromNat(g), pos(fromNat(k)), fromNat(l)] to g_pos
+end
+
+lemma rat_frac_cancel_gcd: all a:Nat, b:Nat. if zero < a then
+  frac(pos(fromNat(a)), fromNat(b))
+  = frac(pos(fromNat(a / gcd(a, b))), fromNat(b / gcd(a, b)))
+proof
+  arbitrary a:Nat, b:Nat
+  assume a_pos
+  obtain k where gk: gcd(a, b) * k = a from expand divides in conjunct 0 of gcd_divides[b, a]
+  obtain l where gl: gcd(a, b) * l = b from expand divides in conjunct 1 of gcd_divides[b, a]
+  have g_pos: zero < gcd(a, b) by {
+    cases zero_or_positive[gcd(a, b)]
+    case gz {
+      conclude false by replace symmetric (replace gz in gk) in a_pos
+    }
+    case gp { gp }
+  }
+  apply rat_frac_cancel[a, b, gcd(a, b), k, l] to gk, gl, g_pos
+end
+
+theorem rat_frac_lit_reduce: all x:Nat, y:Nat.
+  if 1 < gcd(fromNat(lit(suc(x))), fromNat(lit(suc(y))))
+  then frac(pos(fromNat(lit(suc(x)))), fromNat(lit(suc(y))))
+     = frac(pos(fromNat(lit(suc(x)) / gcd(lit(suc(x)), lit(suc(y))))),
+            fromNat(lit(suc(y)) / gcd(lit(suc(x)), lit(suc(y)))))
+proof
+  arbitrary x:Nat, y:Nat
+  assume _
+  apply rat_frac_cancel_gcd[lit(suc(x)), lit(suc(y))] to (evaluate)
+end
+
+auto rat_frac_lit_reduce
+
+lemma rat_frac_cancel_gcd_neg: all a:Nat, b:Nat. if zero < a then
+  frac(- pos(fromNat(a)), fromNat(b))
+  = frac(- pos(fromNat(a / gcd(a, b))), fromNat(b / gcd(a, b)))
+proof
+  arbitrary a:Nat, b:Nat
+  assume a_pos
+  replace rat_frac_neg | apply rat_frac_cancel_gcd[a, b] to a_pos.
+end
+
+theorem rat_frac_lit_reduce_neg: all x:Nat, y:Nat.
+  if 1 < gcd(fromNat(lit(suc(x))), fromNat(lit(suc(y))))
+  then frac(negsuc(fromNat(lit(x))), fromNat(lit(suc(y))))
+     = frac(- pos(fromNat(lit(suc(x)) / gcd(lit(suc(x)), lit(suc(y))))),
+            fromNat(lit(suc(y)) / gcd(lit(suc(x)), lit(suc(y)))))
+proof
+  arbitrary x:Nat, y:Nat
+  assume _
+  apply rat_frac_cancel_gcd_neg[lit(suc(x)), lit(suc(y))] to (evaluate)
+end
+
+auto rat_frac_lit_reduce_neg

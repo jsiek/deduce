@@ -413,7 +413,7 @@ proof
   }
 end
 
-lemma zero_or_positive: all x:Nat. x = zero or zero < x
+theorem zero_or_positive: all x:Nat. x = zero or zero < x
 proof
   arbitrary x:Nat
   switch x {
