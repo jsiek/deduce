@@ -162,7 +162,7 @@ proof
 end
 
 // Negating a strictly positive integer produces the matching `negsuc`.
-lemma neg_pos: all n:UInt.
+theorem neg_pos: all n:UInt.
 	- pos(1 + n) = negsuc(n)
 proof
   arbitrary n : UInt
@@ -480,7 +480,7 @@ proof
 end
 
 // Structural rule: `pos(n) + pos(m) = pos(n + m)`.
-lemma add_pos_pos: all n:UInt, m:UInt.
+theorem add_pos_pos: all n:UInt, m:UInt.
   pos(n) + pos(m) = pos(n + m)
 proof
   arbitrary n:UInt, m:UInt
