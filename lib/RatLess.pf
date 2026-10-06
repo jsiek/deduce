@@ -1,0 +1,224 @@
+module Rat
+
+import Nat
+import UInt
+import Int
+import Base
+import RatPos
+import RatDefs
+import RatFrac
+import RatAddSub
+import RatMult
+
+/*
+  Theorems about the order on Rat: ≤ and < are a total order that is
+  compatible with addition and with multiplication by nonnegatives.
+*/
+
+theorem rat_le_def: all x:Rat, y:Rat.
+  (x ≤ y) = (num(x) * pos(den(y)) ≤ num(y) * pos(den(x)))
+proof
+  arbitrary x:Rat, y:Rat
+  expand operator≤.
+end
+
+theorem rat_less_def: all x:Rat, y:Rat.
+  (x < y) = (num(x) * pos(den(y)) < num(y) * pos(den(x)))
+proof
+  arbitrary x:Rat, y:Rat
+  expand operator<.
+end
+
+theorem rat_eq_cross: all x:Rat, y:Rat.
+  if num(x) * pos(den(y)) = num(y) * pos(den(x)) then x = y
+proof
+  arbitrary x:Rat, y:Rat
+  assume eq
+  replace symmetric rat_frac_num_den[x] | symmetric rat_frac_num_den[y]
+  apply rat_frac_cross_eq[num(x), den(x), num(y), den(y)]
+    to rat_den_pos[x], rat_den_pos[y], eq
+end
+
+theorem rat_less_equal_refl: all x:Rat. x ≤ x
+proof
+  arbitrary x:Rat
+  replace rat_le_def
+  int_less_equal_refl[num(x) * pos(den(x))]
+end
+
+theorem rat_less_irreflexive: all x:Rat. not (x < x)
+proof
+  arbitrary x:Rat
+  replace rat_less_def
+  int_less_irreflexive[num(x) * pos(den(x))]
+end
+
+lemma int_cross_trans_alg: all a:Int, b:Int, c:Int, d:Int, e:Int, f:Int.
+  (a * e) * f = (a * f) * e and (b * d) * f = (b * f) * d and (c * e) * d = (c * d) * e
+proof
+  arbitrary a:Int, b:Int, c:Int, d:Int, e:Int, f:Int
+  (replace int_mult_commute[e, f].), (replace int_mult_commute[d, f].),
+  (replace int_mult_commute[e, d].)
+end
+
+lemma int_cross_le_trans: all a:Int, b:Int, c:Int, d:Int, e:Int, f:Int.
+  if +0 < d and +0 < e and +0 < f and a * e ≤ b * d and b * f ≤ c * e
+  then a * f ≤ c * d
+proof
+  arbitrary a:Int, b:Int, c:Int, d:Int, e:Int, f:Int
+  assume prem
+  have d_pos: +0 < d by prem
+  have e_pos: +0 < e by prem
+  have f_pos: +0 < f by prem
+  have h1: (a * e) * f ≤ (b * d) * f
+    by replace symmetric (apply int_pos_mult_le_iff[f, a * e, b * d] to f_pos) in prem
+  have h2: (b * f) * d ≤ (c * e) * d
+    by replace symmetric (apply int_pos_mult_le_iff[d, b * f, c * e] to d_pos) in prem
+  have h: (a * f) * e ≤ (c * d) * e by {
+    replace symmetric conjunct 0 of int_cross_trans_alg[a, b, c, d, e, f]
+          | symmetric conjunct 2 of int_cross_trans_alg[a, b, c, d, e, f]
+    apply int_less_equal_trans[(a * e) * f, (b * d) * f, (c * e) * d]
+      to h1, (replace symmetric conjunct 1 of int_cross_trans_alg[a, b, c, d, e, f] in h2)
+  }
+  replace (apply int_pos_mult_le_iff[e, a * f, c * d] to e_pos) in h
+end
+
+theorem rat_less_equal_trans: all x:Rat, y:Rat, z:Rat.
+  if x ≤ y and y ≤ z then x ≤ z
+proof
+  arbitrary x:Rat, y:Rat, z:Rat
+  assume prem
+  replace rat_le_def
+  apply int_cross_le_trans[num(x), num(y), num(z), pos(den(x)), pos(den(y)), pos(den(z))]
+    to rat_den_int_pos[x], rat_den_int_pos[y], rat_den_int_pos[z],
+       (replace rat_le_def in conjunct 0 of prem), (replace rat_le_def in conjunct 1 of prem)
+end
+
+theorem rat_less_equal_antisymmetric: all x:Rat, y:Rat.
+  if x ≤ y and y ≤ x then x = y
+proof
+  arbitrary x:Rat, y:Rat
+  assume prem
+  apply rat_eq_cross[x, y] to
+  apply int_less_equal_antisymmetric[num(x) * pos(den(y)), num(y) * pos(den(x))]
+  to (replace rat_le_def in conjunct 0 of prem), (replace rat_le_def in conjunct 1 of prem)
+end
+
+theorem rat_dichotomy: all x:Rat, y:Rat. x ≤ y or y < x
+proof
+  arbitrary x:Rat, y:Rat
+  replace rat_le_def | rat_less_def
+  int_dichotomy[num(x) * pos(den(y)), num(y) * pos(den(x))]
+end
+
+theorem rat_less_equal_iff_not_greater: all x:Rat, y:Rat. (x ≤ y) ⇔ not (y < x)
+proof
+  arbitrary x:Rat, y:Rat
+  replace rat_le_def | rat_less_def
+  int_less_equal_iff_not_greater[num(x) * pos(den(y)), num(y) * pos(den(x))]
+end
+
+theorem rat_not_less_equal_iff_greater: all x:Rat, y:Rat. (not (x ≤ y)) ⇔ (y < x)
+proof
+  arbitrary x:Rat, y:Rat
+  replace rat_le_def | rat_less_def
+  int_not_less_equal_iff_greater[num(x) * pos(den(y)), num(y) * pos(den(x))]
+end
+
+theorem rat_not_less_implies_less_equal: all x:Rat, y:Rat. if not (x < y) then y ≤ x
+proof
+  arbitrary x:Rat, y:Rat
+  replace rat_le_def | rat_less_def
+  int_not_less_implies_less_equal[num(x) * pos(den(y)), num(y) * pos(den(x))]
+end
+
+theorem rat_less_implies_less_equal: all x:Rat, y:Rat. if x < y then x ≤ y
+proof
+  arbitrary x:Rat, y:Rat
+  replace rat_le_def | rat_less_def
+  int_less_implies_less_equal[num(x) * pos(den(y)), num(y) * pos(den(x))]
+end
+
+theorem rat_less_implies_not_greater: all x:Rat, y:Rat. if x < y then not (y < x)
+proof
+  arbitrary x:Rat, y:Rat
+  replace rat_less_def
+  int_less_implies_not_greater[num(x) * pos(den(y)), num(y) * pos(den(x))]
+end
+
+theorem rat_less_implies_not_equal: all x:Rat, y:Rat. if x < y then not (x = y)
+proof
+  arbitrary x:Rat, y:Rat
+  assume x_y
+  assume eq
+  have yy: y < y by replace eq in x_y
+  conclude false by apply rat_less_irreflexive[y] to yy
+end
+
+theorem rat_trichotomy: all x:Rat, y:Rat. x < y or x = y or y < x
+proof
+  arbitrary x:Rat, y:Rat
+  cases int_trichotomy[num(x) * pos(den(y)), num(y) * pos(den(x))]
+  case lt { conclude x < y by { replace rat_less_def  lt } }
+  case eq { conclude x = y by apply rat_eq_cross[x, y] to eq }
+  case gt { conclude y < x by { replace rat_less_def  gt } }
+end
+
+theorem rat_less_equal_iff_less_or_equal: all x:Rat, y:Rat. (x ≤ y) ⇔ (x < y or x = y)
+proof
+  arbitrary x:Rat, y:Rat
+  have fwd: if x ≤ y then x < y or x = y by {
+    assume x_y
+    cases rat_trichotomy[x, y]
+    case lt { conclude x < y by lt }
+    case eq { conclude x = y by eq }
+    case gt {
+      conclude false by apply (apply rat_less_equal_iff_not_greater[x, y] to x_y) to gt
+    }
+  }
+  have bwd: if x < y or x = y then x ≤ y by {
+    assume h
+    cases h
+    case lt { apply rat_less_implies_less_equal[x, y] to lt }
+    case eq { replace eq  rat_less_equal_refl[y] }
+  }
+  fwd, bwd
+end
+
+theorem rat_less_trans_less_equal_right: all x:Rat, y:Rat, z:Rat.
+  if x < y and y ≤ z then x < z
+proof
+  arbitrary x:Rat, y:Rat, z:Rat
+  assume prem
+  have x_z: x ≤ z by apply rat_less_equal_trans[x, y, z]
+    to (apply rat_less_implies_less_equal[x, y] to prem), prem
+  cases apply rat_less_equal_iff_less_or_equal[x, z] to x_z
+  case lt { lt }
+  case eq {
+    have z_y: z < y by replace eq in conjunct 0 of prem
+    conclude false by apply (apply rat_less_equal_iff_not_greater[y, z] to prem) to z_y
+  }
+end
+
+theorem rat_less_trans_less_equal_left: all x:Rat, y:Rat, z:Rat.
+  if x ≤ y and y < z then x < z
+proof
+  arbitrary x:Rat, y:Rat, z:Rat
+  assume prem
+  have x_z: x ≤ z by apply rat_less_equal_trans[x, y, z]
+    to prem, (apply rat_less_implies_less_equal[y, z] to prem)
+  cases apply rat_less_equal_iff_less_or_equal[x, z] to x_z
+  case lt { lt }
+  case eq {
+    have y_x: y < x by replace symmetric eq in conjunct 1 of prem
+    conclude false by apply (apply rat_less_equal_iff_not_greater[x, y] to prem) to y_x
+  }
+end
+
+theorem rat_less_trans: all x:Rat, y:Rat, z:Rat. if x < y and y < z then x < z
+proof
+  arbitrary x:Rat, y:Rat, z:Rat
+  assume prem
+  apply rat_less_trans_less_equal_right[x, y, z]
+    to prem, (apply rat_less_implies_less_equal[y, z] to prem)
+end
