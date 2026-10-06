@@ -459,7 +459,7 @@ def _extract_lit_nat_names(t: Term) -> tuple[str, str | None, str] | None:
           zname)
 
 def try_fast_lit_nat_arith(loc: Meta, rator: Term, args: list[Term],
-                           ty: Type | None) -> Term | None:
+                           ty: Type | None, env: Env) -> Term | None:
   # Compute `op` on `lit`-wrapped Nat literals directly, bypassing the
   # step-by-step auto-rewrite rules (lit_suc_mult, lit_suc_add, etc.)
   # whose recursive unfolding is O(N^2) or worse for N-digit operands.
@@ -471,6 +471,11 @@ def try_fast_lit_nat_arith(loc: Meta, rator: Term, args: list[Term],
     return None
   op = base_name(rator.get_name())
   if op not in ('+', '*', '^', '∸', '/', '%', 'gcd', '≤', '<'):
+    return None
+  # Only the stdlib's Nat functions may be computed natively: a user can
+  # define a same-named function over their own `lit`/`suc`/`zero` shapes.
+  binding = env.dict.get(rator.get_name())
+  if not isinstance(binding, TermBinding) or binding.module != 'Nat':
     return None
   values: list[int] = []
   lit_name: str | None = None
@@ -713,11 +718,22 @@ def deduceIntToInt(t: Term) -> str:
     case _:
       internal_error(t.location, 'deduceIntToInt: expected an int, not ' + str(t))
 
+# Unique names of the constructors of the stdlib's `Rat` and `Pos`
+# (lib/RatDefs.pf, lib/RatPos.pf), recorded when module Rat declares
+# them, so that `ratToStr` never renders a same-named user constructor.
+rat_constructors: set[str] = set()
+
+def register_rat_constructors(module: str, union_name: str,
+                              constrs: list[str]) -> None:
+  if module == 'Rat' and base_name(union_name) in ('Rat', 'Pos'):
+    rat_constructors.update(constrs)
+
 def _con_name(t: Term) -> str | None:
   match t:
-    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)):
+    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if n in rat_constructors:
       return base_name(n)
-    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), _):
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), _) \
+      if n in rat_constructors:
       return base_name(n)
     case _:
       return None

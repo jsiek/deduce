@@ -1,0 +1,5 @@
+./test/should-error/fast_path_user_plus.pf:8.3-8.4: 
+You provided a proof of:
+	true
+but that is different from what you need to prove:
+	ℕ1 + ℕ1 = ℕ2

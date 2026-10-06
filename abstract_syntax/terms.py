@@ -1223,7 +1223,8 @@ class Call(Term):
     # O(N^2) for N-digit operands, which makes proofs that touch a
     # concrete `P(10)` instance take minutes (see #746).
     if not get_eval_all():
-      fast = try_fast_lit_nat_arith(self.location, self.rator, args, self.typeof)
+      fast = try_fast_lit_nat_arith(self.location, self.rator, args, self.typeof,
+                                    env)
       if fast is not None:
         return auto_rewrites(fast, env)
     else:

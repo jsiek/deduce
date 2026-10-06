@@ -36,7 +36,7 @@ from abstract_syntax import (
     Trace, Type, TypeAlias, TypeInst, TypeType, Union, Var, VarRef, VerboseLevel,
     ViewDecl, ViewRecFun, alpha_equiv, base_name, callable_name,
     check_post_typecheck_invariants, find_file, full_reduce, mkEqual,
-    print_theorems, type_match, type_names,
+    print_theorems, register_rat_constructors, type_match, type_names,
 )
 from checker_cache import (
     _collect_defined_names, _collect_referenced_names, _hash_ast,
@@ -1116,6 +1116,8 @@ def process_declaration_visibility(decl: Declaration, env: Env,
         new_alts.append(new_constr)
       checked_union = Union(loc, name, typarams, new_alts,
                             visibility=decl.visibility)
+      register_rat_constructors(env.get_current_module(), name,
+                                [c.name for c in new_alts])
       if decl.param_polarities is not None:
         checked_union.param_polarities = decl.param_polarities
       env = env.define_type(loc, name, checked_union, decl.visibility)
