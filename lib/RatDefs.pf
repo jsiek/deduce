@@ -1,0 +1,123 @@
+module Rat
+
+import Nat
+import UInt
+public import Int
+import Base
+import RatPos
+
+/*
+  Core Rat definitions.
+
+  A rational is zero, or a positive or negative `Pos` (see RatPos.pf).
+  The representation is canonical, so `=` on `Rat` is equality of
+  rational numbers.  `frac(n, d)` builds the rational `n / d` (with
+  `frac(n, 0) = 0`), and `num`/`den` read a rational back as a fraction
+  in lowest terms with a positive denominator.
+*/
+
+opaque union Rat {
+  rzero
+  rpos(Pos)
+  rneg(Pos)
+}
+
+// Numerator (in lowest terms).
+opaque fun num(x : Rat) {
+  switch x {
+    case rzero { +0 }
+    case rpos(p) { pos(pnum(p)) }
+    case rneg(p) { - pos(pnum(p)) }
+  }
+}
+
+// Denominator (in lowest terms, always positive).
+opaque fun den(x : Rat) {
+  switch x {
+    case rzero { (1:UInt) }
+    case rpos(p) { pden(p) }
+    case rneg(p) { pden(p) }
+  }
+}
+
+// The rational n / d, with n / 0 = 0.
+opaque fun frac(n : Int, d : UInt) {
+  if d = 0 then rzero
+  else switch n {
+    case pos(a) { if a = 0 then rzero else rpos(posFrom(a, d)) }
+    case negsuc(a) { rneg(posFrom(1 + a, d)) }
+  }
+}
+
+// Embeddings of the integers.
+opaque fun rat(n : Int) { frac(n, 1) }
+
+opaque fun rat(n : UInt) { frac(pos(n), 1) }
+
+// Negation
+
+opaque fun operator -(x : Rat) {
+  switch x {
+    case rzero { rzero }
+    case rpos(p) { rneg(p) }
+    case rneg(p) { rpos(p) }
+  }
+}
+
+// Addition and subtraction
+
+opaque fun operator +(x : Rat, y : Rat) {
+  frac(num(x) * pos(den(y)) + num(y) * pos(den(x)), den(x) * den(y))
+}
+
+opaque fun operator -(x : Rat, y : Rat) { x + (- y) }
+
+// Multiplication
+
+opaque fun operator *(x : Rat, y : Rat) {
+  frac(num(x) * num(y), den(x) * den(y))
+}
+
+// Reciprocal and division, with 1 / 0 = 0 and x / 0 = 0.
+
+opaque fun inv(x : Rat) {
+  switch x {
+    case rzero { rzero }
+    case rpos(p) { rpos(posFrom(pden(p), pnum(p))) }
+    case rneg(p) { rneg(posFrom(pden(p), pnum(p))) }
+  }
+}
+
+opaque fun operator /(x : Rat, y : Rat) { x * inv(y) }
+
+// Order
+
+opaque fun operator ≤(x : Rat, y : Rat) {
+  num(x) * pos(den(y)) ≤ num(y) * pos(den(x))
+}
+
+opaque fun operator <(x : Rat, y : Rat) {
+  num(x) * pos(den(y)) < num(y) * pos(den(x))
+}
+
+fun operator >(x : Rat, y : Rat) { y < x }
+
+fun operator ≥(x : Rat, y : Rat) { y ≤ x }
+
+fun max(x : Rat, y : Rat) {
+  if x < y then y
+  else x
+}
+
+fun min(x : Rat, y : Rat) {
+  if x < y then x
+  else y
+}
+
+opaque fun abs(x : Rat) {
+  switch x {
+    case rzero { rzero }
+    case rpos(p) { rpos(p) }
+    case rneg(p) { rpos(p) }
+  }
+}

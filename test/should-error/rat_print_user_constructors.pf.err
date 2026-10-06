@@ -1,0 +1,5 @@
+./test/should-error/rat_print_user_constructors.pf:7.3-7.4: 
+You provided a proof of:
+	true
+but that is different from what you need to prove:
+	x = rpos(rzero)

@@ -1,0 +1,10 @@
+// A user-defined `gcd` over a user type shaped like Nat literals must
+// not be computed by the native Nat `lit` fast path.
+union N { zero  suc(N) }
+fun lit(a : N) { a }
+fun gcd(a : N, b : N) { (zero : N) }
+theorem bogus: gcd(lit(suc(suc((zero : N)))), lit(suc(suc(suc(suc((zero : N)))))))
+             = lit(suc(suc((zero : N))))
+proof
+  .
+end

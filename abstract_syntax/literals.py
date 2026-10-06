@@ -28,6 +28,7 @@ Does NOT go here:
 
 from __future__ import annotations
 
+import math
 from typing import TYPE_CHECKING
 
 from .core import *
@@ -458,7 +459,7 @@ def _extract_lit_nat_names(t: Term) -> tuple[str, str | None, str] | None:
           zname)
 
 def try_fast_lit_nat_arith(loc: Meta, rator: Term, args: list[Term],
-                           ty: Type | None) -> Term | None:
+                           ty: Type | None, env: Env) -> Term | None:
   # Compute `op` on `lit`-wrapped Nat literals directly, bypassing the
   # step-by-step auto-rewrite rules (lit_suc_mult, lit_suc_add, etc.)
   # whose recursive unfolding is O(N^2) or worse for N-digit operands.
@@ -469,7 +470,12 @@ def try_fast_lit_nat_arith(loc: Meta, rator: Term, args: list[Term],
   if not isinstance(rator, (Var, OverloadedVar, ResolvedVar)):
     return None
   op = base_name(rator.get_name())
-  if op not in ('+', '*', '^', '∸', '/', '%', '≤', '<'):
+  if op not in ('+', '*', '^', '∸', '/', '%', 'gcd', '≤', '<'):
+    return None
+  # Only the stdlib's Nat functions may be computed natively: a user can
+  # define a same-named function over their own `lit`/`suc`/`zero` shapes.
+  binding = env.dict.get(rator.get_name())
+  if not isinstance(binding, TermBinding) or binding.module != 'Nat':
     return None
   values: list[int] = []
   lit_name: str | None = None
@@ -511,6 +517,9 @@ def try_fast_lit_nat_arith(loc: Meta, rator: Term, args: list[Term],
     if values[1] == 0:
       return None
     result_int = values[0] % values[1]
+  elif op == 'gcd':
+    # Agrees with the Euclidean `gcd` in lib/Nat.pf, including gcd(a, 0) = a.
+    result_int = math.gcd(values[0], values[1])
   elif op == '≤':
     return Bool(loc, ty, values[0] <= values[1])
   elif op == '<':
@@ -708,6 +717,55 @@ def deduceIntToInt(t: Term) -> str:
       return '-' + str(1 + uintToInt(arg))
     case _:
       internal_error(t.location, 'deduceIntToInt: expected an int, not ' + str(t))
+
+# Unique names of the constructors of the stdlib's `Rat` and `Pos`
+# (lib/RatDefs.pf, lib/RatPos.pf), recorded when module Rat declares
+# them, so that `ratToStr` never renders a same-named user constructor.
+rat_constructors: set[str] = set()
+
+def register_rat_constructors(module: str, union_name: str,
+                              constrs: list[str]) -> None:
+  if module == 'Rat' and base_name(union_name) in ('Rat', 'Pos'):
+    rat_constructors.update(constrs)
+
+def _con_name(t: Term) -> str | None:
+  match t:
+    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if n in rat_constructors:
+      return base_name(n)
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), _) \
+      if n in rat_constructors:
+      return base_name(n)
+    case _:
+      return None
+
+def _pos_to_fraction(t: Term) -> tuple[int, int] | None:
+  # The stdlib's private `Pos` (lib/RatPos.pf): pint(n) is 1 + n and
+  # pfrac(q, y) is q + 1 / (1 + y).
+  match t:
+    case Call(_, _, _, [n]) if _con_name(t) == 'pint' and isUInt(n):
+      return (1 + uintToInt(n), 1)
+    case Call(_, _, _, [q, y]) if _con_name(t) == 'pfrac' and isUInt(q):
+      frac = _pos_to_fraction(y)
+      if frac is None:
+        return None
+      a, b = frac
+      return (uintToInt(q) * (a + b) + b, a + b)
+    case _:
+      return None
+
+def ratToStr(t: Term) -> str | None:
+  # Render a concrete `Rat` value (lib/RatDefs.pf) as the source that
+  # builds it: `rat(+n)` for integers, `frac(+n, d)` otherwise.
+  name = _con_name(t)
+  if name == 'rzero' and not isinstance(t, Call):
+    return 'rat(+0)'
+  if name not in ('rpos', 'rneg') or not isinstance(t, Call) or len(t.args) != 1:
+    return None
+  frac = _pos_to_fraction(t.args[0])
+  if frac is None:
+    return None
+  n = ('+' if name == 'rpos' else '-') + str(frac[0])
+  return 'rat(' + n + ')' if frac[1] == 1 else 'frac(' + n + ', ' + str(frac[1]) + ')'
 
 def is_constructor(constr_name: str, env: Env) -> bool:
   for (name,binding) in env.dict.items():

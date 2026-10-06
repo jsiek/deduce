@@ -1,0 +1,180 @@
+module Rat
+
+import Nat
+import UInt
+import Int
+import Base
+import RatPos
+import RatDefs
+import RatFrac
+import RatAddSub
+import RatMult
+import RatLess
+
+/*
+  The embedding of the integers into the rationals, and fractions as
+  quotients of integers.
+*/
+
+theorem rat_int_frac: all n:Int. rat(n) = frac(n, 1)
+proof
+  arbitrary n:Int
+  expand rat.
+end
+
+theorem rat_uint_int: all n:UInt. rat(n) = rat(pos(n))
+proof
+  arbitrary n:UInt
+  expand rat.
+end
+
+lemma pos_from_one: all a:UInt. posFrom(a, 1) = pint(a ∸ 1)
+proof
+  arbitrary a:UInt
+  expand posFrom
+  replace uint_mod_one | uint_div_one.
+end
+
+lemma rat_int_cases: all n:Int.
+  (n = +0 and rat(n) = rzero)
+  or (some k:UInt. n = pos(1 + k) and rat(n) = rpos(pint(k)))
+  or (some k:UInt. n = negsuc(k) and rat(n) = rneg(pint(k)))
+proof
+  arbitrary n:Int
+  switch n {
+    case pos(a) {
+      cases uint_zero_or_add_one[a]
+      case az { replace az  expand rat | frac. }
+      case a_suc {
+        obtain a' where aeq: a = 1 + a' from a_suc
+        have r: rat(pos(a)) = rpos(pint(a')) by {
+          replace aeq
+          expand rat | frac
+          replace pos_from_one.
+        }
+        conclude (some k:UInt. pos(a) = pos(1 + k) and rat(pos(a)) = rpos(pint(k)))
+        by {
+          choose a'
+          have e: pos(a) = pos(1 + a') by replace aeq.
+          e, r
+        }
+      }
+    }
+    case negsuc(a) {
+      have r: rat(negsuc(a)) = rneg(pint(a)) by {
+        expand rat | frac
+        replace pos_from_one.
+      }
+      conclude (some k:UInt. negsuc(a) = negsuc(k) and rat(negsuc(a)) = rneg(pint(k)))
+      by { choose a  r }
+    }
+  }
+end
+
+theorem rat_num_int: all n:Int. num(rat(n)) = n
+proof
+  arbitrary n:Int
+  cases rat_int_cases[n]
+  case z { replace conjunct 1 of z | conjunct 0 of z  expand num. }
+  case p {
+    obtain a where h: n = pos(1 + a) and rat(n) = rpos(pint(a)) from p
+    replace conjunct 1 of h | conjunct 0 of h
+    expand num
+    replace pos_pnum_pint.
+  }
+  case m {
+    obtain a where h: n = negsuc(a) and rat(n) = rneg(pint(a)) from m
+    replace conjunct 1 of h | conjunct 0 of h
+    expand num
+    replace pos_pnum_pint | neg_pos.
+  }
+end
+
+theorem rat_den_int: all n:Int. den(rat(n)) = 1
+proof
+  arbitrary n:Int
+  cases rat_int_cases[n]
+  case z { replace conjunct 1 of z  expand den. }
+  case p {
+    obtain a where h: n = pos(1 + a) and rat(n) = rpos(pint(a)) from p
+    replace conjunct 1 of h
+    expand den
+    replace pos_pden_pint.
+  }
+  case m {
+    obtain a where h: n = negsuc(a) and rat(n) = rneg(pint(a)) from m
+    replace conjunct 1 of h
+    expand den
+    replace pos_pden_pint.
+  }
+end
+
+theorem rat_int_add: all n:Int, m:Int. rat(n) + rat(m) = rat(n + m)
+proof
+  arbitrary n:Int, m:Int
+  expand operator+
+  replace rat_num_int | rat_den_int | rat_int_frac.
+end
+
+theorem rat_int_mult: all n:Int, m:Int. rat(n) * rat(m) = rat(n * m)
+proof
+  arbitrary n:Int, m:Int
+  expand operator*
+  replace rat_num_int | rat_den_int | rat_int_frac.
+end
+
+theorem rat_int_neg: all n:Int. - rat(n) = rat(- n)
+proof
+  arbitrary n:Int
+  replace rat_int_frac | rat_frac_neg.
+end
+
+theorem rat_int_sub: all n:Int, m:Int. rat(n) - rat(m) = rat(n - m)
+proof
+  arbitrary n:Int, m:Int
+  replace rat_sub_def | rat_int_neg | rat_int_add
+  expand operator-.
+end
+
+theorem rat_int_le: all n:Int, m:Int. (rat(n) ≤ rat(m)) = (n ≤ m)
+proof
+  arbitrary n:Int, m:Int
+  replace rat_le_def | rat_num_int | rat_den_int.
+end
+
+theorem rat_int_less: all n:Int, m:Int. (rat(n) < rat(m)) = (n < m)
+proof
+  arbitrary n:Int, m:Int
+  replace rat_less_def | rat_num_int | rat_den_int.
+end
+
+theorem rat_int_injective: all n:Int, m:Int. if rat(n) = rat(m) then n = m
+proof
+  arbitrary n:Int, m:Int
+  assume eq
+  equations
+        n = # num(rat(n)) #  by replace rat_num_int.
+    ... = num(rat(m))    by replace eq.
+    ... = m              by rat_num_int[m]
+end
+
+theorem rat_frac_div: all n:Int, d:UInt. frac(n, d) = rat(n) / rat(pos(d))
+proof
+  arbitrary n:Int, d:UInt
+  cases uint_zero_or_positive[d]
+  case dz {
+    replace dz
+    expand frac
+    replace rat_zero_rzero.
+  }
+  case d_pos {
+    have inv_eq: inv(rat(pos(d))) = frac(+1, d) by {
+      apply rat_inv_unique[rat(pos(d)), frac(+1, d)] to
+      replace rat_int_frac
+            | apply rat_mult_frac[pos(d), 1, +1, d] to uint_zero_less_one_add[0], d_pos
+      transitive (apply rat_frac_self[d] to d_pos) (rat_int_frac[+1])
+    }
+    replace rat_div_def | inv_eq | rat_int_frac
+          | apply rat_mult_frac[n, 1, +1, d] to uint_zero_less_one_add[0], d_pos.
+  }
+end

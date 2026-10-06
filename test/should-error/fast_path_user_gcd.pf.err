@@ -1,0 +1,5 @@
+./test/should-error/fast_path_user_gcd.pf:9.3-9.4: 
+You provided a proof of:
+	true
+but that is different from what you need to prove:
+	gcd(ℕ2, ℕ4) = ℕ2

@@ -1,0 +1,412 @@
+module Rat
+
+import Nat
+import UInt
+import Int
+import Base
+import RatPos
+import RatDefs
+import RatFrac
+import RatAddSub
+
+/*
+  Theorems about Rat multiplication, reciprocal, and division.
+*/
+
+theorem rat_mult_commute: all x:Rat, y:Rat. x * y = y * x
+proof
+  arbitrary x:Rat, y:Rat
+  expand operator*
+  replace int_mult_commute[num(x), num(y)] | uint_mult_commute[den(x), den(y)].
+end
+
+theorem rat_mult_assoc: all x:Rat, y:Rat, z:Rat. (x * y) * z = x * (y * z)
+proof
+  arbitrary x:Rat, y:Rat, z:Rat
+  obtain a, d where hx: 0 < d and x = frac(a, d) from rat_frac_rep[x]
+  obtain b, e where hy: 0 < e and y = frac(b, e) from rat_frac_rep[y]
+  obtain c, f where hz: 0 < f and z = frac(c, f) from rat_frac_rep[z]
+  have d_pos: 0 < d by hx
+  have e_pos: 0 < e by hy
+  have f_pos: 0 < f by hz
+  replace conjunct 1 of hx | conjunct 1 of hy | conjunct 1 of hz
+        | apply rat_mult_frac[a, d, b, e] to d_pos, e_pos
+        | apply rat_mult_frac[b, e, c, f] to e_pos, f_pos
+        | apply rat_mult_frac[a * b, d * e, c, f]
+          to (apply uint_mult_pos[d, e] to d_pos, e_pos), f_pos
+        | apply rat_mult_frac[a, d, b * c, e * f]
+          to d_pos, (apply uint_mult_pos[e, f] to e_pos, f_pos).
+end
+
+associative operator* in Rat
+
+lemma rat_one_frac: rat(+1) = frac(+1, 1)
+proof
+  expand rat.
+end
+
+theorem rat_one_mult: all x:Rat. rat(+1) * x = x
+proof
+  arbitrary x:Rat
+  obtain a, d where hx: 0 < d and x = frac(a, d) from rat_frac_rep[x]
+  have d_pos: 0 < d by hx
+  replace conjunct 1 of hx | rat_one_frac
+        | apply rat_mult_frac[+1, 1, a, d] to uint_zero_less_one_add[0], d_pos.
+end
+
+auto rat_one_mult
+
+theorem rat_mult_one: all x:Rat. x * rat(+1) = x
+proof
+  arbitrary x:Rat
+  replace rat_mult_commute.
+end
+
+auto rat_mult_one
+
+theorem rat_zero_mult: all x:Rat. rat(+0) * x = rat(+0)
+proof
+  arbitrary x:Rat
+  obtain a, d where hx: 0 < d and x = frac(a, d) from rat_frac_rep[x]
+  have d_pos: 0 < d by hx
+  have z: rat(+0) = frac(+0, 1) by expand rat.
+  replace conjunct 1 of hx | z
+        | apply rat_mult_frac[+0, 1, a, d] to uint_zero_less_one_add[0], d_pos
+        | rat_frac_zero.
+end
+
+auto rat_zero_mult
+
+theorem rat_mult_zero: all x:Rat. x * rat(+0) = rat(+0)
+proof
+  arbitrary x:Rat
+  replace rat_mult_commute.
+end
+
+auto rat_mult_zero
+
+theorem rat_dist_mult_add: all x:Rat, y:Rat, z:Rat. x * (y + z) = x * y + x * z
+proof
+  arbitrary x:Rat, y:Rat, z:Rat
+  obtain a, d where hx: 0 < d and x = frac(a, d) from rat_frac_rep[x]
+  obtain b, e where hy: 0 < e and y = frac(b, e) from rat_frac_rep[y]
+  obtain c, f where hz: 0 < f and z = frac(c, f) from rat_frac_rep[z]
+  have d_pos: 0 < d by hx
+  have e_pos: 0 < e by hy
+  have f_pos: 0 < f by hz
+  have de_pos: 0 < d * e by apply uint_mult_pos[d, e] to d_pos, e_pos
+  have df_pos: 0 < d * f by apply uint_mult_pos[d, f] to d_pos, f_pos
+  replace conjunct 1 of hx | conjunct 1 of hy | conjunct 1 of hz
+        | apply rat_add_frac[b, e, c, f] to e_pos, f_pos
+        | apply rat_mult_frac[a, d, b * pos(f) + c * pos(e), e * f]
+          to d_pos, (apply uint_mult_pos[e, f] to e_pos, f_pos)
+        | apply rat_mult_frac[a, d, b, e] to d_pos, e_pos
+        | apply rat_mult_frac[a, d, c, f] to d_pos, f_pos
+        | apply rat_add_frac[a * b, d * e, a * c, d * f] to de_pos, df_pos
+  have num_eq: a * b * pos(d * f) + a * c * pos(d * e)
+             = pos(d) * (a * (b * pos(f) + c * pos(e))) by {
+    replace symmetric mult_pos_pos[d, f] | symmetric mult_pos_pos[d, e]
+          | int_dist_mult_add
+    replace int_dist_mult_add[pos(d), a * b * pos(f), a * c * pos(e)]
+          | int_mult_commute[pos(d), a * b] | int_mult_commute[pos(d), a * c].
+  }
+  replace num_eq | uint_mult_commute[d * e, d]
+  symmetric apply rat_frac_scale[d, a * (b * pos(f) + c * pos(e)), d * e * f] to d_pos
+end
+
+theorem rat_dist_mult_add_right: all x:Rat, y:Rat, z:Rat. (y + z) * x = y * x + z * x
+proof
+  arbitrary x:Rat, y:Rat, z:Rat
+  replace rat_mult_commute[y + z, x] | rat_mult_commute[y, x] | rat_mult_commute[z, x]
+  rat_dist_mult_add[x, y, z]
+end
+
+theorem rat_neg_mult: all x:Rat, y:Rat. (- x) * y = - (x * y)
+proof
+  arbitrary x:Rat, y:Rat
+  obtain a, d where hx: 0 < d and x = frac(a, d) from rat_frac_rep[x]
+  obtain b, e where hy: 0 < e and y = frac(b, e) from rat_frac_rep[y]
+  have d_pos: 0 < d by hx
+  have e_pos: 0 < e by hy
+  replace conjunct 1 of hx | conjunct 1 of hy
+        | symmetric rat_frac_neg[a, d]
+        | apply rat_mult_frac[- a, d, b, e] to d_pos, e_pos
+        | apply rat_mult_frac[a, d, b, e] to d_pos, e_pos
+        | symmetric dist_neg_mult[a, b] | rat_frac_neg.
+end
+
+theorem rat_mult_neg: all x:Rat, y:Rat. x * (- y) = - (x * y)
+proof
+  arbitrary x:Rat, y:Rat
+  replace rat_mult_commute[x, - y] | rat_neg_mult | rat_mult_commute[y, x].
+end
+
+theorem rat_neg_mult_neg: all x:Rat, y:Rat. (- x) * (- y) = x * y
+proof
+  arbitrary x:Rat, y:Rat
+  replace rat_neg_mult | rat_mult_neg | rat_neg_involutive.
+end
+
+theorem rat_dist_mult_sub: all x:Rat, y:Rat, z:Rat. x * (y - z) = x * y - x * z
+proof
+  arbitrary x:Rat, y:Rat, z:Rat
+  replace rat_sub_def | rat_dist_mult_add | rat_mult_neg.
+end
+
+theorem rat_dist_mult_sub_right: all x:Rat, y:Rat, z:Rat. (y - z) * x = y * x - z * x
+proof
+  arbitrary x:Rat, y:Rat, z:Rat
+  replace rat_sub_def | rat_dist_mult_add_right | rat_neg_mult.
+end
+
+theorem rat_neg_one_mult: all x:Rat. (- rat(+1)) * x = - x
+proof
+  arbitrary x:Rat
+  replace rat_neg_mult.
+end
+
+// Reciprocal and division
+
+theorem rat_inv_zero: inv(rat(+0)) = rat(+0)
+proof
+  replace rat_zero_rzero
+  expand inv.
+end
+
+auto rat_inv_zero
+
+theorem rat_frac_self: all k:UInt. if 0 < k then frac(pos(k), k) = rat(+1)
+proof
+  arbitrary k:UInt
+  assume k_pos
+  replace rat_one_frac
+  apply rat_frac_cross_eq[pos(k), k, +1, 1] to k_pos, uint_zero_less_one_add[0], .
+end
+
+lemma rat_pos_mult_inv: all p:Pos. pos(pnum(p)) * pos(pnum(posFrom(pden(p), pnum(p))))
+    = pos(pden(p) * pden(posFrom(pden(p), pnum(p))))
+proof
+  arbitrary p:Pos
+  replace mult_pos_pos
+        | uint_mult_commute[pnum(p), pnum(posFrom(pden(p), pnum(p)))]
+        | apply pos_from_cross[pnum(p), pden(p)] to pos_pden_pos[p], pos_pnum_pos[p].
+end
+
+theorem rat_mult_inv: all x:Rat. if not (x = rat(+0)) then x * inv(x) = rat(+1)
+proof
+  arbitrary x:Rat
+  assume xnz
+  have DD_pos: all p:Pos. 0 < pden(p) * pden(posFrom(pden(p), pnum(p))) by {
+    arbitrary p:Pos
+    apply uint_mult_pos[pden(p), pden(posFrom(pden(p), pnum(p)))]
+      to pos_pden_pos[p], pos_pden_pos[posFrom(pden(p), pnum(p))]
+  }
+  switch x {
+    case rzero assume xz {
+      conclude false by apply xnz to transitive xz (symmetric rat_zero_rzero)
+    }
+    case rpos(p) {
+      expand inv | operator* | num | den
+      replace rat_pos_mult_inv
+      apply rat_frac_self to DD_pos[p]
+    }
+    case rneg(p) {
+      expand inv | operator* | num | den
+      replace symmetric dist_neg_mult[pos(pnum(p)), - pos(pnum(posFrom(pden(p), pnum(p))))]
+            | int_neg_mult_right | neg_involutive
+            | rat_pos_mult_inv
+      apply rat_frac_self to DD_pos[p]
+    }
+  }
+end
+
+theorem rat_inv_mult: all x:Rat. if not (x = rat(+0)) then inv(x) * x = rat(+1)
+proof
+  arbitrary x:Rat
+  assume xnz
+  replace rat_mult_commute[inv(x), x]
+  apply rat_mult_inv[x] to xnz
+end
+
+theorem rat_one_not_zero: not (rat(+1) = rat(+0))
+proof
+  replace rat_zero_rzero
+  expand rat | frac.
+end
+
+theorem rat_mult_to_zero: all x:Rat, y:Rat.
+  if x * y = rat(+0) then x = rat(+0) or y = rat(+0)
+proof
+  arbitrary x:Rat, y:Rat
+  assume xy
+  switch x = rat(+0) {
+    case true assume xz { conclude x = rat(+0) by xz }
+    case false assume xnz {
+      have yz: y = rat(+0) by
+        equations
+              y = # (inv(x) * x) * y #  by replace apply rat_inv_mult[x] to xnz.
+          ... = inv(x) * (x * y)    by .
+          ... = rat(+0)             by replace xy.
+      conclude y = rat(+0) by yz
+    }
+  }
+end
+
+theorem rat_mult_left_cancel: all x:Rat, y:Rat, z:Rat.
+  if not (x = rat(+0)) and x * y = x * z then y = z
+proof
+  arbitrary x:Rat, y:Rat, z:Rat
+  assume prem
+  have xnz: not (x = rat(+0)) by prem
+  have eq: x * y = x * z by prem
+  equations
+        y = # (inv(x) * x) * y #  by replace apply rat_inv_mult[x] to xnz.
+    ... = inv(x) * (x * z)    by replace eq.
+    ... = z                   by replace apply rat_inv_mult[x] to xnz.
+end
+
+theorem rat_mult_right_cancel: all x:Rat, y:Rat, z:Rat.
+  if not (x = rat(+0)) and y * x = z * x then y = z
+proof
+  arbitrary x:Rat, y:Rat, z:Rat
+  assume prem
+  have eq: x * y = x * z by
+    replace rat_mult_commute[y, x] | rat_mult_commute[z, x] in conjunct 1 of prem
+  apply rat_mult_left_cancel[x, y, z] to (conjunct 0 of prem), eq
+end
+
+theorem rat_inv_unique: all x:Rat, y:Rat. if x * y = rat(+1) then inv(x) = y
+proof
+  arbitrary x:Rat, y:Rat
+  assume xy
+  have xnz: not (x = rat(+0)) by {
+    assume xz
+    have h: rat(+0) = rat(+1) by replace xz in xy
+    conclude false by apply rat_one_not_zero to symmetric h
+  }
+  equations
+        inv(x) = # inv(x) * (x * y) #  by replace xy.
+    ... = (inv(x) * x) * y         by .
+    ... = y                        by replace apply rat_inv_mult[x] to xnz.
+end
+
+theorem rat_inv_inv: all x:Rat. inv(inv(x)) = x
+proof
+  arbitrary x:Rat
+  switch x = rat(+0) {
+    case true assume xz { replace xz. }
+    case false assume xnz {
+      apply rat_inv_unique[inv(x), x] to apply rat_inv_mult[x] to xnz
+    }
+  }
+end
+
+theorem rat_inv_one: inv(rat(+1)) = rat(+1)
+proof
+  apply rat_inv_unique[rat(+1), rat(+1)] to .
+end
+
+theorem rat_inv_mult_distr: all x:Rat, y:Rat. inv(x * y) = inv(x) * inv(y)
+proof
+  arbitrary x:Rat, y:Rat
+  switch x = rat(+0) {
+    case true assume xz { replace xz. }
+    case false assume xnz {
+      switch y = rat(+0) {
+        case true assume yz { replace yz. }
+        case false assume ynz {
+          apply rat_inv_unique[x * y, inv(x) * inv(y)] to
+          equations
+                (x * y) * (inv(x) * inv(y))
+              = x * (y * inv(y)) * inv(x)  by replace rat_mult_commute[inv(x), inv(y)].
+          ... = x * inv(x)                 by replace apply rat_mult_inv[y] to ynz.
+          ... = rat(+1)                    by apply rat_mult_inv[x] to xnz
+        }
+      }
+    }
+  }
+end
+
+theorem rat_div_def: all x:Rat, y:Rat. x / y = x * inv(y)
+proof
+  arbitrary x:Rat, y:Rat
+  expand operator/.
+end
+
+theorem rat_div_zero: all x:Rat. x / rat(+0) = rat(+0)
+proof
+  arbitrary x:Rat
+  replace rat_div_def.
+end
+
+auto rat_div_zero
+
+theorem rat_zero_div: all x:Rat. rat(+0) / x = rat(+0)
+proof
+  arbitrary x:Rat
+  replace rat_div_def.
+end
+
+auto rat_zero_div
+
+theorem rat_div_one: all x:Rat. x / rat(+1) = x
+proof
+  arbitrary x:Rat
+  replace rat_div_def | rat_inv_one.
+end
+
+auto rat_div_one
+
+theorem rat_div_self: all x:Rat. if not (x = rat(+0)) then x / x = rat(+1)
+proof
+  arbitrary x:Rat
+  assume xnz
+  replace rat_div_def
+  apply rat_mult_inv[x] to xnz
+end
+
+theorem rat_div_mult_cancel: all x:Rat, y:Rat. if not (y = rat(+0)) then (x / y) * y = x
+proof
+  arbitrary x:Rat, y:Rat
+  assume ynz
+  replace rat_div_def | apply rat_inv_mult[y] to ynz.
+end
+
+theorem rat_mult_div_cancel: all x:Rat, y:Rat. if not (y = rat(+0)) then (x * y) / y = x
+proof
+  arbitrary x:Rat, y:Rat
+  assume ynz
+  replace rat_div_def | apply rat_mult_inv[y] to ynz.
+end
+
+theorem rat_inv_neg: all x:Rat. inv(- x) = - inv(x)
+proof
+  arbitrary x:Rat
+  switch x = rat(+0) {
+    case true assume xz { replace xz. }
+    case false assume xnz {
+      apply rat_inv_unique[- x, - inv(x)] to
+      replace rat_neg_mult_neg
+      apply rat_mult_inv[x] to xnz
+    }
+  }
+end
+
+theorem rat_inv_frac: all a:UInt, d:UInt.
+  if 0 < a and 0 < d then inv(frac(pos(a), d)) = frac(pos(d), a)
+proof
+  arbitrary a:UInt, d:UInt
+  assume prem
+  apply rat_inv_unique[frac(pos(a), d), frac(pos(d), a)] to
+  replace apply rat_mult_frac[pos(a), d, pos(d), a] to prem
+        | mult_pos_pos | uint_mult_commute[a, d]
+  apply rat_frac_self[d * a] to apply uint_mult_pos[d, a] to (conjunct 1 of prem), (conjunct 0 of prem)
+end
+
+theorem rat_inv_frac_neg: all a:UInt, d:UInt.
+  if 0 < a and 0 < d then inv(frac(- pos(a), d)) = frac(- pos(d), a)
+proof
+  arbitrary a:UInt, d:UInt
+  assume prem
+  replace rat_frac_neg | rat_inv_neg | apply rat_inv_frac[a, d] to prem.
+end

@@ -9,5 +9,6 @@
 # `lsprotocol`). Both test suites use `pytest.importorskip` so they
 # degrade gracefully when their respective SDK is missing.
 
-mcp>=1.27.0
+# mcp 2 renamed FastMCP to MCPServer and changed other APIs; see #1199.
+mcp>=1.27.0,<2
 pygls>=2.1.0

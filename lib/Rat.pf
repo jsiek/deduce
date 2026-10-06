@@ -1,0 +1,31 @@
+module Rat
+
+import Nat
+import UInt
+import Int
+import Base
+
+/*
+  Rational numbers.
+
+  Every rational has exactly one representation, so `=` on Rat is
+  equality of rational numbers.  Write rationals with
+
+    frac(n, d)   the rational n / d, for n:Int and d:UInt (frac(n, 0) = 0)
+    rat(n)       the integer n (an Int or a UInt) as a rational
+
+  and read them back with `num(x)` and `den(x)`, the numerator and
+  (positive) denominator in lowest terms.  Division by zero is defined
+  to be zero: `inv(rat(+0)) = rat(+0)` and `x / rat(+0) = rat(+0)`.
+
+  This module gathers the definitions, the field laws, and the order
+  laws for Rat.
+*/
+
+public import RatDefs
+public import RatFrac
+public import RatAddSub
+public import RatMult
+public import RatLess
+public import RatInt
+public import RatLit

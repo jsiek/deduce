@@ -1,0 +1,8 @@
+// User constructors that share names with the stdlib Rat's private
+// constructors must print as themselves, not as rationals.
+union Mine { rzero  rpos(Mine) }
+theorem bogus: all x:Mine. x = rpos(rzero)
+proof
+  arbitrary x:Mine
+  .
+end

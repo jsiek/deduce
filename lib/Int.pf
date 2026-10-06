@@ -279,3 +279,15 @@ proof
 end
 
 auto mult_neg_lit_lit
+
+// `negsuc(x) * negsuc(y) = (1 + x) * (1 + y)`: the product of two negatives is positive.
+theorem mult_neg_lit_neg_lit: all x:Nat, y:Nat.
+  negsuc(fromNat(lit(x))) * negsuc(fromNat(lit(y)))
+  = pos((1 + fromNat(lit(x))) * (1 + fromNat(lit(y))))
+proof
+  arbitrary x:Nat, y:Nat
+  expand operator*
+  replace mult_neg_neg | mult_pos_uint.
+end
+
+auto mult_neg_lit_neg_lit

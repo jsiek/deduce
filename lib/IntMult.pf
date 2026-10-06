@@ -17,7 +17,7 @@ import IntLess
 
 // Properties of Multiplication
 
-lemma mult_pos_pos: all x:UInt, y:UInt. pos(x) * pos(y) = pos(x * y)
+theorem mult_pos_pos: all x:UInt, y:UInt. pos(x) * pos(y) = pos(x * y)
 proof
   arbitrary x:UInt, y:UInt
   evaluate
