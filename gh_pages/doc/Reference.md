@@ -115,6 +115,7 @@ forms are parser/AST only today and most require
 - [Proof](#proof)
 - [Proof List](#proof-list)
 - [Proof Statement](#proof-statement)
+- [Postulate (Statement)](#postulate-statement)
 - [Predicate (Statement)](#predicate-statement)
 - [Print (Statement)](#print-statement)
 - [Question Mark `?` (Proof)](#question-mark-proof)
@@ -2138,6 +2139,57 @@ with a [Conclusion](#conclusion-proof) (not a proof statement).
 * [Suffices](#suffices-proof-statement)
 * [Suppose](#suppose)
 
+## Postulate (Statement)
+
+```
+postulate name: formula
+postulate type T
+postulate fun f : type
+```
+
+(See the `theorem` grammar under [Theorem](#theorem-statement).)
+
+A postulate is assumed rather than defined or proved. There are three
+forms:
+
+* `postulate type T` declares an abstract type `T`. Nothing is known
+  about its values, so (unlike an empty `union`) it cannot be taken
+  apart with `switch` or `induction`.
+* `postulate fun f : T` declares a constant or function `f` of type `T`
+  with no definition. Like a `fun`, it may overload an existing name,
+  including an operator such as `operator +`.
+* `postulate name: P` declares an axiom: the formula `P` is assumed
+  true, and `name` can be used as a proof of `P`.
+
+```{.deduce^#postulate_example}
+postulate type Seg
+postulate fun len : fn Seg -> UInt
+postulate fun operator ++ : fn (Seg, Seg) -> Seg
+postulate len_append: all s:Seg, t:Seg. len(s ++ t) = len(s) + len(t)
+
+theorem len_append_three: all s:Seg, t:Seg, u:Seg.
+  len((s ++ t) ++ u) = len(s) + len(t) + len(u)
+proof
+  arbitrary s:Seg, t:Seg, u:Seg
+  replace len_append | len_append.
+end
+```
+
+A false axiom makes everything provable, so postulates should be rare
+and kept together. To see which postulates a file depends on, run
+
+```
+python deduce.py --postulates file.pf
+```
+
+After checking the file, Deduce lists every postulate (types,
+functions, and axioms) that the file's theorems and definitions use,
+following uses through imported modules, including uses through `auto`
+rules and `associative` declarations. A file that uses none reports
+`depends on no postulates`. Because it follows uses through every
+import, this option re-checks all imported modules, so it is slower
+than a normal run.
+
 ## Predicate (Statement)
 
 ```deduce-grammar
@@ -2864,7 +2916,12 @@ for any terms `a` and `b`.
 theorem ::= visibility "theorem" IDENT ":" term reason
 theorem ::= visibility "lemma" IDENT ":" term reason
 theorem ::= visibility "postulate" IDENT ":" term
+theorem ::= visibility "postulate" "type" IDENT
+theorem ::= visibility "postulate" "fun" identifier ":" type
 ```
+
+See [Postulate](#postulate-statement) for the three `postulate` forms,
+which are assumed rather than proved.
 
 A theorem (or lemma) proves that a formula is true. The theorem's name
 can then be used later when one needs to prove the formula again.

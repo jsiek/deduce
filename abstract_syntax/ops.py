@@ -129,11 +129,12 @@ def bijective_view_for_source_type(
 
 
 def is_associative(loc: Meta, opname: str, typ: Type | None, env: Env) -> bool:
-  for (typarams, ty) in env.get_assoc_types(opname):
+  for (typarams, ty, proof_name) in env.get_assoc_types(opname):
     type_params = type_names(loc, typarams)
     matching: dict[str, Type | VarRef | None] = {}
     try:
       type_match(loc, type_params, ty, typ, matching)
+      record_implicit_use(proof_name)
       return True
     except MatchFailed:
       pass

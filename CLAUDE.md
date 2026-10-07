@@ -81,7 +81,7 @@ python test-deduce.py --regenerate-warns       # all of them
 
 The test harness runs under the active Python interpreter, which must be Python 3.12+ with `lark` installed. Both parsers must pass — when changing parsing or AST, run with `--lalr` and `--recursive-descent`.
 
-Useful `deduce.py` flags while debugging: `--verbose` (or `--verbose full`), `--unique-names`, `--trace <function>`, `--traceback`, `--quiet`, `--suppress-theorems`, `-r` (recurse into directories).
+Useful `deduce.py` flags while debugging: `--verbose` (or `--verbose full`), `--unique-names`, `--trace <function>`, `--traceback`, `--quiet`, `--suppress-theorems`, `-r` (recurse into directories), `--postulates` (list the postulates a file depends on; re-checks all imports).
 
 ## Architecture
 

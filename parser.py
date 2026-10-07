@@ -13,7 +13,7 @@ from abstract_syntax import (
     ObserverDecl, Omitted, Or, PAndElim, PAnnot, PExtensionality, PHelpUse, PHole,
     PInjective, PLet, PRecall, PReflexive, PSorry, PSymmetric, PTLetNew,
     PTransitive, PTrue, PTuple, PVar, PatternBool, PatternCons, PatternTerm,
-    PointsTo, PostconditionRef, Postulate, Predicate, Print, ProcDecl,
+    PointsTo, PostconditionRef, Postulate, PostulateFun, PostulateType, Predicate, Print, ProcDecl,
     ProcParam, ProcProofEntry, ProcSpec, RecFun, ResourceDecl,
     RewriteFact, RewriteGoal,
     Rule, RuleInduction, RuleInductionCase, RuleInversion, SepConj, SimplifyFact,
@@ -1090,6 +1090,18 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
         statement = Postulate(e.meta,
                               _token_text(e, 1),
                               parse_tree_to_ast(e.children[2], e))
+        set_visibility(statement, visibility)
+        return statement
+    elif e.data == 'postulate_type':
+        visibility = parse_tree_to_ast(e.children[0], e)
+        statement = PostulateType(e.meta, _token_text(e, 1))
+        set_visibility(statement, visibility)
+        return statement
+    elif e.data == 'postulate_fun':
+        visibility = parse_tree_to_ast(e.children[0], e)
+        statement = PostulateFun(e.meta,
+                                 parse_tree_to_ast(e.children[1], e),
+                                 parse_tree_to_ast(e.children[2], e))
         set_visibility(statement, visibility)
         return statement
     elif e.data == 'associative_declaration':

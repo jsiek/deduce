@@ -430,6 +430,14 @@ def _spec_Postulate() -> ast.Postulate:
     return ast.Postulate(_meta(), "p", _var("f"))
 
 
+def _spec_PostulateType() -> ast.PostulateType:
+    return ast.PostulateType(_meta(), "R")
+
+
+def _spec_PostulateFun() -> ast.PostulateFun:
+    return ast.PostulateFun(_meta(), "f", ast.IntType(_meta()))
+
+
 def _spec_Theorem() -> ast.Theorem:
     return ast.Theorem(_meta(), "t", _var("f"), _spec_PVar(), False)
 
@@ -586,7 +594,7 @@ def _spec_AssociativeBinding() -> ast.AssociativeBinding:
         visibility="public",
         location=_meta(),
         opname="+",
-        types=[(["T"], ast.IntType(_meta()))],
+        types=[(["T"], ast.IntType(_meta()), "assoc_proof")],
     )
 
 
@@ -678,6 +686,8 @@ _SPECIMEN_FACTORIES: dict[type, Callable[[], ast.AST]] = {
     ast.SwitchProof: _spec_SwitchProof,
     # Statements / Declarations
     ast.Postulate: _spec_Postulate,
+    ast.PostulateType: _spec_PostulateType,
+    ast.PostulateFun: _spec_PostulateFun,
     ast.Theorem: _spec_Theorem,
     ast.Constructor: _spec_Constructor,
     ast.Rule: _spec_Rule,

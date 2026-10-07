@@ -1680,6 +1680,8 @@ def _find_declaration(
         GenRecFun,
         Import,
         Postulate,
+        PostulateFun,
+        PostulateType,
         Predicate,
         RecFun,
         Theorem,
@@ -1694,7 +1696,8 @@ def _find_declaration(
     # is structurally the same for F12 purposes: top-level name +
     # location.  Without it here, F12 on ``gcd'' / ``div_alt'' /
     # other ``recfun'' declarations returned None.
-    decl_types = (Theorem, Postulate, Define, RecFun, GenRecFun, Union, Predicate)
+    decl_types = (Theorem, Postulate, PostulateType, PostulateFun, Define,
+                  RecFun, GenRecFun, Union, Predicate)
     for stmt in ast_nodes:
         if isinstance(stmt, decl_types) and getattr(stmt, "name", None) == target_name:
             return cast(Meta, stmt.location)

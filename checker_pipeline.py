@@ -30,7 +30,7 @@ from abstract_syntax import (
     LValueField, LValueIndex, LValueVar, MakeArray, Module,
     MutableArrayType, ObjectDecl,
     ObjectField, ObserverDecl, Omitted, Or, OverloadType, OverloadedVar, PSorry, PVar,
-    PatternBool, PatternCons, Postulate, Predicate, Print, ProcDecl, ProcParam,
+    PatternBool, PatternCons, Postulate, PostulateFun, PostulateType, Predicate, Print, ProcDecl, ProcParam,
     ProcSpec, Proof, ProofBinding, RecFun, ResolvedVar, ResourceDecl, Rule, Some,
     Statement, Switch, SwitchCase, TAnnote, TermBinding, TLet, Term, TermInst, Theorem,
     Trace, Type, TypeAlias, TypeInst, TypeType, Union, Var, VarRef, VerboseLevel,
@@ -64,9 +64,10 @@ from error import (
     warning,
 )
 from flags import (
-    get_check_imports, get_debugger, get_quiet_mode,
-    get_target_hole_location, get_verbose, set_verbose,
+    get_check_imports, get_debugger, get_postulate_report, get_quiet_mode,
+    get_target_hole_location, get_verbose, set_verbose, swap_implicit_uses,
 )
+from postulate_report import record_statement
 
 imported_modules: set[str] = set()
 checked_modules: set[str] = set()
@@ -1283,6 +1284,15 @@ def process_declaration(stmt: Statement, env: Env,
     case Postulate(loc, name, _):
       return stmt, env
 
+    case PostulateType(loc, name):
+      return stmt, env.declare_type(loc, name, stmt.visibility)
+
+    case PostulateFun(loc, name, typ):
+      checked_typ = check_type(typ, env)
+      new_stmt = PostulateFun(loc, name, checked_typ, visibility=stmt.visibility)
+      return new_stmt, env.declare_term_var(loc, name, checked_typ,
+                                            visibility=stmt.visibility)
+
     case Declaration():
       return process_declaration_visibility(stmt, env, module_chain, downstream_needs_checking)
   
@@ -1618,6 +1628,9 @@ def type_check_stmt(stmt: Statement, env: Env,
       new_frm = check_formula(frm, env)
       return Postulate(loc, name, new_frm, visibility=stmt.visibility)
 
+    case PostulateType() | PostulateFun():
+      return stmt
+
     case Predicate():
       # The translation is processed inline during process_declaration
       # (`stmt.translated_ast` is the result). The wrapper itself has
@@ -1817,6 +1830,9 @@ def collect_env(stmt: Statement, env: Env) -> Env:
     case Postulate(loc, name, frm):
       return env.declare_proof_var(loc, name, frm)
 
+    case PostulateType() | PostulateFun():
+      return env
+
     case Predicate():
       # Already collected inline during process_declaration.
       return env
@@ -1838,7 +1854,7 @@ def collect_env(stmt: Statement, env: Env) -> Env:
   
     case Auto(loc, name):
       frm = env.get_formula_of_proof_var(name)
-      return env.declare_auto_rewrite(loc, frm)
+      return env.declare_auto_rewrite(loc, cast(PVar, name).name, frm)
     
     case Inductive(loc, typ, name):
       frm = env.get_formula_of_proof_var(name)
@@ -1893,11 +1909,12 @@ def collect_env(stmt: Statement, env: Env) -> Env:
           case FunctionType(_, typarams2, param_types, _):
               assert isinstance(op, VarRef)
               resolved_op = op.get_name()
-      if assoc_formula in env.proofs():
+      proof_name = env.proof_name_of(assoc_formula)
+      if proof_name is not None:
           if resolved_op is None:
               user_error(loc, 'Could not find an overload of ' + str(op)
                          + ' with type ' + str(typ))
-          return env.declare_assoc(loc, resolved_op, typarams, typ)
+          return env.declare_assoc(loc, resolved_op, typarams, typ, proof_name)
       else:
           user_error(loc, 'Could not find a proof of\n\t' + str(assoc_formula))
   
@@ -2027,6 +2044,19 @@ def warn_unverified_imperative(decl: Declaration) -> None:
 
 
 def check_proofs(stmt: Statement, env: Env) -> None:
+  if not get_postulate_report():
+    _check_proofs(stmt, env)
+    return
+  outer = swap_implicit_uses(set())
+  try:
+    _check_proofs(stmt, env)
+  finally:
+    uses = swap_implicit_uses(outer) or set()
+    if outer is not None:
+      outer |= uses
+    record_statement(stmt, uses)
+
+def _check_proofs(stmt: Statement, env: Env) -> None:
   if get_verbose():
     print('\n\ncheck_proofs(' + str(stmt) + ')')
   # Phase 5 / Step 21 hook: trap before evaluating each top-level
@@ -2048,6 +2078,9 @@ def check_proofs(stmt: Statement, env: Env) -> None:
       _try_check_proof_of(pf, frm, env)
       
     case Postulate(loc, name, frm):
+      pass
+
+    case PostulateType() | PostulateFun():
       pass
 
     case Predicate():

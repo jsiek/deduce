@@ -2,15 +2,18 @@ from flags import (
     RECURSION_LIMIT,
     VerboseLevel,
     add_import_directory,
+    get_postulate_report,
     init_import_directories,
     set_check_imports,
     set_experimental_imperative,
+    set_postulate_report,
     set_quiet_mode,
     set_recursive_descent,
     set_unique_names,
     set_verbose,
 )
 from abstract_syntax import print_theorems
+from postulate_report import format_report
 from lsp.library import check_file
 from signal import signal, SIGINT
 import sys
@@ -52,6 +55,9 @@ def deduce_file(filename: str, error_expected: bool,
         if not suppress_theorems:
             assert result.ast is not None
             print_theorems(filename, result.ast)
+        if get_postulate_report():
+            assert result.ast is not None
+            print(format_report(filename, result.ast))
         print(filename + ' is valid')
     else:
         if error_expected:
@@ -158,6 +164,10 @@ Options:
   --trace <function>        trace calls to <function> (may be repeated)
   --traceback               include the Python traceback on error
   --suppress-theorems       do not write .thm files
+  --postulates              after checking, list the postulates (types,
+                            constants, and axioms) each file depends on,
+                            following uses through imports; re-checks
+                            every imported module
   --error                   expect each file to error (exit 255 if not)
   --no-check-imports        do not check proofs of imported files
   --color / --no-color      force or disable ANSI color output
@@ -253,6 +263,8 @@ if __name__ == "__main__":
             add_stdlib = False
         elif argument == '--suppress-theorems':
             suppress_theorems = True
+        elif argument == '--postulates':
+            set_postulate_report(True)
         elif argument == '--version' or argument == '-v':
             print("Deduce: version 1.3")
             exit(0)

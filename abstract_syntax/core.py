@@ -44,6 +44,7 @@ from flags import (
     lookup_view_source_alias,
     pop_suppress_view_alias,
     push_suppress_view_alias,
+    record_implicit_use,
     set_check_imports as set_check_imports,
     set_recursive_descent as set_recursive_descent,
     set_verbose,

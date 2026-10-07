@@ -79,7 +79,7 @@ from abstract_syntax import (
 )
 from checker_common import *
 from error import MatchFailed, UserError, internal_error, user_error, wrap_user_error, error_header
-from flags import get_verbose
+from flags import get_postulate_report, get_verbose
 
 TypeExpr: TypingTypeAlias = Type | VarRef
 TypeMatching: TypingTypeAlias = dict[str, TypeExpr | None]
@@ -1496,6 +1496,8 @@ modules: set[str] = set()
 dirty_files: set[str] = set()
 
 def is_modified(filename: str) -> bool:
+    if get_postulate_report():
+        return True
     path = Path(filename)
     last_mod = path.stat().st_mtime
     thm_path = path.with_suffix('.thm')

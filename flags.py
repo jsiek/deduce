@@ -233,3 +233,31 @@ def pop_suppress_view_alias() -> None:
 
 def view_aliasing_suppressed() -> bool:
   return _suppress_view_alias_depth > 0
+
+# Postulate report (`deduce.py --postulates`).  When enabled, every
+# imported module is re-checked even if its `.thm` file is up to date,
+# and while each top-level statement is checked, `implicit_uses`
+# collects the names of theorems it uses without naming them: auto
+# rules that fire, the proofs behind `associative` declarations, and
+# `inductive` principles.
+postulate_report: bool = False
+
+def get_postulate_report() -> bool:
+  return postulate_report
+
+def set_postulate_report(b: bool) -> None:
+  global postulate_report
+  postulate_report = b
+
+implicit_uses: set[str] | None = None
+
+def record_implicit_use(name: str) -> None:
+  if implicit_uses is not None:
+    implicit_uses.add(name)
+
+def swap_implicit_uses(uses: set[str] | None) -> set[str] | None:
+  """Install `uses` as the recording set and return the previous one."""
+  global implicit_uses
+  old = implicit_uses
+  implicit_uses = uses
+  return old

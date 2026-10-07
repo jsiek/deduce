@@ -342,6 +342,8 @@ identifier: IDENT              -> identifier
 ?theorem: visibility "theorem" IDENT ":" term reason   -> theorem
  | visibility "lemma" IDENT ":" term reason            -> lemma
  | visibility "postulate" IDENT ":" term               -> postulate
+ | visibility "postulate" "type" IDENT                 -> postulate_type
+ | visibility "postulate" "fun" identifier ":" type    -> postulate_fun
 
 ?type: "fn" type_params_opt type_list "->" type        -> function_type
  | "fn" type_params_opt "(" type "," type_list ")" "->" type   -> function_type_paren

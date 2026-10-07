@@ -1,0 +1,24 @@
+// An abstract semigroup with a right identity, for the postulate tests
+// (test/should-validate/postulate_type_fun.pf and
+// test/unit/test_postulate_report.py).
+
+postulate type S
+postulate fun e : S
+postulate fun operator* : fn (S, S) -> S
+private postulate fun hidden : S
+
+postulate s_mult_e: all x:S. x * e = x
+auto s_mult_e
+
+postulate s_mult_assoc: all x:S, y:S, z:S. (x * y) * z = x * (y * z)
+associative operator* in S
+
+// Never used by any test; must not appear in a postulate report.
+postulate s_unused: all x:S. e * x = x
+
+// Proved only by the auto rule `s_mult_e`.
+theorem s_mult_e_twice: all x:S. (x * e) * e = x
+proof
+  arbitrary x:S
+  .
+end

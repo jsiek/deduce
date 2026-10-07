@@ -20,6 +20,8 @@ from abstract_syntax import (
     PRecall, PReflexive, PSorry, PSymmetric, PTLetNew, PTransitive, PTrue,
     PointsTo, PTuple, PVar, Pattern, PatternBool, PatternCons, PatternTerm,
     Postulate,
+    PostulateFun,
+    PostulateType,
     PostconditionRef, Predicate, Print, ProcDecl, ProcParam, ProcProofEntry,
     ProcSpec, Proof, RecFun, ResourceDecl,
     RewriteFact, RewriteGoal, Rule, RuleInduction, RuleInductionCase,
@@ -1397,6 +1399,19 @@ def parse_theorem(visibility: str) -> Statement:
     is_lemma = start_token.type == 'LEMMA'
     is_postulate = start_token.type == 'POSTULATE'
     advance()
+
+    if is_postulate and current_token().type == 'TYPE':
+      advance()
+      type_name = parse_identifier()
+      return PostulateType(meta_from_tokens(start_token, previous_token()),
+                           type_name, visibility=visibility)
+    if is_postulate and current_token().type == 'FUN':
+      advance()
+      fun_name = parse_identifier()
+      consume_token('COLON', 'a colon', context='after name in "postulate fun"')
+      fun_type = parse_type()
+      return PostulateFun(meta_from_tokens(start_token, previous_token()),
+                          fun_name, fun_type, visibility=visibility)
 
     try:
       name = parse_identifier()
