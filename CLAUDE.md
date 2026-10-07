@@ -136,6 +136,7 @@ In particular:
 - **`mcp__deduce__preview_replace_at` / `preview_expand_at` / `preview_conclude_at`** dry-run a tactic against the live goal. Use them before committing to a `replace` chain — they catch "no need for replace because this equation is handled automatically" without a full re-check.
 - **`mcp__deduce__refine_at`** suggests the next step. Use it when stuck rather than guessing.
 - **`mcp__deduce__check_file`** is the in-MCP equivalent of running `deduce.py`; faster than spawning a fresh interpreter.
+- **`mcp__deduce__postulates`** lists the postulates (types, functions, axioms) a file, or one theorem with `theorem=`, depends on, following uses through imports. Use it to confirm a derived lemma uses only the axioms you intended. It is slow (it re-checks every import, ~1.5 min with the stdlib), so run it once per finished lemma rather than in the inner loop.
 
 Keep `python deduce.py file.pf` for the final pre-commit smoke check and for `--lalr` parity. Skip it as the inner loop.
 

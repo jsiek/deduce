@@ -32,9 +32,14 @@ def record_statement(stmt: Statement, implicit: set[str]) -> None:
     statement_deps[name] = deps
 
 
-def postulates_used(ast: Sequence[Statement]) -> list[Statement]:
+def postulates_used(ast: Sequence[Statement],
+                    theorem: str | None = None) -> list[Statement]:
+  """The postulates used by the statements of `ast`, or only by the
+  statement named `theorem` when it is given."""
   todo: list[str] = []
   for stmt in ast:
+    if theorem is not None and base_name(getattr(stmt, 'name', '')) != theorem:
+      continue
     for name in _collect_defined_names(stmt):
       todo.extend(statement_deps.get(name, ()))
   seen: set[str] = set()
@@ -54,11 +59,17 @@ def _where(stmt: Statement) -> tuple[str, int]:
   return (getattr(stmt.location, 'filename', ''), stmt.location.line)
 
 
-def format_report(filename: str, ast: Sequence[Statement]) -> str:
-  used = postulates_used(ast)
+def has_statement(ast: Sequence[Statement], name: str) -> bool:
+  return any(base_name(getattr(s, 'name', '')) == name for s in ast)
+
+
+def format_report(filename: str, ast: Sequence[Statement],
+                  theorem: str | None = None) -> str:
+  subject = filename if theorem is None else theorem + ' (' + filename + ')'
+  used = postulates_used(ast, theorem)
   if not used:
-    return filename + ' depends on no postulates'
-  lines = [filename + ' depends on ' + str(len(used)) + ' postulate'
+    return subject + ' depends on no postulates'
+  lines = [subject + ' depends on ' + str(len(used)) + ' postulate'
            + ('s' if len(used) != 1 else '') + ':']
   for stmt in used:
     file, line = _where(stmt)
