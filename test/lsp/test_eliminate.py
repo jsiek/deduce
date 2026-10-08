@@ -127,6 +127,29 @@ CASES = [
         ),
     ),
     EliminateCase(
+        name="ifthen_conjunctive_premise",
+        # One `?' per conjunct of the premise.
+        source=(
+            "theorem t: all P:bool, Q:bool, R:bool.\n"
+            "  if (if P and Q then R) then if P then if Q then R\n"
+            "proof\n"
+            "  arbitrary P:bool, Q:bool, R:bool\n"
+            "  assume H: if P and Q then R\n"
+            "  ?\n"
+            "end\n"
+        ),
+        cursor=Position(line=6, column=3),
+        label="H",
+        expected_text=(
+            "have H1: R by apply H to ?, ?\n"
+            "  ?"
+        ),
+        expected_range=Range(
+            start=Position(line=6, column=3),
+            end=Position(line=6, column=4),
+        ),
+    ),
+    EliminateCase(
         name="all_term_arg",
         # `H: all Q:bool. ...' instantiates as `H[?]'.
         source=(
