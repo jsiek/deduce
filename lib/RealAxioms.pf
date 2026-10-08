@@ -1,0 +1,122 @@
+module Real
+
+import Nat
+import UInt
+import Int
+import Rat
+import List
+import Option
+import Base
+
+/*
+  The real numbers, axiomatized as a real closed field.
+
+  This file holds every assumption of the Real module; all other Real
+  files only prove theorems from these. `python deduce.py --postulates
+  file.pf` lists the ones a file depends on.
+
+  Primitives (postulated, no definitions):
+    the type Real; addition +, negation -, multiplication *,
+    reciprocal inv, the order ≤, and square root sqrt.
+
+  Axioms:
+    * ordered field: + and * are commutative and associative with
+      identities real(+0) and real(+1), every x has an additive
+      inverse -x, every nonzero x has a multiplicative inverse inv(x)
+      (and inv(real(+0)) = real(+0), so x / 0 = 0 as for Rat),
+      * distributes over +, ≤ is a total order compatible with + and
+      with multiplication of nonnegatives;
+    * every nonnegative real has a nonnegative square root;
+    * every polynomial of odd degree has a root.
+
+  Together these say exactly that Real is a real closed field. Every
+  real closed field satisfies the same first-order statements about
+  + , * and ≤ as the real numbers (Tarski), so these axioms neither
+  miss nor contradict any such fact about ℝ.
+
+  The embeddings `real(n)` of UInt, Int and Rat are definitions, not
+  assumptions; they are here because the axioms are stated with
+  `real(+0)` and `real(+1)`.
+*/
+
+postulate type Real
+
+private postulate fun real_zero : Real
+private postulate fun real_one : Real
+
+postulate fun operator+ : fn (Real, Real) -> Real
+postulate fun operator- : fn Real -> Real
+postulate fun operator* : fn (Real, Real) -> Real
+postulate fun inv : fn Real -> Real
+postulate fun operator≤ : fn (Real, Real) -> bool
+postulate fun sqrt : fn Real -> Real
+
+// Embeddings of UInt, Int and Rat.
+
+opaque recfun real(n : UInt) -> Real
+  measure n of UInt
+{
+  if n = 0 then real_zero
+  else real_one + real(n ∸ 1)
+}
+terminates {
+  arbitrary n:UInt
+  assume nz: not (n = 0)
+  apply uint_monus_one_less[n] to nz
+}
+
+opaque fun real(n : Int) {
+  switch n {
+    case pos(a) { real(a) }
+    case negsuc(a) { - real(1 + a) }
+  }
+}
+
+opaque fun real(q : Rat) {
+  real(num(q)) * inv(real(den(q)))
+}
+
+// A polynomial as its list of coefficients, constant term first:
+// poly_eval([c0, c1, ..., cn], x) = c0 + c1 x + ... + cn x^n.
+recursive poly_eval(List<Real>, Real) -> Real {
+  poly_eval(empty, x) = real(+0)
+  poly_eval(node(c, cs), x) = c + x * poly_eval(cs, x)
+}
+
+// Field axioms
+
+postulate real_add_commute: all x:Real, y:Real. x + y = y + x
+postulate real_add_assoc: all x:Real, y:Real, z:Real. (x + y) + z = x + (y + z)
+postulate real_add_zero: all x:Real. x + real(+0) = x
+postulate real_add_inverse: all x:Real. x + - x = real(+0)
+
+postulate real_mult_commute: all x:Real, y:Real. x * y = y * x
+postulate real_mult_assoc: all x:Real, y:Real, z:Real. (x * y) * z = x * (y * z)
+postulate real_mult_one: all x:Real. x * real(+1) = x
+postulate real_mult_inv: all x:Real. if not (x = real(+0)) then x * inv(x) = real(+1)
+postulate real_inv_zero: inv(real(+0)) = real(+0)
+postulate real_dist_mult_add: all x:Real, y:Real, z:Real. x * (y + z) = x * y + x * z
+postulate real_one_not_zero: not (real(+1) = real(+0))
+
+// Order axioms
+
+postulate real_less_equal_antisymmetric: all x:Real, y:Real.
+  if x ≤ y and y ≤ x then x = y
+postulate real_less_equal_trans: all x:Real, y:Real, z:Real.
+  if x ≤ y and y ≤ z then x ≤ z
+postulate real_less_equal_total: all x:Real, y:Real. x ≤ y or y ≤ x
+postulate real_add_le_right_mono: all x:Real, y:Real, z:Real.
+  if x ≤ y then x + z ≤ y + z
+postulate real_mult_nonneg: all x:Real, y:Real.
+  if real(+0) ≤ x and real(+0) ≤ y then real(+0) ≤ x * y
+
+// Real closed
+
+postulate real_sqrt: all x:Real.
+  if real(+0) ≤ x then real(+0) ≤ sqrt(x) and sqrt(x) * sqrt(x) = x
+
+// A list of even length 2k whose last coefficient is nonzero is a
+// polynomial of odd degree 2k - 1.
+postulate real_odd_degree_root: all cs:List<Real>.
+  if Even(length(cs)) and not (last(cs) = just(real(+0)))
+  then some x:Real. poly_eval(cs, x) = real(+0)
