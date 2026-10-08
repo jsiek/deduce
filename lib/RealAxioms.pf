@@ -3,7 +3,7 @@ module Real
 import Nat
 import UInt
 import Int
-import Rat
+public import Rat
 import List
 import Option
 import Base

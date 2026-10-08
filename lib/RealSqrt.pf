@@ -1,0 +1,163 @@
+module Real
+
+import Nat
+import UInt
+import Int
+import Rat
+import Base
+import RealAxioms
+import RealDefs
+import RealAddSub
+import RealMult
+import RealLess
+
+/*
+  Square roots, from the axiom `real_sqrt`: every nonnegative real has
+  a nonnegative square root, and it is unique.
+*/
+
+theorem real_sqrt_nonneg: all x:Real. if real(+0) ≤ x then real(+0) ≤ sqrt(x)
+proof
+  arbitrary x:Real
+  assume x_nn
+  conjunct 0 of apply real_sqrt[x] to x_nn
+end
+
+theorem real_sqrt_square: all x:Real. if real(+0) ≤ x then sqrt(x) * sqrt(x) = x
+proof
+  arbitrary x:Real
+  assume x_nn
+  conjunct 1 of apply real_sqrt[x] to x_nn
+end
+
+theorem real_diff_squares: all a:Real, b:Real. a * a - b * b = (a - b) * (a + b)
+proof
+  arbitrary a:Real, b:Real
+  replace real_sub_def | real_dist_mult_add_right | real_dist_mult_add
+        | real_neg_mult | real_mult_commute[b, a] | real_add_inverse.
+end
+
+// Two nonnegative reals with the same square are equal.
+theorem real_square_injective: all a:Real, b:Real.
+  if real(+0) ≤ a and real(+0) ≤ b and a * a = b * b then a = b
+proof
+  arbitrary a:Real, b:Real
+  assume prem
+  have a_nn: real(+0) ≤ a by prem
+  have b_nn: real(+0) ≤ b by prem
+  have prod_zero: (a - b) * (a + b) = real(+0)
+    by replace symmetric real_diff_squares[a, b] | conjunct 2 of prem.
+  cases apply real_mult_to_zero[a - b, a + b] to prod_zero
+  case d { replace real_sub_eq_zero_iff in d }
+  case s {
+    // a + b = 0 with a, b >= 0 forces a = b = 0.
+    have a_np: a ≤ real(+0) by {
+      have h: a + real(+0) ≤ a + b by apply real_add_le_left_mono[real(+0), b, a] to b_nn
+      replace s in h
+    }
+    have b_np: b ≤ real(+0) by {
+      have h: real(+0) + b ≤ a + b by apply real_add_le_right_mono[real(+0), a, b] to a_nn
+      replace s in h
+    }
+    have az: a = real(+0) by apply real_less_equal_antisymmetric[a, real(+0)] to a_np, a_nn
+    have bz: b = real(+0) by apply real_less_equal_antisymmetric[b, real(+0)] to b_np, b_nn
+    replace az | bz.
+  }
+end
+
+theorem real_sqrt_unique: all x:Real, y:Real.
+  if real(+0) ≤ y and y * y = x then sqrt(x) = y
+proof
+  arbitrary x:Real, y:Real
+  assume prem
+  have y_nn: real(+0) ≤ y by prem
+  have yy: y * y = x by prem
+  have x_nn: real(+0) ≤ x by { replace symmetric yy  real_square_nonneg[y] }
+  apply real_square_injective[sqrt(x), y]
+    to (apply real_sqrt_nonneg[x] to x_nn), y_nn,
+       (transitive (apply real_sqrt_square[x] to x_nn) (symmetric yy))
+end
+
+theorem real_sqrt_of_square: all y:Real. if real(+0) ≤ y then sqrt(y * y) = y
+proof
+  arbitrary y:Real
+  assume y_nn
+  apply real_sqrt_unique[y * y, y] to y_nn, .
+end
+
+theorem real_sqrt_zero: sqrt(real(+0)) = real(+0)
+proof
+  have h: sqrt(real(+0) * real(+0)) = real(+0)
+    by apply real_sqrt_of_square[real(+0)] to real_less_equal_refl[real(+0)]
+  h
+end
+
+theorem real_sqrt_one: sqrt(real(+1)) = real(+1)
+proof
+  have h: sqrt(real(+1) * real(+1)) = real(+1)
+    by apply real_sqrt_of_square[real(+1)]
+       to apply real_less_implies_less_equal to real_zero_less_one
+  h
+end
+
+theorem real_sqrt_abs_square: all x:Real. sqrt(x * x) = abs(x)
+proof
+  arbitrary x:Real
+  have sq: abs(x) * abs(x) = x * x by {
+    cases real_less_equal_total[real(+0), x]
+    case nn { replace apply real_abs_nonneg_eq[x] to nn. }
+    case np { replace apply real_abs_nonpos_eq[x] to np | real_neg_mult_neg. }
+  }
+  apply real_sqrt_unique[x * x, abs(x)] to real_abs_nonneg[x], sq
+end
+
+theorem real_sqrt_mult: all x:Real, y:Real.
+  if real(+0) ≤ x and real(+0) ≤ y then sqrt(x * y) = sqrt(x) * sqrt(y)
+proof
+  arbitrary x:Real, y:Real
+  assume prem
+  have x_nn: real(+0) ≤ x by prem
+  have y_nn: real(+0) ≤ y by prem
+  have nn: real(+0) ≤ sqrt(x) * sqrt(y)
+    by apply real_mult_nonneg[sqrt(x), sqrt(y)]
+       to (apply real_sqrt_nonneg[x] to x_nn), (apply real_sqrt_nonneg[y] to y_nn)
+  have sq: (sqrt(x) * sqrt(y)) * (sqrt(x) * sqrt(y)) = x * y by {
+    replace real_mult_commute[sqrt(y), sqrt(x) * sqrt(y)]
+          | apply real_sqrt_square[x] to x_nn | apply real_sqrt_square[y] to y_nn.
+  }
+  apply real_sqrt_unique[x * y, sqrt(x) * sqrt(y)] to nn, sq
+end
+
+// For nonnegative a < b, a * a < b * b.
+theorem real_square_less: all a:Real, b:Real.
+  if real(+0) ≤ a and a < b then a * a < b * b
+proof
+  arbitrary a:Real, b:Real
+  assume prem
+  have a_nn: real(+0) ≤ a by prem
+  have ab: a < b by prem
+  have b_pos: real(+0) < b by apply real_less_trans_less_equal_left[real(+0), a, b] to a_nn, ab
+  have h1: a * a ≤ a * b by apply real_nonneg_mult_mono_le_left[a, a, b]
+    to a_nn, (apply real_less_implies_less_equal to ab)
+  have h2: a * b < b * b by apply real_pos_mult_mono_less_right[b, a, b] to b_pos, ab
+  apply real_less_trans_less_equal_left[a * a, a * b, b * b] to h1, h2
+end
+
+theorem real_sqrt_le_mono: all x:Real, y:Real.
+  if real(+0) ≤ x and x ≤ y then sqrt(x) ≤ sqrt(y)
+proof
+  arbitrary x:Real, y:Real
+  assume prem
+  have x_nn: real(+0) ≤ x by prem
+  have y_nn: real(+0) ≤ y by apply real_less_equal_trans[real(+0), x, y] to prem
+  cases real_dichotomy[sqrt(x), sqrt(y)]
+  case le { le }
+  case gt {
+    have sq: sqrt(y) * sqrt(y) < sqrt(x) * sqrt(x)
+      by apply real_square_less[sqrt(y), sqrt(x)] to (apply real_sqrt_nonneg[y] to y_nn), gt
+    have yx: y < x
+      by replace apply real_sqrt_square[y] to y_nn | apply real_sqrt_square[x] to x_nn in sq
+    conclude false
+      by apply (apply real_less_equal_iff_not_greater[x, y] to conjunct 1 of prem) to yx
+  }
+end
