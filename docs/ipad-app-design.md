@@ -94,6 +94,33 @@ after the prelude was checked. Still missing:
   (#1218). A UI that edits on every gesture triggers a check nearly
   every time.
 
+## Cancellation and limits
+
+Out of process, a runaway check can be killed. In-process, it would
+freeze the app. Both a student's own expensive `print` or proof and
+untrusted LLM output (see "LLM assistance") can cause one. So every
+check must be interruptible:
+
+- **A worker thread for checks.** Checks run on a dedicated worker
+  thread (the large-stack thread), separate from the thread running
+  pygls's I/O loop. The server stays responsive while a check runs.
+- **Interrupting a check.** To cancel a check (because a newer edit
+  arrived, a deadline passed, or the user tapped Stop), the host calls
+  CPython's `PyThreadState_SetAsyncExc` on the worker thread. That
+  raises a `CheckCancelled` exception at the worker's next bytecode
+  boundary, and the checker is pure Python, so this happens promptly.
+  The request then returns a cancelled result. This interrupts
+  *inside* a statement, which the between-statements cancellation in
+  #1218 cannot do.
+- **No stale state after cancelling.** `lsp/library.py` restores the
+  post-prelude snapshot before every check. The statement cache
+  records a verdict only after a statement passes. So an interrupted
+  check leaves nothing half-done behind.
+- **Limits.** A default deadline for each check, a shorter one plus a
+  32 KiB size cap for LLM candidates (matching `SubprocessValidator`),
+  and `RecursionError` reported as an ordinary diagnostic. Memory has
+  no hard cap. The size limit and the deadline are the guard.
+
 ## Textbook view
 
 Take `length_append` from `lib/List.pf`:
@@ -217,25 +244,46 @@ tool's `openai-compat` backend does), and calls `deduce/validateProof`
 in-process. Doing it in Swift avoids bundling the OpenAI Python SDK,
 whose `pydantic-core` dependency is a compiled Rust extension. LLM
 features are online-only and disable themselves cleanly when offline.
+
+Model output is untrusted input to the checker. Out of process,
+`SubprocessValidator` caps a candidate at 32 KiB and kills `deduce.py`
+after 60 s. In-process, `validate_proof_at` has neither limit, so the
+app keeps both: it rejects oversized candidates before sending them,
+and runs each validation under a deadline using the cancellation
+described under "Cancellation and limits".
 Open question: REALLMs is available to IU researchers, faculty and
 staff, so student access needs checking before LLM help reaches
 undergraduates.
 
 ## Files
 
-- **Opening files.** A `DocumentGroup` over the Files app and iCloud
-  Drive. Researchers can work in a git checkout through Files
-  providers such as Working Copy.
+- **Workspaces are folders.** `find_file` resolves an import only
+  against the registered import directories, never the importing
+  file's own folder. The embedded interpreter's working directory
+  isn't the user's folder either. And a document opened alone from the
+  Files app grants access to that one file, not to its siblings. So
+  the app opens a *folder* as a workspace: the user picks it, and the
+  app keeps a security-scoped bookmark to it. The app passes the folder
+  to the LSP server as a workspace folder, and the server registers it
+  with `add_import_directory` (#1225). That way a file in a git
+  checkout from a Files provider such as Working Copy can import its
+  sibling modules. A file opened on its own can still be checked, but
+  it can import only the stdlib and the user's libraries.
 - **Bundled stdlib.** The app ships its own read-only `lib/` and a
-  pre-built prelude snapshot (#1217). User libraries go in the
-  equivalent of `~/.config/deduce/libraries`.
+  pre-built prelude snapshot (#1217).
+- **User libraries.** On the desktop, `~/.config/deduce/libraries` is
+  a text file that lists library directories, one per line. The app
+  has no such file. Instead it keeps a list of library folders in its
+  settings (each a security-scoped bookmark) and registers each with
+  `add_import_directory` when the server starts.
 
 ## Roadmap
 
-1. **Spike** (#1220): embedded CPython, the in-process LSP,
-   diagnostics for a file opened from Files, plus measurements.
-2. **Backend:** #1214, then #1215, #1216 and #1217, built in parallel
-   with the app.
+1. **Spike** (#1220): embedded CPython, the in-process LSP, checks on
+   a worker thread that can be interrupted, diagnostics for a
+   workspace folder opened from Files, plus measurements.
+2. **Backend:** #1214 and #1225, then #1215, #1216 and #1217, built in
+   parallel with the app.
 3. **Slice 1** (#1221): the read-only textbook view.
 4. **Slice 2** (#1222): editing gestures, then #1219 subterm actions
    and #1218 for responsiveness.
