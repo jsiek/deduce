@@ -1,3 +1,4 @@
-./test/should-error/assert_neq_fail.pf:8.1-8.26: assertion failed:
-	fun x { x } = fun x { x }
-
+./test/should-error/assert_neq_fail.pf:8.1-8.26: assert can only compare data built from constructors, such as Booleans, numbers, and lists, but
+	fun x { x }
+is a function, which assert cannot handle.
+To reason about it, prove a theorem instead.

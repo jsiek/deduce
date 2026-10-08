@@ -41,9 +41,10 @@ def test_report_without_postulates() -> None:
 
 
 def test_report_starts_from_unnamed_statements(tmp_path: Path) -> None:
-    # `assert` and `print` define no name, but what they use still counts.
+    # An `assert` defines no name, but what it uses still counts. (It
+    # can't compare postulated values, so this one evaluates to true.)
     src = tmp_path / "unnamed.pf"
-    src.write_text("import PostulateSemigroup\nassert e = e\nprint e\n")
+    src.write_text("import PostulateSemigroup\nassert true or e = e\n")
     out = _report(str(src))
     assert "postulate fun e : S" in out, out
     assert "postulate type S" in out, out

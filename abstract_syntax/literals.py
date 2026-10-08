@@ -783,6 +783,28 @@ def is_constructor(constr_name: str, env: Env) -> bool:
           continue
   return False
 
+def first_non_value(term: Term, env: Env) -> Term | None:
+  """The first part of `term` that is not built from constructors (and
+  Booleans and arrays): a function, or a call that evaluation could not
+  reduce. None when `term` is such a value. Two such values are equal
+  exactly when they are syntactically equal, which is what `assert` and
+  `print` rely on."""
+  match term:
+    case Bool():
+      return None
+    case TermInst(_, _, subject, _, _):
+      return first_non_value(subject, env)
+    case Array(_, _, elements):
+      return next((bad for e in elements
+                   if (bad := first_non_value(e, env)) is not None), None)
+    case VarRef():
+      return None if is_constructor(term.get_name(), env) else term
+    case Call(_, _, rator, args) if is_constr_term(rator, env):
+      return next((bad for a in args
+                   if (bad := first_non_value(a, env)) is not None), None)
+    case _:
+      return term
+
 def is_constr_term(term: Term, env: Env) -> bool:
   if isinstance(term, VarRef):
     return is_constructor(term.get_name(), env)

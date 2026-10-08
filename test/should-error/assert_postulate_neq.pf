@@ -1,0 +1,9 @@
+// A postulated constant has no value, so assert can't decide whether it
+// equals another one; before #1210 this assert contradicting the axiom
+// passed.
+postulate type T
+postulate fun a : T
+postulate fun b : T
+postulate ab: a = b
+
+assert not (a = b)

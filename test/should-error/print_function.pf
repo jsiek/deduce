@@ -1,0 +1,4 @@
+// print shows data built from constructors, not functions (#1210).
+import UInt
+
+print fun x:UInt { x + 1 }

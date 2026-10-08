@@ -1,0 +1,12 @@
+// Two functions that are equal (by extensionality) but written
+// differently. assert must not claim they differ (#1210).
+import Nat
+
+theorem ext: (fun x:Nat { x + ℕ0 }) = (fun x:Nat { x })
+proof
+  extensionality
+  arbitrary x:Nat
+  .
+end
+
+assert not ((fun x:Nat { x + ℕ0 }) = (fun x:Nat { x }))

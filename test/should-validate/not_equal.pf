@@ -9,5 +9,6 @@ union Blah {
 define id_blah : fn Blah -> Blah = λx{x}
 define other_blah : fn Blah -> Blah = fun x { zero }
 
-assert id_blah ≠ other_blah
-assert id_blah /= other_blah
+// assert can't compare functions, but it can compare their results.
+assert id_blah(suc(zero)) ≠ other_blah(suc(zero))
+assert id_blah(suc(zero)) /= other_blah(suc(zero))

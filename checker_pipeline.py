@@ -37,7 +37,7 @@ from abstract_syntax import (
     Statement, Switch, SwitchCase, TAnnote, TermBinding, TLet, Term, TermInst, Theorem,
     Trace, Type, TypeAlias, TypeInst, TypeType, Union, Var, VarRef, VerboseLevel,
     ViewDecl, ViewRecFun, alpha_equiv, base_name, callable_name,
-    check_post_typecheck_invariants, find_file, full_reduce, mkEqual,
+    check_post_typecheck_invariants, find_file, first_non_value, full_reduce, mkEqual,
     print_theorems, register_rat_constructors, type_match, type_names,
 )
 from checker_cache import (
@@ -2082,6 +2082,29 @@ def warn_unverified_imperative(decl: Declaration) -> None:
           "imperative layer, issue #854)")
 
 
+def _require_value(loc: Meta, command: str, verb: str, result: Term,
+                   env: Env) -> None:
+  # `print` and `assert` handle only data built from constructors
+  # (Booleans, numbers, lists, arrays, and other unions): for those,
+  # evaluation gives a canonical value, so syntactic equality is
+  # equality. Reject functions, values containing them (e.g. a Set),
+  # and calls that evaluation could not reduce.
+  bad = first_non_value(result, env)
+  if bad is None:
+    return
+  if isinstance(bad, (Lambda, Generic)):
+    reason = 'is a function, which ' + command + ' cannot handle'
+  else:
+    reason = ('could not be evaluated: it uses something with no '
+              + 'definition (such as a `postulate fun` or an opaque '
+              + 'function of a postulated type), or an operation that '
+              + 'does not apply (such as an out-of-bounds index)')
+  where = '' if bad is result else ('\nIt evaluated to:\n\t' + str(result))
+  user_error(loc, command + ' can only ' + verb + ' data built from '
+             + 'constructors, such as Booleans, numbers, and lists, but\n\t'
+             + str(bad) + '\n' + reason + '.' + where
+             + '\nTo reason about it, prove a theorem instead.')
+
 def check_proofs(stmt: Statement, env: Env) -> None:
   if not get_postulate_report():
     _check_proofs(stmt, env)
@@ -2198,6 +2221,7 @@ def _check_proofs(stmt: Statement, env: Env) -> None:
   
     case Print(loc, trm):
       result = full_reduce(trm, env)
+      _require_value(loc, 'print', 'show', result, env)
       print(str(result))
       
     case Assert(loc, frm):
@@ -2205,6 +2229,8 @@ def _check_proofs(stmt: Statement, env: Env) -> None:
         case Call(_, _, rator, [lhs, rhs]) if isinstance(rator, VarRef) and rator.get_name() == '=':
           L = full_reduce(lhs, env)
           R = full_reduce(rhs, env)
+          _require_value(loc, 'assert', 'compare', L, env)
+          _require_value(loc, 'assert', 'compare', R, env)
           if L == R:
             pass
           else:
@@ -2215,6 +2241,8 @@ def _check_proofs(stmt: Statement, env: Env) -> None:
                     Bool(_, _, False)) if isinstance(rator, VarRef) and rator.get_name() == '=':
           L = full_reduce(lhs, env)
           R = full_reduce(rhs, env)
+          _require_value(loc, 'assert', 'compare', L, env)
+          _require_value(loc, 'assert', 'compare', R, env)
           if L != R:
             pass
           else:
@@ -2228,8 +2256,12 @@ def _check_proofs(stmt: Statement, env: Env) -> None:
             case Bool(_, _, False):
               user_error(loc, 'assertion failed: ' + str(frm))
             case result:
-              user_error(loc, 'assertion expected Boolean result, not ' \
-                    + str(result))
+              user_error(loc, 'assert could not evaluate this to true or '
+                    + 'false; it evaluated to:\n\t' + str(result) + '\n'
+                    + 'It uses a function, something with no definition '
+                    + '(such as a `postulate fun`), or an operation that '
+                    + 'does not apply (such as an out-of-bounds index).\n'
+                    + 'To reason about it, prove a theorem instead.')
 
     case Auto(loc, _):
       pass
