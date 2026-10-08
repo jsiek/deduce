@@ -1,0 +1,8 @@
+// Deliberately slow to check, for testing that a check can be interrupted.
+
+recursive doubling(Nat) -> Nat {
+  doubling(zero) = zero
+  doubling(suc(n)) = suc(doubling(n) + doubling(n))
+}
+
+print doubling(ℕ14)

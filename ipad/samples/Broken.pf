@@ -1,0 +1,7 @@
+// A proof with a mistake, so the app has a diagnostic to show.
+
+theorem append_empty_wrong: all U:type, xs:List<U>. xs ++ [] = [] ++ xs ++ xs
+proof
+  arbitrary U:type, xs:List<U>
+  expand operator++.
+end
