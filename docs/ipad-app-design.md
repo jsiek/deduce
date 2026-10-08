@@ -236,17 +236,21 @@ In Deduce, each drop is a **proof step**, not just an edit:
 - **Within one side** (commute, regroup, distribute, factor, combine
   like terms) the drop appends a link to the `equations` chain:
   `... = <new expression> by <reason>`. The reason is a `replace` with
-  the instantiated stdlib lemma, with `#…#` marks so it rewrites only
-  the dragged occurrence (#1219). In the textbook view the chain reads
+  the instantiated stdlib lemma, with `#…#` marks around the subterm
+  the lemma rewrites, which may be larger than the dragged term (for
+  example `#a² + b²#` when dragging `a²` to commute it) (#1219). In
+  the textbook view the chain reads
   like a worked algebra derivation, with reasons such as
   "commutativity" folded away.
 - **Across `=`**, the dragged term moves to the other side of an
   equation. On a given `H`, the drop adds
   `have H2: <new equation> by <reason>`. On the goal, it reasons
   backward: `suffices <new equation> by <reason>`.
-- **Side conditions become holes.** Moves that need a premise (factoring
-  out or dividing by `a` needs `a ≠ 0`) leave a `?` for it, the same
-  way an inserted lemma gets one `?` per premise.
+- **Side conditions become holes.** Moves that introduce division (for
+  example `a²(1 + b²/a²)`) need `a ≠ 0` and leave a `?` for it, the
+  same way an inserted lemma gets one `?` per premise. Factoring by
+  distributivity (`a·x + a·y = a·(x + y)`) has no side condition. The
+  rule table keeps the two kinds of move apart.
 - **Tap commands** on a selection: Simplify and Expand via the ring
   normalizer from the geometry roadmap (#1190), Calculate via
   `evaluate`, and Isolate Term as a sequence of drags.
