@@ -66,7 +66,8 @@ from error import (
     warning,
 )
 from flags import (
-    get_check_imports, get_debugger, get_postulate_report, get_quiet_mode,
+    get_check_imports, get_debugger, get_postulate_report,
+    get_proof_outline, get_quiet_mode,
     get_target_hole_location, get_verbose, set_verbose, swap_implicit_uses,
 )
 from postulate_report import record_pending, record_statement
@@ -2547,7 +2548,8 @@ def _check_deduce_body(ast: list[Statement], module_name: str, modified: bool,
           # would silently skip the trap.  Re-check unconditionally;
           # this also avoids polluting the cache with cache-key
           # collisions caused by debugger-driven reduction order.
-          if get_debugger() is not None:
+          # A proof-outline run (#1214) likewise needs every proof visited.
+          if get_debugger() is not None or get_proof_outline() is not None:
             check_proofs(s, env)
             _record_miss("check_proofs")
           elif isinstance(s, (Print, Assert, ProcDecl, ObserverDecl,

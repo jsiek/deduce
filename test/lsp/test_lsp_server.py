@@ -75,6 +75,10 @@ class FakeServer:
     def __init__(self) -> None:
         self.workspace = _FakeWorkspace()
         self.published: dict[str, list[lsp_types.Diagnostic]] = {}
+        self.notified: list[tuple[str, object]] = []
+        self.protocol = SimpleNamespace(
+            notify=lambda method, params: self.notified.append((method, params))
+        )
 
     def text_document_publish_diagnostics(
         self, params: lsp_types.PublishDiagnosticsParams
@@ -130,6 +134,7 @@ def test_all_expected_features_are_registered():
         lsp_server.VALIDATE_PROOF_REQUEST,
         lsp_server.AVAILABLE_LEMMAS_REQUEST,
         lsp_server.INSERT_LEMMA_REQUEST,
+        lsp_server.PROOF_OUTLINE,
     }
     assert expected.issubset(set(fm.features))
 
@@ -436,6 +441,65 @@ def test_goal_at_returns_goal_dict(server, open_doc):
     # Range is echoed back at the cursor.
     assert goal["range"]["start"]["line"] == 3
     assert goal["range"]["start"]["character"] == 0
+
+
+_OUTLINE_SRC = (
+    "theorem t: all P:bool. if P then P\n"
+    "proof\n"
+    "  arbitrary P:bool\n"
+    "  assume p\n"
+    "  ?\n"
+    "end\n"
+)
+
+
+def test_proof_outline_request_returns_steps(server, open_doc):
+    _, uri = open_doc("outline.pf", _OUTLINE_SRC)
+    result = lsp_server.on_proof_outline(server, {"textDocument": {"uri": uri}})
+    assert result is not None
+    assert result["uri"] == uri
+    hole = result["steps"][-1]
+    assert hole["kind"] == "PHole"
+    assert hole["status"] == "incomplete"
+    assert hole["goal"] == "P"
+    assert hole["givens"] == [{"label": "p", "formula": "P"}]
+    assert hole["range"]["start"] == {"line": 4, "character": 2}
+    assert server.notified == []
+
+
+def test_proof_outline_notification_is_opt_in(server, open_doc, monkeypatch):
+    fp, uri = open_doc("outline.pf", _OUTLINE_SRC)
+    params = lsp_types.DidOpenTextDocumentParams(
+        text_document=lsp_types.TextDocumentItem(
+            uri=uri, language_id="deduce", version=1, text=fp.read_text(),
+        )
+    )
+    lsp_server.on_did_open(server, params)
+    assert server.notified == []
+
+    monkeypatch.setattr(lsp_server, "_push_proof_outline", False)
+    lsp_server.on_initialize(
+        server,
+        lsp_types.InitializeParams(
+            capabilities=lsp_types.ClientCapabilities(),
+            initialization_options={"proofOutline": True},
+        ),
+    )
+    assert lsp_server._push_proof_outline
+    lsp_server.on_did_open(server, params)
+    assert len(server.published[uri]) == 1
+    [(method, payload)] = server.notified
+    assert method == lsp_server.PROOF_OUTLINE
+    assert payload["uri"] == uri
+    assert [s["kind"] for s in payload["steps"]] == ["AllIntro", "ImpIntro", "PHole"]
+
+    lsp_server.on_did_close(
+        server,
+        lsp_types.DidCloseTextDocumentParams(
+            text_document=lsp_types.TextDocumentIdentifier(uri=uri)
+        ),
+    )
+    assert server.notified[-1] == (lsp_server.PROOF_OUTLINE, {"uri": uri, "steps": []})
 
 
 def test_goal_at_returns_none_outside_proof(server, open_doc):
