@@ -1,5 +1,6 @@
 import UInt
 import List
+import Set
 
 recursive length2<E>(List<E>) -> UInt {
   length2([]) = 0
@@ -19,6 +20,9 @@ assert [1, 2] ++ node(3, node(4, empty)) = node(1, node(2, empty)) ++ [3, 4]
 
 assert reverse([1, 2, 3]) = node(3, node(2, node(1, empty)))
 
-assert set_of([1, 2, 3]) = set_of(node(1, node(2, node(3, empty))))
+// Sets are functions, so assert can't compare them; check membership instead.
+assert [1, 2, 3] = node(1, node(2, node(3, empty)))
+assert 2 ∈ set_of([1, 2, 3])
+assert not (4 ∈ set_of(node(1, node(2, node(3, empty)))))
 
 assert map([1, 2, 3], (fun x { 1 + x } : fn UInt -> UInt)) = [2, 3, 4]

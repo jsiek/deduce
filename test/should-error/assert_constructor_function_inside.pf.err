@@ -1,0 +1,4 @@
+./test/should-error/assert_constructor_function_inside.pf:6.1-6.45: assert can only compare data built from constructors, such as Booleans, numbers, and lists, but
+	hold(@make<bool>)
+evaluates to something that contains a function, which assert cannot handle.
+To reason about it, prove a theorem instead.

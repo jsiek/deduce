@@ -1,0 +1,6 @@
+// An assertion whose formula does not evaluate to true or false (#1210).
+postulate type T
+postulate fun a : T
+postulate fun b : T
+
+assert (a = b) or (b = a)

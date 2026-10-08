@@ -1,0 +1,4 @@
+./test/should-error/assert_function_neq.pf:12.1-12.56: assert can only compare data built from constructors, such as Booleans, numbers, and lists, but
+	fun x:Nat { x + ℕ0 }
+is a function, which assert cannot handle.
+To reason about it, prove a theorem instead.

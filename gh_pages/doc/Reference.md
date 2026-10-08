@@ -394,6 +394,13 @@ because the term evaluates to `true`.
 assert (if true then 7 else 5+6) = 7
 ```
 
+`assert` is for checking concrete computations on data built from
+constructors, such as Booleans, numbers, lists, and other unions. Both
+sides of an equation must evaluate to such data. A function, a value
+containing one (such as a `Set`), or a term that cannot be evaluated
+(for example a use of a `postulate fun`) is reported as an error rather
+than compared. To establish facts about those, prove a theorem.
+
 
 ## Assume
 
@@ -2301,6 +2308,9 @@ print five
 ```
 
 The output is `5`.
+
+Like `assert`, `print` handles only data built from constructors;
+printing a function, or a term that cannot be evaluated, is an error.
 
 
 ## Question Mark `?` (Proof)

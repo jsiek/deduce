@@ -1,0 +1,5 @@
+// A constructor with parameters, referenced without its arguments, is a
+// function, so print rejects it (#1212 review).
+union Box<T> { make(T) }
+
+print @make<bool>

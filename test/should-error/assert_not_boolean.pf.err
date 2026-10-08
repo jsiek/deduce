@@ -1,0 +1,4 @@
+./test/should-error/assert_not_boolean.pf:6.1-6.26: assert could not evaluate this to true or false; it evaluated to:
+	((a = b) or (b = a))
+It uses a function, something with no definition (such as a `postulate fun`), or an operation that does not apply (such as an out-of-bounds index).
+To reason about it, prove a theorem instead.

@@ -1,0 +1,4 @@
+./test/should-error/print_function.pf:4.1-4.27: print can only show data built from constructors, such as Booleans, numbers, and lists, but
+	fun x:UInt { x + 1 }
+is a function, which print cannot handle.
+To reason about it, prove a theorem instead.
