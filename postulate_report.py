@@ -3,9 +3,11 @@
 Like Lean's `#print axioms`: while every module is checked, each
 top-level statement records the names it depends on -- the names it
 mentions (`checker_cache._collect_referenced_names`) plus the theorems
-it uses implicitly through auto rules, `associative`, and `inductive`
-(`flags.implicit_uses`). The report follows those dependencies from the
-statements of the checked file and lists every `postulate` it reaches.
+it uses implicitly, in any checking phase, through auto rules,
+`associative`, and `inductive` (`flags.implicit_uses`). The report
+starts from every statement of the checked file, named or not (`print`,
+`assert`), follows those dependencies through imports, and lists every
+`postulate` it reaches, plus the file's own postulates.
 
 The postulates that `predicate` declarations generate internally for
 their rules are not reported: like the rest of the checker, they are
@@ -14,36 +16,61 @@ part of the trusted base.
 from typing import Sequence
 
 from abstract_syntax import (
-    Postulate, PostulateFun, PostulateType, Statement, base_name,
+    Import, Postulate, PostulateFun, PostulateType, Statement, base_name,
 )
 from checker_cache import _collect_defined_names, _collect_referenced_names
 
 # Uniquified defined name -> uniquified names the defining statement uses.
 statement_deps: dict[str, set[str]] = {}
+# Source location of a top-level statement -> the names it uses. Covers
+# statements that define no name, such as `print` and `assert`.
+located_deps: dict[tuple[str, int, int], set[str]] = {}
+# Implicit uses recorded while a statement was declared and type-checked,
+# waiting for `record_statement` once its proofs are checked.
+pending_uses: dict[tuple[str, int, int], set[str]] = {}
 # Uniquified name -> the postulate statement that introduced it.
 postulates: dict[str, Statement] = {}
 
 
+def _key(stmt: Statement) -> tuple[str, int, int]:
+  loc = stmt.location
+  return (getattr(loc, 'filename', ''), loc.line, loc.column)
+
+
+def record_pending(stmt: Statement, implicit: set[str]) -> None:
+  """Implicit uses from declaring or type-checking `stmt`."""
+  if not isinstance(stmt, Import):
+    pending_uses.setdefault(_key(stmt), set()).update(implicit)
+
+
 def record_statement(stmt: Statement, implicit: set[str]) -> None:
+  """Record what `stmt` uses, after its proofs have been checked."""
+  if isinstance(stmt, Import):
+    return
   if isinstance(stmt, (Postulate, PostulateType, PostulateFun)):
     postulates[stmt.name] = stmt
-  deps = _collect_referenced_names(stmt) | implicit
+  deps = _collect_referenced_names(stmt) | implicit \
+      | pending_uses.pop(_key(stmt), set())
+  located_deps[_key(stmt)] = deps
   for name in _collect_defined_names(stmt):
     statement_deps[name] = deps
 
 
 def postulates_used(ast: Sequence[Statement],
                     theorem: str | None = None) -> list[Statement]:
-  """The postulates used by the statements of `ast`, or only by the
-  statement named `theorem` when it is given."""
+  """The postulates the statements of `ast` declare or use, or only
+  those of the statement named `theorem` when it is given."""
   todo: list[str] = []
+  used: dict[str, Statement] = {}
   for stmt in ast:
+    if isinstance(stmt, Import):
+      continue
     if theorem is not None and base_name(getattr(stmt, 'name', '')) != theorem:
       continue
-    for name in _collect_defined_names(stmt):
-      todo.extend(statement_deps.get(name, ()))
+    if isinstance(stmt, (Postulate, PostulateType, PostulateFun)):
+      used[stmt.name] = stmt
+    todo.extend(located_deps.get(_key(stmt), ()))
   seen: set[str] = set()
-  used: dict[str, Statement] = {}
   while todo:
     name = todo.pop()
     if name in seen:

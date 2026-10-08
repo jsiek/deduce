@@ -79,7 +79,9 @@ from abstract_syntax import (
 )
 from checker_common import *
 from error import MatchFailed, UserError, internal_error, user_error, wrap_user_error, error_header
-from flags import get_postulate_report, get_verbose
+from flags import (
+    get_postulate_report, get_verbose, record_implicit_use, swap_implicit_uses,
+)
 
 TypeExpr: TypingTypeAlias = Type | VarRef
 TypeMatching: TypingTypeAlias = dict[str, TypeExpr | None]
@@ -488,6 +490,9 @@ def type_check_call_helper(
   match funty:
     case OverloadType(_, overloads):
       matches = []
+      # Implicit uses (for the postulate report) recorded while trying
+      # each overload; only the chosen overload's are kept.
+      trial_uses: dict[str, set[str]] = {}
       for (x, funty) in overloads:
           match funty:
             case FunctionType(_, typarams, param_types, return_type):
@@ -500,6 +505,8 @@ def type_check_call_helper(
               # LSP can use to spot the use site.  Non-overloaded
               # names go through the `FunctionType' arm below where
               # ``new_rator'' is passed through unchanged.
+              trial_uses[x] = set()
+              outer_uses = swap_implicit_uses(trial_uses[x])
               try:
                 new_call = type_check_call_funty(loc, ResolvedVar(new_rator.location, funty, x), args, env, recfun,
                                                  subterms, ret_ty, call,
@@ -507,6 +514,8 @@ def type_check_call_helper(
                 matches.append((x, funty, new_call))
               except (UserError, MatchFailed):
                 pass
+              finally:
+                swap_implicit_uses(outer_uses)
       if len(matches) > 1:
           matches = [
               candidate for candidate in matches
@@ -535,6 +544,8 @@ def type_check_call_helper(
                 + 'ambiguous overloads:\n' \
                 + '\n'.join([error_header(ty.location) + str(ty) for (x,ty,_) in matches]))
       else:
+          for name in trial_uses[matches[0][0]]:
+            record_implicit_use(name)
           return matches[0][2]
     case FunctionType(_, typarams, param_types, return_type):
       return type_check_call_funty(loc, new_rator, args, env, recfun, subterms, ret_ty, call,

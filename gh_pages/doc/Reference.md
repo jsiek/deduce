@@ -2183,10 +2183,13 @@ python deduce.py --postulates file.pf
 ```
 
 After checking the file, Deduce lists every postulate (types,
-functions, and axioms) that the file's theorems and definitions use,
-following uses through imported modules, including uses through `auto`
-rules and `associative` declarations. A file that uses none reports
-`depends on no postulates`. Because it follows uses through every
+functions, and axioms) that the file declares or that its statements
+use, including `print` and `assert`. It follows uses through imported
+modules, including uses through `auto` rules and `associative`
+declarations. A postulate in an imported module is listed only if
+something in the file depends on it. A file that uses none reports
+`depends on no postulates`. With `--postulates-of NAME`, only the
+statement named `NAME` is considered. Because it follows uses through every
 import, this option re-checks all imported modules, so it is slower
 than a normal run.
 
