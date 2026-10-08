@@ -1,0 +1,336 @@
+module Real
+
+import Nat
+import UInt
+import Int
+import Rat
+import Base
+import RealAxioms
+import RealDefs
+import RealAddSub
+import RealMult
+import RealLess
+
+/*
+  The embeddings real(n) of UInt, Int and Rat into Real preserve the
+  arithmetic operations and the order.
+*/
+
+// UInt
+
+lemma real_uint_zero: real(0:UInt) = real(+0)
+proof
+  expand 2*real.
+end
+
+lemma real_one_primitive: real(+1) = real_one
+proof
+  expand 2*real
+  replace real_uint_zero.
+end
+
+theorem real_uint_suc: all n:UInt. real(1 + n) = real(+1) + real(n)
+proof
+  arbitrary n:UInt
+  replace real_one_primitive
+  equations
+    real(1 + n) = real_one + real(n)  by expand real.
+end
+
+lemma real_uint_one: real(1:UInt) = real(+1)
+proof
+  replace real_uint_zero in real_uint_suc[0]
+end
+
+theorem real_uint_add: all m:UInt, n:UInt. real(m + n) = real(m) + real(n)
+proof
+  induction UInt
+  case zero {
+    arbitrary n:UInt
+    replace real_uint_zero.
+  }
+  case suc(m') assume IH {
+    arbitrary n:UInt
+    replace real_uint_suc | IH.
+  }
+end
+
+theorem real_uint_mult: all m:UInt, n:UInt. real(m * n) = real(m) * real(n)
+proof
+  induction UInt
+  case zero {
+    arbitrary n:UInt
+    replace real_uint_zero.
+  }
+  case suc(m') assume IH {
+    arbitrary n:UInt
+    replace uint_dist_mult_add_right | real_uint_add | IH | real_uint_one
+          | real_dist_mult_add_right.
+  }
+end
+
+theorem real_uint_nonneg: all n:UInt. real(+0) ≤ real(n)
+proof
+  induction UInt
+  case zero {
+    replace real_uint_zero
+    real_less_equal_refl[real(+0)]
+  }
+  case suc(m) assume IH {
+    replace real_uint_suc
+    have h: real(+0) + real(+0) ≤ real(+1) + real(m)
+      by apply real_add_mono_less_equal[real(+0), real(+0), real(+1), real(m)]
+         to (apply real_less_implies_less_equal to real_zero_less_one), IH
+    h
+  }
+end
+
+theorem real_uint_pos: all n:UInt. if 0 < n then real(+0) < real(n)
+proof
+  arbitrary n:UInt
+  assume n_pos
+  obtain n' where eq: n = 1 + n' from apply uint_positive_add_one to n_pos
+  replace eq | real_uint_suc
+  have h: real(+1) + real(+0) ≤ real(+1) + real(n')
+    by apply real_add_le_left_mono[real(+0), real(n'), real(+1)] to real_uint_nonneg[n']
+  apply real_less_trans_less_equal_right[real(+0), real(+1), real(+1) + real(n')]
+    to real_zero_less_one, h
+end
+
+theorem real_uint_le: all m:UInt, n:UInt. if m ≤ n then real(m) ≤ real(n)
+proof
+  arbitrary m:UInt, n:UInt
+  assume mn
+  obtain k where eq: n = m + k from apply uint_le_exists_monus[m, n] to mn
+  replace eq | real_uint_add
+  have h: real(m) + real(+0) ≤ real(m) + real(k)
+    by apply real_add_le_left_mono[real(+0), real(k), real(m)] to real_uint_nonneg[k]
+  h
+end
+
+theorem real_uint_less: all m:UInt, n:UInt. if m < n then real(m) < real(n)
+proof
+  arbitrary m:UInt, n:UInt
+  assume mn
+  have le: 1 + m ≤ n by replace uint_less_is_less_equal in mn
+  obtain k where eq: n = (1 + m) + k from apply uint_le_exists_monus[1 + m, n] to le
+  have k_pos: real(+0) < real(1 + k) by apply real_uint_pos[1 + k] to .
+  replace eq | uint_add_commute[m, k] | real_uint_add[1 + k, m]
+  replace symmetric real_add_both_sides_of_less_right[real(m), real(+0), real(1 + k)] in k_pos
+end
+
+theorem real_uint_le_iff: all m:UInt, n:UInt. (real(m) ≤ real(n)) = (m ≤ n)
+proof
+  arbitrary m:UInt, n:UInt
+  have fwd: if real(m) ≤ real(n) then m ≤ n by {
+    assume h
+    cases uint_dichotomy[m, n]
+    case le { le }
+    case gt {
+      have nm: real(n) < real(m) by apply real_uint_less[n, m] to gt
+      conclude false by apply (apply real_less_equal_iff_not_greater[real(m), real(n)] to h) to nm
+    }
+  }
+  have bwd: if m ≤ n then real(m) ≤ real(n) by {
+    assume h
+    apply real_uint_le[m, n] to h
+  }
+  apply iff_equal to fwd, bwd
+end
+
+theorem real_uint_injective: all m:UInt, n:UInt. if real(m) = real(n) then m = n
+proof
+  arbitrary m:UInt, n:UInt
+  assume eq
+  have rmn: real(m) ≤ real(n) by { replace eq  real_less_equal_refl[real(n)] }
+  have rnm: real(n) ≤ real(m) by { replace eq  real_less_equal_refl[real(n)] }
+  have mn: m ≤ n by replace real_uint_le_iff in rmn
+  have nm: n ≤ m by replace real_uint_le_iff in rnm
+  apply uint_less_equal_antisymmetric[m, n] to mn, nm
+end
+
+// Int
+
+theorem real_int_pos: all a:UInt. real(pos(a)) = real(a)
+proof
+  arbitrary a:UInt
+  equations
+    real(pos(a)) = real(a)  by expand real.
+end
+
+theorem real_int_negsuc: all a:UInt. real(negsuc(a)) = - real(1 + a)
+proof
+  arbitrary a:UInt
+  equations
+    real(negsuc(a)) = - real(1 + a)  by expand real.
+end
+
+lemma real_int_neg_pos: all k:UInt. real(- pos(k)) = - real(k)
+proof
+  arbitrary k:UInt
+  cases uint_zero_or_add_one[k]
+  case kz { replace kz | real_int_pos | real_uint_zero. }
+  case k_suc {
+    obtain k' where eq: k = 1 + k' from k_suc
+    replace eq | neg_pos | real_int_negsuc.
+  }
+end
+
+// Every integer is a difference of two naturals.
+lemma int_pos_minus_rep: all n:Int. some a:UInt, b:UInt. n = pos(a) + - pos(b)
+proof
+  arbitrary n:Int
+  switch n {
+    case pos(a) { choose a, 0  . }
+    case negsuc(a) {
+      choose 0, 1 + a
+      replace neg_pos.
+    }
+  }
+end
+
+lemma real_pos_minus: all a:UInt, b:UInt. real(pos(a) + - pos(b)) = real(a) - real(b)
+proof
+  arbitrary a:UInt, b:UInt
+  cases uint_dichotomy[b, a]
+  case ba {
+    obtain k where eq: a = b + k from apply uint_le_exists_monus[b, a] to ba
+    replace eq | symmetric add_pos_pos[b, k] | int_add_commute[pos(b), pos(k)]
+          | int_add_inverse | real_int_pos | real_uint_add | real_sub_def
+          | real_add_commute[real(b), real(k)] | real_add_inverse.
+  }
+  case ab {
+    obtain k where eq: b = a + k
+      from apply uint_le_exists_monus[a, b] to apply uint_less_implies_less_equal to ab
+    replace eq | symmetric add_pos_pos[a, k] | neg_distr_add | int_add_inverse
+          | real_int_neg_pos | real_uint_add | real_sub_def | real_neg_distr_add
+          | real_add_inverse.
+  }
+end
+
+theorem real_int_add: all n:Int, m:Int. real(n + m) = real(n) + real(m)
+proof
+  arbitrary n:Int, m:Int
+  obtain a, b where hn: n = pos(a) + - pos(b) from int_pos_minus_rep[n]
+  obtain c, d where hm: m = pos(c) + - pos(d) from int_pos_minus_rep[m]
+  have sum: n + m = pos(a + c) + - pos(b + d) by {
+    replace hn | hm | symmetric add_pos_pos[a, c] | symmetric add_pos_pos[b, d]
+          | neg_distr_add | int_add_commute[- pos(b), pos(c) + - pos(d)]
+          | int_add_commute[- pos(b), - pos(d)].
+  }
+  replace sum | hn | hm | real_pos_minus | real_uint_add | real_sub_def | real_neg_distr_add
+        | real_add_commute[- real(b), real(c) + - real(d)]
+        | real_add_commute[- real(b), - real(d)].
+end
+
+theorem real_int_neg: all n:Int. real(- n) = - real(n)
+proof
+  arbitrary n:Int
+  obtain a, b where hn: n = pos(a) + - pos(b) from int_pos_minus_rep[n]
+  replace hn | neg_distr_add | neg_involutive | int_add_commute[- pos(a), pos(b)]
+        | real_pos_minus | real_neg_sub.
+end
+
+theorem real_int_sub: all n:Int, m:Int. real(n - m) = real(n) - real(m)
+proof
+  arbitrary n:Int, m:Int
+  expand operator-
+  replace real_int_add | real_int_neg.
+end
+
+lemma int_mult_rep: all a:UInt, b:UInt, c:UInt, d:UInt.
+  (pos(a) + - pos(b)) * (pos(c) + - pos(d))
+  = pos(a * c + b * d) + - pos(a * d + b * c)
+proof
+  arbitrary a:UInt, b:UInt, c:UInt, d:UInt
+  replace int_dist_mult_add_right | int_dist_mult_add
+        | int_neg_mult_right | symmetric dist_neg_mult[pos(b), pos(c)]
+        | symmetric dist_neg_mult[pos(b), pos(d)] | neg_involutive | mult_pos_pos
+        | symmetric add_pos_pos[a * c, b * d] | symmetric add_pos_pos[a * d, b * c]
+        | neg_distr_add
+        | int_add_commute[- pos(a * d) + - pos(b * c), pos(b * d)].
+end
+
+theorem real_int_mult: all n:Int, m:Int. real(n * m) = real(n) * real(m)
+proof
+  arbitrary n:Int, m:Int
+  obtain a, b where hn: n = pos(a) + - pos(b) from int_pos_minus_rep[n]
+  obtain c, d where hm: m = pos(c) + - pos(d) from int_pos_minus_rep[m]
+  replace hn | hm | int_mult_rep | real_pos_minus | real_uint_add | real_uint_mult
+        | real_sub_def | real_dist_mult_add_right | real_dist_mult_add
+        | real_mult_neg | real_neg_mult | real_neg_involutive | real_neg_distr_add
+        | real_add_commute[real(b) * real(d), - (real(a) * real(d)) + - (real(b) * real(c))].
+end
+
+theorem real_int_nonneg_iff: all n:Int. (real(+0) ≤ real(n)) = (+0 ≤ n)
+proof
+  arbitrary n:Int
+  switch n {
+    case pos(a) {
+      replace real_int_pos | real_uint_zero
+      replace apply eq_true to real_uint_nonneg[a].
+    }
+    case negsuc(a) {
+      replace real_int_negsuc | real_zero_le_neg
+      have lt: real(+0) < real(1 + a) by apply real_uint_pos[1 + a] to .
+      have nle: not (real(1 + a) ≤ real(+0))
+        by apply (conjunct 1 of real_not_less_equal_iff_greater[real(1 + a), real(+0)]) to lt
+      replace apply eq_false to nle.
+    }
+  }
+end
+
+theorem real_int_le: all n:Int, m:Int. (real(n) ≤ real(m)) = (n ≤ m)
+proof
+  arbitrary n:Int, m:Int
+  replace real_le_iff_sub_nonneg[real(n), real(m)]
+        | symmetric real_int_sub[m, n] | real_int_nonneg_iff
+  symmetric apply iff_equal to int_le_iff_diff_nonneg[n, m]
+end
+
+theorem real_int_less: all n:Int, m:Int. (real(n) < real(m)) = (n < m)
+proof
+  arbitrary n:Int, m:Int
+  have fwd: if real(n) < real(m) then n < m by {
+    assume h
+    cases int_dichotomy[m, n]
+    case le {
+      have mn: real(m) ≤ real(n) by { replace real_int_le  le }
+      conclude false by apply (apply real_less_equal_iff_not_greater[real(m), real(n)] to mn) to h
+    }
+    case gt { gt }
+  }
+  have bwd: if n < m then real(n) < real(m) by {
+    assume h
+    have le: real(n) ≤ real(m) by { replace real_int_le  apply int_less_implies_less_equal to h }
+    have ne: not (real(n) = real(m)) by {
+      assume e
+      have mn: m ≤ n by {
+        replace symmetric real_int_le[m, n] | e
+        real_less_equal_refl[real(m)]
+      }
+      conclude false by apply (apply int_less_equal_iff_not_greater[m, n] to mn) to h
+    }
+    replace real_less_def
+    le, ne
+  }
+  apply iff_equal to fwd, bwd
+end
+
+theorem real_int_injective: all n:Int, m:Int. if real(n) = real(m) then n = m
+proof
+  arbitrary n:Int, m:Int
+  assume eq
+  have rnm: real(n) ≤ real(m) by { replace eq  real_less_equal_refl[real(m)] }
+  have rmn: real(m) ≤ real(n) by { replace eq  real_less_equal_refl[real(m)] }
+  apply int_less_equal_antisymmetric[n, m]
+    to (replace real_int_le in rnm), (replace real_int_le in rmn)
+end
+
+theorem real_int_eq: all n:Int, m:Int. (real(n) = real(m)) = (n = m)
+proof
+  arbitrary n:Int, m:Int
+  have fwd: if real(n) = real(m) then n = m by real_int_injective[n, m]
+  have bwd: if n = m then real(n) = real(m) by { assume eq  replace eq. }
+  apply iff_equal to fwd, bwd
+end
