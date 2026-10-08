@@ -213,6 +213,73 @@ The starting set ports the Emacs and VS Code actions (full table in
 Formulas are drawn from the formula trees (#1215), not from strings,
 so every subterm can be tapped.
 
+### Drag algebra (#1227)
+
+Equational reasoning gets direct-manipulation algebra, modeled on
+**drag algebra** in Pacific Tech's Graphing Calculator (the old Mac
+graphing calculator, by Ron Avitzur and others). As its manual puts
+it, "dragging preserves the value of an expression and the truth of an
+equation" (*Learning Math with Graphing Calculator*, Pacific Tech,
+2002, pp. 13–18). In Graphing Calculator:
+
+- You select any subexpression, even part of a term (the `b` in `b²`),
+  and drag it left or right. Each position you drag past shows a
+  different equivalent equation. For example, dragging `a²` in
+  `a² + b² = c²` gives `b² + a² = c²` (commute), `b² = c² − a²`
+  (across `=`), and `a²(1 + b²/a²) = c²` (factor out).
+- Menu commands work on a selection: **Simplify** (combine like terms),
+  **Expand**, **Calculate**, and **Isolate Term** (move the selection
+  alone to one side).
+
+In Deduce, each drop is a **proof step**, not just an edit:
+
+- **Within one side** (commute, regroup, distribute, factor, combine
+  like terms) the drop appends a link to the `equations` chain:
+  `... = <new expression> by <reason>`. The reason is a `replace` with
+  the instantiated stdlib lemma, with `#…#` marks so it rewrites only
+  the dragged occurrence (#1219). In the textbook view the chain reads
+  like a worked algebra derivation, with reasons such as
+  "commutativity" folded away.
+- **Across `=`**, the dragged term moves to the other side of an
+  equation. On a given `H`, the drop adds
+  `have H2: <new equation> by <reason>`. On the goal, it reasons
+  backward: `suffices <new equation> by <reason>`.
+- **Side conditions become holes.** Moves that need a premise (factoring
+  out or dividing by `a` needs `a ≠ 0`) leave a `?` for it, the same
+  way an inserted lemma gets one `?` per premise.
+- **Tap commands** on a selection: Simplify and Expand via the ring
+  normalizer from the geometry roadmap (#1190), Calculate via
+  `evaluate`, and Isolate Term as a sequence of drags.
+
+**Which moves are offered depends on the type**, because a move is
+offered only if the stdlib has a lemma to justify it:
+
+- `Int` and `Rat` get the full set. Division is `Rat` only.
+- `Nat` and `UInt` have no additive inverse (`∸` truncates), so moving
+  a term across `=` becomes cancelling a term common to both sides
+  (`x + y = x + z` gives `y = z`). Commute, regroup and distribute
+  work as usual.
+
+**Mechanism:**
+
+- A backend table of **drag rules** says, for each rule: the pattern
+  before and after, the types it applies to, the lemma for each type,
+  and any side conditions. The stdlib states the same fact in
+  different shapes for different types (compare
+  `rat_add_both_sides_of_equal`, an equality of formulas;
+  `int_add_both_sides_of_equal`, an `if`; and
+  `uint_add_both_sides_of_equal`, an `⇔`), so the table records each
+  lemma's shape.
+- When a drag starts, one LSP request, `deduce/dragCandidates`
+  (selection path → ordered drop targets), returns every result
+  formula with its text edit. Computing these is pure symbolic work, so
+  the UI can update live while the finger moves without a round trip
+  for each position. Dropping applies the edit, and the usual re-check
+  confirms the step.
+
+Drag algebra matters most for `Int`/`Rat` arithmetic in use case 1,
+and for the field arithmetic of geometry in use case 2.
+
 ## Geometry (later)
 
 - **Constructions live in the `.pf`.** Per #1192, a figure is an
@@ -287,6 +354,7 @@ undergraduates.
 3. **Slice 1** (#1221): the read-only textbook view.
 4. **Slice 2** (#1222): editing gestures, then #1219 subterm actions
    and #1218 for responsiveness.
-5. **Geometry**, once #1191–#1194 land: two-column view and diagram
+5. **Drag algebra** (#1227), building on #1215 and #1219.
+6. **Geometry**, once #1191–#1194 land: two-column view and diagram
    canvas.
-6. **LLM assistance.**
+7. **LLM assistance.**
