@@ -1,0 +1,5 @@
+// Reals are axiomatized, so assert can't evaluate them; prove concrete
+// facts with `.` instead (#1210).
+import Real
+
+assert not (real(+1) + real(+1) = real(+2))

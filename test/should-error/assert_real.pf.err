@@ -1,4 +1,4 @@
-./test/should-error/array2.pf:6.1-6.16: assert can only compare data built from constructors, such as Booleans, numbers, and lists, but
-	A[3]
+./test/should-error/assert_real.pf:5.1-5.44: assert can only compare data built from constructors, such as Booleans, numbers, and lists, but
+	real(+1) + real(+1)
 could not be evaluated: it uses something with no definition (such as a `postulate fun`, or an opaque function of a postulated type such as Real), or an operation that does not apply (such as an out-of-bounds index).
 To reason about it, prove a theorem instead.

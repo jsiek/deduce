@@ -2082,27 +2082,30 @@ def warn_unverified_imperative(decl: Declaration) -> None:
           "imperative layer, issue #854)")
 
 
-def _require_value(loc: Meta, command: str, verb: str, result: Term,
-                   env: Env) -> None:
+def _require_value(loc: Meta, command: str, verb: str, written: Term,
+                   result: Term, env: Env) -> None:
   # `print` and `assert` handle only data built from constructors
   # (Booleans, numbers, lists, arrays, and other unions): for those,
   # evaluation gives a canonical value, so syntactic equality is
   # equality. Reject functions, values containing them (e.g. a Set),
-  # and calls that evaluation could not reduce.
+  # and terms that evaluation could not reduce. The message shows the
+  # term as written: its evaluated form can expose internals.
   bad = first_non_value(result, env)
   if bad is None:
     return
   if isinstance(bad, (Lambda, Generic)):
-    reason = 'is a function, which ' + command + ' cannot handle'
+    reason = ('is a function' if bad is result
+              else 'evaluates to something that contains a function')
+    reason += ', which ' + command + ' cannot handle'
   else:
     reason = ('could not be evaluated: it uses something with no '
-              + 'definition (such as a `postulate fun` or an opaque '
-              + 'function of a postulated type), or an operation that '
-              + 'does not apply (such as an out-of-bounds index)')
-  where = '' if bad is result else ('\nIt evaluated to:\n\t' + str(result))
+              + 'definition (such as a `postulate fun`, or an opaque '
+              + 'function of a postulated type such as Real), or an '
+              + 'operation that does not apply (such as an out-of-bounds '
+              + 'index)')
   user_error(loc, command + ' can only ' + verb + ' data built from '
              + 'constructors, such as Booleans, numbers, and lists, but\n\t'
-             + str(bad) + '\n' + reason + '.' + where
+             + str(written) + '\n' + reason + '.'
              + '\nTo reason about it, prove a theorem instead.')
 
 def check_proofs(stmt: Statement, env: Env) -> None:
@@ -2221,7 +2224,7 @@ def _check_proofs(stmt: Statement, env: Env) -> None:
   
     case Print(loc, trm):
       result = full_reduce(trm, env)
-      _require_value(loc, 'print', 'show', result, env)
+      _require_value(loc, 'print', 'show', trm, result, env)
       print(str(result))
       
     case Assert(loc, frm):
@@ -2229,8 +2232,8 @@ def _check_proofs(stmt: Statement, env: Env) -> None:
         case Call(_, _, rator, [lhs, rhs]) if isinstance(rator, VarRef) and rator.get_name() == '=':
           L = full_reduce(lhs, env)
           R = full_reduce(rhs, env)
-          _require_value(loc, 'assert', 'compare', L, env)
-          _require_value(loc, 'assert', 'compare', R, env)
+          _require_value(loc, 'assert', 'compare', lhs, L, env)
+          _require_value(loc, 'assert', 'compare', rhs, R, env)
           if L == R:
             pass
           else:
@@ -2241,8 +2244,8 @@ def _check_proofs(stmt: Statement, env: Env) -> None:
                     Bool(_, _, False)) if isinstance(rator, VarRef) and rator.get_name() == '=':
           L = full_reduce(lhs, env)
           R = full_reduce(rhs, env)
-          _require_value(loc, 'assert', 'compare', L, env)
-          _require_value(loc, 'assert', 'compare', R, env)
+          _require_value(loc, 'assert', 'compare', lhs, L, env)
+          _require_value(loc, 'assert', 'compare', rhs, R, env)
           if L != R:
             pass
           else:

@@ -12,9 +12,11 @@ def test_use_of_postulate_fun_is_a_compile_error(tmp_path: Path) -> None:
     from lsp.library import check_file
 
     src = tmp_path / "uses_postulate.pf"
+    # A definition is lowered even if nothing prints it. (`print f(z)`
+    # itself is rejected earlier, by the checker.)
     src.write_text("union N { z  s(N) }\n"
                    "postulate fun f : fn N -> N\n"
-                   "print f(z)\n")
+                   "fun g(x : N) { f(x) }\n")
     sys.argv = [str(ROOT / "deduce.py")]
     result = check_file(str(src), prelude=[])
     assert result.ok, result.error_message

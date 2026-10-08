@@ -1,4 +1,4 @@
 ./test/should-error/assert_postulate_neq.pf:9.1-9.19: assert can only compare data built from constructors, such as Booleans, numbers, and lists, but
 	a
-could not be evaluated: it uses something with no definition (such as a `postulate fun` or an opaque function of a postulated type), or an operation that does not apply (such as an out-of-bounds index).
+could not be evaluated: it uses something with no definition (such as a `postulate fun`, or an opaque function of a postulated type such as Real), or an operation that does not apply (such as an out-of-bounds index).
 To reason about it, prove a theorem instead.
