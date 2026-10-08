@@ -2846,9 +2846,11 @@ def _eliminate_or(label: str, formula: "Or", env: "Env") -> str:
 
 
 def _eliminate_ifthen(label: str, formula: "IfThen", env: "Env") -> str:
-    """``have h: Q by apply H to ?\\n?''"""
+    """``have h: Q by apply H to ?\\n?'' with one ``?'' per conjunct of
+    the premise."""
     h = _fresh_h_labels(env, 1)[0]
-    return f"have {h}: {formula.conclusion} by apply {label} to ?\n?"
+    args = _premise_args(formula.premise, iter(()))
+    return f"have {h}: {formula.conclusion} by apply {label} to {args}\n?"
 
 
 def _eliminate_all(label: str, formula: "All", env: "Env") -> str:
@@ -3973,9 +3975,9 @@ def _insert_lemma_template(
     """Pick the tactic-shape template for ``insert_lemma_at`` (issue #690).
 
     The tier picks the surrounding shape; ``discharged`` supplies the
-    given labels for the ``full`` case; ``formula`` is consulted to
-    count premises when there are no labels (e.g. ``premises_remain``
-    where every premise is open, or ``full`` with 0 premises).
+    given labels for the ``full`` case; ``formula`` gives the premise
+    structure, so ``premises_remain`` gets one ``?`` per premise (see
+    :func:`_apply_template`).
 
     ``instantiations`` (issue #734) supplies the explicit ``[t1, ..., tN]``
     forall-instantiation suffix: when the unifier resolved every
@@ -3989,14 +3991,14 @@ def _insert_lemma_template(
     """
     name_inst = f"{name}[{', '.join(instantiations)}]" if instantiations else name
     if tier == "full":
-        if not discharged and goal_text is not None:
-            return f"conclude {goal_text} by {name_inst}"
-        labels = ", ".join(label for _, label in discharged)
+        proof = _apply_template(
+            name_inst, formula, [label for _, label in discharged]
+        )
         if goal_text is not None:
-            return f"conclude {goal_text} by apply {name_inst} to {labels}"
-        return f"apply {name_inst} to {labels}"
+            return f"conclude {goal_text} by {proof}"
+        return proof
     if tier == "premises_remain":
-        return f"apply {name_inst} to ?"
+        return _apply_template(name_inst, formula)
     if tier == "rewrite_subterm":
         # No instantiation suffix: ``replace`` pattern-matches the
         # equation across the goal, so a fixed ``[t1, ..., tN]`` splice
@@ -4005,6 +4007,40 @@ def _insert_lemma_template(
     if tier == "disjunctive_split":
         return f"cases {name_inst}"
     return name
+
+
+def _apply_template(
+    name: str, formula: "Formula", labels: Sequence[str] = ()
+) -> str:
+    """``apply`` ``name`` (a proof of ``formula``) to one argument per
+    premise, so the user needn't remember the lemma's arity.
+
+    Each ``if`` level takes its conjuncts comma-separated (``apply name
+    to a, b``); curried ``if``s nest (``apply (apply name to a) to b``).
+    Arguments come from ``labels`` in premise order, then ``?``. With no
+    premises the result is bare ``name``.
+    """
+    from abstract_syntax import All, IfThen
+
+    f = formula
+    while isinstance(f, All):
+        f = f.body
+    args = iter(labels)
+    proof = head = name
+    while isinstance(f, IfThen):
+        proof = f"apply {head} to {_premise_args(f.premise, args)}"
+        head = f"({proof})"
+        f = f.conclusion
+    return proof
+
+
+def _premise_args(premise: "Formula", args: Iterator[str]) -> str:
+    """The ``to`` arguments for ``premise``: one per top-level conjunct,
+    taken from ``args`` and then ``?``."""
+    from abstract_syntax import And
+
+    n = len(premise.args) if isinstance(premise, And) else 1
+    return ", ".join(next(args, "?") for _ in range(n))
 
 
 def _module_for_path(path: str) -> str:

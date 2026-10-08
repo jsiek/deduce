@@ -12,8 +12,10 @@ Coverage:
 (b) ``full`` tier with 1 premise discharged by a given ->
     ``conclude <goal> by apply <name>[t1,...] to <label>``;
 (c) ``full`` tier with N premises discharged ->
-    ``conclude <goal> by apply <name>[t1,...] to <l1>, ..., <lN>``;
-(d) ``premises_remain`` tier -> ``apply <name>[t1,...] to ?``;
+    ``conclude <goal> by apply <name>[t1,...] to <l1>, ..., <lN>``
+    (nested ``apply (apply ...) to ...`` for curried premises);
+(d) ``premises_remain`` tier -> ``apply <name>[t1,...] to ?, ..., ?``,
+    one ``?`` per premise;
 (e) ``rewrite_subterm`` tier -> ``replace <name>`` (bare-var-pattern
     skips instantiation; structured patterns include it);
 (f) no unify match (off-hole or browse) -> bare ``<name>`` at point;
@@ -36,12 +38,25 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
+from error import IncompleteProof  # noqa: E402
+from lsp.library import CheckResult, check_file  # noqa: E402
 from lsp.query import (  # noqa: E402
     Position,
     Range,
     WorkspaceEdit,
     insert_lemma_at,
 )
+
+
+def _check_spliced(source: str, edit: WorkspaceEdit) -> CheckResult:
+    """Check ``source`` with ``edit`` (a single-line range) applied."""
+    lines = source.split("\n")
+    start, end = edit.range.start, edit.range.end
+    line = lines[start.line - 1]
+    lines[start.line - 1] = (
+        line[: start.column - 1] + edit.new_text + line[end.column - 1 :]
+    )
+    return check_file("lemmas.pf", content="\n".join(lines))
 
 
 # ---------------------------------------------------------------------------
@@ -107,9 +122,10 @@ def test_full_tier_one_premise_discharged_emits_apply_to_label() -> None:
     assert edit.new_text == "conclude (P and P) by apply dup[P] to h"
 
 
-def test_full_tier_two_premises_discharged_emits_comma_labels() -> None:
-    """Two-premise theorem whose premises are all discharged -> the
-    label list is comma-separated in the ``apply ... to`` argument."""
+def test_full_tier_two_curried_premises_discharged_emits_nested_apply() -> None:
+    """Curried two-premise theorem whose premises are all discharged ->
+    one ``apply`` per ``if``. A comma list would pair the labels into a
+    single proof of the first premise, which does not check."""
     source = (
         "theorem and_intro: all P:bool, Q:bool. if P then if Q then P and Q\n"
         "proof\n"
@@ -132,8 +148,9 @@ def test_full_tier_two_premises_discharged_emits_comma_labels() -> None:
     )
     assert edit is not None
     assert edit.new_text == (
-        "conclude (P and Q) by apply and_intro[P, Q] to pP, qQ"
+        "conclude (P and Q) by apply (apply and_intro[P, Q] to pP) to qQ"
     )
+    assert _check_spliced(source, edit).ok
 
 
 # ---------------------------------------------------------------------------
@@ -141,12 +158,11 @@ def test_full_tier_two_premises_discharged_emits_comma_labels() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_premises_remain_tier_emits_apply_with_hole() -> None:
-    """Conclusion unifies but no local given matches the premise ->
-    template is ``apply <name>[t1, ..., tN] to ?``: explicit
-    instantiations (issue #734) so the inner ``?`` displays the
-    instantiated premise as its subgoal; one fresh hole for the
-    user to fill."""
+def test_premises_remain_tier_emits_apply_with_hole_per_premise() -> None:
+    """Conclusion unifies but no local given matches the premises ->
+    ``apply`` with explicit instantiations (issue #734), so each inner
+    ``?`` displays its instantiated premise as a subgoal, and one hole
+    per premise, so the user needn't remember the lemma's arity."""
     source = (
         "theorem and_intro: all P:bool, Q:bool. if P then if Q then P and Q\n"
         "proof\n"
@@ -166,7 +182,8 @@ def test_premises_remain_tier_emits_apply_with_hole() -> None:
         "lemmas.pf", source, Position(line=12, column=3), "and_intro"
     )
     assert edit is not None
-    assert edit.new_text == "apply and_intro[P, Q] to ?"
+    assert edit.new_text == "apply (apply and_intro[P, Q] to ?) to ?"
+    assert isinstance(_check_spliced(source, edit).exception, IncompleteProof)
     # Replaces the `?` 1-char span at line 12, col 3.
     assert edit.range == Range(
         start=Position(line=12, column=3),
@@ -304,9 +321,9 @@ def test_premises_remain_emits_explicit_instantiation_when_resolved() -> None:
     Postulate ``flip: all P:bool, Q:bool. if P and Q then Q and P``:
     matching the conclusion ``Q and P`` against the goal ``Q and P``
     binds ``P := P, Q := Q``. With both forall-vars resolved, the
-    splice must read ``apply flip[P, Q] to ?`` -- without the
-    instantiation, the bare ``apply flip to ?`` form leaves
-    deduce unable to display a subgoal for the inner hole."""
+    splice must read ``apply flip[P, Q] to ?, ?`` -- without the
+    instantiation, the bare ``apply flip to ?, ?`` form leaves
+    deduce unable to display a subgoal for the inner holes."""
     source = (
         "postulate flip: all P:bool, Q:bool. if P and Q then Q and P\n"
         "\n"
@@ -320,7 +337,8 @@ def test_premises_remain_emits_explicit_instantiation_when_resolved() -> None:
         "lemmas.pf", source, Position(line=6, column=3), "flip"
     )
     assert edit is not None
-    assert edit.new_text == "apply flip[P, Q] to ?"
+    assert edit.new_text == "apply flip[P, Q] to ?, ?"
+    assert isinstance(_check_spliced(source, edit).exception, IncompleteProof)
 
 
 def test_full_tier_emits_explicit_instantiation_when_resolved() -> None:
