@@ -783,6 +783,34 @@ def is_constructor(constr_name: str, env: Env) -> bool:
           continue
   return False
 
+def constructor_arity(constr_name: str | None, env: Env) -> int | None:
+  """The number of parameters of the union constructor `constr_name`,
+  or None if it is not a constructor."""
+  for binding in env.dict.values():
+    if isinstance(binding, TypeBinding) and isinstance(binding.defn, Union):
+      for constr in binding.defn.alternatives:
+        if constr.name == constr_name:
+          return len(constr.parameters)
+  return None
+
+def _constr_name(rator: Term) -> str | None:
+  match rator:
+    case TermInst(_, _, subject, _, _):
+      return _constr_name(subject)
+    case VarRef():
+      return rator.get_name()
+    case _:
+      return None
+
+def is_function_value(term: Term, env: Env) -> bool:
+  """A lambda, or a constructor not applied to all of its arguments."""
+  if isinstance(term, (Lambda, Generic)):
+    return True
+  name = _constr_name(term.rator if isinstance(term, Call) else term)
+  arity = constructor_arity(name, env)
+  given = len(term.args) if isinstance(term, Call) else 0
+  return arity is not None and given < arity
+
 def first_non_value(term: Term, env: Env) -> Term | None:
   """The first part of `term` that is not built from constructors (and
   Booleans and arrays): a function, or a call that evaluation could not
@@ -798,8 +826,10 @@ def first_non_value(term: Term, env: Env) -> Term | None:
       return next((bad for e in elements
                    if (bad := first_non_value(e, env)) is not None), None)
     case VarRef():
-      return None if is_constructor(term.get_name(), env) else term
-    case Call(_, _, rator, args) if is_constr_term(rator, env):
+      # A constructor with parameters, referenced bare, is a function.
+      return None if constructor_arity(term.get_name(), env) == 0 else term
+    case Call(_, _, rator, args) \
+        if constructor_arity(_constr_name(rator), env) == len(args):
       return next((bad for a in args
                    if (bad := first_non_value(a, env)) is not None), None)
     case _:

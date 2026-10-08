@@ -1,0 +1,6 @@
+// A constructor used as a function and stored inside another value is
+// still a function, so assert rejects it (#1212 review).
+union Box<T> { make(T) }
+union Holder { hold(fn bool -> Box<bool>) }
+
+assert hold(@make<bool>) = hold(@make<bool>)

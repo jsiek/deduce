@@ -37,7 +37,7 @@ from abstract_syntax import (
     Statement, Switch, SwitchCase, TAnnote, TermBinding, TLet, Term, TermInst, Theorem,
     Trace, Type, TypeAlias, TypeInst, TypeType, Union, Var, VarRef, VerboseLevel,
     ViewDecl, ViewRecFun, alpha_equiv, base_name, callable_name,
-    check_post_typecheck_invariants, find_file, first_non_value, full_reduce, mkEqual,
+    check_post_typecheck_invariants, find_file, first_non_value, full_reduce, is_function_value, mkEqual,
     print_theorems, register_rat_constructors, type_match, type_names,
 )
 from checker_cache import (
@@ -2093,8 +2093,8 @@ def _require_value(loc: Meta, command: str, verb: str, written: Term,
   bad = first_non_value(result, env)
   if bad is None:
     return
-  if isinstance(bad, (Lambda, Generic)):
-    reason = ('is a function' if bad is result
+  if is_function_value(bad, env):
+    reason = ('is a function' if is_function_value(result, env)
               else 'evaluates to something that contains a function')
     reason += ', which ' + command + ' cannot handle'
   else:
