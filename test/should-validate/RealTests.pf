@@ -1,0 +1,75 @@
+import Real
+
+// Concrete arithmetic on embedded rationals is computed by auto-rules.
+
+theorem concrete:
+  real(frac(+1, 2)) + real(frac(+1, 2)) = real(+1)
+  and real(+3) * real(frac(+1, 3)) = real(+1)
+  and real(+2) - real(+5) = real(-3)
+  and real(+1) / real(+4) = real(frac(+1, 4))
+  and - real(frac(+2, 3)) = real(frac(-2, 3))
+  and inv(real(frac(+2, 3))) = real(frac(+3, 2))
+  and real(frac(+1, 3)) < real(frac(+1, 2))
+  and real(+0) ≤ real(frac(+1, 360))
+  and not (real(+1) = real(+2))
+proof
+  .
+end
+
+// The ordered-field axioms, as a reader would state them.
+
+theorem ordered_field: all x:Real, y:Real, z:Real.
+  x + y = y + x
+  and (x + y) + z = x + (y + z)
+  and x + real(+0) = x
+  and x + - x = real(+0)
+  and x * y = y * x
+  and (x * y) * z = x * (y * z)
+  and x * real(+1) = x
+  and (if not (x = real(+0)) then x * inv(x) = real(+1))
+  and x * (y + z) = x * y + x * z
+  and (x ≤ y or y ≤ x)
+  and (if x ≤ y then x + z ≤ y + z)
+  and (if real(+0) ≤ x and real(+0) ≤ y then real(+0) ≤ x * y)
+proof
+  arbitrary x:Real, y:Real, z:Real
+  real_add_commute[x, y], real_add_assoc[x, y, z], real_add_zero[x],
+  real_add_inverse[x], real_mult_commute[x, y], real_mult_assoc[x, y, z],
+  real_mult_one[x], real_mult_inv[x], real_dist_mult_add[x, y, z],
+  real_less_equal_total[x, y], real_add_le_right_mono[x, y, z], real_mult_nonneg[x, y]
+end
+
+// The midpoint of a segment lies between its endpoints.
+
+theorem midpoint_between: all a:Real, b:Real.
+  if a ≤ b then a ≤ real(frac(+1, 2)) * (a + b)
+proof
+  arbitrary a:Real, b:Real
+  assume a_b
+  have half: real(frac(+1, 2)) * (a + a) = a by
+    replace real_dist_mult_add | symmetric real_dist_mult_add_right[a, real(frac(+1, 2)),
+                                                                    real(frac(+1, 2))].
+  have h1: a + a ≤ a + b by { replace real_add_both_sides_of_less_equal  a_b }
+  have h2: real(frac(+1, 2)) * (a + a) ≤ real(frac(+1, 2)) * (a + b)
+    by apply real_nonneg_mult_mono_le_left[real(frac(+1, 2)), a + a, a + b] to ., h1
+  replace half in h2
+end
+
+// Square roots exist and are unique.
+
+theorem sqrt_four: sqrt(real(+4)) = real(+2)
+proof
+  apply real_sqrt_unique[real(+4), real(+2)] to ., .
+end
+
+theorem sqrt_two_squared: sqrt(real(+2)) * sqrt(real(+2)) = real(+2)
+proof
+  apply real_sqrt_square[real(+2)] to .
+end
+
+// The triangle inequality.
+
+theorem triangle: all x:Real, y:Real. abs(x + y) ≤ abs(x) + abs(y)
+proof
+  real_abs_add
+end

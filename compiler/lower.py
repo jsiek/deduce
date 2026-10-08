@@ -283,6 +283,9 @@ class LoweringCtx:
         self.ctors = ctors
         self.ctor_arities = ctor_arities
         self._gensym = 0
+        # Names declared by `postulate fun`: they have no definition, so
+        # a compiled program cannot use them.
+        self.postulated_funs: Set[str] = set()
 
     def fresh(self, hint: str = "_t") -> str:
         n = self._gensym
@@ -294,7 +297,11 @@ class LoweringCtx:
     # ---- statements --------------------------------------------------
 
     def lower_stmt(self, s: ast.Statement, module: str) -> Optional[ir.TopLevel]:
+        if isinstance(s, ast.PostulateFun):
+            self.postulated_funs.add(s.name)
+            return None
         if isinstance(s, ast.Theorem) or isinstance(s, ast.Postulate) \
+           or isinstance(s, ast.PostulateType) \
            or isinstance(s, ast.Predicate) or isinstance(s, ast.Auto) \
            or isinstance(s, ast.Inductive) or isinstance(s, ast.Module) \
            or isinstance(s, ast.Export) or isinstance(s, ast.Associative) \
@@ -436,6 +443,12 @@ class LoweringCtx:
             return ir.Int(t.value)
         if isinstance(t, ast.VarRef):
             name = self._resolve(t)
+            if name in self.postulated_funs:
+                raise CompileError(
+                    t.location,
+                    f"cannot compile a use of {ast.base_name(name)}: it is "
+                    "declared with `postulate fun`, so it has no definition",
+                )
             if name in self.ctors and self.ctor_arities.get(name, 0) == 0:
                 # Nullary constructor used as a value.
                 return ir.Con(name, [])

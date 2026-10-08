@@ -291,3 +291,92 @@ proof
 end
 
 auto mult_neg_lit_neg_lit
+
+/*
+  Auto-rules for equality and subtraction of Int literals.
+*/
+
+// Equal nonnegative literals have equal magnitudes; UInt literal
+// equality is then decided, e.g. `+1 = +2` reduces to false.
+theorem int_lit_pos_eq: all x:Nat, y:Nat.
+  (pos(fromNat(lit(x))) = pos(fromNat(lit(y)))) = (fromNat(lit(x)) = fromNat(lit(y)))
+proof
+  arbitrary x:Nat, y:Nat
+  have fwd: if pos(fromNat(lit(x))) = pos(fromNat(lit(y))) then fromNat(lit(x)) = fromNat(lit(y))
+    by { assume h  apply int_pos_injective to h }
+  have bwd: if fromNat(lit(x)) = fromNat(lit(y)) then pos(fromNat(lit(x))) = pos(fromNat(lit(y)))
+    by { assume h  replace h. }
+  apply iff_equal to fwd, bwd
+end
+
+auto int_lit_pos_eq
+
+// Same for negative literals.
+theorem int_lit_negsuc_eq: all x:Nat, y:Nat.
+  (negsuc(fromNat(lit(x))) = negsuc(fromNat(lit(y)))) = (fromNat(lit(x)) = fromNat(lit(y)))
+proof
+  arbitrary x:Nat, y:Nat
+  have fwd: if negsuc(fromNat(lit(x))) = negsuc(fromNat(lit(y))) then fromNat(lit(x)) = fromNat(lit(y))
+    by { assume h  apply int_negsuc_injective to h }
+  have bwd: if fromNat(lit(x)) = fromNat(lit(y)) then negsuc(fromNat(lit(x))) = negsuc(fromNat(lit(y)))
+    by { assume h  replace h. }
+  apply iff_equal to fwd, bwd
+end
+
+auto int_lit_negsuc_eq
+
+// Subtraction of literals is addition of the negation, which the
+// rules above compute, e.g. `+2 - +5` reduces to `-3`.
+theorem int_lit_sub_pos_pos: all x:Nat, y:Nat.
+  pos(fromNat(lit(x))) - pos(fromNat(lit(y))) = pos(fromNat(lit(x))) + - pos(fromNat(lit(y)))
+proof
+  arbitrary x:Nat, y:Nat
+  equations
+    pos(fromNat(lit(x))) - pos(fromNat(lit(y))) = pos(fromNat(lit(x))) + - pos(fromNat(lit(y)))
+      by expand operator-.
+end
+
+auto int_lit_sub_pos_pos
+
+theorem int_lit_sub_pos_negsuc: all x:Nat, y:Nat.
+  pos(fromNat(lit(x))) - negsuc(fromNat(lit(y))) = pos(fromNat(lit(x))) + - negsuc(fromNat(lit(y)))
+proof
+  arbitrary x:Nat, y:Nat
+  equations
+    pos(fromNat(lit(x))) - negsuc(fromNat(lit(y))) = pos(fromNat(lit(x))) + - negsuc(fromNat(lit(y)))
+      by expand operator-.
+end
+
+auto int_lit_sub_pos_negsuc
+
+theorem int_lit_sub_negsuc_pos: all x:Nat, y:Nat.
+  negsuc(fromNat(lit(x))) - pos(fromNat(lit(y))) = negsuc(fromNat(lit(x))) + - pos(fromNat(lit(y)))
+proof
+  arbitrary x:Nat, y:Nat
+  equations
+    negsuc(fromNat(lit(x))) - pos(fromNat(lit(y))) = negsuc(fromNat(lit(x))) + - pos(fromNat(lit(y)))
+      by expand operator-.
+end
+
+auto int_lit_sub_negsuc_pos
+
+theorem int_lit_sub_negsuc_negsuc: all x:Nat, y:Nat.
+  negsuc(fromNat(lit(x))) - negsuc(fromNat(lit(y))) = negsuc(fromNat(lit(x))) + - negsuc(fromNat(lit(y)))
+proof
+  arbitrary x:Nat, y:Nat
+  equations
+    negsuc(fromNat(lit(x))) - negsuc(fromNat(lit(y))) = negsuc(fromNat(lit(x))) + - negsuc(fromNat(lit(y)))
+      by expand operator-.
+end
+
+auto int_lit_sub_negsuc_negsuc
+
+// Sum of two negative literals: `negsuc(x) + negsuc(y) = negsuc(1 + x + y)`.
+theorem lit_add_negsuc_negsuc: all x:Nat, y:Nat.
+  negsuc(fromNat(lit(x))) + negsuc(fromNat(lit(y))) = negsuc(1 + fromNat(lit(x)) + fromNat(lit(y)))
+proof
+  arbitrary x:Nat, y:Nat
+  expand operator+.
+end
+
+auto lit_add_negsuc_negsuc

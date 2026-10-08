@@ -1,0 +1,30 @@
+module Real
+
+import Nat
+import UInt
+import Int
+import Rat
+import Base
+
+/*
+  Real numbers, axiomatized as a real closed field.
+
+  Every assumption is in RealAxioms.pf; everything else in this module
+  is proved from it. `python deduce.py --postulates file.pf` lists the
+  axioms a file depends on.
+
+  Write reals with the embeddings `real(n)` for an Int or UInt `n` and
+  `real(q)` for a Rat `q`, e.g. `real(frac(+1, 2))`. Concrete arithmetic
+  and comparisons on such values are computed by auto-rules
+  (RealLit.pf). Other operations: `-` (unary and binary), `*`, `inv`,
+  `/` (with x / 0 = 0), `≤`, `<`, `>`, `≥`, `max`, `min`, `abs`, `sqrt`.
+*/
+
+public import RealAxioms
+public import RealDefs
+public import RealAddSub
+public import RealMult
+public import RealLess
+public import RealEmbed
+public import RealSqrt
+public import RealLit

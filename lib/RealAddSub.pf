@@ -1,0 +1,151 @@
+module Real
+
+import Nat
+import UInt
+import Int
+import Rat
+import Base
+import RealAxioms
+import RealDefs
+
+/*
+  Theorems about Real addition, negation, and subtraction, derived from
+  the field axioms in RealAxioms.pf.
+*/
+
+auto real_add_zero
+
+associative operator+ in Real
+
+theorem real_zero_add: all x:Real. real(+0) + x = x
+proof
+  arbitrary x:Real
+  replace real_add_commute[real(+0), x].
+end
+
+auto real_zero_add
+
+theorem real_add_left_inverse: all x:Real. - x + x = real(+0)
+proof
+  arbitrary x:Real
+  replace real_add_commute[- x, x]
+  real_add_inverse[x]
+end
+
+// An additive inverse is unique.
+theorem real_add_inverse_unique: all x:Real, y:Real.
+  if x + y = real(+0) then y = - x
+proof
+  arbitrary x:Real, y:Real
+  assume xy
+  equations
+        y = # (- x + x) + y #  by replace real_add_left_inverse.
+    ... = - x + (x + y)       by .
+    ... = - x                 by replace xy.
+end
+
+theorem real_neg_involutive: all x:Real. - - x = x
+proof
+  arbitrary x:Real
+  symmetric apply real_add_inverse_unique[- x, x] to real_add_left_inverse[x]
+end
+
+theorem real_neg_zero: - real(+0) = real(+0)
+proof
+  symmetric apply real_add_inverse_unique[real(+0), real(+0)] to .
+end
+
+auto real_neg_zero
+
+theorem real_add_both_sides_of_equal: all x:Real, y:Real, z:Real.
+  (x + y = x + z) = (y = z)
+proof
+  arbitrary x:Real, y:Real, z:Real
+  have fwd: if x + y = x + z then y = z by {
+    assume eq
+    have h: - x + (x + y) = - x + (x + z) by replace eq.
+    replace real_add_left_inverse in h
+  }
+  have bwd: if y = z then x + y = x + z by {
+    assume eq
+    replace eq.
+  }
+  apply iff_equal to fwd, bwd
+end
+
+theorem real_add_both_sides_of_equal_right: all x:Real, y:Real, z:Real.
+  (y + x = z + x) = (y = z)
+proof
+  arbitrary x:Real, y:Real, z:Real
+  replace real_add_commute[y, x] | real_add_commute[z, x]
+  real_add_both_sides_of_equal[x, y, z]
+end
+
+theorem real_neg_distr_add: all x:Real, y:Real. - (x + y) = - x + - y
+proof
+  arbitrary x:Real, y:Real
+  have h: (x + y) + (- x + - y) = real(+0) by
+    replace real_add_commute[y, - x + - y] | real_add_left_inverse | real_add_inverse.
+  symmetric apply real_add_inverse_unique[x + y, - x + - y] to h
+end
+
+theorem real_neg_injective: all x:Real, y:Real. if - x = - y then x = y
+proof
+  arbitrary x:Real, y:Real
+  assume eq
+  have h: - (- x) = - (- y) by replace eq.
+  replace real_neg_involutive in h
+end
+
+// Subtraction
+
+theorem real_sub_cancel: all x:Real. x - x = real(+0)
+proof
+  arbitrary x:Real
+  replace real_sub_def
+  real_add_inverse[x]
+end
+
+auto real_sub_cancel
+
+theorem real_sub_zero: all x:Real. x - real(+0) = x
+proof
+  arbitrary x:Real
+  replace real_sub_def.
+end
+
+auto real_sub_zero
+
+theorem real_zero_sub: all x:Real. real(+0) - x = - x
+proof
+  arbitrary x:Real
+  replace real_sub_def.
+end
+
+auto real_zero_sub
+
+theorem real_sub_add_cancel: all x:Real, y:Real. (x - y) + y = x
+proof
+  arbitrary x:Real, y:Real
+  replace real_sub_def | real_add_left_inverse.
+end
+
+theorem real_add_sub_cancel: all x:Real, y:Real. (x + y) - y = x
+proof
+  arbitrary x:Real, y:Real
+  replace real_sub_def | real_add_inverse.
+end
+
+theorem real_neg_sub: all x:Real, y:Real. - (x - y) = y - x
+proof
+  arbitrary x:Real, y:Real
+  replace real_sub_def | real_neg_distr_add | real_neg_involutive
+        | real_add_commute[- x, y].
+end
+
+theorem real_sub_eq_zero_iff: all x:Real, y:Real. (x - y = real(+0)) = (x = y)
+proof
+  arbitrary x:Real, y:Real
+  replace symmetric real_add_both_sides_of_equal_right[y, x - y, real(+0)]
+        | real_sub_add_cancel.
+end

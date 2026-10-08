@@ -34,3 +34,14 @@ proof
   expand twice
   replace t_one_mult | t_one_mult.
 end
+
+// `expand` skips an overload that is a `postulate fun`, since it has
+// no definition, and expands the others.
+postulate fun operator- : fn T -> T
+fun operator-(x : T, y : T) { x * (- y) }
+
+theorem t_sub_def: all x:T, y:T. x - y = x * (- y)
+proof
+  arbitrary x:T, y:T
+  expand operator-.
+end

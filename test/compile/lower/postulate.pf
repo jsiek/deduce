@@ -1,0 +1,11 @@
+// Postulates have no runtime content: `postulate type`, `postulate fun`,
+// and `postulate` axioms are all erased by lowering.
+
+union N { z  s(N) }
+
+postulate type R
+postulate fun r0 : R
+postulate fun f : fn N -> N
+postulate f_z: f(z) = s(z)
+
+print s(z)

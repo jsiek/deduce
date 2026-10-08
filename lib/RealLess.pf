@@ -1,0 +1,744 @@
+module Real
+
+import Nat
+import UInt
+import Int
+import Rat
+import Base
+import RealAxioms
+import RealDefs
+import RealAddSub
+import RealMult
+
+/*
+  Theorems about the order on Real, derived from the order axioms in
+  RealAxioms.pf: ≤ and < form a total order compatible with addition
+  and with multiplication by nonnegatives.
+*/
+
+theorem real_less_equal_refl: all x:Real. x ≤ x
+proof
+  arbitrary x:Real
+  cases real_less_equal_total[x, x]
+  case h1 { h1 }
+  case h2 { h2 }
+end
+
+theorem real_less_irreflexive: all x:Real. not (x < x)
+proof
+  arbitrary x:Real
+  replace real_less_def.
+end
+
+theorem real_less_implies_less_equal: all x:Real, y:Real. if x < y then x ≤ y
+proof
+  arbitrary x:Real, y:Real
+  assume x_y
+  conjunct 0 of (replace real_less_def in x_y)
+end
+
+theorem real_less_implies_not_equal: all x:Real, y:Real. if x < y then not (x = y)
+proof
+  arbitrary x:Real, y:Real
+  assume x_y
+  conjunct 1 of (replace real_less_def in x_y)
+end
+
+theorem real_dichotomy: all x:Real, y:Real. x ≤ y or y < x
+proof
+  arbitrary x:Real, y:Real
+  cases real_less_equal_total[x, y]
+  case xy { conclude x ≤ y by xy }
+  case yx {
+    switch x = y {
+      case true assume eq { conclude x ≤ y by replace eq  real_less_equal_refl[y] }
+      case false assume neq {
+        have yx_ne: not (y = x) by { assume e  conclude false by apply neq to symmetric e }
+        conclude y < x by { replace real_less_def  yx, yx_ne }
+      }
+    }
+  }
+end
+
+theorem real_trichotomy: all x:Real, y:Real. x < y or x = y or y < x
+proof
+  arbitrary x:Real, y:Real
+  cases real_dichotomy[x, y]
+  case xy {
+    switch x = y {
+      case true assume eq { conclude x = y by eq }
+      case false assume neq {
+        conclude x < y by { replace real_less_def  xy, neq }
+      }
+    }
+  }
+  case yx { conclude y < x by yx }
+end
+
+theorem real_less_equal_iff_not_greater: all x:Real, y:Real. (x ≤ y) ⇔ not (y < x)
+proof
+  arbitrary x:Real, y:Real
+  have fwd: if x ≤ y then not (y < x) by {
+    assume xy
+    assume yx
+    have eq: x = y by
+      apply real_less_equal_antisymmetric[x, y]
+      to xy, (apply real_less_implies_less_equal[y, x] to yx)
+    conclude false by apply (apply real_less_implies_not_equal[y, x] to yx) to symmetric eq
+  }
+  have bwd: if not (y < x) then x ≤ y by {
+    assume nyx
+    cases real_dichotomy[x, y]
+    case xy { xy }
+    case yx { conclude false by apply nyx to yx }
+  }
+  fwd, bwd
+end
+
+theorem real_not_less_equal_iff_greater: all x:Real, y:Real. (not (x ≤ y)) ⇔ (y < x)
+proof
+  arbitrary x:Real, y:Real
+  have fwd: if not (x ≤ y) then y < x by {
+    assume nxy
+    cases real_dichotomy[x, y]
+    case xy { conclude false by apply nxy to xy }
+    case yx { yx }
+  }
+  have bwd: if y < x then not (x ≤ y) by {
+    assume yx
+    assume xy
+    conclude false by apply (apply real_less_equal_iff_not_greater[x, y] to xy) to yx
+  }
+  fwd, bwd
+end
+
+theorem real_not_less_implies_less_equal: all x:Real, y:Real. if not (x < y) then y ≤ x
+proof
+  arbitrary x:Real, y:Real
+  assume nxy
+  apply (conjunct 1 of real_less_equal_iff_not_greater[y, x]) to nxy
+end
+
+theorem real_less_implies_not_greater: all x:Real, y:Real. if x < y then not (y < x)
+proof
+  arbitrary x:Real, y:Real
+  assume xy
+  apply (conjunct 0 of real_less_equal_iff_not_greater[x, y])
+    to apply real_less_implies_less_equal[x, y] to xy
+end
+
+theorem real_less_equal_iff_less_or_equal: all x:Real, y:Real. (x ≤ y) ⇔ (x < y or x = y)
+proof
+  arbitrary x:Real, y:Real
+  have fwd: if x ≤ y then x < y or x = y by {
+    assume xy
+    switch x = y {
+      case true assume eq { conclude x = y by eq }
+      case false assume neq { conclude x < y by { replace real_less_def  xy, neq } }
+    }
+  }
+  have bwd: if x < y or x = y then x ≤ y by {
+    assume h
+    cases h
+    case lt { apply real_less_implies_less_equal[x, y] to lt }
+    case eq { replace eq  real_less_equal_refl[y] }
+  }
+  fwd, bwd
+end
+
+theorem real_less_trans_less_equal_right: all x:Real, y:Real, z:Real.
+  if x < y and y ≤ z then x < z
+proof
+  arbitrary x:Real, y:Real, z:Real
+  assume prem
+  have xz: x ≤ z by apply real_less_equal_trans[x, y, z]
+    to (apply real_less_implies_less_equal[x, y] to prem), prem
+  have nzx: not (x = z) by {
+    assume eq
+    have zy: z < y by replace eq in conjunct 0 of prem
+    conclude false by apply (apply real_less_equal_iff_not_greater[y, z] to prem) to zy
+  }
+  replace real_less_def
+  xz, nzx
+end
+
+theorem real_less_trans_less_equal_left: all x:Real, y:Real, z:Real.
+  if x ≤ y and y < z then x < z
+proof
+  arbitrary x:Real, y:Real, z:Real
+  assume prem
+  have xz: x ≤ z by apply real_less_equal_trans[x, y, z]
+    to prem, (apply real_less_implies_less_equal[y, z] to prem)
+  have nzx: not (x = z) by {
+    assume eq
+    have yx: y < x by replace symmetric eq in conjunct 1 of prem
+    conclude false by apply (apply real_less_equal_iff_not_greater[x, y] to prem) to yx
+  }
+  replace real_less_def
+  xz, nzx
+end
+
+theorem real_less_trans: all x:Real, y:Real, z:Real. if x < y and y < z then x < z
+proof
+  arbitrary x:Real, y:Real, z:Real
+  assume prem
+  apply real_less_trans_less_equal_right[x, y, z]
+    to prem, (apply real_less_implies_less_equal[y, z] to prem)
+end
+
+// Compatibility with addition
+
+theorem real_add_le_left_mono: all x:Real, y:Real, z:Real.
+  if x ≤ y then z + x ≤ z + y
+proof
+  arbitrary x:Real, y:Real, z:Real
+  assume xy
+  replace real_add_commute[z, x] | real_add_commute[z, y]
+  apply real_add_le_right_mono[x, y, z] to xy
+end
+
+theorem real_add_both_sides_of_less_equal_right: all x:Real, y:Real, z:Real.
+  (y + x ≤ z + x) = (y ≤ z)
+proof
+  arbitrary x:Real, y:Real, z:Real
+  have fwd: if y + x ≤ z + x then y ≤ z by {
+    assume h
+    have h2: (y + x) + - x ≤ (z + x) + - x by apply real_add_le_right_mono[y + x, z + x, - x] to h
+    replace real_add_inverse in h2
+  }
+  have bwd: if y ≤ z then y + x ≤ z + x by {
+    assume h
+    apply real_add_le_right_mono[y, z, x] to h
+  }
+  apply iff_equal to fwd, bwd
+end
+
+theorem real_add_both_sides_of_less_equal: all x:Real, y:Real, z:Real.
+  (x + y ≤ x + z) = (y ≤ z)
+proof
+  arbitrary x:Real, y:Real, z:Real
+  replace real_add_commute[x, y] | real_add_commute[x, z]
+  real_add_both_sides_of_less_equal_right[x, y, z]
+end
+
+theorem real_add_both_sides_of_less_right: all x:Real, y:Real, z:Real.
+  (y + x < z + x) = (y < z)
+proof
+  arbitrary x:Real, y:Real, z:Real
+  replace real_less_def | real_add_both_sides_of_less_equal_right
+        | real_add_both_sides_of_equal_right.
+end
+
+theorem real_add_both_sides_of_less: all x:Real, y:Real, z:Real.
+  (x + y < x + z) = (y < z)
+proof
+  arbitrary x:Real, y:Real, z:Real
+  replace real_add_commute[x, y] | real_add_commute[x, z]
+  real_add_both_sides_of_less_right[x, y, z]
+end
+
+theorem real_add_mono_less_equal: all a:Real, b:Real, c:Real, d:Real.
+  if a ≤ c and b ≤ d then a + b ≤ c + d
+proof
+  arbitrary a:Real, b:Real, c:Real, d:Real
+  assume prem
+  have h1: a + b ≤ c + b by apply real_add_le_right_mono[a, c, b] to prem
+  have h2: c + b ≤ c + d by apply real_add_le_left_mono[b, d, c] to prem
+  apply real_less_equal_trans[a + b, c + b, c + d] to h1, h2
+end
+
+theorem real_add_mono_less: all a:Real, b:Real, c:Real, d:Real.
+  if a < c and b < d then a + b < c + d
+proof
+  arbitrary a:Real, b:Real, c:Real, d:Real
+  assume prem
+  have h1: a + b < c + b by { replace real_add_both_sides_of_less_right  conjunct 0 of prem }
+  have h2: c + b < c + d by { replace real_add_both_sides_of_less  conjunct 1 of prem }
+  apply real_less_trans[a + b, c + b, c + d] to h1, h2
+end
+
+theorem real_neg_le_iff: all x:Real, y:Real. (- y ≤ - x) = (x ≤ y)
+proof
+  arbitrary x:Real, y:Real
+  // Add x + y to both sides.
+  replace symmetric real_add_both_sides_of_less_equal_right[x + y, - y, - x]
+        | real_add_commute[x, y] | real_add_left_inverse
+        | real_add_commute[y, x] | real_add_left_inverse.
+end
+
+theorem real_neg_less_iff: all x:Real, y:Real. (- y < - x) = (x < y)
+proof
+  arbitrary x:Real, y:Real
+  replace real_less_def | real_neg_le_iff
+  have e: (- y = - x) = (x = y) by {
+    have fwd: if - y = - x then x = y by {
+      assume h
+      symmetric apply real_neg_injective[y, x] to h
+    }
+    have bwd: if x = y then - y = - x by { assume h  replace h. }
+    apply iff_equal to fwd, bwd
+  }
+  replace e.
+end
+
+theorem real_zero_le_neg: all x:Real. (real(+0) ≤ - x) = (x ≤ real(+0))
+proof
+  arbitrary x:Real
+  have h: (- real(+0) ≤ - x) = (x ≤ real(+0)) by real_neg_le_iff[x, real(+0)]
+  h
+end
+
+theorem real_neg_le_zero: all x:Real. (- x ≤ real(+0)) = (real(+0) ≤ x)
+proof
+  arbitrary x:Real
+  have h: (- x ≤ - real(+0)) = (real(+0) ≤ x) by real_neg_le_iff[real(+0), x]
+  h
+end
+
+theorem real_zero_less_neg: all x:Real. (real(+0) < - x) = (x < real(+0))
+proof
+  arbitrary x:Real
+  have h: (- real(+0) < - x) = (x < real(+0)) by real_neg_less_iff[x, real(+0)]
+  h
+end
+
+theorem real_le_iff_sub_nonneg: all x:Real, y:Real. (x ≤ y) = (real(+0) ≤ y - x)
+proof
+  arbitrary x:Real, y:Real
+  replace real_sub_def
+        | symmetric real_add_both_sides_of_less_equal_right[- x, x, y]
+        | real_add_inverse.
+end
+
+theorem real_less_iff_sub_pos: all x:Real, y:Real. (x < y) = (real(+0) < y - x)
+proof
+  arbitrary x:Real, y:Real
+  replace real_sub_def
+        | symmetric real_add_both_sides_of_less_right[- x, x, y]
+        | real_add_inverse.
+end
+
+// Compatibility with multiplication
+
+theorem real_zero_less_one: real(+0) < real(+1)
+proof
+  // If 1 ≤ 0 then 0 ≤ -1, so 0 ≤ (-1) * (-1) = 1, and 1 = 0.
+  have ne: not (real(+0) = real(+1)) by {
+    assume e
+    conclude false by apply real_one_not_zero to symmetric e
+  }
+  cases real_less_equal_total[real(+0), real(+1)]
+  case le { replace real_less_def  le, ne }
+  case ge {
+    have n: real(+0) ≤ - real(+1) by { replace real_zero_le_neg  ge }
+    have sq: real(+0) ≤ (- real(+1)) * (- real(+1))
+      by apply real_mult_nonneg[- real(+1), - real(+1)] to n, n
+    have le: real(+0) ≤ real(+1) by replace real_neg_mult_neg in sq
+    replace real_less_def
+    le, ne
+  }
+end
+
+theorem real_mult_pos: all x:Real, y:Real.
+  if real(+0) < x and real(+0) < y then real(+0) < x * y
+proof
+  arbitrary x:Real, y:Real
+  assume prem
+  have x0: real(+0) < x by prem
+  have y0: real(+0) < y by prem
+  have nn: real(+0) ≤ x * y by
+    apply real_mult_nonneg[x, y]
+    to (apply real_less_implies_less_equal to x0), (apply real_less_implies_less_equal to y0)
+  have ne: not (real(+0) = x * y) by {
+    assume e
+    cases apply real_mult_to_zero[x, y] to symmetric e
+    case xz {
+      conclude false by apply (apply real_less_implies_not_equal[real(+0), x] to x0) to symmetric xz
+    }
+    case yz {
+      conclude false by apply (apply real_less_implies_not_equal[real(+0), y] to y0) to symmetric yz
+    }
+  }
+  replace real_less_def
+  nn, ne
+end
+
+theorem real_nonneg_mult_mono_le_right: all z:Real, x:Real, y:Real.
+  if real(+0) ≤ z and x ≤ y then x * z ≤ y * z
+proof
+  arbitrary z:Real, x:Real, y:Real
+  assume prem
+  replace real_le_iff_sub_nonneg[x * z, y * z] | symmetric real_dist_mult_sub_right[z, y, x]
+  apply real_mult_nonneg[y - x, z]
+    to (replace real_le_iff_sub_nonneg in conjunct 1 of prem), conjunct 0 of prem
+end
+
+theorem real_nonneg_mult_mono_le_left: all z:Real, x:Real, y:Real.
+  if real(+0) ≤ z and x ≤ y then z * x ≤ z * y
+proof
+  arbitrary z:Real, x:Real, y:Real
+  assume prem
+  replace real_mult_commute[z, x] | real_mult_commute[z, y]
+  apply real_nonneg_mult_mono_le_right[z, x, y] to prem
+end
+
+theorem real_pos_mult_mono_less_right: all z:Real, x:Real, y:Real.
+  if real(+0) < z and x < y then x * z < y * z
+proof
+  arbitrary z:Real, x:Real, y:Real
+  assume prem
+  replace real_less_iff_sub_pos[x * z, y * z] | symmetric real_dist_mult_sub_right[z, y, x]
+  apply real_mult_pos[y - x, z]
+    to (replace real_less_iff_sub_pos in conjunct 1 of prem), conjunct 0 of prem
+end
+
+theorem real_pos_mult_mono_less_left: all z:Real, x:Real, y:Real.
+  if real(+0) < z and x < y then z * x < z * y
+proof
+  arbitrary z:Real, x:Real, y:Real
+  assume prem
+  replace real_mult_commute[z, x] | real_mult_commute[z, y]
+  apply real_pos_mult_mono_less_right[z, x, y] to prem
+end
+
+theorem real_pos_mult_le_iff: all z:Real, x:Real, y:Real.
+  if real(+0) < z then (x * z ≤ y * z) = (x ≤ y)
+proof
+  arbitrary z:Real, x:Real, y:Real
+  assume z_pos
+  have fwd: if x * z ≤ y * z then x ≤ y by {
+    assume h
+    cases real_dichotomy[x, y]
+    case le { le }
+    case gt {
+      have yx: y * z < x * z by apply real_pos_mult_mono_less_right[z, y, x] to z_pos, gt
+      conclude false by apply (apply real_less_equal_iff_not_greater[x * z, y * z] to h) to yx
+    }
+  }
+  have bwd: if x ≤ y then x * z ≤ y * z by {
+    assume h
+    apply real_nonneg_mult_mono_le_right[z, x, y]
+      to (apply real_less_implies_less_equal[real(+0), z] to z_pos), h
+  }
+  apply iff_equal to fwd, bwd
+end
+
+theorem real_pos_mult_less_iff: all z:Real, x:Real, y:Real.
+  if real(+0) < z then (x * z < y * z) = (x < y)
+proof
+  arbitrary z:Real, x:Real, y:Real
+  assume z_pos
+  have fwd: if x * z < y * z then x < y by {
+    assume h
+    cases real_dichotomy[y, x]
+    case le {
+      have yx: y * z ≤ x * z
+        by apply real_nonneg_mult_mono_le_right[z, y, x]
+           to (apply real_less_implies_less_equal[real(+0), z] to z_pos), le
+      conclude false by apply (apply real_less_equal_iff_not_greater[y * z, x * z] to yx) to h
+    }
+    case gt { gt }
+  }
+  have bwd: if x < y then x * z < y * z by {
+    assume h
+    apply real_pos_mult_mono_less_right[z, x, y] to z_pos, h
+  }
+  apply iff_equal to fwd, bwd
+end
+
+theorem real_square_nonneg: all x:Real. real(+0) ≤ x * x
+proof
+  arbitrary x:Real
+  cases real_less_equal_total[real(+0), x]
+  case nn { apply real_mult_nonneg[x, x] to nn, nn }
+  case np {
+    have nx: real(+0) ≤ - x by { replace real_zero_le_neg  np }
+    replace symmetric real_neg_mult_neg[x, x]
+    apply real_mult_nonneg[- x, - x] to nx, nx
+  }
+end
+
+theorem real_inv_pos: all x:Real. if real(+0) < x then real(+0) < inv(x)
+proof
+  arbitrary x:Real
+  assume x_pos
+  have xnz: not (x = real(+0)) by {
+    assume xz
+    have zz: real(+0) < real(+0) by replace xz in x_pos
+    conclude false by apply real_less_irreflexive to zz
+  }
+  cases real_dichotomy[inv(x), real(+0)]
+  case le {
+    have h: inv(x) * x ≤ real(+0) * x
+      by apply real_nonneg_mult_mono_le_right[x, inv(x), real(+0)]
+         to (apply real_less_implies_less_equal[real(+0), x] to x_pos), le
+    have h2: real(+1) ≤ real(+0) by replace apply real_inv_mult[x] to xnz in h
+    conclude false
+      by apply (apply real_less_equal_iff_not_greater[real(+1), real(+0)] to h2) to real_zero_less_one
+  }
+  case gt { gt }
+end
+
+// Maximum and minimum
+
+theorem real_max_equal_greater_right: all x:Real, y:Real. if x ≤ y then max(x, y) = y
+proof
+  arbitrary x:Real, y:Real
+  assume xy
+  replace real_max_def | apply eq_true to xy.
+end
+
+theorem real_max_equal_greater_left: all x:Real, y:Real. if y ≤ x then max(x, y) = x
+proof
+  arbitrary x:Real, y:Real
+  assume yx
+  replace real_max_def
+  cases real_dichotomy[x, y]
+  case xy {
+    have eq: x = y by apply real_less_equal_antisymmetric[x, y] to xy, yx
+    replace eq | apply eq_true to real_less_equal_refl[y].
+  }
+  case gt {
+    have nxy: not (x ≤ y) by apply (conjunct 1 of real_not_less_equal_iff_greater[x, y]) to gt
+    replace apply eq_false to nxy.
+  }
+end
+
+theorem real_min_equal_less_left: all x:Real, y:Real. if x ≤ y then min(x, y) = x
+proof
+  arbitrary x:Real, y:Real
+  assume xy
+  replace real_min_def | apply eq_true to xy.
+end
+
+theorem real_min_equal_less_right: all x:Real, y:Real. if y ≤ x then min(x, y) = y
+proof
+  arbitrary x:Real, y:Real
+  assume yx
+  replace real_min_def
+  cases real_dichotomy[x, y]
+  case xy {
+    have eq: x = y by apply real_less_equal_antisymmetric[x, y] to xy, yx
+    replace eq | apply eq_true to real_less_equal_refl[y].
+  }
+  case gt {
+    have nxy: not (x ≤ y) by apply (conjunct 1 of real_not_less_equal_iff_greater[x, y]) to gt
+    replace apply eq_false to nxy.
+  }
+end
+
+theorem real_max_greater_left: all x:Real, y:Real. x ≤ max(x, y)
+proof
+  arbitrary x:Real, y:Real
+  cases real_less_equal_total[x, y]
+  case xy { replace apply real_max_equal_greater_right[x, y] to xy  xy }
+  case yx { replace apply real_max_equal_greater_left[x, y] to yx  real_less_equal_refl[x] }
+end
+
+theorem real_max_greater_right: all x:Real, y:Real. y ≤ max(x, y)
+proof
+  arbitrary x:Real, y:Real
+  cases real_less_equal_total[x, y]
+  case xy { replace apply real_max_equal_greater_right[x, y] to xy  real_less_equal_refl[y] }
+  case yx { replace apply real_max_equal_greater_left[x, y] to yx  yx }
+end
+
+theorem real_min_less_equal_left: all x:Real, y:Real. min(x, y) ≤ x
+proof
+  arbitrary x:Real, y:Real
+  cases real_less_equal_total[x, y]
+  case xy { replace apply real_min_equal_less_left[x, y] to xy  real_less_equal_refl[x] }
+  case yx { replace apply real_min_equal_less_right[x, y] to yx  yx }
+end
+
+theorem real_min_less_equal_right: all x:Real, y:Real. min(x, y) ≤ y
+proof
+  arbitrary x:Real, y:Real
+  cases real_less_equal_total[x, y]
+  case xy { replace apply real_min_equal_less_left[x, y] to xy  xy }
+  case yx { replace apply real_min_equal_less_right[x, y] to yx  real_less_equal_refl[y] }
+end
+
+theorem real_max_symmetric: all x:Real, y:Real. max(x, y) = max(y, x)
+proof
+  arbitrary x:Real, y:Real
+  cases real_less_equal_total[x, y]
+  case xy {
+    replace apply real_max_equal_greater_right[x, y] to xy
+          | apply real_max_equal_greater_left[y, x] to xy.
+  }
+  case yx {
+    replace apply real_max_equal_greater_left[x, y] to yx
+          | apply real_max_equal_greater_right[y, x] to yx.
+  }
+end
+
+theorem real_min_symmetric: all x:Real, y:Real. min(x, y) = min(y, x)
+proof
+  arbitrary x:Real, y:Real
+  cases real_less_equal_total[x, y]
+  case xy {
+    replace apply real_min_equal_less_left[x, y] to xy
+          | apply real_min_equal_less_right[y, x] to xy.
+  }
+  case yx {
+    replace apply real_min_equal_less_right[x, y] to yx
+          | apply real_min_equal_less_left[y, x] to yx.
+  }
+end
+
+theorem real_max_less_equal: all x:Real, y:Real, z:Real.
+  if x ≤ z and y ≤ z then max(x, y) ≤ z
+proof
+  arbitrary x:Real, y:Real, z:Real
+  assume prem
+  cases real_less_equal_total[x, y]
+  case xy { replace apply real_max_equal_greater_right[x, y] to xy  conjunct 1 of prem }
+  case yx { replace apply real_max_equal_greater_left[x, y] to yx  conjunct 0 of prem }
+end
+
+theorem real_min_greatest_less_equal: all x:Real, y:Real, z:Real.
+  if z ≤ x and z ≤ y then z ≤ min(x, y)
+proof
+  arbitrary x:Real, y:Real, z:Real
+  assume prem
+  cases real_less_equal_total[x, y]
+  case xy { replace apply real_min_equal_less_left[x, y] to xy  conjunct 0 of prem }
+  case yx { replace apply real_min_equal_less_right[x, y] to yx  conjunct 1 of prem }
+end
+
+// Absolute value
+
+theorem real_abs_nonneg_eq: all x:Real. if real(+0) ≤ x then abs(x) = x
+proof
+  arbitrary x:Real
+  assume x_nn
+  replace real_abs_def | apply eq_true to x_nn.
+end
+
+theorem real_abs_nonpos_eq: all x:Real. if x ≤ real(+0) then abs(x) = - x
+proof
+  arbitrary x:Real
+  assume x_np
+  replace real_abs_def
+  switch real(+0) ≤ x {
+    case true assume x_nn {
+      have xz: x = real(+0) by apply real_less_equal_antisymmetric[x, real(+0)] to x_np, x_nn
+      replace xz.
+    }
+    case false assume nx { . }
+  }
+end
+
+theorem real_abs_neg: all x:Real. abs(- x) = abs(x)
+proof
+  arbitrary x:Real
+  cases real_less_equal_total[real(+0), x]
+  case nn {
+    have nx: - x ≤ real(+0) by { replace real_neg_le_zero  nn }
+    replace apply real_abs_nonpos_eq[- x] to nx | real_neg_involutive
+          | apply real_abs_nonneg_eq[x] to nn.
+  }
+  case np {
+    have nx: real(+0) ≤ - x by { replace real_zero_le_neg  np }
+    replace apply real_abs_nonneg_eq[- x] to nx | apply real_abs_nonpos_eq[x] to np.
+  }
+end
+
+theorem real_abs_nonneg: all x:Real. real(+0) ≤ abs(x)
+proof
+  arbitrary x:Real
+  cases real_less_equal_total[real(+0), x]
+  case nn { replace apply real_abs_nonneg_eq[x] to nn  nn }
+  case np {
+    replace apply real_abs_nonpos_eq[x] to np | real_zero_le_neg
+    np
+  }
+end
+
+theorem real_le_abs: all x:Real. x ≤ abs(x)
+proof
+  arbitrary x:Real
+  cases real_less_equal_total[real(+0), x]
+  case nn { replace apply real_abs_nonneg_eq[x] to nn  real_less_equal_refl[x] }
+  case np { apply real_less_equal_trans[x, real(+0), abs(x)] to np, real_abs_nonneg[x] }
+end
+
+theorem real_neg_abs_le: all x:Real. - abs(x) ≤ x
+proof
+  arbitrary x:Real
+  have h: - x ≤ abs(x) by replace real_abs_neg in real_le_abs[- x]
+  have h2: - abs(x) ≤ - - x by { replace real_neg_le_iff[- x, abs(x)]  h }
+  replace real_neg_involutive in h2
+end
+
+theorem real_abs_mult: all x:Real, y:Real. abs(x * y) = abs(x) * abs(y)
+proof
+  arbitrary x:Real, y:Real
+  cases real_less_equal_total[real(+0), x]
+  case xnn {
+    cases real_less_equal_total[real(+0), y]
+    case ynn {
+      replace apply real_abs_nonneg_eq[x] to xnn | apply real_abs_nonneg_eq[y] to ynn
+      apply real_abs_nonneg_eq[x * y] to apply real_mult_nonneg[x, y] to xnn, ynn
+    }
+    case ynp {
+      have ny: real(+0) ≤ - y by { replace real_zero_le_neg  ynp }
+      replace symmetric real_abs_neg[y] | symmetric real_abs_neg[x * y]
+            | symmetric real_mult_neg[x, y]
+            | apply real_abs_nonneg_eq[x] to xnn | apply real_abs_nonneg_eq[- y] to ny
+      apply real_abs_nonneg_eq[x * - y] to apply real_mult_nonneg[x, - y] to xnn, ny
+    }
+  }
+  case xnp {
+    have nx: real(+0) ≤ - x by { replace real_zero_le_neg  xnp }
+    cases real_less_equal_total[real(+0), y]
+    case ynn {
+      replace symmetric real_abs_neg[x] | symmetric real_abs_neg[x * y]
+            | symmetric real_neg_mult[x, y]
+            | apply real_abs_nonneg_eq[- x] to nx | apply real_abs_nonneg_eq[y] to ynn
+      apply real_abs_nonneg_eq[- x * y] to apply real_mult_nonneg[- x, y] to nx, ynn
+    }
+    case ynp {
+      have ny: real(+0) ≤ - y by { replace real_zero_le_neg  ynp }
+      replace symmetric real_abs_neg[x] | symmetric real_abs_neg[y]
+            | symmetric real_neg_mult_neg[x, y]
+            | apply real_abs_nonneg_eq[- x] to nx | apply real_abs_nonneg_eq[- y] to ny
+      apply real_abs_nonneg_eq[- x * - y] to apply real_mult_nonneg[- x, - y] to nx, ny
+    }
+  }
+end
+
+theorem real_abs_le_iff: all x:Real, y:Real. (abs(x) ≤ y) = (- y ≤ x and x ≤ y)
+proof
+  arbitrary x:Real, y:Real
+  have fwd: if abs(x) ≤ y then - y ≤ x and x ≤ y by {
+    assume h
+    have a: - y ≤ - abs(x) by { replace real_neg_le_iff  h }
+    (apply real_less_equal_trans[- y, - abs(x), x] to a, real_neg_abs_le[x]),
+    (apply real_less_equal_trans[x, abs(x), y] to real_le_abs[x], h)
+  }
+  have bwd: if - y ≤ x and x ≤ y then abs(x) ≤ y by {
+    assume h
+    cases real_less_equal_total[real(+0), x]
+    case nn { replace apply real_abs_nonneg_eq[x] to nn  conjunct 1 of h }
+    case np {
+      replace apply real_abs_nonpos_eq[x] to np
+      have h1: - x ≤ - - y by { replace real_neg_le_iff  conjunct 0 of h }
+      replace real_neg_involutive in h1
+    }
+  }
+  apply iff_equal to fwd, bwd
+end
+
+theorem real_abs_add: all x:Real, y:Real. abs(x + y) ≤ abs(x) + abs(y)
+proof
+  arbitrary x:Real, y:Real
+  replace real_abs_le_iff
+  have lo: - (abs(x) + abs(y)) ≤ x + y by {
+    replace real_neg_distr_add
+    apply real_add_mono_less_equal[- abs(x), - abs(y), x, y]
+      to real_neg_abs_le[x], real_neg_abs_le[y]
+  }
+  lo, (apply real_add_mono_less_equal[x, y, abs(x), abs(y)] to real_le_abs[x], real_le_abs[y])
+end

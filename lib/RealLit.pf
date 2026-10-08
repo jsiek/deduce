@@ -1,0 +1,257 @@
+module Real
+
+import Nat
+import UInt
+import Int
+import Rat
+import Base
+import RealAxioms
+import RealDefs
+import RealAddSub
+import RealMult
+import RealLess
+import RealEmbed
+
+/*
+  Auto-rules for arithmetic on concrete reals.
+
+  They move `real` outward: `real(q) + real(r)` becomes `real(q + r)`,
+  and likewise for -, *, /, inv, =, ≤, and <, for Int and Rat
+  arguments and mixtures of the two. Rat's literal rules (RatLit.pf)
+  then compute the result, and `real(rat(n))` becomes `real(n)`, so
+  for example `real(frac(+1, 2)) + real(frac(+1, 2)) = real(+1)` is
+  proved by `.`.
+*/
+
+
+theorem real_add_int_int: all n:Int, m:Int. real(n) + real(m) = real(n + m)
+proof
+  arbitrary n:Int, m:Int
+  replace real_int_add.
+end
+
+theorem real_add_rat_rat: all q:Rat, r:Rat. real(q) + real(r) = real(q + r)
+proof
+  arbitrary q:Rat, r:Rat
+  replace real_rat_add.
+end
+
+theorem real_add_int_rat: all n:Int, r:Rat. real(n) + real(r) = real(rat(n) + r)
+proof
+  arbitrary n:Int, r:Rat
+  replace real_rat_add | real_rat_int.
+end
+
+theorem real_add_rat_int: all q:Rat, m:Int. real(q) + real(m) = real(q + rat(m))
+proof
+  arbitrary q:Rat, m:Int
+  replace real_rat_add | real_rat_int.
+end
+
+theorem real_sub_int_int: all n:Int, m:Int. real(n) - real(m) = real(n - m)
+proof
+  arbitrary n:Int, m:Int
+  replace real_int_sub.
+end
+
+theorem real_sub_rat_rat: all q:Rat, r:Rat. real(q) - real(r) = real(q - r)
+proof
+  arbitrary q:Rat, r:Rat
+  replace real_rat_sub.
+end
+
+theorem real_sub_int_rat: all n:Int, r:Rat. real(n) - real(r) = real(rat(n) - r)
+proof
+  arbitrary n:Int, r:Rat
+  replace real_rat_sub | real_rat_int.
+end
+
+theorem real_sub_rat_int: all q:Rat, m:Int. real(q) - real(m) = real(q - rat(m))
+proof
+  arbitrary q:Rat, m:Int
+  replace real_rat_sub | real_rat_int.
+end
+
+theorem real_mult_int_int: all n:Int, m:Int. real(n) * real(m) = real(n * m)
+proof
+  arbitrary n:Int, m:Int
+  replace real_int_mult.
+end
+
+theorem real_mult_rat_rat: all q:Rat, r:Rat. real(q) * real(r) = real(q * r)
+proof
+  arbitrary q:Rat, r:Rat
+  replace real_rat_mult.
+end
+
+theorem real_mult_int_rat: all n:Int, r:Rat. real(n) * real(r) = real(rat(n) * r)
+proof
+  arbitrary n:Int, r:Rat
+  replace real_rat_mult | real_rat_int.
+end
+
+theorem real_mult_rat_int: all q:Rat, m:Int. real(q) * real(m) = real(q * rat(m))
+proof
+  arbitrary q:Rat, m:Int
+  replace real_rat_mult | real_rat_int.
+end
+
+theorem real_div_int_int: all n:Int, m:Int. real(n) / real(m) = real(rat(n) * inv(rat(m)))
+proof
+  arbitrary n:Int, m:Int
+  replace real_rat_mult | real_rat_inv | real_rat_int | real_div_def.
+end
+
+theorem real_div_rat_rat: all q:Rat, r:Rat. real(q) / real(r) = real(q / r)
+proof
+  arbitrary q:Rat, r:Rat
+  replace real_rat_div.
+end
+
+theorem real_div_int_rat: all n:Int, r:Rat. real(n) / real(r) = real(rat(n) / r)
+proof
+  arbitrary n:Int, r:Rat
+  replace real_rat_div | real_rat_int.
+end
+
+theorem real_div_rat_int: all q:Rat, m:Int. real(q) / real(m) = real(q / rat(m))
+proof
+  arbitrary q:Rat, m:Int
+  replace real_rat_div | real_rat_int.
+end
+
+theorem real_eq_int_int: all n:Int, m:Int. (real(n) = real(m)) = (n = m)
+proof
+  arbitrary n:Int, m:Int
+  real_int_eq[n, m]
+end
+
+theorem real_eq_rat_rat: all q:Rat, r:Rat. (real(q) = real(r)) = (q = r)
+proof
+  arbitrary q:Rat, r:Rat
+  real_rat_eq[q, r]
+end
+
+theorem real_eq_int_rat: all n:Int, r:Rat. (real(n) = real(r)) = (rat(n) = r)
+proof
+  arbitrary n:Int, r:Rat
+  replace symmetric real_rat_int[n]
+  real_rat_eq[rat(n), r]
+end
+
+theorem real_eq_rat_int: all q:Rat, m:Int. (real(q) = real(m)) = (q = rat(m))
+proof
+  arbitrary q:Rat, m:Int
+  replace symmetric real_rat_int[m]
+  real_rat_eq[q, rat(m)]
+end
+
+theorem real_le_int_int: all n:Int, m:Int. (real(n) ≤ real(m)) = (n ≤ m)
+proof
+  arbitrary n:Int, m:Int
+  real_int_le[n, m]
+end
+
+theorem real_le_rat_rat: all q:Rat, r:Rat. (real(q) ≤ real(r)) = (q ≤ r)
+proof
+  arbitrary q:Rat, r:Rat
+  real_rat_le[q, r]
+end
+
+theorem real_le_int_rat: all n:Int, r:Rat. (real(n) ≤ real(r)) = (rat(n) ≤ r)
+proof
+  arbitrary n:Int, r:Rat
+  replace symmetric real_rat_int[n]
+  real_rat_le[rat(n), r]
+end
+
+theorem real_le_rat_int: all q:Rat, m:Int. (real(q) ≤ real(m)) = (q ≤ rat(m))
+proof
+  arbitrary q:Rat, m:Int
+  replace symmetric real_rat_int[m]
+  real_rat_le[q, rat(m)]
+end
+
+theorem real_less_int_int: all n:Int, m:Int. (real(n) < real(m)) = (n < m)
+proof
+  arbitrary n:Int, m:Int
+  real_int_less[n, m]
+end
+
+theorem real_less_rat_rat: all q:Rat, r:Rat. (real(q) < real(r)) = (q < r)
+proof
+  arbitrary q:Rat, r:Rat
+  real_rat_less[q, r]
+end
+
+theorem real_less_int_rat: all n:Int, r:Rat. (real(n) < real(r)) = (rat(n) < r)
+proof
+  arbitrary n:Int, r:Rat
+  replace symmetric real_rat_int[n]
+  real_rat_less[rat(n), r]
+end
+
+theorem real_less_rat_int: all q:Rat, m:Int. (real(q) < real(m)) = (q < rat(m))
+proof
+  arbitrary q:Rat, m:Int
+  replace symmetric real_rat_int[m]
+  real_rat_less[q, rat(m)]
+end
+
+theorem real_neg_int: all n:Int. - real(n) = real(- n)
+proof
+  arbitrary n:Int
+  replace real_int_neg.
+end
+
+theorem real_neg_rat: all q:Rat. - real(q) = real(- q)
+proof
+  arbitrary q:Rat
+  replace real_rat_neg.
+end
+
+theorem real_inv_int: all n:Int. inv(real(n)) = real(inv(rat(n)))
+proof
+  arbitrary n:Int
+  replace real_rat_inv | real_rat_int.
+end
+
+theorem real_inv_rat: all q:Rat. inv(real(q)) = real(inv(q))
+proof
+  arbitrary q:Rat
+  replace real_rat_inv.
+end
+
+auto real_rat_int
+auto real_add_int_int
+auto real_add_rat_rat
+auto real_add_int_rat
+auto real_add_rat_int
+auto real_sub_int_int
+auto real_sub_rat_rat
+auto real_sub_int_rat
+auto real_sub_rat_int
+auto real_mult_int_int
+auto real_mult_rat_rat
+auto real_mult_int_rat
+auto real_mult_rat_int
+auto real_div_int_int
+auto real_div_rat_rat
+auto real_div_int_rat
+auto real_div_rat_int
+auto real_eq_int_int
+auto real_eq_rat_rat
+auto real_eq_int_rat
+auto real_eq_rat_int
+auto real_le_int_int
+auto real_le_rat_rat
+auto real_le_int_rat
+auto real_le_rat_int
+auto real_less_int_int
+auto real_less_rat_rat
+auto real_less_int_rat
+auto real_less_rat_int
+auto real_neg_int
+auto real_neg_rat
+auto real_inv_int
+auto real_inv_rat
