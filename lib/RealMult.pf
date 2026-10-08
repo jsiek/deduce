@@ -1,0 +1,273 @@
+module Real
+
+import Nat
+import UInt
+import Int
+import Rat
+import Base
+import RealAxioms
+import RealDefs
+import RealAddSub
+
+/*
+  Theorems about Real multiplication, reciprocal, and division,
+  derived from the field axioms in RealAxioms.pf.
+*/
+
+auto real_mult_one
+
+associative operator* in Real
+
+theorem real_one_mult: all x:Real. real(+1) * x = x
+proof
+  arbitrary x:Real
+  replace real_mult_commute[real(+1), x].
+end
+
+auto real_one_mult
+
+theorem real_dist_mult_add_right: all x:Real, y:Real, z:Real. (y + z) * x = y * x + z * x
+proof
+  arbitrary x:Real, y:Real, z:Real
+  replace real_mult_commute[y + z, x] | real_mult_commute[y, x] | real_mult_commute[z, x]
+  real_dist_mult_add[x, y, z]
+end
+
+theorem real_mult_zero: all x:Real. x * real(+0) = real(+0)
+proof
+  arbitrary x:Real
+  // a + a = a for a = x * 0, so a = a + (a + - a) = (a + a) + - a = a + - a = 0.
+  have h: x * real(+0) + x * real(+0) = x * real(+0) by
+    replace symmetric real_dist_mult_add[x, real(+0), real(+0)].
+  equations
+        x * real(+0) = # x * real(+0) + (x * real(+0) + - (x * real(+0))) #
+                         by replace real_add_inverse.
+    ... = x * real(+0) + - (x * real(+0))  by replace h.
+    ... = real(+0)                         by real_add_inverse[x * real(+0)]
+end
+
+auto real_mult_zero
+
+theorem real_zero_mult: all x:Real. real(+0) * x = real(+0)
+proof
+  arbitrary x:Real
+  replace real_mult_commute[real(+0), x].
+end
+
+auto real_zero_mult
+
+theorem real_mult_neg: all x:Real, y:Real. x * (- y) = - (x * y)
+proof
+  arbitrary x:Real, y:Real
+  have h: x * y + x * (- y) = real(+0) by
+    replace symmetric real_dist_mult_add[x, y, - y] | real_add_inverse.
+  apply real_add_inverse_unique[x * y, x * (- y)] to h
+end
+
+theorem real_neg_mult: all x:Real, y:Real. (- x) * y = - (x * y)
+proof
+  arbitrary x:Real, y:Real
+  replace real_mult_commute[- x, y] | real_mult_neg | real_mult_commute[y, x].
+end
+
+theorem real_neg_mult_neg: all x:Real, y:Real. (- x) * (- y) = x * y
+proof
+  arbitrary x:Real, y:Real
+  replace real_neg_mult | real_mult_neg | real_neg_involutive.
+end
+
+theorem real_neg_one_mult: all x:Real. (- real(+1)) * x = - x
+proof
+  arbitrary x:Real
+  replace real_neg_mult.
+end
+
+theorem real_dist_mult_sub: all x:Real, y:Real, z:Real. x * (y - z) = x * y - x * z
+proof
+  arbitrary x:Real, y:Real, z:Real
+  replace real_sub_def | real_dist_mult_add | real_mult_neg.
+end
+
+theorem real_dist_mult_sub_right: all x:Real, y:Real, z:Real. (y - z) * x = y * x - z * x
+proof
+  arbitrary x:Real, y:Real, z:Real
+  replace real_sub_def | real_dist_mult_add_right | real_neg_mult.
+end
+
+// Reciprocal
+
+auto real_inv_zero
+
+theorem real_inv_mult: all x:Real. if not (x = real(+0)) then inv(x) * x = real(+1)
+proof
+  arbitrary x:Real
+  assume xnz
+  replace real_mult_commute[inv(x), x]
+  apply real_mult_inv[x] to xnz
+end
+
+theorem real_mult_to_zero: all x:Real, y:Real.
+  if x * y = real(+0) then x = real(+0) or y = real(+0)
+proof
+  arbitrary x:Real, y:Real
+  assume xy
+  switch x = real(+0) {
+    case true assume xz { conclude x = real(+0) by xz }
+    case false assume xnz {
+      have yz: y = real(+0) by
+        equations
+              y = # (inv(x) * x) * y #  by replace apply real_inv_mult[x] to xnz.
+          ... = inv(x) * (x * y)        by .
+          ... = real(+0)                by replace xy.
+      conclude y = real(+0) by yz
+    }
+  }
+end
+
+theorem real_mult_left_cancel: all x:Real, y:Real, z:Real.
+  if not (x = real(+0)) and x * y = x * z then y = z
+proof
+  arbitrary x:Real, y:Real, z:Real
+  assume prem
+  have xnz: not (x = real(+0)) by prem
+  have eq: x * y = x * z by prem
+  equations
+        y = # (inv(x) * x) * y #  by replace apply real_inv_mult[x] to xnz.
+    ... = inv(x) * (x * z)        by replace eq.
+    ... = z                       by replace apply real_inv_mult[x] to xnz.
+end
+
+theorem real_mult_right_cancel: all x:Real, y:Real, z:Real.
+  if not (x = real(+0)) and y * x = z * x then y = z
+proof
+  arbitrary x:Real, y:Real, z:Real
+  assume prem
+  have eq: x * y = x * z by
+    replace real_mult_commute[y, x] | real_mult_commute[z, x] in conjunct 1 of prem
+  apply real_mult_left_cancel[x, y, z] to (conjunct 0 of prem), eq
+end
+
+theorem real_inv_unique: all x:Real, y:Real. if x * y = real(+1) then inv(x) = y
+proof
+  arbitrary x:Real, y:Real
+  assume xy
+  have xnz: not (x = real(+0)) by {
+    assume xz
+    have h: real(+0) = real(+1) by replace xz in xy
+    conclude false by apply real_one_not_zero to symmetric h
+  }
+  equations
+        inv(x) = # inv(x) * (x * y) #  by replace xy.
+    ... = (inv(x) * x) * y         by .
+    ... = y                        by replace apply real_inv_mult[x] to xnz.
+end
+
+theorem real_inv_inv: all x:Real. inv(inv(x)) = x
+proof
+  arbitrary x:Real
+  switch x = real(+0) {
+    case true assume xz { replace xz. }
+    case false assume xnz {
+      apply real_inv_unique[inv(x), x] to apply real_inv_mult[x] to xnz
+    }
+  }
+end
+
+theorem real_inv_one: inv(real(+1)) = real(+1)
+proof
+  apply real_inv_unique[real(+1), real(+1)] to .
+end
+
+auto real_inv_one
+
+theorem real_inv_mult_distr: all x:Real, y:Real. inv(x * y) = inv(x) * inv(y)
+proof
+  arbitrary x:Real, y:Real
+  switch x = real(+0) {
+    case true assume xz { replace xz. }
+    case false assume xnz {
+      switch y = real(+0) {
+        case true assume yz { replace yz. }
+        case false assume ynz {
+          apply real_inv_unique[x * y, inv(x) * inv(y)] to
+          equations
+                (x * y) * (inv(x) * inv(y))
+              = x * (y * inv(y)) * inv(x)  by replace real_mult_commute[inv(x), inv(y)].
+          ... = x * inv(x)                 by replace apply real_mult_inv[y] to ynz.
+          ... = real(+1)                   by apply real_mult_inv[x] to xnz
+        }
+      }
+    }
+  }
+end
+
+theorem real_inv_neg: all x:Real. inv(- x) = - inv(x)
+proof
+  arbitrary x:Real
+  switch x = real(+0) {
+    case true assume xz { replace xz. }
+    case false assume xnz {
+      apply real_inv_unique[- x, - inv(x)] to
+      replace real_neg_mult_neg
+      apply real_mult_inv[x] to xnz
+    }
+  }
+end
+
+theorem real_inv_not_zero: all x:Real. if not (x = real(+0)) then not (inv(x) = real(+0))
+proof
+  arbitrary x:Real
+  assume xnz
+  assume iz
+  have h: x * inv(x) = real(+1) by apply real_mult_inv[x] to xnz
+  have h2: real(+0) = real(+1) by replace iz in h
+  conclude false by apply real_one_not_zero to symmetric h2
+end
+
+// Division
+
+theorem real_div_zero: all x:Real. x / real(+0) = real(+0)
+proof
+  arbitrary x:Real
+  replace real_div_def.
+end
+
+auto real_div_zero
+
+theorem real_zero_div: all x:Real. real(+0) / x = real(+0)
+proof
+  arbitrary x:Real
+  replace real_div_def.
+end
+
+auto real_zero_div
+
+theorem real_div_one: all x:Real. x / real(+1) = x
+proof
+  arbitrary x:Real
+  replace real_div_def.
+end
+
+auto real_div_one
+
+theorem real_div_self: all x:Real. if not (x = real(+0)) then x / x = real(+1)
+proof
+  arbitrary x:Real
+  assume xnz
+  replace real_div_def
+  apply real_mult_inv[x] to xnz
+end
+
+theorem real_div_mult_cancel: all x:Real, y:Real. if not (y = real(+0)) then (x / y) * y = x
+proof
+  arbitrary x:Real, y:Real
+  assume ynz
+  replace real_div_def | apply real_inv_mult[y] to ynz.
+end
+
+theorem real_mult_div_cancel: all x:Real, y:Real. if not (y = real(+0)) then (x * y) / y = x
+proof
+  arbitrary x:Real, y:Real
+  assume ynz
+  replace real_div_def | apply real_mult_inv[y] to ynz.
+end
