@@ -119,6 +119,8 @@ forms are parser/AST only today and most require
 - [Predicate (Statement)](#predicate-statement)
 - [Print (Statement)](#print-statement)
 - [Question Mark `?` (Proof)](#question-mark-proof)
+- [Rational Number](#rational-number)
+- [Real Number](#real-number)
 - [Reason](#reason)
 - [Recall (Proof)](#recall-proof)
 - [Recursive Function (Statement)](#recursive-function-statement)
@@ -164,7 +166,9 @@ additive_term ::= additive_term "+" multiplicative_term
 ```
 
 The addition operator for unsigned integers is defined in `UInt.pf`
-and the one for integers is defined in `Int.pf`.
+and the one for integers is defined in `Int.pf`. Addition of
+[rational](#rational-number) and [real](#real-number) numbers is
+defined in `Rat.pf` and `Real.pf`.
 
 Example:
 
@@ -834,6 +838,10 @@ theorem is `uint_div_mod` which states, assuming `m` is positive, that
 Useful companion theorems include `uint_mult_div_inverse`,
 `uint_mult_div_left_inverse`, `uint_mult_add_div`, `uint_add_mult_div`,
 `uint_div_less_equal`, and `uint_div_less`.
+
+Division of [rational](#rational-number) and [real](#real-number)
+numbers is multiplication by the reciprocal `inv`, with division by
+zero giving zero (`rat_div_def`, `real_div_def`).
 
 Example:
 
@@ -1664,7 +1672,9 @@ comparison_term ::= comparison_term "<" additive_term
 
 The less-than operator on unsigned integers is defined in `UInt.pf`.
 To find theorems about the less-than operator in `UInt.thm`, search for
-theorems with `less` in the name.
+theorems with `less` in the name. The less-than operators on
+[rational](#rational-number) and [real](#real-number) numbers are
+defined in `Rat.pf` and `Real.pf`.
 
 Example:
 
@@ -1683,7 +1693,9 @@ comparison_term ::= comparison_term "<=" additive_term
 
 The less-than-or-equal operator on unsigned integers is defined in `UInt.pf`.
 To find theorems about the less-than operator in `UInt.thm`, search for
-theorems with `less_equal` in the name.
+theorems with `less_equal` in the name. The operators on
+[rational](#rational-number) and [real](#real-number) numbers are
+defined in `Rat.pf` and `Real.pf`.
 
 Example:
 
@@ -1802,6 +1814,8 @@ multiplicative_term ::= multiplicative_term "*" exponent_term
 
 Multiplication on unsigned integers is defined in `UInt.pf`.
 To find theorems about multiplication, search for `mult` in `UInt.thm`.
+Multiplication of [rational](#rational-number) and
+[real](#real-number) numbers is defined in `Rat.pf` and `Real.pf`.
 
 Example:
 
@@ -2303,6 +2317,79 @@ message with the location of the hole and the formula that needs to be
 proved, as well as some advice about how to prove it. Named holes are
 useful for editor and MCP tools because `?name` can be addressed by its
 name even if nearby edits move the line and column.
+
+## Rational Number
+
+The type `Rat` of rational numbers is defined in the standard library
+module `Rat` (`Rat.pf`). There is no special literal syntax: write
+`frac(n, d)` for the rational `n / d`, where `n` is an `Int` and `d` is a
+`UInt`, and `rat(n)` for an integer `n` (an `Int` or a `UInt`).
+
+The representation is canonical, so `=` on `Rat` is equality of rational
+numbers: `frac(+2, 4) = frac(+1, 2)`. Use `num(x)` and `den(x)` to read a
+rational back as a fraction in lowest terms with a positive denominator.
+
+The operations are `+`, `-` (unary and binary), `*`, `inv` (reciprocal),
+`/`, `≤`, `<`, `>`, `≥`, `max`, `min`, and `abs`. Dividing by zero gives
+zero: `frac(n, 0) = rat(+0)`, `inv(rat(+0)) = rat(+0)`, and
+`x / rat(+0) = rat(+0)`. Most operations are `opaque`; unfold them with
+their `_def` theorems, such as `rat_sub_def`, `rat_div_def`, `rat_le_def`.
+
+Arithmetic and comparisons on concrete rationals are computed by `auto`
+rules, so a proof of a concrete fact such as
+`frac(+1, 2) + frac(+1, 3) = frac(+5, 6)` is just `.`. The theorems about
+`Rat` are in `Rat.thm` and follow the naming convention of `Int`
+(`rat_add_commute`, `rat_mult_inv`, `rat_less_equal_trans`, ...).
+
+```{.deduce^#rational_example}
+assert frac(+1, 2) + frac(+1, 3) = frac(+5, 6)
+assert frac(-6, 4) = - frac(+3, 2)
+assert num(frac(-6, 4)) = -3 and den(frac(-6, 4)) = 2
+assert frac(+1, 3) < frac(+1, 2)
+
+theorem concrete_rat: frac(+1, 2) * rat(+2) = rat(+1)
+proof
+  .
+end
+```
+
+## Real Number
+
+The type `Real` of real numbers is defined in the standard library
+module `Real` (`Real.pf`). It is axiomatized as a real closed field: the
+type, its primitive operations, and all of its axioms are `postulate`s,
+and they are collected in `RealAxioms.pf`. Everything else about `Real`
+is proved from them. Run `python deduce.py --postulates file.pf` to list
+the axioms a file depends on (see [Postulate](#postulate-statement)).
+
+Write reals with the embeddings `real(n)` for an `Int` or `UInt` `n` and
+`real(q)` for a `Rat` `q`, for example `real(+3)` or `real(frac(+1, 2))`.
+The operations are `+`, `-` (unary and binary), `*`, `inv`, `/`, `≤`,
+`<`, `>`, `≥`, `max`, `min`, `abs`, and `sqrt`. As for `Rat`,
+`inv(real(+0)) = real(+0)`, so `x / real(+0) = real(+0)`. `sqrt(x)` is
+the nonnegative square root when `x` is nonnegative (`real_sqrt`).
+
+Arithmetic and comparisons on embedded rationals are computed by `auto`
+rules, so a proof of a concrete fact such as
+`real(frac(+1, 2)) + real(frac(+1, 2)) = real(+1)` is just `.`. Unlike
+for `Rat`, `assert` and `print` cannot compute with `Real`: the
+embeddings unfold into the module's internal primitives, which have no
+values, so prove concrete facts with `.` instead. The theorems about `Real` are in
+`Real.thm` and are named like those for `Rat` (`real_add_commute`,
+`real_mult_inv`, `real_sqrt_unique`, ...).
+
+```{.deduce^#real_example}
+theorem concrete_real: real(+3) * real(frac(+1, 3)) = real(+1)
+  and real(frac(+1, 3)) < real(frac(+1, 2))
+proof
+  .
+end
+
+theorem sqrt_four: sqrt(real(+4)) = real(+2)
+proof
+  apply real_sqrt_unique[real(+4), real(+2)] to ., .
+end
+```
 
 ## Reason
 

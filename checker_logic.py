@@ -772,7 +772,10 @@ def expand_definitions(loc: Meta, formula: Formula, defs: Sequence[Term],
           rvar = ResolvedVar(var.location, var.typeof, var_name)
           rhs = env.get_value_of_term_var(rvar)
           if rhs == None:
-              user_error(loc, 'could not find definition of ' + str(rvar))
+              # A `postulate fun` has no definition; when the name is
+              # overloaded, expand the other candidates instead.
+              if len(reducible_names) == 1:
+                  user_error(loc, 'could not find definition of ' + str(rvar))
           else:
               reset_reduced_defs()
               if get_verbose():

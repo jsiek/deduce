@@ -21,5 +21,12 @@ Only the top-level module files (such as `UInt.pf`) are listed below. Each modul
   and `rat(n)` for an integer, e.g. `frac(+3, 4) + rat(+1) = frac(+7, 4)`.
   The representation is canonical, so `=` is equality of rationals.
   Division by zero gives zero: `x / rat(+0) = rat(+0)`.
+- ([`Real.thm`](../lib/Real.thm), [`Real.pf`](../lib/Real.pf)): Real numbers,
+  axiomatized as a real closed field. All assumptions are in
+  [`RealAxioms.pf`](../lib/RealAxioms.pf). Write
+  `real(n)` for an integer and `real(q)` for a rational, e.g.
+  `real(frac(+1, 2))`; concrete arithmetic on these is computed
+  automatically. `python deduce.py --postulates file.pf` lists the
+  axioms a file depends on.
 - ([`Set.thm`](../lib/Set.thm), [`Set.pf`](../lib/Set.pf)): Sets
 - ([`UInt.thm`](../lib/UInt.thm), [`UInt.pf`](../lib/UInt.pf)): Unsigned integers
