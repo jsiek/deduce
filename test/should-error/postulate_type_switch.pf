@@ -1,0 +1,9 @@
+// Nothing is known about the values of a postulated type, so unlike an
+// empty `union` it cannot be eliminated by `switch`.
+postulate type R
+
+theorem empty: all x:R. false
+proof
+  arbitrary x:R
+  switch x { }
+end

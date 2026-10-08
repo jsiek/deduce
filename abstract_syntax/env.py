@@ -111,12 +111,13 @@ def _view_source_head_name(ty: Type | VarRef) -> Optional[str]:
 @dataclass
 class AssociativeBinding(Binding):
   opname: str
-  types: List[Tuple[List[str], Type]]
+  # (type parameters, type, name of the associativity proof)
+  types: List[Tuple[List[str], Type, str]]
 
   def __str__(self) -> str:
     return 'associative ' + self.opname \
       + ' ' + ', '.join(type_params_str(type_params) + str(t) \
-                        for (type_params, t) in self.types)
+                        for (type_params, t, _) in self.types)
 
 class Env:
   def __init__(self, env: Optional[dict[str, object]] = None) -> None:
@@ -211,26 +212,26 @@ class Env:
                                                 visibility=visibility))
 
   def declare_assoc(self, loc: Meta, opname: str, typarams: List[str],
-                    typ: Type) -> Env:
+                    typ: Type, proof_name: str) -> Env:
     #print('declaring assoc ' + opname + ' ' + str(typ))
     new_env = Env(self.dict)
     full_name = '__associative_' + opname
     if full_name in new_env:
       old = cast(AssociativeBinding, new_env.dict[full_name])
-      new_env.dict[full_name] = AssociativeBinding(loc, opname, [(typarams, typ)] + old.types,
+      new_env.dict[full_name] = AssociativeBinding(loc, opname, [(typarams, typ, proof_name)] + old.types,
                                                    module=self.get_current_module())
     else:
-      new_env.dict[full_name] = AssociativeBinding(loc, opname, [(typarams, typ)],
+      new_env.dict[full_name] = AssociativeBinding(loc, opname, [(typarams, typ, proof_name)],
                                                    module=self.get_current_module())
     return new_env
 
-  def declare_auto_rewrite(self, loc: Meta, equation: Formula) -> Env:
+  def declare_auto_rewrite(self, loc: Meta, name: str, equation: Formula) -> Env:
     from .literals import split_auto_rule
     from .rewrite import call_head_name
 
     new_env = Env(self.dict)
     full_name = '__auto__'
-    rule = split_auto_rule(loc, equation, new_env)
+    rule = split_auto_rule(loc, equation, new_env, name)
     head_lhs = call_head_name(rule.lhs)
     #print('declare auto: ' + head_lhs + '\n\t' + str(equation))
     if full_name in self.dict:
@@ -288,7 +289,10 @@ class Env:
     if full_name in self.dict:
       inductives = cast(dict[str, InductiveInfo], self.dict[full_name])
       if type_name in inductives:
-        return inductives[type_name]
+        info = inductives[type_name]
+        if isinstance(info["thm"], PVar):
+          record_implicit_use(info["thm"].name)
+        return info
 
     return None
 
@@ -442,7 +446,7 @@ class Env:
       case _:
         raise Exception('expected proof var, not ' + str(pvar))
 
-  def get_assoc_types(self, opname: str) -> list[Tuple[List[str], Type]]:
+  def get_assoc_types(self, opname: str) -> list[Tuple[List[str], Type, str]]:
     full_name = '__associative_' + opname
     if full_name in self.dict.keys():
       return cast(AssociativeBinding, self.dict[full_name]).types
@@ -498,6 +502,12 @@ class Env:
   def local_proofs(self) -> list[Formula]:
     return [b.formula for (name, b) in self.dict.items() \
             if isinstance(b, ProofBinding) and b.local]
+
+  def proof_name_of(self, formula: Formula) -> str | None:
+    for (name, b) in self.dict.items():
+      if isinstance(b, ProofBinding) and b.formula == formula:
+        return name
+    return None
 
   def proofs(self) -> list[Formula]:
     return [b.formula for (name, b) in self.dict.items() \

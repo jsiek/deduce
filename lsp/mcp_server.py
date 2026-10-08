@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import os
 import re
+import subprocess
 import sys
 from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
@@ -395,6 +396,54 @@ def check_file(
         path, text, prelude=_prelude_for(path), parser=parser,
     )
     return {"diagnostics": _diagnostic_payloads(diagnostics, text, path)}
+
+
+_POSTULATE_LINE = re.compile(r"^  (.*)  \[(.*):(\d+)\]$")
+
+
+@mcp.tool()
+def postulates(path: str, theorem: Optional[str] = None) -> JSONDict:
+    """List the postulates ``path`` depends on, like Lean's ``#print axioms``.
+
+    Follows uses transitively through imported modules, including uses
+    through ``auto`` rules and ``associative`` declarations, and reports
+    every ``postulate type``, ``postulate fun``, and ``postulate`` axiom
+    reached. With ``theorem``, only the dependencies of the top-level
+    statement with that name are reported.
+
+    Returns ``{"postulates": [...]}`` where each entry has ``kind``
+    (``"type"``, ``"fun"``, or ``"axiom"``), ``declaration`` (the
+    postulate as written), ``file``, and ``line``; or ``{"error": ...}``
+    if the file does not check or has no statement named ``theorem``.
+
+    Slow: it runs ``deduce.py --postulates`` in a subprocess, which
+    re-checks every imported module, including the standard library.
+    """
+    cmd = [sys.executable, _PSEUDO_ENTRY, "--suppress-theorems"]
+    cmd += ["--postulates-of", theorem] if theorem is not None else ["--postulates"]
+    # The same import directories and prelude as this server (see the
+    # bootstrap above). `deduce.py` adds `lib/` itself together with the
+    # prelude; passing `--dir lib` would turn the prelude off.
+    if _TEST_IMPORTS_DIR.is_dir():
+        cmd += ["--dir", str(_TEST_IMPORTS_DIR)]
+    if not _PRELUDE:
+        cmd += ["--no-stdlib", "--dir", str(_LIB_DIR)]
+    cmd.append(path)
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
+    if result.returncode != 0:
+        return {"error": (result.stdout + result.stderr).strip()}
+    entries: list[JSONDict] = []
+    for line in result.stdout.splitlines():
+        match = _POSTULATE_LINE.match(line)
+        if match is None:
+            continue
+        declaration, file, line_no = match.groups()
+        kind = ("type" if declaration.startswith("postulate type ")
+                else "fun" if declaration.startswith("postulate fun ")
+                else "axiom")
+        entries.append({"kind": kind, "declaration": declaration,
+                        "file": file, "line": int(line_no)})
+    return {"postulates": cast(JSONValue, entries)}
 
 
 @mcp.tool()

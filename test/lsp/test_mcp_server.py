@@ -111,7 +111,50 @@ async def test_all_tools_are_registered(server):
             "preview_expand_at",
             "available_lemmas_at",
             "auto_rules_at",
+            "postulates",
         }
+
+
+# --------------------------------------------------------------------------
+# postulates
+# --------------------------------------------------------------------------
+
+POSTULATE_FILE = REPO_ROOT / "test" / "should-validate" / "postulate_type_fun.pf"
+
+
+@pytest.mark.anyio
+async def test_postulates_lists_file_dependencies(server):
+    payload = await _call(server, "postulates", {"path": str(POSTULATE_FILE)})
+    entries = payload["postulates"]
+    kinds = {(e["kind"], e["declaration"].split(":")[0]) for e in entries}
+    assert ("type", "postulate type S") in kinds
+    assert ("fun", "postulate fun e ") in kinds
+    assert ("axiom", "postulate s_mult_e") in kinds  # through an auto rule
+    assert ("axiom", "postulate s_mult_assoc") in kinds  # through `associative`
+    assert not any("s_unused" in e["declaration"] for e in entries)
+    assert all(isinstance(e["line"], int) for e in entries)
+
+
+@pytest.mark.anyio
+async def test_postulates_for_one_theorem(server):
+    payload = await _call(server, "postulates",
+                          {"path": str(POSTULATE_FILE), "theorem": "t_one_one"})
+    names = {e["declaration"].split(":")[0] for e in payload["postulates"]}
+    assert names == {"postulate type T", "postulate fun operator * ",
+                     "postulate fun one ", "postulate t_one_mult"}
+
+
+@pytest.mark.anyio
+async def test_postulates_unknown_theorem_is_an_error(server):
+    payload = await _call(server, "postulates",
+                          {"path": str(POSTULATE_FILE), "theorem": "nope"})
+    assert "no statement named nope" in payload["error"]
+
+
+@pytest.mark.anyio
+async def test_postulates_none(server):
+    payload = await _call(server, "postulates", {"path": str(VALID_FILE)})
+    assert payload == {"postulates": []}
 
 
 # --------------------------------------------------------------------------

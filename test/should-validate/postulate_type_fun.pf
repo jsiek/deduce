@@ -1,0 +1,36 @@
+// `postulate type` and `postulate fun` declare an abstract type and
+// uninterpreted constants; `postulate name: P` declares an axiom.
+import PostulateSemigroup
+
+// Uses an imported theorem that depends on the auto rule `s_mult_e`.
+theorem uses_auto: all x:S. (x * e) * e = x
+proof
+  s_mult_e_twice
+end
+
+// Holds by associativity normalization alone.
+theorem uses_assoc: all a:S, b:S, c:S. (a * b) * c = a * (b * c)
+proof
+  arbitrary a:S, b:S, c:S
+  .
+end
+
+// Postulated functions overload like any other function.
+postulate type T
+postulate fun operator* : fn (T, T) -> T
+postulate fun one : T
+postulate t_one_mult: all x:T. one * x = x
+
+theorem t_one_one: one * one = one
+proof
+  t_one_mult[one]
+end
+
+// Generic functions work over abstract types.
+fun twice<U>(f : fn U -> U, x : U) { f(f(x)) }
+
+theorem twice_one: twice(fun x:T { one * x }, one) = one
+proof
+  expand twice
+  replace t_one_mult | t_one_mult.
+end

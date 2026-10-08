@@ -15,7 +15,8 @@ If a name on this page is unfamiliar, follow the link in the Reference column fo
 | --- | --- |
 | `theorem name: P proof ... end` | A named proof of `P`. **Visible across module boundaries.** |
 | `lemma name: P proof ... end` | A named proof of `P`. **Module-private** — references from another module fail with "undefined proof variable". |
-| `postulate name: P` | Assume `P` without proof. |
+| `postulate name: P` | Assume `P` without proof. `python deduce.py --postulates file.pf` lists the postulates a file depends on. |
+| `postulate type T` / `postulate fun f : T` | Declare an abstract type, or a constant or function with no definition. |
 | `auto name` | Register an equation `name : LHS = RHS` as an automatic rewrite. Subsequent goals are simplified silently using it. |
 | `associative operator* in T` | Register `*` as associative for `T`; `replace` and `evaluate` will renormalize accordingly. |
 | `view V { source S target T into f out g roundtrip thm inverse inv }` | Declare a checked pattern-matching view. `thm` must prove `f(g(v)) = v`; optional `inv` names `g(f(x)) = x`. |

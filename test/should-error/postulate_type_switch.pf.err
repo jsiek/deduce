@@ -1,0 +1,1 @@
+./test/should-error/postulate_type_switch.pf:8.3-8.15: switch expected union type or bool, not R

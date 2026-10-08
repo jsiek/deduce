@@ -14,7 +14,9 @@ File charter:
 """
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, List, Optional, Tuple, cast
+from typing import TYPE_CHECKING, Callable, List, Optional, Tuple, TypeVar, cast
+
+_T = TypeVar('_T')
 
 from lark.tree import Meta
 
@@ -30,7 +32,7 @@ from abstract_syntax import (
     LValueField, LValueIndex, LValueVar, MakeArray, Module,
     MutableArrayType, ObjectDecl,
     ObjectField, ObserverDecl, Omitted, Or, OverloadType, OverloadedVar, PSorry, PVar,
-    PatternBool, PatternCons, Postulate, Predicate, Print, ProcDecl, ProcParam,
+    PatternBool, PatternCons, Postulate, PostulateFun, PostulateType, Predicate, Print, ProcDecl, ProcParam,
     ProcSpec, Proof, ProofBinding, RecFun, ResolvedVar, ResourceDecl, Rule, Some,
     Statement, Switch, SwitchCase, TAnnote, TermBinding, TLet, Term, TermInst, Theorem,
     Trace, Type, TypeAlias, TypeInst, TypeType, Union, Var, VarRef, VerboseLevel,
@@ -64,9 +66,10 @@ from error import (
     warning,
 )
 from flags import (
-    get_check_imports, get_debugger, get_quiet_mode,
-    get_target_hole_location, get_verbose, set_verbose,
+    get_check_imports, get_debugger, get_postulate_report, get_quiet_mode,
+    get_target_hole_location, get_verbose, set_verbose, swap_implicit_uses,
 )
+from postulate_report import record_pending, record_statement
 
 imported_modules: set[str] = set()
 checked_modules: set[str] = set()
@@ -1269,7 +1272,34 @@ def process_declaration_visibility(decl: Declaration, env: Env,
       internal_error(decl.location, "unrecognized declaration:\n" + str(decl))
 
 
+def _recording_implicit_uses(run: Callable[[], _T]) -> tuple[_T, set[str]]:
+  """Run one checking phase with a fresh set for `flags.implicit_uses`
+  and return its result with the uses recorded. Uses inside a nested
+  statement (e.g. an imported module's) also count for the enclosing
+  one."""
+  outer = swap_implicit_uses(set())
+  try:
+    result = run()
+  finally:
+    uses = swap_implicit_uses(outer) or set()
+    if outer is not None:
+      outer |= uses
+  return result, uses
+
 def process_declaration(stmt: Statement, env: Env,
+                        module_chain: list[str],
+                        downstream_needs_checking: list[bool]
+                        ) -> tuple[Statement, Env]:
+  if not get_postulate_report():
+    return _process_declaration(stmt, env, module_chain,
+                                downstream_needs_checking)
+  result, uses = _recording_implicit_uses(
+    lambda: _process_declaration(stmt, env, module_chain,
+                                 downstream_needs_checking))
+  record_pending(stmt, uses)
+  return result
+
+def _process_declaration(stmt: Statement, env: Env,
                         module_chain: list[str],
                         downstream_needs_checking: list[bool]
                         ) -> tuple[Statement, Env]:
@@ -1282,6 +1312,15 @@ def process_declaration(stmt: Statement, env: Env,
   
     case Postulate(loc, name, _):
       return stmt, env
+
+    case PostulateType(loc, name):
+      return stmt, env.declare_type(loc, name, stmt.visibility)
+
+    case PostulateFun(loc, name, typ):
+      checked_typ = check_type(typ, env)
+      new_stmt = PostulateFun(loc, name, checked_typ, visibility=stmt.visibility)
+      return new_stmt, env.declare_term_var(loc, name, checked_typ,
+                                            visibility=stmt.visibility)
 
     case Declaration():
       return process_declaration_visibility(stmt, env, module_chain, downstream_needs_checking)
@@ -1591,6 +1630,16 @@ def type_check_viewrec(stmt: ViewRecFun, env: Env) -> GenRecFun:
 def type_check_stmt(stmt: Statement, env: Env,
                     error_on_next_import: dict[str, bool]
                     ) -> Optional[Statement]:
+  if not get_postulate_report():
+    return _type_check_stmt(stmt, env, error_on_next_import)
+  result, uses = _recording_implicit_uses(
+    lambda: _type_check_stmt(stmt, env, error_on_next_import))
+  record_pending(stmt, uses)
+  return result
+
+def _type_check_stmt(stmt: Statement, env: Env,
+                    error_on_next_import: dict[str, bool]
+                    ) -> Optional[Statement]:
   if get_verbose():
     print('type_check_stmt(' + str(stmt) + ')')
   match stmt:
@@ -1617,6 +1666,9 @@ def type_check_stmt(stmt: Statement, env: Env,
     case Postulate(loc, name, frm):
       new_frm = check_formula(frm, env)
       return Postulate(loc, name, new_frm, visibility=stmt.visibility)
+
+    case PostulateType() | PostulateFun():
+      return stmt
 
     case Predicate():
       # The translation is processed inline during process_declaration
@@ -1817,6 +1869,9 @@ def collect_env(stmt: Statement, env: Env) -> Env:
     case Postulate(loc, name, frm):
       return env.declare_proof_var(loc, name, frm)
 
+    case PostulateType() | PostulateFun():
+      return env
+
     case Predicate():
       # Already collected inline during process_declaration.
       return env
@@ -1838,7 +1893,7 @@ def collect_env(stmt: Statement, env: Env) -> Env:
   
     case Auto(loc, name):
       frm = env.get_formula_of_proof_var(name)
-      return env.declare_auto_rewrite(loc, frm)
+      return env.declare_auto_rewrite(loc, cast(PVar, name).name, frm)
     
     case Inductive(loc, typ, name):
       frm = env.get_formula_of_proof_var(name)
@@ -1893,11 +1948,12 @@ def collect_env(stmt: Statement, env: Env) -> Env:
           case FunctionType(_, typarams2, param_types, _):
               assert isinstance(op, VarRef)
               resolved_op = op.get_name()
-      if assoc_formula in env.proofs():
+      proof_name = env.proof_name_of(assoc_formula)
+      if proof_name is not None:
           if resolved_op is None:
               user_error(loc, 'Could not find an overload of ' + str(op)
                          + ' with type ' + str(typ))
-          return env.declare_assoc(loc, resolved_op, typarams, typ)
+          return env.declare_assoc(loc, resolved_op, typarams, typ, proof_name)
       else:
           user_error(loc, 'Could not find a proof of\n\t' + str(assoc_formula))
   
@@ -2027,6 +2083,13 @@ def warn_unverified_imperative(decl: Declaration) -> None:
 
 
 def check_proofs(stmt: Statement, env: Env) -> None:
+  if not get_postulate_report():
+    _check_proofs(stmt, env)
+    return
+  _, uses = _recording_implicit_uses(lambda: _check_proofs(stmt, env))
+  record_statement(stmt, uses)
+
+def _check_proofs(stmt: Statement, env: Env) -> None:
   if get_verbose():
     print('\n\ncheck_proofs(' + str(stmt) + ')')
   # Phase 5 / Step 21 hook: trap before evaluating each top-level
@@ -2048,6 +2111,9 @@ def check_proofs(stmt: Statement, env: Env) -> None:
       _try_check_proof_of(pf, frm, env)
       
     case Postulate(loc, name, frm):
+      pass
+
+    case PostulateType() | PostulateFun():
       pass
 
     case Predicate():

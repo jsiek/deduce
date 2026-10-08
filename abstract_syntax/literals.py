@@ -50,6 +50,9 @@ class AutoRewriteRule:
   premises: list[Formula]
   lhs: Term
   rhs: Term
+  # Name of the theorem an `auto` declaration registered; None for a
+  # rule built from an explicit equation (`replace eq`).
+  name: str | None = None
   
 def mkEqual(loc: Meta, arg1: Term, arg2: Term) -> Formula:
   # Post-uniquify/post-typecheck constructor.  Callers in the proof
@@ -84,7 +87,8 @@ def split_equation(loc: Meta, equation: Term, env: Env) -> tuple[Term, Term]:
     case _:
       internal_error(loc, 'expected an equality, not ' + str(equation))
 
-def split_auto_rule(loc: Meta, equation: Formula, env: Env) -> AutoRewriteRule:
+def split_auto_rule(loc: Meta, equation: Formula, env: Env,
+                    name: str | None = None) -> AutoRewriteRule:
   variables: list[Term] = []
   premises: list[Formula] = []
   body = cast(Formula, reduce_lets(equation, env))
@@ -101,7 +105,7 @@ def split_auto_rule(loc: Meta, equation: Formula, env: Env) -> AutoRewriteRule:
 
   match body:
     case Call(_, _, rator, [L, R]) if isinstance(rator, VarRef) and rator.get_name() == '=':
-      return AutoRewriteRule(equation, variables, premises, L, R)
+      return AutoRewriteRule(equation, variables, premises, L, R, name)
     case _:
       internal_error(
         loc,

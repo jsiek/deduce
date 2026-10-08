@@ -614,7 +614,7 @@ class Postulate(Declaration):
       return self.name
 
   def print_theorems_statement(self, f: TextIO) -> None:
-      print(base_name(self.name) + ': ' + str(self.what) + '\n', file=f)
+      print('postulate ' + base_name(self.name) + ': ' + str(self.what) + '\n', file=f)
   
   def __str__(self) -> str:
     return self.visibility_prefix() + 'postulate ' + self.name \
@@ -635,6 +635,54 @@ class Postulate(Declaration):
   def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
     if self.visibility != 'private' or importing_module == get_current_module():
       export_env[base_name(self.name)] = [self.name]
+
+@dataclass
+class PostulateType(Declaration):
+  """`postulate type T`: an abstract type with no constructors.
+
+  Unlike an empty `union`, nothing is known about its values, so it
+  cannot be eliminated by `switch` or `induction`."""
+
+  def uniquify(self, env: object, ctx: object) -> PostulateType:
+    env_map = cast(UniquifyEnv, env)
+    uniq_ctx = cast(UniquifyContext, ctx)
+    if self.name in env_map.keys():
+      user_error(self.location, "type names may not be overloaded")
+    new_name = generate_name(self.name, uniq_ctx)
+    env_map[self.name] = [new_name]
+    env_map['no overload'][self.name] = 'postulated type'
+    return PostulateType(self.location, new_name, visibility=self.visibility)
+
+  def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
+    return indent*' ' + self.visibility_prefix() + 'postulate type ' \
+        + base_name(self.name) + '\n'
+
+  def __str__(self) -> str:
+    return self.name if get_verbose() else base_name(self.name)
+
+@dataclass
+class PostulateFun(Declaration):
+  """`postulate fun f : T`: a constant (or function) of type `T` with no
+  definition. Like a `fun`, it may overload other names."""
+  typ: Type
+
+  def uniquify(self, env: object, ctx: object) -> PostulateFun:
+    env_map = cast(UniquifyEnv, env)
+    uniq_ctx = cast(UniquifyContext, ctx)
+    new_typ = self.typ.uniquify(env_map, uniq_ctx)
+    new_name = generate_name(self.name, uniq_ctx)
+    extend(env_map, self.name, new_name, self.location)
+    return PostulateFun(self.location, new_name, new_typ,
+                        visibility=self.visibility)
+
+  _exports_overload = True
+
+  def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
+    return indent*' ' + self.visibility_prefix() + 'postulate fun ' \
+        + complete_name(self.name) + ' : ' + str(self.typ) + '\n'
+
+  def __str__(self) -> str:
+    return self.pretty_print(0)
 
 @dataclass
 class Theorem(Declaration):

@@ -672,6 +672,8 @@ def auto_rewrites(term: Term, env: Env, include_conditionals: bool = True) -> Te
             current_eq = get_num_rewrites()
             term = rewrite_aux(term.location, term, eq, env, 1)
             if current_eq < get_num_rewrites():
+               if eq.name is not None:
+                 record_implicit_use(eq.name)
                break
         if current == get_num_rewrites():
             break

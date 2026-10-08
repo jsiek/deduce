@@ -55,8 +55,8 @@ def test_issue_586_env_method_parameters_are_annotated() -> None:
         (ast.Env.declare_view, {"loc", "view", "visibility"}),
         (ast.Env.declare_term_var,
          {"loc", "name", "typ", "local", "visibility"}),
-        (ast.Env.declare_assoc, {"loc", "opname", "typarams", "typ"}),
-        (ast.Env.declare_auto_rewrite, {"loc", "equation"}),
+        (ast.Env.declare_assoc, {"loc", "opname", "typarams", "typ", "proof_name"}),
+        (ast.Env.declare_auto_rewrite, {"loc", "name", "equation"}),
     ]
 
     for method, expected_params in methods:
