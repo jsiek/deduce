@@ -52,8 +52,17 @@ class Declaration(Statement):
           return name2str(self.name)
 
   def print_theorems_statement(self, f: TextIO) -> None:
-      if not self.visibility == 'private':
-        print(self.pretty_print(0), file=f)
+      # A `.thm` file shows the module's public interface: nothing for a
+      # private declaration, and only the signature of an opaque one,
+      # whose definition other modules cannot use.
+      if self.visibility == 'private':
+        return
+      signature = self.opaque_signature() if self.visibility == 'opaque' else None
+      print(signature if signature is not None else self.pretty_print(0), file=f)
+
+  def opaque_signature(self) -> str | None:
+      # Overridden by the declarations that can be opaque.
+      return None
 
   def visibility_prefix(self) -> str:
       # Source-level visibility keywords that prefix a declaration head.
@@ -930,10 +939,16 @@ class Union(Declaration):
       for con in self.alternatives:
         extend(export_env, base_name(con.name), con.name, self.location)
 
-  def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
-      header = self.visibility_prefix() + 'union ' + base_name(self.name) \
+  def _header(self) -> str:
+      return self.visibility_prefix() + 'union ' + base_name(self.name) \
           + ('<' + ','.join([base_name(t) for t in self.type_params]) + '>' if len(self.type_params) > 0 \
              else '')
+
+  def opaque_signature(self) -> str | None:
+      return self._header() + '\n'
+
+  def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
+      header = self._header()
       ret = header + ' {\n' \
                    + '\n'.join([c.pretty_print(indent+2) for c in self.alternatives]) + '\n'\
                    + indent*' ' + '}\n'
@@ -1276,12 +1291,18 @@ class RecFun(Declaration):
       + '\n'.join([str(c) for c in self.cases]) \
       + '\n}'
 
-  def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
-    header = complete_name(self.name) \
+  def _header(self) -> str:
+    return complete_name(self.name) \
         + ('<' + ','.join([name2str(t) for t in self.type_params]) + '>' \
            if len(self.type_params) > 0 else '') \
       + '(' + ','.join([str(ty) for ty in self.params]) + ')' \
       + ' -> ' + str(self.returns)
+
+  def opaque_signature(self) -> str | None:
+    return self.visibility_prefix() + 'recursive ' + self._header() + '\n'
+
+  def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
+    header = self._header()
     ret = self.visibility_prefix() + 'recursive ' + header + '{\n' \
       + '\n'.join([c.pretty_print(indent+2) for c in self.cases]) + '\n' \
       + '}\n'
@@ -1380,13 +1401,19 @@ class GenRecFun(Declaration):
         + ' {\n' + str(self.body) + '\n}\n' \
         + 'terminates {\n' + str(self.terminates) + '\n}\n'
 
-  def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
-    pad = indent * ' '
-    header = complete_name(self.name) \
+  def _header(self) -> str:
+    return complete_name(self.name) \
         + ('<' + ','.join([name2str(t) for t in self.type_params]) + '>' \
            if len(self.type_params) > 0 else '') \
       + '(' + ', '.join([base_name(x) + ':' + str(t) if t else x for (x,t) in self.vars])\
-      + ') -> ' + str(self.returns) \
+      + ') -> ' + str(self.returns)
+
+  def opaque_signature(self) -> str | None:
+    return self.visibility_prefix() + 'recfun ' + self._header() + '\n'
+
+  def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
+    pad = indent * ' '
+    header = self._header() \
       + '\n' + pad + '  measure ' + str(self.measure) \
       + ' of ' + str(self.measure_ty)
 
@@ -1564,6 +1591,10 @@ class Define(Declaration):
     if isinstance(self.body, Generic) and isinstance(self.body.body, Lambda):
       return True
     return False
+
+  def opaque_signature(self) -> str | None:
+    return self.visibility_prefix() + 'define ' + complete_name(self.name) \
+        + (' : ' + str(self.typ) if self.typ else '') + '\n'
 
   def __str__(self) -> str:
     prefix = self.visibility_prefix()
