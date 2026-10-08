@@ -1,0 +1,71 @@
+module Real
+
+import Nat
+import UInt
+import Int
+import Rat
+import Base
+import RealAxioms
+
+/*
+  Operations on Real defined from the primitives in RealAxioms.pf.
+  Each is opaque; use the matching `_def` theorem to unfold it.
+*/
+
+opaque fun operator -(x : Real, y : Real) { x + - y }
+
+opaque fun operator /(x : Real, y : Real) { x * inv(y) }
+
+opaque fun operator <(x : Real, y : Real) { x ≤ y and not (x = y) }
+
+fun operator >(x : Real, y : Real) { y < x }
+
+fun operator ≥(x : Real, y : Real) { y ≤ x }
+
+opaque fun max(x : Real, y : Real) {
+  if x ≤ y then y else x
+}
+
+opaque fun min(x : Real, y : Real) {
+  if x ≤ y then x else y
+}
+
+opaque fun abs(x : Real) {
+  if real(+0) ≤ x then x else - x
+}
+
+theorem real_sub_def: all x:Real, y:Real. x - y = x + - y
+proof
+  arbitrary x:Real, y:Real
+  expand operator-.
+end
+
+theorem real_div_def: all x:Real, y:Real. x / y = x * inv(y)
+proof
+  arbitrary x:Real, y:Real
+  expand operator/.
+end
+
+theorem real_less_def: all x:Real, y:Real. (x < y) = (x ≤ y and not (x = y))
+proof
+  arbitrary x:Real, y:Real
+  expand operator<.
+end
+
+theorem real_max_def: all x:Real, y:Real. max(x, y) = (if x ≤ y then y else x)
+proof
+  arbitrary x:Real, y:Real
+  expand max.
+end
+
+theorem real_min_def: all x:Real, y:Real. min(x, y) = (if x ≤ y then x else y)
+proof
+  arbitrary x:Real, y:Real
+  expand min.
+end
+
+theorem real_abs_def: all x:Real. abs(x) = (if real(+0) ≤ x then x else - x)
+proof
+  arbitrary x:Real
+  expand abs.
+end
