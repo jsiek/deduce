@@ -334,3 +334,172 @@ proof
   have bwd: if n = m then real(n) = real(m) by { assume eq  replace eq. }
   apply iff_equal to fwd, bwd
 end
+
+// Rat
+
+theorem real_rat_def: all q:Rat. real(q) = real(num(q)) * inv(real(den(q)))
+proof
+  arbitrary q:Rat
+  equations
+    real(q) = real(num(q)) * inv(real(den(q)))  by expand real.
+end
+
+lemma real_uint_not_zero: all d:UInt. if 0 < d then not (real(d) = real(+0))
+proof
+  arbitrary d:UInt
+  assume d_pos
+  assume dz
+  have lt: real(+0) < real(d) by apply real_uint_pos[d] to d_pos
+  conclude false by apply (apply real_less_implies_not_equal[real(+0), real(d)] to lt) to symmetric dz
+end
+
+theorem real_frac: all n:Int, d:UInt. if 0 < d then real(frac(n, d)) = real(n) * inv(real(d))
+proof
+  arbitrary n:Int, d:UInt
+  assume d_pos
+  have cross: num(frac(n, d)) * pos(d) = n * pos(den(frac(n, d)))
+    by apply rat_frac_cross[n, d] to d_pos
+  have h: real(num(frac(n, d)) * pos(d)) = real(n * pos(den(frac(n, d)))) by replace cross.
+  have rcross: real(num(frac(n, d))) * real(d) = real(n) * real(den(frac(n, d)))
+    by replace real_int_mult | real_int_pos in h
+  replace real_rat_def[frac(n, d)]
+  apply real_mult_inv_cross[real(num(frac(n, d))), real(den(frac(n, d))), real(n), real(d)]
+    to (apply real_uint_not_zero to rat_den_pos[frac(n, d)]),
+       (apply real_uint_not_zero to d_pos), rcross
+end
+
+theorem real_rat_int: all n:Int. real(rat(n)) = real(n)
+proof
+  arbitrary n:Int
+  replace real_uint_one in apply real_frac[n, 1] to uint_zero_less_one_add[0]
+end
+
+theorem real_rat_add: all q:Rat, r:Rat. real(q + r) = real(q) + real(r)
+proof
+  arbitrary q:Rat, r:Rat
+  obtain a, d where hq: 0 < d and q = frac(a, d) from rat_frac_rep[q]
+  obtain b, e where hr: 0 < e and r = frac(b, e) from rat_frac_rep[r]
+  have d_pos: 0 < d by hq
+  have e_pos: 0 < e by hr
+  have de_pos: 0 < d * e by apply uint_pos_mult_both_sides_of_less[d, 0, e] to d_pos, e_pos
+  replace conjunct 1 of hq | conjunct 1 of hr
+        | apply rat_add_frac[a, d, b, e] to d_pos, e_pos
+        | apply real_frac[a * pos(e) + b * pos(d), d * e] to de_pos
+        | apply real_frac[a, d] to d_pos | apply real_frac[b, e] to e_pos
+        | real_int_add | real_int_mult | real_int_pos | real_uint_mult
+        | real_inv_mult_distr | real_dist_mult_add_right
+        | real_mult_commute[real(e), inv(real(d)) * inv(real(e))]
+        | apply real_inv_mult[real(e)] to apply real_uint_not_zero to e_pos
+        | apply real_mult_inv[real(d)] to apply real_uint_not_zero to d_pos.
+end
+
+theorem real_rat_mult: all q:Rat, r:Rat. real(q * r) = real(q) * real(r)
+proof
+  arbitrary q:Rat, r:Rat
+  obtain a, d where hq: 0 < d and q = frac(a, d) from rat_frac_rep[q]
+  obtain b, e where hr: 0 < e and r = frac(b, e) from rat_frac_rep[r]
+  have d_pos: 0 < d by hq
+  have e_pos: 0 < e by hr
+  have de_pos: 0 < d * e by apply uint_pos_mult_both_sides_of_less[d, 0, e] to d_pos, e_pos
+  replace conjunct 1 of hq | conjunct 1 of hr
+        | apply rat_mult_frac[a, d, b, e] to d_pos, e_pos
+        | apply real_frac[a * b, d * e] to de_pos
+        | apply real_frac[a, d] to d_pos | apply real_frac[b, e] to e_pos
+        | real_int_mult | real_uint_mult | real_inv_mult_distr
+        | real_mult_commute[real(b), inv(real(d))].
+end
+
+theorem real_rat_neg: all q:Rat. real(- q) = - real(q)
+proof
+  arbitrary q:Rat
+  obtain a, d where hq: 0 < d and q = frac(a, d) from rat_frac_rep[q]
+  have d_pos: 0 < d by hq
+  replace conjunct 1 of hq | symmetric rat_frac_neg[a, d]
+        | apply real_frac[- a, d] to d_pos | apply real_frac[a, d] to d_pos
+        | real_int_neg | real_neg_mult.
+end
+
+theorem real_rat_sub: all q:Rat, r:Rat. real(q - r) = real(q) - real(r)
+proof
+  arbitrary q:Rat, r:Rat
+  replace rat_sub_def | real_rat_add | real_rat_neg | real_sub_def.
+end
+
+theorem real_rat_inv: all q:Rat. real(inv(q)) = inv(real(q))
+proof
+  arbitrary q:Rat
+  switch q = rat(+0) {
+    case true assume qz {
+      replace qz | real_rat_int.
+    }
+    case false assume qnz {
+      have h: real(q) * real(inv(q)) = real(+1) by
+        replace symmetric real_rat_mult[q, inv(q)] | apply rat_mult_inv[q] to qnz
+              | real_rat_int.
+      symmetric apply real_inv_unique[real(q), real(inv(q))] to h
+    }
+  }
+end
+
+theorem real_rat_div: all q:Rat, r:Rat. real(q / r) = real(q) / real(r)
+proof
+  arbitrary q:Rat, r:Rat
+  replace rat_div_def | real_rat_mult | real_rat_inv | real_div_def.
+end
+
+theorem real_rat_le: all q:Rat, r:Rat. (real(q) ≤ real(r)) = (q ≤ r)
+proof
+  arbitrary q:Rat, r:Rat
+  obtain a, d where hq: 0 < d and q = frac(a, d) from rat_frac_rep[q]
+  obtain b, e where hr: 0 < e and r = frac(b, e) from rat_frac_rep[r]
+  have d_pos: 0 < d by hq
+  have e_pos: 0 < e by hr
+  have k_pos: real(+0) < real(d) * real(e)
+    by apply real_mult_pos[real(d), real(e)]
+       to (apply real_uint_pos[d] to d_pos), (apply real_uint_pos[e] to e_pos)
+  replace conjunct 1 of hq | conjunct 1 of hr
+        | apply rat_le_frac[a, d, b, e] to d_pos, e_pos
+        | apply real_frac[a, d] to d_pos | apply real_frac[b, e] to e_pos
+        | symmetric apply real_pos_mult_le_iff[real(d) * real(e), real(a) * inv(real(d)),
+                                                real(b) * inv(real(e))] to k_pos
+        | apply real_inv_mult[real(d)] to apply real_uint_not_zero to d_pos
+        | real_mult_commute[inv(real(e)), real(d)]
+        | apply real_inv_mult[real(e)] to apply real_uint_not_zero to e_pos
+        | symmetric real_int_le[a * pos(e), b * pos(d)]
+        | real_int_mult | real_int_pos.
+end
+
+theorem real_rat_eq: all q:Rat, r:Rat. (real(q) = real(r)) = (q = r)
+proof
+  arbitrary q:Rat, r:Rat
+  have fwd: if real(q) = real(r) then q = r by {
+    assume eq
+    have qr: real(q) ≤ real(r) by { replace eq  real_less_equal_refl[real(r)] }
+    have rq: real(r) ≤ real(q) by { replace eq  real_less_equal_refl[real(r)] }
+    apply rat_less_equal_antisymmetric[q, r]
+      to (replace real_rat_le in qr), (replace real_rat_le in rq)
+  }
+  have bwd: if q = r then real(q) = real(r) by { assume eq  replace eq. }
+  apply iff_equal to fwd, bwd
+end
+
+theorem real_rat_less: all q:Rat, r:Rat. (real(q) < real(r)) = (q < r)
+proof
+  arbitrary q:Rat, r:Rat
+  replace real_less_def | real_rat_le | real_rat_eq
+  have h: (q ≤ r and not (q = r)) = (q < r) by {
+    have fwd: if q ≤ r and not (q = r) then q < r by {
+      assume h
+      cases apply rat_less_equal_iff_less_or_equal[q, r] to h
+      case lt { lt }
+      case eq { conclude false by apply (conjunct 1 of h) to eq }
+    }
+    have bwd: if q < r then q ≤ r and not (q = r) by {
+      assume h
+      (apply rat_less_implies_less_equal[q, r] to h),
+      (apply rat_less_implies_not_equal[q, r] to h)
+    }
+    apply iff_equal to fwd, bwd
+  }
+  h
+end

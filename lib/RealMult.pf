@@ -271,3 +271,20 @@ proof
   assume ynz
   replace real_div_def | apply real_mult_inv[y] to ynz.
 end
+
+// Fractions with equal cross products are equal.
+theorem real_mult_inv_cross: all a:Real, b:Real, c:Real, d:Real.
+  if not (b = real(+0)) and not (d = real(+0)) and a * d = c * b
+  then a * inv(b) = c * inv(d)
+proof
+  arbitrary a:Real, b:Real, c:Real, d:Real
+  assume prem
+  have bnz: not (b = real(+0)) by prem
+  have dnz: not (d = real(+0)) by prem
+  have eq: a * d = c * b by prem
+  equations
+        a * inv(b) = # a * inv(b) * (d * inv(d)) #  by replace apply real_mult_inv[d] to dnz.
+    ... = (a * d) * inv(b) * inv(d)              by replace real_mult_commute[inv(b), d].
+    ... = (c * b) * inv(b) * inv(d)              by replace eq.
+    ... = c * inv(d)                             by replace apply real_mult_inv[b] to bnz.
+end
