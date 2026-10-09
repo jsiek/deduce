@@ -76,7 +76,7 @@ struct Textbook {
         let builder = Builder(source: source)
         theorems = outline.theorems.map { theorem in
             let steps = outline.steps.filter { theorem.range.contains($0.range) }
-            let roots = Node.forest(steps)
+            let roots = Node.forest(steps) { builder.slice($0.range) == "equations" }
             return Theorem(
                 range: theorem.range,
                 name: theorem.name,
@@ -92,8 +92,6 @@ struct Textbook {
         let step: Outline.Step
         var children: [Node] = []
 
-        init(_ step: Outline.Step) { self.step = step }
-
         /// The worst status of this step and everything nested in it.
         var status: Status {
             children.map(\.status).reduce(Status(step.status), max)
@@ -101,14 +99,14 @@ struct Textbook {
 
         /// Nest `steps` by range containment; returns the outermost ones in
         /// source order.
-        static func forest(_ steps: [Outline.Step]) -> [Node] {
+        static func forest(_ steps: [Outline.Step], isChain: (Outline.Step) -> Bool) -> [Node] {
             let sorted = steps.sorted {
                 ($0.range.start, $1.range.end) < ($1.range.start, $0.range.end)
             }
             var roots: [Node] = []
             var open: [Node] = []
             for step in sorted {
-                let node = Node(step)
+                let node = Node(step, isChain: step.kind == "PTransitive" && isChain(step))
                 while let top = open.last, !top.step.range.contains(step.range) {
                     open.removeLast()
                 }
@@ -134,6 +132,21 @@ struct Textbook {
         /// its own, shown nested under the step.
         static let subproof = structural.subtracting(["RewriteGoal", "ApplyDefsGoal", "SimplifyGoal"])
 
+        /// An `equations` block, whose links follow it as siblings. A
+        /// written-out `transitive (…) (…)` term is the same kind but is a
+        /// reason; only the source tells them apart.
+        let isChain: Bool
+
+        init(_ step: Outline.Step, isChain: Bool) {
+            self.step = step
+            self.isChain = isChain
+        }
+
+        /// Whether this step starts a new line of the proof.
+        var startsLine: Bool {
+            Node.structural.contains(step.kind) && (step.kind != "PTransitive" || isChain)
+        }
+
         /// A reason's last part can fall just outside its step's range: in
         /// `= rhs by expand length.` the `.` is its own step after the
         /// `expand`. A non-structural step that starts on the line where
@@ -142,7 +155,7 @@ struct Textbook {
             var kept: [Node] = []
             for node in nodes {
                 node.children = absorbContinuations(node.children)
-                if let previous = kept.last, !structural.contains(node.step.kind),
+                if let previous = kept.last, !node.startsLine,
                    node.step.range.start.line == previous.step.range.end.line {
                     previous.children.append(node)
                 } else {
@@ -182,7 +195,7 @@ struct Textbook {
                                        detail.premise.map(clean)))
                 case "Induction", "SwitchProof", "Cases":
                     blocks.append(cases(node, rest: &rest))
-                case "PTransitive":
+                case "PTransitive" where node.isChain:
                     blocks.append(chain(node, rest: &rest))
                 case "PLet":
                     blocks.append(line(node, "\(detail.label ?? "") :", step.formula.map(clean), reason: true))
@@ -215,7 +228,7 @@ struct Textbook {
         /// A line for `node`. With `reason`, its reason is either nested as a
         /// sub-proof (when it has steps of its own) or summarized.
         private func line(_ node: Node, _ prose: String, _ formula: String?, reason: Bool = false) -> Block {
-            let nested = reason && node.children.contains { Node.subproof.contains($0.step.kind) }
+            let nested = reason && node.children.contains { $0.startsLine && Node.subproof.contains($0.step.kind) }
             return .line(Line(range: node.step.range, prose: prose, formula: formula,
                               reason: reason && !nested ? self.reason(node.step) : nil,
                               status: node.status,
@@ -247,11 +260,12 @@ struct Textbook {
         }
 
         /// `equations`: its links follow it as siblings, each starting where
-        /// the previous one ended.
+        /// the previous one ended. (`equations` marks each link's left side
+        /// with `#…#`, so compare them cleaned.)
         private func chain(_ node: Node, rest: inout ArraySlice<Node>) -> Block {
             var links: [Node] = []
             while let next = rest.first, next.step.kind == "PAnnot", let lhs = next.step.detail.lhs,
-                  links.last.map({ $0.step.detail.rhs == lhs }) ?? true {
+                  links.last.map({ clean($0.step.detail.rhs ?? "") == clean(lhs) }) ?? true {
                 links.append(rest.removeFirst())
             }
             return .chain(
@@ -286,7 +300,7 @@ struct Textbook {
 
         /// The source text of `range`; columns count Unicode scalars, as
         /// Python indexes strings.
-        private func slice(_ range: Outline.Range) -> String {
+        func slice(_ range: Outline.Range) -> String {
             guard range.start.line < lines.count, range.end.line < lines.count else { return "" }
             var scalars: [Unicode.Scalar] = []
             for n in range.start.line...range.end.line {
