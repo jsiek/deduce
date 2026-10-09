@@ -140,6 +140,9 @@ def test_all_expected_features_are_registered():
         lsp_server.AVAILABLE_LEMMAS_REQUEST,
         lsp_server.INSERT_LEMMA_REQUEST,
         lsp_server.PROOF_OUTLINE,
+        lsp_server.PREVIEW_REPLACE_AT_SUBTERM_REQUEST,
+        lsp_server.PREVIEW_EXPAND_AT_SUBTERM_REQUEST,
+        lsp_server.LEMMAS_FOR_SUBTERM_REQUEST,
     }
     assert expected.issubset(set(fm.features))
 
@@ -520,6 +523,68 @@ def test_proof_outline_notification_is_opt_in(server, open_doc, monkeypatch):
     assert server.notified[-1] == (
         lsp_server.PROOF_OUTLINE, {"uri": uri, "steps": [], "theorems": []}
     )
+
+
+_SUBTERM_SRC = (
+    "union N { z  s(N) }\n"
+    "recursive dbl(N) -> N {\n"
+    "  dbl(z) = z\n"
+    "  dbl(s(n)) = s(s(dbl(n)))\n"
+    "}\n"
+    "postulate fun R : fn N, N -> bool\n"
+    "postulate dbl_s: all n:N. dbl(s(n)) = s(s(dbl(n)))\n"
+    "theorem t: all a:N. R(dbl(s(a)), dbl(s(a)))\n"
+    "proof\n"
+    "  arbitrary a:N\n"
+    "  ?\n"
+    "end\n"
+)
+
+
+def _subterm_params(uri: str, **extra) -> dict:
+    # The `?` is on line 10 (0-indexed); [2] is the second `dbl(s(a))`.
+    return {
+        "textDocument": {"uri": uri},
+        "position": {"line": 10, "character": 2},
+        "subterm": [2],
+        **extra,
+    }
+
+
+def test_preview_subterm_requests_return_goal_and_edit(server, open_doc):
+    _, uri = open_doc("subterm.pf", _SUBTERM_SRC)
+    for result in (
+        lsp_server.on_preview_replace_at_subterm(
+            server, _subterm_params(uri, equation="dbl_s")
+        ),
+        lsp_server.on_preview_expand_at_subterm(
+            server, _subterm_params(uri, names=["dbl"])
+        ),
+    ):
+        assert result["outcome"] == "ok"
+        assert _text(result["goal"]) == "R(dbl(s(a)), s(s(dbl(a))))"
+        [change] = result["edit"]["changes"][uri]
+        assert change["range"]["start"] == {"line": 10, "character": 2}
+        assert change["newText"].startswith("show R(dbl(s(a)), #dbl(s(a))#)\n")
+        assert result["message"] is None
+
+
+def test_lemmas_for_subterm_request(server, open_doc):
+    _, uri = open_doc("subterm.pf", _SUBTERM_SRC)
+    lemmas = lsp_server.on_lemmas_for_subterm(server, _subterm_params(uri))
+    assert lemmas[0]["name"] == "dbl_s"
+    assert lemmas[0]["unify_tier"] == "rewrite_subterm"
+
+
+def test_subterm_requests_reject_bad_params(server, open_doc):
+    _, uri = open_doc("subterm.pf", _SUBTERM_SRC)
+    bad = _subterm_params(uri, equation="dbl_s")
+    bad["subterm"] = "2"
+    assert lsp_server.on_preview_replace_at_subterm(server, bad) is None
+    assert lsp_server.on_preview_expand_at_subterm(
+        server, _subterm_params(uri, names=[])
+    ) is None
+    assert lsp_server.on_lemmas_for_subterm(server, {"textDocument": {"uri": uri}}) == []
 
 
 def test_goal_at_returns_none_outside_proof(server, open_doc):

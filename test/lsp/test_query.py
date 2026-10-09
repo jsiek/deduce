@@ -87,6 +87,7 @@ EXPECTED_PUBLIC = {
     "ProofStep",
     "OutlineTheorem",
     "ProofOutline",
+    "SubtermPreview",
     "check",
     "goal_at",
     "definition_of",
@@ -110,6 +111,9 @@ EXPECTED_PUBLIC = {
     "preview_expand_at",
     "auto_rules_at",
     "proof_outline",
+    "preview_replace_at_subterm",
+    "preview_expand_at_subterm",
+    "lemmas_for_subterm",
 }
 
 

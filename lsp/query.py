@@ -42,7 +42,7 @@ in user-visible error messages.
 import contextlib
 import re
 import traceback as _traceback
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from lark.tree import Meta
 from typing import (
@@ -92,6 +92,7 @@ __all__ = [
     "ProofStep",
     "OutlineTheorem",
     "ProofOutline",
+    "SubtermPreview",
     # Query functions
     "check",
     "goal_at",
@@ -116,6 +117,9 @@ __all__ = [
     "preview_expand_at",
     "auto_rules_at",
     "proof_outline",
+    "preview_replace_at_subterm",
+    "preview_expand_at_subterm",
+    "lemmas_for_subterm",
 ]
 
 # TODO: remove the _call_untyped function.
@@ -226,6 +230,9 @@ class TermTree:
 
     kind: str
     parts: tuple[Union[str, "TermTree"], ...]
+    # The AST node this tree was built from, for resolving a path back
+    # to a subterm (:func:`_subterm_at`); not part of equality or JSON.
+    ast: object = field(default=None, compare=False, repr=False)
 
     def __str__(self) -> str:
         return "".join(str(p) for p in self.parts)
@@ -1144,9 +1151,12 @@ def _term_tree(node: "AST") -> TermTree:
     from abstract_syntax import TermInst, VarRef
 
     # An instantiation that prints as its subject (inferred type
-    # arguments) is invisible: its tree is the subject's.
+    # arguments) is invisible: its tree is the subject's, though it
+    # stands for the instantiation (so a callee is still its call's
+    # ``rator``).
     if isinstance(node, TermInst) and str(node) == str(node.subject):
-        return _term_tree(node.subject)
+        subject = _term_tree(node.subject)
+        return TermTree(subject.kind, subject.parts, node)
     text = str(node)
     parts: list[Union[str, TermTree]] = []
     pos = 0
@@ -1164,7 +1174,7 @@ def _term_tree(node: "AST") -> TermTree:
     # Variable references come in several internal classes
     # (``ResolvedVar``, ``OverloadedVar``, ...); clients just see "Var".
     kind = "Var" if isinstance(node, VarRef) else type(node).__name__
-    return TermTree(kind, tuple(parts))
+    return TermTree(kind, tuple(parts), node)
 
 
 def _tree_children(node: "AST") -> Iterator[Union["AST", TermTree]]:
@@ -1185,7 +1195,7 @@ def _tree_children(node: "AST") -> Iterator[Union["AST", TermTree]]:
         op = None
         if is_infix_operator(node.rator) and len(node.args) >= 2 \
                 or is_prefix_operator(node.rator) and len(node.args) == 1:
-            op = TermTree("Var", (operator_display_name(node.rator),))
+            op = TermTree("Var", (operator_display_name(node.rator),), node.rator)
         if op is None:
             yield node.rator
         for i, arg in enumerate(node.args):
@@ -3919,6 +3929,20 @@ def available_lemmas_at(
     produces no candidates at all, or when a given ``query`` matches
     nothing.
     """
+    return _available_lemmas(path, content, pos, query, prelude, limit, None)
+
+
+def _available_lemmas(
+    path: str,
+    content: str,
+    pos: Position,
+    query: Optional[str],
+    prelude: Sequence[str],
+    limit: int,
+    subterm: Optional[Sequence[int]],
+) -> tuple[LemmaMatch, ...]:
+    """:func:`available_lemmas_at`; with ``subterm``, ranked against
+    that subterm of the hole's goal (see :func:`lemmas_for_subterm`)."""
     from lsp.library import check_file
 
     hole_range = _find_hole_at(content, pos)
@@ -3936,8 +3960,15 @@ def available_lemmas_at(
             exc = result.exception
             goal_ast = getattr(exc, "formula", None)
             env = getattr(exc, "env", None)
+            if subterm is not None and goal_ast is not None:
+                found = _subterm_at(_term_tree(goal_ast), subterm)
+                if found is None:
+                    return ()
+                goal_text, goal_ast = str(found[0]), cast("Formula", found[0].ast)
         ast_nodes = result.ast
     else:
+        if subterm is not None:
+            return ()
         result = check_file(path, content=content, prelude=prelude)
         ast_nodes = result.ast
 
@@ -5986,3 +6017,203 @@ def _step_uses(proof: "AST", env: "Env") -> tuple[StepUse, ...]:
 
     visit(proof)
     return tuple(uses)
+
+
+# ---------------------------------------------------------------------------
+# Subterm-addressed steps (issue #1219)
+# ---------------------------------------------------------------------------
+#
+# The hole-based actions above act on a whole goal. A textbook-style view
+# acts on one subterm of it ("rewrite *this* with IH"), named by its path
+# in the goal's :class:`TermTree`. Deduce restricts `replace` / `expand`
+# to a subterm with `#…#` marks in the goal, so the step restates the goal
+# with the mark (`show …`) -- but only when the plain step would also
+# touch other occurrences, keeping the source free of marks otherwise.
+# The mark goes into the goal's text at the span the path names.
+
+
+def preview_replace_at_subterm(
+    path: str,
+    content: str,
+    pos: Position,
+    subterm: Sequence[int],
+    equation: str,
+    prelude: Sequence[str] = (),
+) -> Optional["SubtermPreview"]:
+    """Preview ``replace <equation>`` applied only to the subterm at
+    path ``subterm`` of the goal at the hole at ``pos``.
+
+    ``equation`` is any proof of an equation, as written after
+    ``replace`` (``IH``, ``IH[ys]``, ``symmetric uint_add_commute``).
+    Returns ``None`` when ``pos`` is not on a ``?`` with a goal.
+    """
+    return _subterm_step(
+        path, content, pos, subterm, f"replace {equation.strip()}", prelude
+    )
+
+
+def preview_expand_at_subterm(
+    path: str,
+    content: str,
+    pos: Position,
+    subterm: Sequence[int],
+    names: Sequence[str],
+    prelude: Sequence[str] = (),
+) -> Optional["SubtermPreview"]:
+    """Preview ``expand <names>`` applied only to the subterm at path
+    ``subterm`` of the goal at the hole at ``pos``. ``names`` are the
+    definitions to unfold, as in ``expand X | Y``. Returns ``None`` when
+    ``pos`` is not on a ``?`` with a goal."""
+    return _subterm_step(
+        path, content, pos, subterm, "expand " + " | ".join(names), prelude
+    )
+
+
+def lemmas_for_subterm(
+    path: str,
+    content: str,
+    pos: Position,
+    subterm: Sequence[int],
+    query: Optional[str] = None,
+    prelude: Sequence[str] = (),
+    limit: int = 50,
+) -> tuple[LemmaMatch, ...]:
+    """:func:`available_lemmas_at`, ranked against the subterm at path
+    ``subterm`` of the goal at the hole at ``pos`` instead of the whole
+    goal: equations that rewrite it rank as ``rewrite_subterm``, and for
+    a formula subterm (one side of an ``and``, say) lemmas that prove it
+    rank as ``full``. Returns ``()`` when there is no such subterm."""
+    return _available_lemmas(path, content, pos, query, prelude, limit, subterm)
+
+
+@dataclass(frozen=True)
+class SubtermPreview:
+    """Result of :func:`preview_replace_at_subterm` and
+    :func:`preview_expand_at_subterm`.
+
+    ``outcome`` is one of:
+
+    - ``"ok"``: ``goal`` is the goal after the step, and ``edit``
+      replaces the hole with the step followed by a new ``?`` (or ``.``
+      when the step proves the goal). The step is the plain tactic when
+      that already leaves only the chosen subterm changed, and otherwise
+      ``show`` with the goal marked ``#…#`` at the subterm, then the
+      tactic.
+    - ``"invalid_path"``: the path names no subterm of the goal, or
+      names a call's callee or operator; ``message`` says which.
+    - ``"error"``: the step does not check; ``message`` is the checker's.
+    """
+
+    outcome: str
+    goal: Optional[TermTree] = None
+    edit: Optional[WorkspaceEdit] = None
+    message: Optional[str] = None
+
+
+def _subterm_step(
+    path: str,
+    content: str,
+    pos: Position,
+    subterm: Sequence[int],
+    tactic: str,
+    prelude: Sequence[str],
+) -> Optional[SubtermPreview]:
+    from abstract_syntax import Bool, Call, Term
+
+    hole = _find_hole_at(content, pos)
+    if hole is None:
+        return None
+    exc = _check_at_hole(path, content, hole, prelude)
+    formula = getattr(exc, "formula", None)
+    if formula is None:
+        return None
+    tree = _term_tree(formula)
+    found = _subterm_at(tree, subterm)
+    parent = _subterm_at(tree, subterm[:-1]) if subterm else None
+    if found is None or not isinstance(found[0].ast, Term):
+        return SubtermPreview(
+            "invalid_path", message=f"the goal has no term at path {list(subterm)}"
+        )
+    target, start = found
+    if parent is not None and isinstance(parent[0].ast, Call) \
+            and target.ast is parent[0].ast.rator:
+        return SubtermPreview(
+            "invalid_path",
+            message=f"`{target}` is the function of a call; choose the call `{parent[0]}`",
+        )
+
+    # Mark the occurrence in the goal's text: the path names exactly one,
+    # even when the AST shares a node between several.
+    text, end = str(tree), start + len(str(target))
+    goal_marked = f"{text[:start]}#{text[start:end]}#{text[end:]}"
+    marked = _try_step(path, content, hole, f"show {goal_marked}\n{tactic}", prelude)
+    if isinstance(marked, str):
+        return SubtermPreview("error", message=marked)
+    plain = _try_step(path, content, hole, tactic, prelude)
+    text, goal = plain if not isinstance(plain, str) and plain[1] == marked[1] else marked
+    if isinstance(goal.ast, Bool) and goal.ast.value:
+        # The step proves the goal: end it with `.` rather than a `?`.
+        text = text[: -len("?")].rstrip() + "."
+    return SubtermPreview("ok", goal=goal, edit=WorkspaceEdit(path, hole, text))
+
+
+def _check_at_hole(
+    path: str, content: str, hole: Range, prelude: Sequence[str]
+) -> Optional[BaseException]:
+    """Check ``content`` stopping at the hole at ``hole`` (other holes
+    count as proved); the exception, or ``None`` if the check passed."""
+    from lsp.library import check_file
+
+    with _target_hole((hole.start.line, hole.start.column)):
+        result = check_file(path, content=content, prelude=prelude)
+    return None if result.ok else result.exception
+
+
+def _try_step(
+    path: str, content: str, hole: Range, step: str, prelude: Sequence[str]
+) -> Union[str, tuple[str, TermTree]]:
+    """Replace the hole with ``step`` and a new ``?`` and check: the
+    replacement text and the new goal, or the checker's message when the
+    step fails. (A step that already proves the goal leaves ``true``.)"""
+    from error import IncompleteProof
+
+    start = _line_col_to_offset(content, hole.start)
+    end = _line_col_to_offset(content, hole.end)
+    assert start is not None and end is not None
+    text = _indent_continuation(step + "\n?", _line_indent_at(content, hole.start))
+    new_content = content[:start] + text + content[end:]
+    line, col = _offset_to_line_col(new_content, start + len(text) - 1)
+    exc = _check_at_hole(
+        path, new_content, Range(Position(line, col), Position(line, col + 1)), prelude
+    )
+    loc = getattr(exc, "location", None)
+    formula = getattr(exc, "formula", None)
+    if (
+        isinstance(exc, IncompleteProof)
+        and formula is not None
+        and loc is not None
+        and (hole.start.line, hole.start.column) <= (loc.line, loc.column) <= (line, col)
+    ):
+        return text, _term_tree(formula)
+    if exc is None:
+        return "the step did not reach the hole"
+    return getattr(exc, "message_body", None) or str(exc)
+
+
+def _subterm_at(
+    tree: TermTree, path: Sequence[int]
+) -> Optional[tuple[TermTree, int]]:
+    """The node of ``tree`` at ``path`` (see :class:`TermTree`) and the
+    offset of its text in ``str(tree)``."""
+    offset = 0
+    for i in path:
+        children = [p for p in tree.parts if isinstance(p, TermTree)]
+        if not 0 <= i < len(children):
+            return None
+        for part in tree.parts:
+            if part is children[i]:
+                break
+            offset += len(str(part))
+        tree = children[i]
+    return tree, offset
+
