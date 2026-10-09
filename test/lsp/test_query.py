@@ -82,6 +82,9 @@ EXPECTED_PUBLIC = {
     "RewritePreview",
     "ExpandPreview",
     "AutoRule",
+    "StepUse",
+    "ProofStep",
+    "ProofOutline",
     "check",
     "goal_at",
     "definition_of",
@@ -104,6 +107,7 @@ EXPECTED_PUBLIC = {
     "preview_replace_at",
     "preview_expand_at",
     "auto_rules_at",
+    "proof_outline",
 }
 
 

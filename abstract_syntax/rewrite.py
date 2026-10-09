@@ -22,6 +22,7 @@ Does NOT go here:
 
 from __future__ import annotations
 
+import copy
 from typing import TYPE_CHECKING
 
 from .core import *
@@ -276,6 +277,18 @@ def remove_mark(formula: Formula) -> Formula:
         except MarkException as ex:
             return replace_mark(formula, ex.subject)
 
+def _link_location(loc: Meta, rhs: Term, reason: Proof) -> Meta:
+    """Span ``rhs by reason`` so each link of an ``equations`` chain has
+    its own source range (the ``lhs`` of a ``...`` link is the previous
+    link's ``rhs``, so it can't anchor the start)."""
+    start, end = rhs.location, reason.location
+    if start.empty or end.empty:
+        return loc
+    meta = copy.copy(start)
+    meta.end_line, meta.end_column = end.end_line, end.end_column
+    meta.end_pos = end.end_pos
+    return meta
+
 def build_equations_proof(loc: Meta, eqs: list[tuple[Term, Term, Proof]]) -> Proof:
     """Fold a list of ``(lhs, rhs, reason)`` equation steps into a single
     proof, right to left, via transitivity. Shared by both parsers."""
@@ -286,7 +299,8 @@ def build_equations_proof(loc: Meta, eqs: list[tuple[Term, Term, Proof]]) -> Pro
             new_lhs: Term = Mark(loc, None, lhs)
         else:
             new_lhs = lhs
-        eq_proof = PAnnot(loc, mkEqualVar(loc, new_lhs, rhs), reason)
+        eq_proof = PAnnot(_link_location(loc, rhs, reason),
+                          mkEqualVar(loc, new_lhs, rhs), reason)
         if result == None:
             result = eq_proof
         else:

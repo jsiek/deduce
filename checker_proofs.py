@@ -12,7 +12,8 @@ File charter:
   lowering or custom induction generation.
 """
 
-from typing import TYPE_CHECKING, TypeAlias, cast
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Optional, TypeAlias, cast
 
 from lark.tree import Meta
 
@@ -52,7 +53,7 @@ from error import (
     incomplete_error, internal_error, match_failed,
     speculative_probe, user_error, warning, wrap_user_error,
 )
-from flags import get_target_hole_location, get_verbose
+from flags import get_proof_outline, get_target_hole_location, get_verbose
 import style
 
 # ``generate_conjunct_body`` is defined in ``checker_induction`` and injected
@@ -110,6 +111,35 @@ def _try_check_proof_of(pf: Proof, frm: CheckedFormula, env: Env) -> None:
     if sink is None:
       raise
     sink.add(e)
+
+@dataclass
+class StepRecord:
+  """One proof node seen during a proof-outline run (#1214): the goal
+  it was checked against (``None`` when only synthesized), the formula
+  it establishes when known, and the env holding the givens."""
+  proof: Proof
+  env: Env
+  goal: Optional[Term] = None
+  formula: Optional[Term] = None
+
+def record_step(proof: Proof, env: Env, goal: Optional[Term] = None,
+                formula: Optional[Term] = None) -> None:
+  """Record ``proof`` in the active proof outline, if any. Nodes that
+  share a source range (``arbitrary x, y`` desugars to nested
+  ``AllIntro``s; synthesized nodes reuse their source's location) merge
+  into one record: the first visit wins, later ones fill in blanks."""
+  steps = get_proof_outline()
+  loc = proof.location
+  if steps is None or loc.empty:
+    return
+  key = (getattr(loc, 'filename', None), loc.line, loc.column,
+         loc.end_line, loc.end_column)
+  rec = steps.get(key)
+  if rec is None:
+    steps[key] = StepRecord(proof, env, goal, formula)
+  else:
+    rec.goal = rec.goal if rec.goal is not None else goal
+    rec.formula = rec.formula if rec.formula is not None else formula
 
 def generate_proof_name(name: str) -> str:
     """Allocate a fresh label/binder name at proof-check time.
@@ -503,9 +533,13 @@ def check_proof(proof: Proof, env: Env) -> CheckedFormula:
   if get_verbose():
     print('check_proof:')
     print('\t' + str(proof))
+  # Record before dispatch so a node whose handler raises is still a step.
+  record_step(proof, env)
   handler = _CHECK_PROOF_HANDLERS.get(type(proof))
   if handler is not None:
-    return cast(CheckedFormula, handler(proof, env))
+    formula = cast(CheckedFormula, handler(proof, env))
+    record_step(proof, env, formula=formula)
+    return formula
   user_error(proof.location, goal_only_proof_error(proof))
 
 # Tactic-keyword name used for each "goal-only" Proof class. These tactics
@@ -1422,6 +1456,7 @@ def _check_proof_of_rewrite_goal(proof: RewriteGoal, formula: CheckedFormula, en
   new_formula = apply_rewrites(loc, new_formula, eqns, env,
                                display_formula=formula,
                                display_eqns=display_eqns)
+  record_step(proof, env, formula=new_formula)
   if _missing_period_after_tactic(loc, proof.body, new_formula, 'replace', env):
     return
   _try_check_proof_of(proof.body, new_formula, env)
@@ -1436,6 +1471,7 @@ def _check_proof_of_simplify_goal(proof: SimplifyGoal, formula: CheckedFormula, 
   new_formula = apply_rewrites(loc, formula, eqns, env,
                                display_eqns=display_eqns)
   new_formula = new_formula.reduce(env)
+  record_step(proof, env, formula=new_formula)
   if _missing_period_after_tactic(loc, proof.body, new_formula, 'simplify', env):
     return
   _try_check_proof_of(proof.body, new_formula, env)
@@ -1444,6 +1480,7 @@ def _check_proof_of_apply_defs_goal(proof: ApplyDefsGoal, formula: CheckedFormul
   loc = proof.location
   new_formula = expand_definitions(loc, formula, proof.definitions, env)
   red_formula = new_formula.reduce(env)
+  record_step(proof, env, formula=red_formula)
   if _missing_period_after_tactic(loc, proof.body, red_formula, 'expand', env):
     return
   sink = get_active_sink()
@@ -1598,10 +1635,11 @@ def _check_proof_of_let(proof: PLet, formula: CheckedFormula, env: Env) -> None:
     case Hole(_, _):
       proved_formula = check_proof(proof.because, env)
       warning(loc, "\nhave " + base_name(proof.label) + ':\n\t' + str(proved_formula))
-      body_env = env.declare_local_proof_var(loc, proof.label, proved_formula)
     case _:
       _try_check_proof_of(proof.because, new_frm, env)
-      body_env = env.declare_local_proof_var(loc, proof.label, remove_mark(new_frm))
+      proved_formula = remove_mark(new_frm)
+  record_step(proof, env, formula=proved_formula)
+  body_env = env.declare_local_proof_var(loc, proof.label, proved_formula)
   _try_check_proof_of(proof.body, formula, body_env)
 
 def _check_proof_of_annot(proof: PAnnot, formula: CheckedFormula, env: Env) -> None:
@@ -1613,6 +1651,7 @@ def _check_proof_of_annot(proof: PAnnot, formula: CheckedFormula, env: Env) -> N
       add_diagnostic(loc, '\nneed to show:\n\t' + str(formula)
             + givens_str(env))
     case _:
+      record_step(proof, env, formula=new_claim)
       claim_red = new_claim.reduce(env)
       formula_red = formula.reduce(env)
       check_implies(loc, remove_mark(claim_red).reduce(env),
@@ -2087,6 +2126,7 @@ def check_proof_of(proof: Proof, formula: CheckedFormula, env: Env) -> None:
   if get_verbose():
     print('check_proof_of: ' + str(formula) + '?')
     print('\t' + str(proof))
+  record_step(proof, env, goal=formula)
   handler = _CHECK_PROOF_OF_HANDLERS.get(type(proof))
   if handler is not None:
     return handler(proof, formula, env)

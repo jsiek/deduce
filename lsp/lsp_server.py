@@ -175,6 +175,15 @@ HOLE_CONTEXT_AT_REQUEST = "deduce/holeContextAt"
 # sidecar calls this on each candidate Claude generates.
 VALIDATE_PROOF_REQUEST = "deduce/validateProof"
 
+# Per-step proof annotations from one check (issue #1214). The same
+# method name serves as a request (for one document) and as a
+# notification the server pushes after each check, next to the
+# diagnostics. The notification is opt-in through the
+# ``{"proofOutline": true}`` initialization option, since recording an
+# outline bypasses the per-statement proof cache.
+PROOF_OUTLINE = "deduce/proofOutline"
+_push_proof_outline = False
+
 server = LanguageServer(
     SERVER_NAME,
     SERVER_VERSION,
@@ -274,7 +283,12 @@ def _publish_diagnostics(ls: LanguageServer, uri: str) -> None:
     if content is None:
         return
     path = _path_from_uri(uri)
-    diags = _query.check(path, content, prelude=_prelude_for(path))
+    outline: Optional[_query.ProofOutline] = None
+    if _push_proof_outline:
+        outline = _query.proof_outline(path, content, prelude=_prelude_for(path))
+        diags = list(outline.diagnostics)
+    else:
+        diags = _query.check(path, content, prelude=_prelude_for(path))
     # pygls 2.x exposes the publish-diagnostics notification as
     # ``text_document_publish_diagnostics(params)``. The pre-2.x
     # ``publish_diagnostics(uri, list)`` shape was removed; calling
@@ -295,6 +309,41 @@ def _publish_diagnostics(ls: LanguageServer, uri: str) -> None:
                 for d in diags
             ],
         )
+    )
+    if outline is not None:
+        ls.protocol.notify(PROOF_OUTLINE, _proof_outline_payload(uri, outline))
+
+
+def _proof_outline_payload(
+    uri: str, outline: _query.ProofOutline
+) -> dict[str, object]:
+    return {
+        "uri": uri,
+        "steps": [
+            {
+                "kind": st.kind,
+                "range": _range_payload_from_query(st.range),
+                "goal": st.goal,
+                "formula": st.formula,
+                "givens": [
+                    {"label": g.label, "formula": g.formula} for g in st.givens
+                ],
+                "uses": [{"name": u.name, "kind": u.kind} for u in st.uses],
+                "status": st.status,
+            }
+            for st in outline.steps
+        ],
+    }
+
+
+@server.feature(lsp_types.INITIALIZE)
+def on_initialize(
+    ls: LanguageServer, params: lsp_types.InitializeParams
+) -> None:
+    """Read the ``proofOutline`` initialization option."""
+    global _push_proof_outline
+    _push_proof_outline = _field_as_bool(
+        params.initialization_options, "proofOutline", False
     )
 
 
@@ -345,13 +394,13 @@ def on_did_change(
 def on_did_close(
     ls: LanguageServer, params: lsp_types.DidCloseTextDocumentParams
 ) -> None:
-    """Clear diagnostics when the editor closes the buffer."""
+    """Clear diagnostics (and the outline) when the editor closes the buffer."""
+    uri = params.text_document.uri
     ls.text_document_publish_diagnostics(
-        lsp_types.PublishDiagnosticsParams(
-            uri=params.text_document.uri,
-            diagnostics=[],
-        )
+        lsp_types.PublishDiagnosticsParams(uri=uri, diagnostics=[])
     )
+    if _push_proof_outline:
+        ls.protocol.notify(PROOF_OUTLINE, {"uri": uri, "steps": []})
 
 
 # --- Query features ------------------------------------------------------
@@ -655,6 +704,31 @@ def on_goal_at(
         ],
         "range": _range_payload_from_query(goal.range),
     }
+
+
+@server.feature(PROOF_OUTLINE)
+def on_proof_outline(
+    ls: LanguageServer, params: object
+) -> Optional[dict[str, object]]:
+    """Custom request: per-step annotations for a whole document.
+
+    Params: ``{"textDocument": {"uri": "..."}}``.
+
+    Result: ``{"uri": str, "steps": [{"kind": str, "range": Range,
+    "goal": str | None, "formula": str | None, "givens": [{"label":
+    str | None, "formula": str}], "uses": [{"name": str, "kind":
+    "given" | "lemma" | "definition"}], "status": "ok" | "error" |
+    "incomplete"}]}`` or ``null``. See :class:`lsp.query.ProofStep`.
+    """
+    uri = _field_as_str(_get_field(params, "textDocument"), "uri")
+    if not uri:
+        return None
+    content = _document_content(ls, uri)
+    if content is None:
+        return None
+    path = _path_from_uri(uri)
+    outline = _query.proof_outline(path, content, prelude=_prelude_for(path))
+    return _proof_outline_payload(uri, outline)
 
 
 @server.feature(HOLE_CONTEXT_AT_REQUEST)

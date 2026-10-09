@@ -61,6 +61,8 @@ if TYPE_CHECKING:
     )
     from abstract_syntax import Union as UnionDecl
     from error import WarningRecord
+    from checker_proofs import StepRecord
+    from lsp.library import CheckResult
 
 
 __all__ = [
@@ -85,6 +87,9 @@ __all__ = [
     "RewritePreview",
     "ExpandPreview",
     "AutoRule",
+    "StepUse",
+    "ProofStep",
+    "ProofOutline",
     # Query functions
     "check",
     "goal_at",
@@ -108,6 +113,7 @@ __all__ = [
     "preview_replace_at",
     "preview_expand_at",
     "auto_rules_at",
+    "proof_outline",
 ]
 
 # TODO: remove the _call_untyped function.
@@ -564,6 +570,56 @@ class AutoRule:
     premise: Optional[str] = None
 
 
+@dataclass(frozen=True)
+class StepUse:
+    """A name a proof step relies on, for short reason summaries such
+    as "IH" or "def. of length". ``kind`` is ``"given"`` (a local
+    hypothesis), ``"lemma"`` (a theorem, lemma or postulate) or
+    ``"definition"`` (a name the step ``expand``s)."""
+
+    name: str
+    kind: str
+
+
+@dataclass(frozen=True)
+class ProofStep:
+    """Annotations for one proof node, returned by :func:`proof_outline`.
+
+    ``kind`` is the proof node's class name (``"PLet"`` for ``have``,
+    ``"PAnnot"`` for ``conclude`` and each ``equations`` link,
+    ``"RewriteGoal"`` for ``replace``, ...). ``range`` is the node's
+    source range; an ``equations`` link spans ``rhs by reason``.
+
+    ``goal`` is the goal before the step, ``None`` for nodes that are
+    only synthesized (e.g. the reason of a ``have``). ``formula`` is
+    what the step establishes: the claim of a ``have`` / ``conclude`` /
+    ``equations`` link, the residual goal after ``replace`` / ``expand``
+    / ``simplify``, or the formula a synthesized proof proves.
+
+    ``status`` is ``"ok"``, ``"error"`` or ``"incomplete"`` (a ``?`` or
+    ``sorry``). It reflects only diagnostics whose innermost enclosing
+    step is this one, so a ``have`` whose continuation fails stays
+    ``"ok"``.
+    """
+
+    kind: str
+    range: Range
+    goal: Optional[str]
+    formula: Optional[str]
+    givens: tuple[Given, ...]
+    uses: tuple[StepUse, ...]
+    status: str
+
+
+@dataclass(frozen=True)
+class ProofOutline:
+    """Result of :func:`proof_outline`: the steps of every proof in the
+    file in source order, plus the diagnostics of the same check."""
+
+    steps: tuple[ProofStep, ...]
+    diagnostics: tuple[Diagnostic, ...]
+
+
 # ---------------------------------------------------------------------------
 # Query functions
 # ---------------------------------------------------------------------------
@@ -615,10 +671,14 @@ def check(
     # That keeps the protocol-neutral boundary cheap to enforce.
     from lsp.library import check_file
 
-    result = check_file(
+    return _diagnostics_of(check_file(
         path, content=content, prelude=prelude,
         collect_errors=True, parser=parser,
-    )
+    ))
+
+
+def _diagnostics_of(result: "CheckResult") -> list[Diagnostic]:
+    """Every error and warning of a ``collect_errors=True`` check."""
     diagnostics: list[Diagnostic] = []
     if not result.ok:
         if result.errors:
@@ -5636,3 +5696,136 @@ def _auto_rule_from_stmt(
         module=module_name,
         premise=premise,
     )
+
+
+def proof_outline(
+    path: str, content: str, prelude: Sequence[str] = ()
+) -> ProofOutline:
+    """Annotate every proof step in ``content`` from a single check.
+
+    Where :func:`goal_at` re-checks the enclosing theorem once per
+    position, this runs the checker once with the proof-outline
+    recorder on (``flags.proof_outline``), so a view of a *k*-step
+    proof costs one check rather than *k*. Errors are collected rather
+    than raised, so steps before (and independent of) an error are
+    still annotated. ``prelude`` matches the meaning in :func:`check`.
+    """
+    import flags
+    from error import IncompleteProof
+    from lsp.library import _check_file_lock, check_file
+
+    records: dict[tuple[object, ...], "StepRecord"] = {}
+    # Hold the check lock while the recorder is installed, so a
+    # concurrent check can neither write into it nor reset it.
+    with _check_file_lock:
+        flags.set_proof_outline(records)
+        try:
+            result = check_file(
+                path, content=content, prelude=prelude, collect_errors=True,
+            )
+        finally:
+            flags.set_proof_outline(None)
+
+    mine = sorted(
+        (r for r in records.values() if _meta_in_file(r.proof.location, path)),
+        key=lambda r: _meta_order(r.proof.location),
+    )
+    status = ["ok"] * len(mine)
+    for exc in result.errors or ():
+        i = _innermost_step(mine, getattr(exc, "location", None))
+        if i is not None and status[i] != "error":
+            status[i] = (
+                "incomplete" if isinstance(exc, IncompleteProof) else "error"
+            )
+    from abstract_syntax import PSorry
+
+    steps = tuple(
+        ProofStep(
+            kind=type(r.proof).__name__,
+            range=_range_from_meta(r.proof.location),
+            goal=None if r.goal is None else str(r.goal),
+            formula=None if r.formula is None else str(r.formula),
+            givens=tuple(
+                Given(label, str(frm))
+                for label, frm in _collect_local_givens(r.env)
+            ),
+            uses=_step_uses(r.proof, r.env),
+            status="incomplete" if isinstance(r.proof, PSorry) else st,
+        )
+        for r, st in zip(mine, status)
+    )
+    return ProofOutline(steps, tuple(_diagnostics_of(result)))
+
+
+def _meta_order(meta: Meta) -> tuple[int, int, int, int]:
+    """Sort key: source order, enclosing nodes before nested ones."""
+    return (meta.line, meta.column, -meta.end_line, -meta.end_column)
+
+
+def _innermost_step(
+    records: Sequence["StepRecord"], loc: Optional[Meta]
+) -> Optional[int]:
+    """Index of the smallest recorded step whose range contains
+    ``loc``'s range, or ``None``."""
+    if loc is None or getattr(loc, "empty", True):
+        return None
+    start = (loc.line, loc.column)
+    end = (loc.end_line, loc.end_column)
+    best: Optional[int] = None
+    for i, r in enumerate(records):
+        m = r.proof.location
+        if (m.line, m.column) <= start and end <= (m.end_line, m.end_column):
+            if best is None or _meta_order(m) > _meta_order(
+                records[best].proof.location
+            ):
+                best = i
+    return best
+
+
+# Fields holding the proof that *continues* after a step (the rest of
+# the proof, or its case arms) rather than the step's own reason.
+# ``body`` of ``conclude`` / ``symmetric`` / ``injective`` /
+# ``extensionality`` is the reason, so it stays in.
+_CONTINUATION_FIELDS = frozenset({"body", "cases"})
+_REASON_BODY_KINDS = frozenset(
+    {"PAnnot", "PSymmetric", "PInjective", "PExtensionality"}
+)
+
+
+def _step_uses(proof: "AST", env: "Env") -> tuple[StepUse, ...]:
+    """Givens, lemmas and expanded definitions that ``proof`` cites in
+    its own reason (not in the proof that continues after it)."""
+    from dataclasses import fields, is_dataclass
+
+    from abstract_syntax import (
+        ApplyDefsFact, ApplyDefsGoal, Proof, ProofBinding, PVar, base_name,
+    )
+
+    uses: dict[StepUse, None] = {}
+
+    def visit(node: object) -> None:
+        if isinstance(node, (list, tuple)):
+            for x in node:
+                visit(x)
+            return
+        if isinstance(node, PVar):
+            binding = env.dict.get(node.name)
+            if isinstance(binding, ProofBinding):
+                kind = "given" if binding.local else "lemma"
+                uses[StepUse(base_name(node.name), kind)] = None
+            return
+        if isinstance(node, (ApplyDefsGoal, ApplyDefsFact)):
+            for d in node.definitions:
+                uses[StepUse(str(d), "definition")] = None
+        if not isinstance(node, Proof) or not is_dataclass(node):
+            return
+        skip = (
+            set() if type(node).__name__ in _REASON_BODY_KINDS
+            else _CONTINUATION_FIELDS
+        )
+        for f in fields(node):
+            if f.name not in skip:
+                visit(getattr(node, f.name))
+
+    visit(proof)
+    return tuple(uses)

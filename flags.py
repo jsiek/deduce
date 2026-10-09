@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Optional
 
 if TYPE_CHECKING:
+  from checker_proofs import StepRecord
   from lsp.debugger import Debugger
 
 class VerboseLevel(Enum):
@@ -200,6 +201,22 @@ def get_debugger() -> Optional["Debugger"]:
 def set_debugger(d: Optional["Debugger"]) -> None:
   global debugger
   debugger = d
+
+# Per-step proof annotations for ``lsp.query.proof_outline`` (#1214).
+# ``None`` outside an outline run; otherwise ``check_proof_of`` and
+# ``check_proof`` record each proof node they visit here, keyed by its
+# source range (see ``checker_proofs.record_step``), and ``check_deduce``
+# bypasses its per-statement cache so every proof is visited.
+
+proof_outline: Optional[dict[tuple[object, ...], "StepRecord"]] = None
+
+def get_proof_outline() -> Optional[dict[tuple[object, ...], "StepRecord"]]:
+  return proof_outline
+
+def set_proof_outline(
+    steps: Optional[dict[tuple[object, ...], "StepRecord"]]) -> None:
+  global proof_outline
+  proof_outline = steps
 
 # Display-only aliases mapping a view's source-type name to the view's
 # public name. Populated when a `view` declaration is processed
