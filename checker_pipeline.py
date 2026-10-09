@@ -42,7 +42,8 @@ from abstract_syntax import (
 )
 from checker_cache import (
     _collect_defined_names, _collect_referenced_names, _hash_ast,
-    _is_global_barrier, _record_hit, _record_miss, _stmt_cache,
+    _is_global_barrier, _prelude_imports_cache, _record_hit, _record_miss,
+    _stmt_cache,
 )
 from checker_common import *
 from checker_predicates import (
@@ -2352,6 +2353,28 @@ def check_exported_contract_visibility(ast: List[Statement]) -> None:
                  + "' in its contract; a public contract may only mention "
                  + 'names visible to importing modules.')
 
+def _prelude_imports_key(
+    ast: list[Statement], module_name: str
+) -> Optional[tuple[object, ...]]:
+  """The key of ``_prelude_imports_cache`` for the leading run of
+  prelude imports in ``ast`` (``Import``s with no source location), or
+  ``None`` when there are none or they can't be reused: a file named like
+  one of them must get the recursive-import error, and the postulate
+  report records what processing them uses."""
+  prefix = []
+  for s in ast:
+    if not (isinstance(s, Import) and s.location.empty):
+      break
+    prefix.append(s)
+  if not prefix or get_postulate_report() \
+      or any(s.name == module_name for s in prefix):
+    return None
+  return tuple(
+    (s.name, s.visibility, tuple(s.using or ()), tuple(s.hiding or ()), id(s.ast))
+    for s in prefix
+  )
+
+
 def check_deduce(ast: List[Statement], module_name: str, modified: bool,
                  tracing_functions: List[str],
                  error_sink: Optional[ErrorSink] = None) -> List[Statement]:
@@ -2417,7 +2440,16 @@ def _check_deduce_body(ast: list[Statement], module_name: str, modified: bool,
     _collect_diagnostic(e)
 
   ast2_pairs = []
-  for s in ast:
+  # Prelude imports already processed in an earlier check: reuse them
+  # rather than re-processing (and re-type-checking) the whole prelude.
+  prefix_key = _prelude_imports_key(ast, module_name)
+  cached = _prelude_imports_cache.get(prefix_key) if prefix_key else None
+  if cached is not None:
+    pairs, env_after, imported = cached
+    ast2_pairs.extend(cast(list[tuple[Statement, int]], pairs))
+    env = cast(Env, env_after).declare_module(module_name)
+    imported_modules.update(imported)
+  for s in ast[len(ast2_pairs):]:
     sh = _hash_ast(s)
     try:
       new_s, env = process_declaration(s, env, [module_name], needs_checking)
@@ -2425,6 +2457,12 @@ def _check_deduce_body(ast: list[Statement], module_name: str, modified: bool,
       _collect_diagnostic(e)
       continue
     ast2_pairs.append((new_s, sh))
+    if prefix_key and cached is None and len(ast2_pairs) == len(prefix_key):
+      # Every prelude import processed cleanly: keep the result. (Its
+      # only side effect, rewriting the `.thm` file of an import that
+      # looks modified, already happened now.)
+      _prelude_imports_cache[prefix_key] = (
+        list(ast2_pairs), env, set(imported_modules))
   if get_verbose():
     for s, _ in ast2_pairs:
       print(s)

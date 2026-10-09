@@ -52,6 +52,15 @@ from checker_common import *
 _StmtCacheKey = tuple[str, int, int, tuple[int, int] | None, str]
 _stmt_cache: dict[_StmtCacheKey, bool] = {}
 
+# The processed prelude imports (issue #1245): the leading run of
+# location-less ``Import`` statements the LSP puts in front of a file.
+# Processing them gives the same result in every check against the same
+# post-prelude state, so ``check_deduce`` keeps it here, keyed by the
+# imports (and the identity of the module ASTs they carry), and reuses
+# it. The value is the processed (statement, hash) pairs, the env after
+# them, and the modules they import.
+_prelude_imports_cache: dict[tuple[object, ...], tuple[list[tuple[object, int]], object, set[str]]] = {}
+
 # Hits and misses bucketed by loop, for the test instrumentation
 # the plan requires ("untouched statements were cache hits").
 _cache_stats: dict[str, dict[str, int]] = {"hits": {}, "misses": {}}
@@ -63,6 +72,7 @@ def reset_stmt_cache() -> None:
     to start each fixture from a clean slate."""
     global _stmt_cache
     _stmt_cache.clear()
+    _prelude_imports_cache.clear()
     _cache_stats["hits"].clear()
     _cache_stats["misses"].clear()
 
