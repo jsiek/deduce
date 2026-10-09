@@ -182,6 +182,12 @@ VALIDATE_PROOF_REQUEST = "deduce/validateProof"
 # ``{"proofOutline": true}`` initialization option, since recording an
 # outline bypasses the per-statement proof cache.
 PROOF_OUTLINE = "deduce/proofOutline"
+
+# Subterm-addressed steps (issue #1219): act on the subterm at a path in
+# the goal's formula tree (see ``lsp.query.TermTree``) at a hole.
+PREVIEW_REPLACE_AT_SUBTERM_REQUEST = "deduce/previewReplaceAtSubterm"
+PREVIEW_EXPAND_AT_SUBTERM_REQUEST = "deduce/previewExpandAtSubterm"
+LEMMAS_FOR_SUBTERM_REQUEST = "deduce/lemmasForSubterm"
 _push_proof_outline = False
 
 server = LanguageServer(
@@ -1140,6 +1146,104 @@ def on_available_lemmas_at(
         query=query,
         prelude=_prelude_for(path),
         limit=limit,
+    )
+    return [_lemma_match_payload(m) for m in matches]
+
+
+def _subterm_params(
+    ls: LanguageServer, params: object
+) -> Optional[tuple[str, str, str, _query.Position, list[int]]]:
+    """``(uri, path, content, position, subterm)`` from the params of a
+    subterm request, or ``None`` when they are incomplete."""
+    uri = _field_as_str(_get_field(params, "textDocument"), "uri")
+    subterm = _get_field(params, "subterm")
+    if not uri or not isinstance(subterm, list) or not all(
+        isinstance(i, int) for i in subterm
+    ):
+        return None
+    content = _document_content(ls, uri)
+    if content is None:
+        return None
+    pos = _query_pos_from_lsp(_position_from_param(_get_field(params, "position")))
+    return uri, _path_from_uri(uri), content, pos, subterm
+
+
+def _subterm_preview_payload(
+    uri: str, preview: Optional[_query.SubtermPreview]
+) -> Optional[dict[str, object]]:
+    if preview is None:
+        return None
+    return {
+        "outcome": preview.outcome,
+        "goal": _json(preview.goal),
+        "edit": None if preview.edit is None
+        else _workspace_edit_payload(uri, preview.edit),
+        "message": preview.message,
+    }
+
+
+@server.feature(PREVIEW_REPLACE_AT_SUBTERM_REQUEST)
+def on_preview_replace_at_subterm(
+    ls: LanguageServer, params: object
+) -> Optional[dict[str, object]]:
+    """Custom request: ``replace`` applied to one subterm of the goal.
+
+    Params: ``{"textDocument": {"uri"}, "position": Position (on a
+    ``?``), "subterm": [int] (a path in the goal's formula tree),
+    "equation": str (as written after ``replace``)}``.
+
+    Result: ``{"outcome": "ok" | "invalid_path" | "error", "goal":
+    Tree | null, "edit": WorkspaceEdit | null, "message": str | null}``
+    or ``null`` off a hole. See :class:`lsp.query.SubtermPreview`.
+    """
+    parsed = _subterm_params(ls, params)
+    equation = _field_as_str(params, "equation")
+    if parsed is None or not equation:
+        return None
+    uri, path, content, pos, subterm = parsed
+    return _subterm_preview_payload(uri, _query.preview_replace_at_subterm(
+        path, content, pos, subterm, equation, prelude=_prelude_for(path)
+    ))
+
+
+@server.feature(PREVIEW_EXPAND_AT_SUBTERM_REQUEST)
+def on_preview_expand_at_subterm(
+    ls: LanguageServer, params: object
+) -> Optional[dict[str, object]]:
+    """Custom request: ``expand`` applied to one subterm of the goal.
+
+    Params: as ``deduce/previewReplaceAtSubterm``, with ``"names":
+    [str]`` (the definitions to unfold) instead of ``"equation"``.
+    Result: as ``deduce/previewReplaceAtSubterm``.
+    """
+    parsed = _subterm_params(ls, params)
+    names = _get_field(params, "names")
+    if parsed is None or not isinstance(names, list) or not names \
+            or not all(isinstance(n, str) for n in names):
+        return None
+    uri, path, content, pos, subterm = parsed
+    return _subterm_preview_payload(uri, _query.preview_expand_at_subterm(
+        path, content, pos, subterm, names, prelude=_prelude_for(path)
+    ))
+
+
+@server.feature(LEMMAS_FOR_SUBTERM_REQUEST)
+def on_lemmas_for_subterm(
+    ls: LanguageServer, params: object
+) -> list[dict[str, object]]:
+    """Custom request: ``deduce/availableLemmasAt`` ranked against one
+    subterm of the goal. Params: as ``deduce/availableLemmasAt`` plus
+    ``"subterm": [int]``. Result: as ``deduce/availableLemmasAt``."""
+    parsed = _subterm_params(ls, params)
+    if parsed is None:
+        return []
+    _, path, content, pos, subterm = parsed
+    limit_obj = _get_field(params, "limit")
+    matches = _query.lemmas_for_subterm(
+        path, content, pos, subterm,
+        query=_field_as_str(params, "query"),
+        prelude=_prelude_for(path),
+        limit=limit_obj if isinstance(limit_obj, int) else 50,
     )
     return [_lemma_match_payload(m) for m in matches]
 
