@@ -4992,6 +4992,8 @@ def _unify_score(
         # it's what `replace` and `apply` would see, and unfolding
         # definitions on every mismatch made ranking take seconds.
         formula_match(location, vars, conc, goal_ast, matching, Env(), outer_env=env)
+        if any(v.name not in matching for v in vars):
+            _match_premises_with_givens(vars, premises, given_pairs, matching, location, env)
         unmatched = [v for v in vars if v.name not in matching]
         if not unmatched and _matching_respects_var_types(vars, matching):
             conc_matched = True
@@ -5062,6 +5064,39 @@ def _unify_score(
         )
 
     return (0.0, None, (), ())
+
+
+def _match_premises_with_givens(
+    vars: list["ResolvedVar"],
+    premises: list["Formula"],
+    given_pairs: tuple[tuple[str, "Formula"], ...],
+    matching: dict[str, "Term"],
+    location: object,
+    env: "Env",
+) -> None:
+    """Bind, in ``matching``, the variables a lemma's conclusion leaves
+    open (the ``y`` of ``x ≤ y and y ≤ z`` in a transitivity lemma) by
+    matching each of its premises with a given, or with a conjunct of
+    one. A premise that matches no given binds nothing."""
+    from abstract_syntax import And, Env, formula_match
+    from error import MatchFailed
+
+    facts = [
+        part
+        for _, given in given_pairs
+        for part in (given.args if isinstance(given, And) else [given])
+    ]
+    for premise in premises:
+        for fact in facts:
+            trial = dict(matching)
+            try:
+                formula_match(location, vars, premise, fact, trial, Env(), outer_env=env)
+            except MatchFailed:
+                continue
+            except Exception:
+                continue
+            matching.update(trial)
+            break
 
 
 def _equation_subterm_match(

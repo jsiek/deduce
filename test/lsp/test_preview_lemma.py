@@ -91,6 +91,20 @@ def test_off_a_hole_or_unknown_name(tmp_path):
     assert query.preview_lemma_at(path, TRANS, _hole(TRANS), "no_such_lemma", prelude=PRELUDE) is None
 
 
+def test_a_transitivity_lemma_takes_its_middle_term_from_the_givens(tmp_path):
+    # `less_trans`'s conclusion `x < z` leaves `y` open; the given
+    # `a < b and b < c` supplies it.
+    less = TRANS.replace("≤", "<")
+    path = str(tmp_path / "t.pf")
+    pos = _hole(less)
+    tier = {m.name: m.unify_tier for m in query.available_lemmas_at(path, less, pos, prelude=PRELUDE)}
+    assert tier["less_trans"] == "premises_remain"
+    p = _preview(tmp_path, less, "less_trans")
+    assert p.outcome == "ok"
+    assert p.edit.new_text == "apply less_trans[a, b, c] to ?, ?"
+    assert [str(g) for g in p.goals] == ["a < b", "b < c"]
+
+
 def test_insert_lemma_matches_the_ranking_tier(tmp_path):
     # The ranking classifies with the type-checked formula; so must the step.
     path = str(tmp_path / "t.pf")

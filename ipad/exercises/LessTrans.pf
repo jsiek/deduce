@@ -1,0 +1,9 @@
+// Prove that < is transitive across three steps. A lemma from the
+// standard library does most of the work: tap the ? and look under
+// Lemmas, or search for one.
+
+theorem less_trans3: all a:Nat, b:Nat, c:Nat, d:Nat.
+  if a < b and b < c and c < d then a < d
+proof
+  ?
+end
