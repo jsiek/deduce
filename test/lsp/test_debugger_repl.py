@@ -261,6 +261,37 @@ def test_conditional_breakpoint_fires_when_true():
     assert "-> call double" in out
 
 
+def test_print_expression_over_frame_params():
+    """Params are substituted into an expression, and shadow the
+    caller's binding of the same pattern variable."""
+    path = _write_fixture("print_params.pf", RECURSIVE_PROGRAM)
+    _, _, out = _run(
+        path,
+        "break double\n"
+        "continue\n"
+        "continue\n"     # second call: n' = zero
+        "print suc(n')\n"
+        "print n' = zero\n"
+        "quit\n",
+    )
+    assert "(deduce-debug) suc(zero)\n(deduce-debug) true\n" in out
+
+
+def test_conditional_breakpoint_on_param():
+    path = _write_fixture("bp_cond_param.pf", RECURSIVE_PROGRAM)
+    result, _, out = _run(
+        path,
+        "break double if n' = zero\n"
+        "continue\n"
+        "locals\n"
+        "delete\n"
+        "continue\n",
+    )
+    assert result.ok, result.error_message
+    assert "-> call double(suc(zero))" in out
+    assert "n' = zero" in out
+
+
 def test_delete_breakpoints():
     path = _write_fixture("bp_delete.pf", RECURSIVE_PROGRAM)
     result, dbg, out = _run(
@@ -466,7 +497,7 @@ def test_help_alias_is_h():
 GENERIC_PROGRAM = """\
 import List
 
-print length(node(zero, node(suc(zero), empty)))
+print length(node(0, node(1, empty)))
 """
 
 GENERIC_PRELUDE = ("Nat", "Base", "UInt", "List")
@@ -480,7 +511,7 @@ def _run_with_prelude(path: Path, repl_input: str, prelude):
 
 
 def test_step_through_generic_function():
-    """``length<Nat>(node(0, node(1, empty)))`` exercises a generic
+    """``length(node(0, node(1, empty)))`` exercises a generic
     recursive function.  The ``do_function_call`` hook should fire
     with the type-args present in the call (the function is
     instantiated at ``E = Nat`` here)."""
@@ -752,10 +783,10 @@ def test_print_generic_call_returns_result():
     path = _write_fixture("generic_print.pf", GENERIC_PROGRAM)
     _, _, out = _run_with_prelude(
         path,
-        "print length(node(zero, empty))\n"
+        "print length(node(0, empty))\n"
         "quit\n",
         GENERIC_PRELUDE,
     )
-    # Should produce the literal 1 (one-element list).  Don't pin the
-    # exact rendering of UInt 1 -- just confirm it didn't error out.
-    assert "could not evaluate" not in out
+    # The overloaded ``length`` must be resolved (type-checked) for the
+    # call to reduce; unresolved, the call came back unevaluated.
+    assert "(deduce-debug) 1\n" in out

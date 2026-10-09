@@ -131,6 +131,17 @@ def test_unsaved_content_bypasses_module_cache(tmp_path: Path) -> None:
     assert path.stem not in get_uniquified_modules()
 
 
+def test_check_result_repr_omits_ast() -> None:
+    """pytest renders ``repr(result)`` when ``assert result.ok`` fails.
+    The repr of a type-checked AST over the stdlib prelude does not
+    finish in practice (issue #1201: tens of GB), so ``ast`` must stay
+    out of it. Checked on the field rather than by calling ``repr``,
+    so a regression fails instead of hanging."""
+    from dataclasses import fields
+
+    assert not next(f for f in fields(CheckResult) if f.name == "ast").repr
+
+
 @pytest.mark.parametrize("parser", ["recursive-descent", "lalr"])
 def test_parser_argument_validates_with_each(parser: str) -> None:
     """``check_file(parser=...)`` runs the requested parser on the user

@@ -1055,22 +1055,26 @@ class Debugger:
             b = base_name(unique)
             u_env.setdefault(b, []).append(unique)
         # Also expose the current frame's params under their base
-        # names so ``print x`` works inside a function call.  PR #269
-        # only supported bare identifiers via this path; here it
-        # composes with the parser, so ``print x + 1`` works too.
+        # names, then substitute their values, so ``print x + 1`` and
+        # ``break f if x = zero`` work inside a function call.  They
+        # shadow ``env``, which can bind the same name for the caller's
+        # frame (a recursive call's pattern variable).
         params = self._focus_params()
         for k in params.keys():
-            u_env.setdefault(k, []).append(k)
+            u_env[k] = [k]
 
         ctx = UniquifyContext()
-        term = term.uniquify(u_env, ctx)
+        term = cast(TermClass, term.uniquify(u_env, ctx).substitute(dict(params)))
+        # Type-check to resolve overloads (e.g. ``length``); an
+        # unresolved call would not reduce.
+        from checker_types import type_synth_term
+        term = type_synth_term(term, env, None, [])
         # Force full reduction so the printed value matches what
         # ``print`` / ``assert`` would compute in the proof checker.
-        from abstract_syntax import set_eval_all, set_reduce_all
-        set_reduce = cast(Callable[[bool], None], set_reduce_all)
-        set_eval = cast(Callable[[bool], None], set_eval_all)
-        set_reduce(True)
-        set_eval(True)
+        # ``full_reduce`` restores the previous flags: a breakpoint
+        # condition is evaluated in the middle of the checker's own
+        # reduction (e.g. a ``print``), which must not be cut short.
+        from abstract_syntax import full_reduce
         # Suppress traps while evaluating the user's debugger
         # expression: the reduction will fire the same hooks the
         # surrounding session uses, and re-trapping inside ``print``
@@ -1087,13 +1091,11 @@ class Debugger:
         )
         self._step_mode = _StepMode.RUN
         try:
-            return term.reduce(env)
+            return cast(TermClass, full_reduce(term, env))
         finally:
             (self._step_mode, self._step_depth,
              self._current_env, self._current_loc, self._current_stmt,
              self.stack) = saved_state
-            set_eval(False)
-            set_reduce(False)
 
     # ------------------------------------------------------------------
     # Output helpers -- one call site each so a future DAP adapter can
