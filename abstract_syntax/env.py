@@ -269,18 +269,14 @@ class Env:
     ind_dict["thm"] = thm
     type_name = cast(VarRef, get_type_name(typ)).get_name()
 
-    if full_name in new_env.dict:
-      inductives = cast(dict[str, InductiveInfo], new_env.dict[full_name])
-      if type_name in inductives:
-        pass
-      else:
-        inductives[type_name] = ind_dict
-      # Check for type, overwrite/ add to existing
-      pass
-    else:
-      inductives = {type_name: ind_dict}
-      new_env.dict[full_name] = inductives
-    
+    # Copy the table rather than adding to it: an Env must not change
+    # once built, since environments are shared (e.g. the cached prelude
+    # imports, #1245).
+    inductives = dict(cast(dict[str, InductiveInfo], new_env.dict.get(full_name, {})))
+    if type_name not in inductives:
+      inductives[type_name] = ind_dict
+    new_env.dict[full_name] = inductives
+
     return new_env
 
   def get_inductive(self, typ: Type) -> InductiveInfo | None:
@@ -332,10 +328,7 @@ class Env:
   
   def declare_tracing(self, function_name: str) -> Env:
     new_env = Env(self.dict)
-    if 'tracing' not in new_env.dict:
-      new_env.dict['tracing'] = set()
-    tracing = cast(set[str], new_env.dict['tracing'])
-    tracing.add(function_name)
+    new_env.dict['tracing'] = cast(set[str], self.dict.get('tracing', set())) | {function_name}
     return new_env
 
   def get_current_module(self) -> str:

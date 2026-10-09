@@ -112,3 +112,38 @@ def test_sanity_walks_skip_imported_module_bodies(check):
     check([Import(Meta(), "M", [stray])])
     with pytest.raises(Exception, match="pre-uniquify `Var`"):
         check([stray])
+
+
+MINI_IND = """\
+union Bit { o  i }
+
+postulate bit_induction: all P: fn Bit -> bool.
+  if P(o) and P(i) then all b:Bit. P(b)
+
+inductive Bit by bit_induction
+"""
+
+
+def test_user_inductive_does_not_leak_into_later_checks(tmp_path, monkeypatch):
+    """The prelude declares an ``inductive``, so the cached env holds an
+    inductives table. A user file's own ``inductive`` must not end up in
+    it: checking the file again without that declaration must fail as it
+    does in a fresh process (issue #1249 review)."""
+    (tmp_path / "MiniInd.pf").write_text(MINI_IND)
+    monkeypatch.setattr(
+        flags, "import_directories", flags.import_directories | {str(tmp_path)}
+    )
+    full = (REPO_ROOT / "test" / "should-validate" / "custom_induction.pf").read_text()
+    without = full.replace("inductive TwoList by tl_induction\n", "")
+    assert without != full
+    library.reset_prelude_cache()
+    try:
+        cold = library.check_file("u.pf", content=without, prelude=("MiniInd",))
+        assert not cold.ok
+
+        library.reset_prelude_cache()
+        assert library.check_file("u.pf", content=full, prelude=("MiniInd",)).ok
+        warm = library.check_file("u.pf", content=without, prelude=("MiniInd",))
+        assert not warm.ok and warm.error_message == cold.error_message
+    finally:
+        library.reset_prelude_cache()
