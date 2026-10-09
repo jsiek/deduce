@@ -165,7 +165,7 @@ struct HoleInspector: View {
                     }
                 }
                 if let statement = lemma.statement {
-                    Text(statement).font(TextbookView.proseFont).foregroundStyle(.primary).lineLimit(2)
+                    Text(statement).font(TextbookView.proseFont).foregroundStyle(Color.secondary).lineLimit(2)
                 }
             }
         }

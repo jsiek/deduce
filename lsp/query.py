@@ -2066,10 +2066,10 @@ def refine_at(
             supported_shapes=REFINE_SUPPORTED_SHAPES,
         )
 
-    template = _indent_continuation(
-        template, _line_indent_at(content, hole_range.start)
+    return WorkspaceEdit(
+        path=path, range=hole_range,
+        new_text=_hole_text(content, hole_range, template),
     )
-    return WorkspaceEdit(path=path, range=hole_range, new_text=template)
 
 
 def _find_hole_at(content: str, pos: Position) -> Optional[Range]:
@@ -2149,6 +2149,31 @@ def _indent_continuation(template: str, indent: str) -> str:
     if not indent or "\n" not in template:
         return template
     return template.replace("\n", "\n" + indent)
+
+
+def _hole_text(content: str, hole: Range, template: str) -> str:
+    """``template`` as the text to put in place of the ``?`` at
+    ``hole``: continuation lines indented like the hole's line, and, when
+    the ``?`` is part of a larger step (an argument of ``apply ... to ?,
+    ?``), parenthesized unless it is a single word, so that it stays one
+    argument (``to conclude P by h, ?`` would read as ``by (h, ?)``)."""
+    template = _indent_continuation(template, _line_indent_at(content, hole.start))
+    if _inside_step(content, hole) and re.search(r"[\s,]", template):
+        return f"({template})"
+    return template
+
+
+def _inside_step(content: str, hole: Range) -> bool:
+    """Whether the ``?`` at ``hole`` is part of a larger step: there is
+    other text on its line."""
+    start = _line_col_to_offset(content, hole.start)
+    end = _line_col_to_offset(content, hole.end)
+    if start is None or end is None:
+        return False
+    line_start = content.rfind("\n", 0, start) + 1
+    line_end = content.find("\n", end)
+    rest = content[end:] if line_end < 0 else content[end:line_end]
+    return bool((content[line_start:start] + rest).strip())
 
 
 def _offset_to_line_col(content: str, offset: int) -> tuple[int, int]:
@@ -2300,10 +2325,10 @@ def case_split_at(
     if template is None:
         return None
 
-    template = _indent_continuation(
-        template, _line_indent_at(content, hole_range.start)
+    return WorkspaceEdit(
+        path=path, range=hole_range,
+        new_text=_hole_text(content, hole_range, template),
     )
-    return WorkspaceEdit(path=path, range=hole_range, new_text=template)
 
 
 def splittable_vars_at(
@@ -2590,10 +2615,10 @@ def induction_skeleton_at(
     if template is None:
         return None
 
-    template = _indent_continuation(
-        template, _line_indent_at(content, hole_range.start)
+    return WorkspaceEdit(
+        path=path, range=hole_range,
+        new_text=_hole_text(content, hole_range, template),
     )
-    return WorkspaceEdit(path=path, range=hole_range, new_text=template)
 
 
 def _induction_template(formula: "Formula", env: "Env") -> Optional[str]:
@@ -2758,10 +2783,10 @@ def eliminate_at(
     if template is None:
         return None
 
-    template = _indent_continuation(
-        template, _line_indent_at(content, hole_range.start)
+    return WorkspaceEdit(
+        path=path, range=hole_range,
+        new_text=_hole_text(content, hole_range, template),
     )
-    return WorkspaceEdit(path=path, range=hole_range, new_text=template)
 
 
 def eliminable_vars_at(
@@ -3093,10 +3118,10 @@ def fill_from_given_at(
     if template is None:
         return None
 
-    template = _indent_continuation(
-        template, _line_indent_at(content, hole_range.start)
+    return WorkspaceEdit(
+        path=path, range=hole_range,
+        new_text=_hole_text(content, hole_range, template),
     )
-    return WorkspaceEdit(path=path, range=hole_range, new_text=template)
 
 
 def matching_givens_at(
@@ -4072,10 +4097,10 @@ def insert_lemma_at(
         zero_range = Range(start=pos, end=pos)
         return WorkspaceEdit(path=path, range=zero_range, new_text=template)
 
-    template = _indent_continuation(
-        template, _line_indent_at(content, hole_range.start)
+    return WorkspaceEdit(
+        path=path, range=hole_range,
+        new_text=_hole_text(content, hole_range, template),
     )
-    return WorkspaceEdit(path=path, range=hole_range, new_text=template)
 
 
 @dataclass(frozen=True)
@@ -4165,9 +4190,13 @@ def preview_lemma_at(
         elif spliced[_line_col_to_offset(spliced, Position(loc.line, loc.column)) or 0] != "?":
             unfinished = formula
     if unfinished is not None:
-        # Leave a hole for what remains, as the subterm previews do.
-        indent = _line_indent_at(content, hole.start)
-        edit = WorkspaceEdit(path, edit.range, f"{edit.new_text}\n{indent}?")
+        # Leave a hole for what remains, as the subterm previews do
+        # (inside the step's parentheses, if it has them).
+        hole_line = f"\n{_line_indent_at(content, hole.start)}?"
+        text = edit.new_text
+        wrapped = _inside_step(content, hole) and text.startswith("(")
+        text = f"{text[:-1]}{hole_line})" if wrapped else text + hole_line
+        edit = WorkspaceEdit(path, edit.range, text)
         goals.append(_term_tree(unfinished))
     return LemmaPreview("ok", edit, tuple(goals))
 
@@ -6289,8 +6318,10 @@ def _subterm_step(
             return SubtermPreview("error", message=whole)
         text, goal = whole
     if isinstance(goal.ast, Bool) and goal.ast.value:
-        # The step proves the goal: end it with `.` rather than a `?`.
-        text = text[: -len("?")].rstrip() + "."
+        # The step proves the goal: end it with `.` rather than a `?`
+        # (the last one, which may be inside the step's parentheses).
+        i = text.rindex("?")
+        text = text[:i].rstrip() + "." + text[i + 1:]
     return SubtermPreview("ok", goal=goal, edit=WorkspaceEdit(path, hole, text))
 
 
@@ -6360,9 +6391,9 @@ def _try_step(
     start = _line_col_to_offset(content, hole.start)
     end = _line_col_to_offset(content, hole.end)
     assert start is not None and end is not None
-    text = _indent_continuation(step + "\n?", _line_indent_at(content, hole.start))
+    text = _hole_text(content, hole, step + "\n?")
     new_content = content[:start] + text + content[end:]
-    line, col = _offset_to_line_col(new_content, start + len(text) - 1)
+    line, col = _offset_to_line_col(new_content, start + text.rindex("?"))
     exc = _check_at_hole(
         path, new_content, Range(Position(line, col), Position(line, col + 1)),
         prelude, remember=False,

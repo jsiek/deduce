@@ -105,6 +105,31 @@ def test_a_transitivity_lemma_takes_its_middle_term_from_the_givens(tmp_path):
     assert [str(g) for g in p.goals] == ["a < b", "b < c"]
 
 
+NESTED = """\
+theorem t: all a:Nat, b:Nat, c:Nat, d:Nat. if a < b and b < c and c < d then a < d
+proof
+  arbitrary a:Nat, b:Nat, c:Nat, d:Nat
+  assume H1: ((a < b) and (b < c) and (c < d))
+  apply less_trans[a, b, d] to ?, ?
+end
+"""
+
+
+def test_a_step_inside_an_apply_is_parenthesized(tmp_path):
+    # Unparenthesized, `to conclude a < b by H1, ?` reads as `by (H1, ?)`.
+    path = str(tmp_path / "t.pf")
+    line = NESTED.splitlines()[4]
+    first, second = (
+        query.Position(5, i + 1) for i, ch in enumerate(line) if ch == "?"
+    )
+    fill = query.fill_from_given_at(path, NESTED, first, "H1", prelude=PRELUDE)
+    assert fill is not None and fill.new_text == "(conclude a < b by H1)"
+    p = query.preview_lemma_at(path, NESTED, second, "less_trans", prelude=PRELUDE)
+    assert p is not None and p.outcome == "ok"
+    assert p.edit.new_text == "(apply less_trans[b, c, d] to ?, ?)"
+    assert [str(g) for g in p.goals] == ["b < c", "c < d"]
+
+
 def test_insert_lemma_matches_the_ranking_tier(tmp_path):
     # The ranking classifies with the type-checked formula; so must the step.
     path = str(tmp_path / "t.pf")
