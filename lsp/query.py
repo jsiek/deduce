@@ -751,6 +751,9 @@ def check(
     # That keeps the protocol-neutral boundary cheap to enforce.
     from lsp.library import check_file
 
+    # A fresh check is the newest word on every document's holes: a
+    # module they import may have changed (see ``_hole_checks``).
+    _hole_checks.clear()
     return _diagnostics_of(check_file(
         path, content=content, prelude=prelude,
         collect_errors=True, parser=parser,
@@ -5772,15 +5775,18 @@ def proof_outline(
             flags.set_proof_outline(None)
 
     # This check reached every hole, so the step queries at a hole
-    # (:func:`_check_at_target`) needn't check again.
+    # (:func:`_check_at_target`) needn't check again. It replaces what
+    # earlier checks found, here and in other documents: a module they
+    # import may have changed.
+    _hole_checks.clear()
     holes = _hole_checks_for(path, content, prelude)
     for exc in result.errors or ():
         loc = getattr(exc, "location", None)
         if isinstance(exc, IncompleteProof) and loc is not None:
-            holes.setdefault((loc.line, loc.column), CheckResult(
+            holes[(loc.line, loc.column)] = CheckResult(
                 ok=False, error_message=str(exc), error_traceback=None,
                 exception=exc, module_name=result.module_name, ast=result.ast,
-            ))
+            )
 
     mine = sorted(
         (r for r in records.values() if _meta_in_file(r.proof.location, path)),
@@ -6173,7 +6179,10 @@ def _check_at_hole(
 # query at a hole needs the goal and givens there, which takes a check
 # of the whole file; this lets the queries share one, and
 # :func:`proof_outline` (run after each edit) fills in every hole from
-# its own check. Only the latest few documents are kept.
+# its own check. The key doesn't capture the modules a document
+# imports, so the checks the server runs when any document is opened,
+# changed or saved (:func:`check`, :func:`proof_outline`) start it
+# afresh. Only the latest few documents are kept.
 _hole_checks: dict[
     tuple[str, str, tuple[str, ...]], dict[tuple[int, int], "CheckResult"]
 ] = {}

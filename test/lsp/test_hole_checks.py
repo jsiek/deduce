@@ -76,6 +76,36 @@ def test_previews_keep_the_documents_checks(tmp_path, monkeypatch):
     assert query.matching_givens_at(path, TWO_HOLES, second) == ("q",)
 
 
+def test_a_check_of_an_import_refreshes_its_importers(tmp_path, monkeypatch):
+    # A document's text doesn't capture the modules it imports, so when
+    # one changes the server's check of it (on save) starts afresh.
+    import flags
+
+    monkeypatch.setattr(
+        flags, "import_directories", flags.import_directories | {str(tmp_path)}
+    )
+    dep = tmp_path / "HoleCheckDep.pf"
+    dep.write_text("union Color {\n  red\n  green\n}\n")
+    path = str(tmp_path / "importer.pf")
+    importer = "import HoleCheckDep\n\ntheorem t: all c:Color. c = c\nproof\n  ?\nend\n"
+    (hole,) = _holes(importer)
+
+    def induction() -> str:
+        edit = query.induction_skeleton_at(path, importer, hole)
+        assert edit is not None
+        return edit.new_text
+
+    query.proof_outline(path, importer)
+    assert "green" in induction()
+    dep.write_text("union Color {\n  red\n  blue\n}\n")
+    query.check(str(dep), dep.read_text())
+    assert "blue" in induction() and "green" not in induction()
+    # Likewise a new outline of the unchanged importer.
+    dep.write_text("union Color {\n  red\n  teal\n}\n")
+    query.proof_outline(path, importer)
+    assert "teal" in induction()
+
+
 def test_an_edit_is_checked_afresh(tmp_path):
     path = str(tmp_path / "holes.pf")
     first, _ = _holes(TWO_HOLES)
