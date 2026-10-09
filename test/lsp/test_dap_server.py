@@ -53,7 +53,10 @@ class _Client:
         while not self._stop:
             headers: dict = {}
             while True:
-                line = self._recv.readline()
+                try:
+                    line = self._recv.readline()
+                except ValueError:
+                    return  # ``close`` closed the pipe under us
                 if not line:
                     return
                 line = line.rstrip(b"\r\n").decode("ascii", errors="replace")
@@ -158,7 +161,7 @@ def dap_session(tmp_path):
             pass
         prog_thread = server._program_thread
         if prog_thread is not None:
-            prog_thread.join(timeout=10.0)
+            prog_thread.join(timeout=_RUN_TIMEOUT)
         client.close()
         try:
             server_in.close()
@@ -181,6 +184,14 @@ def _write_fixture(tmp_path: Path, name: str, content: str) -> str:
     p = tmp_path / name
     p.write_text(content)
     return str(p.resolve())
+
+
+# Wait for events that follow running the program. The first launch in a
+# process bootstraps the whole stdlib prelude before the first stop, which
+# takes ~8s on a fast machine and more under load (issue #1201: a 10s
+# limit timed out with no events). Waits return as soon as the event
+# arrives, so the generous bound costs nothing when things are healthy.
+_RUN_TIMEOUT = 60.0
 
 
 # Smallest useful program: one print + one user-defined function.
@@ -229,11 +240,11 @@ def test_full_session_continue_to_end(dap_session, tmp_path):
     assert client.request("launch", {"program": fixture})["success"]
     # No breakpoints, just signal configuration done.
     assert client.request("configurationDone")["success"]
-    stopped = client.wait_for_event("stopped", timeout=10.0)
+    stopped = client.wait_for_event("stopped", timeout=_RUN_TIMEOUT)
     assert stopped["body"]["threadId"] == 1
     # Resume; the program should finish.
     assert client.request("continue")["success"]
-    client.wait_for_event("terminated", timeout=10.0)
+    client.wait_for_event("terminated", timeout=_RUN_TIMEOUT)
 
 
 def test_stack_trace_synthesizes_top_level_frame(dap_session, tmp_path):
@@ -249,7 +260,7 @@ def test_stack_trace_synthesizes_top_level_frame(dap_session, tmp_path):
     client.wait_for_event("initialized")
     client.request("launch", {"program": fixture})
     client.request("configurationDone")
-    client.wait_for_event("stopped", timeout=10.0)
+    client.wait_for_event("stopped", timeout=_RUN_TIMEOUT)
     resp = client.request("stackTrace", {"threadId": 1})
     assert resp["success"], resp
     frames = resp["body"]["stackFrames"]
@@ -277,10 +288,10 @@ def test_stack_trace_inside_function(dap_session, tmp_path):
     })
     client.request("configurationDone")
     # First stop: the initial-statement trap (Step 21 leftover).
-    client.wait_for_event("stopped", timeout=10.0)
+    client.wait_for_event("stopped", timeout=_RUN_TIMEOUT)
     client.request("continue")
     # Second stop: the function breakpoint on ``double``.
-    stopped = client.wait_for_event("stopped", timeout=10.0)
+    stopped = client.wait_for_event("stopped", timeout=_RUN_TIMEOUT)
     assert stopped["body"]["reason"] == "breakpoint"
     resp = client.request("stackTrace", {"threadId": 1})
     assert resp["success"], resp
@@ -320,7 +331,7 @@ def test_evaluate_reduces_expression(dap_session, tmp_path):
     client.wait_for_event("initialized")
     client.request("launch", {"program": fixture})
     client.request("configurationDone")
-    client.wait_for_event("stopped", timeout=10.0)
+    client.wait_for_event("stopped", timeout=_RUN_TIMEOUT)
     # ``zero`` is in scope; the evaluator should produce ``zero``.
     resp = client.request("evaluate", {"expression": "zero"})
     assert resp["success"], resp
@@ -353,10 +364,10 @@ def test_set_file_breakpoint_fires_at_line(dap_session, tmp_path):
     assert bp_resp["body"]["breakpoints"][0]["verified"] is True
     client.request("configurationDone")
     # First stop is the initial pause; continue past it.
-    client.wait_for_event("stopped", timeout=10.0)
+    client.wait_for_event("stopped", timeout=_RUN_TIMEOUT)
     client.request("continue")
     # Second stop should be the line-6 breakpoint.
-    stopped = client.wait_for_event("stopped", timeout=10.0)
+    stopped = client.wait_for_event("stopped", timeout=_RUN_TIMEOUT)
     assert stopped["body"]["reason"] == "breakpoint"
     client.request("continue")
     try:
@@ -376,7 +387,7 @@ def test_print_routed_to_output_event(dap_session, tmp_path):
     client.wait_for_event("initialized")
     client.request("launch", {"program": fixture})
     client.request("configurationDone")
-    client.wait_for_event("stopped", timeout=10.0)
+    client.wait_for_event("stopped", timeout=_RUN_TIMEOUT)
     client.request("continue")
     # The program runs ``print double(suc(zero))`` -> ``suc(suc(zero))``.
     # Drain events until we see an output one with stdout category,
@@ -415,9 +426,9 @@ def test_return_trap_emits_console_output(dap_session, tmp_path):
         "breakpoints": [{"name": "double"}],
     })
     client.request("configurationDone")
-    client.wait_for_event("stopped", timeout=10.0)  # first user stmt
+    client.wait_for_event("stopped", timeout=_RUN_TIMEOUT)  # first user stmt
     client.request("continue")
-    client.wait_for_event("stopped", timeout=10.0)  # double() entry
+    client.wait_for_event("stopped", timeout=_RUN_TIMEOUT)  # double() entry
     # Clear the function breakpoint so stepOut isn't re-trapped on
     # each recursive call to double inside the body.
     client.request("setFunctionBreakpoints", {"breakpoints": []})
@@ -454,6 +465,6 @@ def test_disconnect_terminates(dap_session, tmp_path):
     client.wait_for_event("initialized")
     client.request("launch", {"program": fixture})
     client.request("configurationDone")
-    client.wait_for_event("stopped", timeout=10.0)
+    client.wait_for_event("stopped", timeout=_RUN_TIMEOUT)
     resp = client.request("disconnect")
     assert resp["success"]

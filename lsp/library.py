@@ -139,7 +139,10 @@ class CheckResult:
     error_traceback: Optional[str]
     exception: Optional[BaseException]
     module_name: str
-    ast: Optional[list[Statement]]
+    # Left out of ``repr``: the AST of a file and its imports is huge, and
+    # pytest renders ``repr(result)`` for a failing ``assert result.ok``
+    # (issue #1201: tens of GB for a file importing List).
+    ast: Optional[list[Statement]] = field(repr=False)
     # In collect-errors mode every entry is a ``Diagnostic``; in
     # single-error fallback mode (see ``__post_init__``) the list
     # carries whatever was raised — including non-``Diagnostic``
