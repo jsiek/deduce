@@ -21,19 +21,34 @@ enum ReasonLevel: String, CaseIterable, Identifiable {
 struct TextbookView: View {
     let book: Textbook
     let defaultLevel: ReasonLevel
+    /// Whether steps can be edited (as text, or at holes).
+    let editable: Bool
     @Binding var selection: Outline.Range?
     /// Per-step overrides of `defaultLevel`, by step range.
     @Binding var levels: [Outline.Range: ReasonLevel]
+    /// A step to scroll to; cleared once scrolled.
+    @Binding var scrollTarget: Outline.Range?
+    /// Called with a step's range to edit it as text.
+    let editAsText: (Outline.Range) -> Void
 
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 32) {
-                ForEach(book.theorems) { theorem in
-                    theoremView(theorem)
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 32) {
+                    ForEach(book.theorems) { theorem in
+                        theoremView(theorem).id(theorem.range)
+                    }
                 }
+                .padding(24)
+                .frame(maxWidth: 820, alignment: .leading)
             }
-            .padding(24)
-            .frame(maxWidth: 820, alignment: .leading)
+            .onChange(of: scrollTarget) { _, target in
+                guard let target else { return }
+                if let theorem = book.theorems.first(where: { $0.range.contains(target) }) {
+                    withAnimation { proxy.scrollTo(theorem.range, anchor: .top) }
+                }
+                scrollTarget = nil
+            }
         }
     }
 
@@ -69,8 +84,15 @@ struct TextbookView: View {
 
     private func lineView(_ line: Textbook.Line) -> some View {
         let level = levels[line.range] ?? defaultLevel
+        let isHole = editable && book.holes.contains { $0.range == line.range }
         return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
+                if isHole {
+                    // A hole is a chip: tap it to see the steps you can take.
+                    Text("?").font(Self.formulaFont).bold()
+                        .padding(.horizontal, 8)
+                        .background(Capsule().fill(Color.orange.opacity(0.2)))
+                }
                 Text(line.prose).font(Self.proseFont)
                 if let formula = line.formula {
                     Text(formula).font(Self.formulaFont)
@@ -91,6 +113,7 @@ struct TextbookView: View {
             .background(selected(line.range))
             .contentShape(Rectangle())
             .onTapGesture { selection = line.range }
+            .contextMenu { editMenu(line.range) }
             if !line.subproof.isEmpty && level != .hidden {
                 blocksView(line.subproof)
                     .padding(.leading, 12)
@@ -125,6 +148,7 @@ struct TextbookView: View {
                 .background(selected(link.range))
                 .contentShape(Rectangle())
                 .onTapGesture { selection = link.range }
+                .contextMenu { editMenu(link.range) }
             }
         }
         .padding(.leading, 16)
@@ -139,6 +163,13 @@ struct TextbookView: View {
                     blocksView(arm.blocks).padding(.leading, 20)
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func editMenu(_ range: Outline.Range) -> some View {
+        if editable {
+            Button { editAsText(range) } label: { Label("Edit as text…", systemImage: "character.cursor.ibeam") }
         }
     }
 

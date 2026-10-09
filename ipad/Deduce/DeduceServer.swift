@@ -23,20 +23,38 @@ final class DeduceServer: ObservableObject {
     @Published var source = ""
     @Published var textbook: Textbook?
     @Published var log: [String] = []
+    /// Whether the open file can be edited (exercises are; the bundled
+    /// samples and standard library are read-only).
+    @Published var editable = false
+    @Published var canUndo = false
+    /// Where the latest edit (or undone edit) started, so the view can
+    /// select the hole it left once the new outline arrives.
+    @Published var lastEdit: Outline.Position?
 
     let appDirectory = URL(fileURLWithPath: Bundle.main.resourcePath!).appendingPathComponent("app")
+    /// Editable copies of the bundled exercises, in the app's Documents.
+    let exercisesDirectory = URL.documentsDirectory.appendingPathComponent("Exercises")
 
     private let toServer = Pipe()
     private let fromServer = Pipe()
     private let launched = Date()
     private var ready = false
     private var pendingOpen: URL?
-    private var openURI: String?
+    private var openURL: URL?
+    private(set) var openURI: String?
+    /// The open document's version, bumped by each edit.
+    private(set) var version = 1
+    /// The text before each edit, and where the edit started (where Undo
+    /// puts the selection back).
+    private var history: [(source: String, at: Outline.Position)] = []
     /// Checks the server hasn't answered yet, by document URI. The server
     /// checks one document at a time, so opening a file mid-check queues it.
     private var checkStarted: [String: Date] = [:]
+    private var nextRequest = 2
+    private var waiting: [Int: CheckedContinuation<Any?, Never>] = [:]
 
     init() {
+        seedExercises()
         // Python takes ownership of (and closes) the descriptors it is
         // given, so hand it duplicates rather than the Pipes' own.
         let readFD = dup(toServer.fileHandleForReading.fileDescriptor)
@@ -75,17 +93,107 @@ final class DeduceServer: ObservableObject {
             return
         }
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { return }
+        if let previous = openURI {
+            send(["jsonrpc": "2.0", "method": "textDocument/didClose",
+                  "params": ["textDocument": ["uri": previous]]])
+        }
         let uri = url.absoluteString
+        openURL = url
         openFile = url.lastPathComponent
         openURI = uri
+        editable = url.standardizedFileURL.path.hasPrefix(exercisesDirectory.standardizedFileURL.path)
         source = text
+        history = []
+        canUndo = false
+        lastEdit = nil
         textbook = nil
         diagnostics = []
+        version = 1
         check = .running
         checkStarted[uri] = Date()
         send(["jsonrpc": "2.0", "method": "textDocument/didOpen",
               "params": ["textDocument": ["uri": uri, "languageId": "deduce",
-                                          "version": 1, "text": text]]])
+                                          "version": version, "text": text]]])
+    }
+
+    /// Whether the open file is being checked. Edits wait for the check:
+    /// results are matched to checks by document, so a second edit's
+    /// check would be confused with the first's.
+    var checking: Bool { if case .running = check { true } else { false } }
+
+    /// Apply `edits` (from the server) to the open file: save it, and send
+    /// the server the new text, which re-checks it.
+    func apply(_ edits: [TextEdit]) {
+        guard editable, !checking, !edits.isEmpty else { return }
+        var text = source
+        // Later edits first, so earlier ranges stay valid.
+        for edit in edits.sorted(by: { $0.range.start > $1.range.start }) {
+            text = text.applying(edit)
+        }
+        let start = edits.map(\.range.start).min()!
+        history.append((source, start))
+        replaceSource(with: text, at: start)
+    }
+
+    func undo() {
+        guard !checking, let previous = history.popLast() else { return }
+        replaceSource(with: previous.source, at: previous.at)
+    }
+
+    private func replaceSource(with text: String, at start: Outline.Position) {
+        guard let url = openURL, let uri = openURI else { return }
+        source = text
+        canUndo = !history.isEmpty
+        lastEdit = start
+        do {
+            try text.write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            record("could not save \(url.lastPathComponent): \(error.localizedDescription)")
+        }
+        version += 1
+        check = .running
+        checkStarted[uri] = Date()
+        send(["jsonrpc": "2.0", "method": "textDocument/didChange",
+              "params": ["textDocument": ["uri": uri, "version": version],
+                         "contentChanges": [["text": text]]]])
+    }
+
+    /// Send a request about the open document and wait for its result
+    /// (`nil` for a null result or an error).
+    func request(_ method: String, _ params: [String: Any]) async -> Any? {
+        guard let uri = openURI else { return nil }
+        let id = nextRequest
+        nextRequest += 1
+        var all = params
+        all["textDocument"] = ["uri": uri]
+        return await withCheckedContinuation { continuation in
+            waiting[id] = continuation
+            send(["jsonrpc": "2.0", "id": id, "method": method, "params": all])
+        }
+    }
+
+    /// Copy the bundled exercises that aren't in Documents yet, so a
+    /// student's work is never overwritten.
+    private func seedExercises() {
+        let bundled = appDirectory.appendingPathComponent("exercises")
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: bundled.path)) ?? []
+        try? FileManager.default.createDirectory(at: exercisesDirectory, withIntermediateDirectories: true)
+        for name in names where name.hasSuffix(".pf") {
+            let target = exercisesDirectory.appendingPathComponent(name)
+            if !FileManager.default.fileExists(atPath: target.path) {
+                try? FileManager.default.copyItem(at: bundled.appendingPathComponent(name), to: target)
+            }
+        }
+    }
+
+    /// Replace an exercise with its original, bundled version.
+    func reset(_ url: URL) {
+        // Reopening the file being checked is an edit too (see `checking`).
+        guard !(checking && url.absoluteString == openURI) else { return }
+        let original = appDirectory.appendingPathComponent("exercises").appendingPathComponent(url.lastPathComponent)
+        guard let text = try? String(contentsOf: original, encoding: .utf8) else { return }
+        try? text.write(to: url, atomically: true, encoding: .utf8)
+        open(url)
     }
 
     func interrupt() {
@@ -96,6 +204,14 @@ final class DeduceServer: ObservableObject {
     }
 
     private func handle(_ message: [String: Any]) {
+        if let id = message["id"] as? Int, let continuation = waiting.removeValue(forKey: id) {
+            if let error = message["error"] as? [String: Any] {
+                record("request failed: \(error["message"] as? String ?? "unknown error")")
+            }
+            let result = message["result"]
+            continuation.resume(returning: result is NSNull ? nil : result)
+            return
+        }
         if message["id"] as? Int == 1 {
             ready = true
             let seconds = Date().timeIntervalSince(launched)
