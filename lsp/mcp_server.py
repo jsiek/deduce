@@ -39,7 +39,7 @@ import os
 import re
 import subprocess
 import sys
-from dataclasses import asdict, dataclass, is_dataclass
+from dataclasses import dataclass, fields, is_dataclass
 from pathlib import Path
 from typing import Optional, TypeAlias, cast
 
@@ -140,11 +140,16 @@ mcp = FastMCP("deduce-lsp")
 
 def _to_serializable(obj: object) -> JSONValue:
     """Convert frozen dataclasses (and tuples/enums of them) into
-    plain dicts/lists for the MCP JSON wire format."""
+    plain dicts/lists for the MCP JSON wire format. Formulas go out as
+    their rendered text: MCP clients are LLMs, which read text."""
     if obj is None:
         return None
+    if isinstance(obj, query.TermTree):
+        return str(obj)
     if is_dataclass(obj) and not isinstance(obj, type):
-        return {k: _to_serializable(v) for k, v in asdict(obj).items()}
+        return {f.name: _to_serializable(getattr(obj, f.name)) for f in fields(obj)}
+    if isinstance(obj, dict):
+        return {k: _to_serializable(v) for k, v in obj.items()}
     if isinstance(obj, (list, tuple)):
         return [_to_serializable(x) for x in obj]
     if hasattr(obj, "value") and hasattr(obj, "name"):

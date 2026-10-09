@@ -21,7 +21,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from lsp.query import Given, Goal, Position, goal_at  # noqa: E402
+from lsp.query import Goal, Position, goal_at  # noqa: E402
 
 
 @dataclass(frozen=True)
@@ -30,7 +30,7 @@ class GoalCase:
     source: str
     cursor: Position
     expected_formula: str
-    expected_givens: tuple[Given, ...]
+    expected_givens: tuple[tuple[str, str], ...]
 
 
 CASES = [
@@ -67,8 +67,8 @@ CASES = [
         cursor=Position(line=6, column=1),
         expected_formula="P",
         expected_givens=(
-            Given(label="qQ", formula="Q"),
-            Given(label="pP", formula="P"),
+            ("qQ", "Q"),
+            ("pP", "P"),
         ),
     ),
     GoalCase(
@@ -89,8 +89,8 @@ CASES = [
         cursor=Position(line=6, column=1),
         expected_formula="(P and Q)",
         expected_givens=(
-            Given(label="qQ", formula="Q"),
-            Given(label="pP", formula="P"),
+            ("qQ", "Q"),
+            ("pP", "P"),
         ),
     ),
 ]
@@ -101,12 +101,12 @@ def test_goal_at(case: GoalCase) -> None:
     g = goal_at("test.pf", case.source, case.cursor)
     assert g is not None, f"{case.name}: goal_at returned None"
     assert isinstance(g, Goal)
-    assert g.formula == case.expected_formula, (
+    assert str(g.formula) == case.expected_formula, (
         f"{case.name}: formula mismatch\n"
         f"  expected: {case.expected_formula!r}\n"
         f"  got:      {g.formula!r}"
     )
-    assert g.givens == case.expected_givens, (
+    assert tuple((x.label, str(x.formula)) for x in g.givens) == case.expected_givens, (
         f"{case.name}: givens mismatch\n"
         f"  expected: {case.expected_givens}\n"
         f"  got:      {g.givens}"
@@ -214,7 +214,7 @@ def test_goal_at_cursor_on_existing_hole() -> None:
     )
     g = goal_at("test.pf", source, Position(line=4, column=3))
     assert g is not None
-    assert g.formula == "P = P"
+    assert str(g.formula) == "P = P"
     # Range covers exactly the `?` token, matching what refine_at
     # and case_split_at return.
     assert g.range.start == Position(line=4, column=3)
@@ -239,7 +239,7 @@ def test_goal_at_cursor_immediately_after_existing_hole() -> None:
         "goal_at returned None for cursor-just-past-`?` -- the "
         "regression for issue #341 has reappeared."
     )
-    assert g.formula == "P = P"
+    assert str(g.formula) == "P = P"
     # Range still covers the `?`, not the cursor position.
     assert g.range.start == Position(line=4, column=3)
     assert g.range.end == Position(line=4, column=4)
@@ -257,7 +257,7 @@ def test_goal_at_cursor_after_named_hole() -> None:
     g = goal_at("test.pf", source, Position(line=4, column=8))
 
     assert g is not None
-    assert g.formula == "P = P"
+    assert str(g.formula) == "P = P"
     assert g.range.start == Position(line=4, column=3)
     assert g.range.end == Position(line=4, column=8)
 
@@ -313,12 +313,12 @@ def test_goal_at_picks_second_of_two_holes_in_one_proof() -> None:
     # Cursor on the first `?` -> goal is `P`.
     g_first = goal_at("test.pf", source, Position(line=6, column=17))
     assert g_first is not None
-    assert g_first.formula == "P"
+    assert str(g_first.formula) == "P"
     # Cursor on the second `?` -> goal is `Q`, with `h1: P` available
     # because the checker trusted the first hole.
     g_second = goal_at("test.pf", source, Position(line=7, column=17))
     assert g_second is not None
-    assert g_second.formula == "Q"
+    assert str(g_second.formula) == "Q"
     labels = {given.label for given in g_second.givens}
     assert "h1" in labels, (
         f"expected h1 in scope at second hole, got givens: {g_second.givens}"
@@ -343,7 +343,7 @@ def test_goal_at_picks_hole_in_second_theorem() -> None:
     )
     g = goal_at("test.pf", source, Position(line=10, column=3))
     assert g is not None
-    assert g.formula == "Q = Q"
+    assert str(g.formula) == "Q = Q"
 
 
 # ---------------------------------------------------------------------------
@@ -372,7 +372,7 @@ def test_goal_at_normalized_is_none_when_no_auto_rule_fires() -> None:
     )
     g = goal_at("test.pf", source, Position(line=6, column=3))
     assert g is not None
-    assert g.formula == "P"
+    assert str(g.formula) == "P"
     assert g.formula_normalized is None, (
         "expected no normalized form when no auto rule fires; "
         f"got {g.formula_normalized!r}"
@@ -410,8 +410,8 @@ def test_goal_at_exposes_normalized_goal_under_auto_rule() -> None:
     )
     g = goal_at("test.pf", source, Position(line=15, column=3))
     assert g is not None
-    assert g.formula == "id_bool(Q)"
-    assert g.formula_normalized == "Q", (
+    assert str(g.formula) == "id_bool(Q)"
+    assert str(g.formula_normalized) == "Q", (
         f"expected normalized goal 'Q'; got {g.formula_normalized!r}"
     )
 
@@ -443,8 +443,8 @@ def test_goal_at_exposes_normalized_given_under_auto_rule() -> None:
     assert g is not None
     by_label = {given.label: given for given in g.givens}
     assert "hp" in by_label, f"expected hp in givens; got {g.givens}"
-    assert by_label["hp"].formula == "id_bool(P)"
-    assert by_label["hp"].formula_normalized == "P", (
+    assert str(by_label["hp"].formula) == "id_bool(P)"
+    assert str(by_label["hp"].formula_normalized) == "P", (
         f"expected normalized given 'P'; got "
         f"{by_label['hp'].formula_normalized!r}"
     )
@@ -469,7 +469,7 @@ def test_goal_at_synthetic_hole_skips_earlier_existing_hole() -> None:
     g = goal_at("test.pf", source, Position(line=7, column=3))
     assert g is not None
     # The remaining goal after `have h1: P` is the conjunction.
-    assert g.formula == "(P and Q)"
+    assert str(g.formula) == "(P and Q)"
     labels = {given.label for given in g.givens}
     assert "h1" in labels, (
         f"expected h1 in scope at synthetic hole, got givens: {g.givens}"

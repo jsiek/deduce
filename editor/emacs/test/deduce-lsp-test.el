@@ -185,9 +185,12 @@ shaped textDocument+position payload."
 
 (ert-deftest deduce-lsp/show-goal-at-point-renders-formula-and-givens ()
   (let* ((tmp (make-temp-file "deduce-lsp-test" nil ".pf"))
-         (response '(:formula "P = P"
-                     :givens [(:label "h" :formula "P")
-                              (:label nil :formula "Q")]
+         (response '(:formula (:kind "Call"
+                               :parts [(:kind "Var" :parts ["P"])
+                                       " = "
+                                       (:kind "Var" :parts ["P"])])
+                     :givens [(:label "h" :formula (:kind "Var" :parts ["P"]))
+                              (:label nil :formula (:kind "Var" :parts ["Q"]))]
                      :range (:start (:line 3 :character 2)
                              :end (:line 3 :character 2)))))
     (unwind-protect

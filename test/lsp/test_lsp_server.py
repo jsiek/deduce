@@ -86,6 +86,11 @@ class FakeServer:
         self.published[params.uri] = list(params.diagnostics)
 
 
+def _text(tree: dict) -> str:
+    """A formula tree's text: the concatenation of its parts."""
+    return "".join(p if isinstance(p, str) else _text(p) for p in tree["parts"])
+
+
 def _file_uri(path: Path) -> str:
     return path.absolute().as_uri()
 
@@ -436,7 +441,12 @@ def test_goal_at_returns_goal_dict(server, open_doc):
     }
     goal = lsp_server.on_goal_at(server, params)
     assert goal is not None
-    assert goal["formula"] == "P = P"
+    assert _text(goal["formula"]) == "P = P"
+    # The tree's structure: `P = P` is a call of `=` on two variables,
+    # the operator between them.
+    assert [p if isinstance(p, str) else p["kind"] for p in goal["formula"]["parts"]] == [
+        "Var", " ", "Var", " ", "Var",
+    ]
     assert goal["givens"] == []
     # Range is echoed back at the cursor.
     assert goal["range"]["start"]["line"] == 3
@@ -461,12 +471,14 @@ def test_proof_outline_request_returns_steps(server, open_doc):
     hole = result["steps"][-1]
     assert hole["kind"] == "PHole"
     assert hole["status"] == "incomplete"
-    assert hole["goal"] == "P"
-    assert hole["givens"] == [{"label": "p", "formula": "P"}]
+    assert _text(hole["goal"]) == "P"
+    assert [(g["label"], _text(g["formula"])) for g in hole["givens"]] == [("p", "P")]
     assert hole["range"]["start"] == {"line": 4, "character": 2}
-    assert result["steps"][0]["detail"] == {"vars": [{"name": "P", "type": "bool"}]}
+    [var] = result["steps"][0]["detail"]["vars"]
+    assert (var["name"], _text(var["type"])) == ("P", "bool")
     # `assume p` writes no formula; the premise comes from the goal.
-    assert result["steps"][1]["detail"] == {"label": "p", "premise": "P"}
+    detail = result["steps"][1]["detail"]
+    assert (detail["label"], _text(detail["premise"])) == ("p", "P")
     [theorem] = result["theorems"]
     assert (theorem["name"], theorem["lemma"]) == ("t", False)
     assert theorem["range"]["start"] == {"line": 0, "character": 0}
@@ -568,7 +580,7 @@ def test_hole_context_at_returns_payload(server, open_doc):
     }
     result = lsp_server.on_hole_context_at(server, params)
     assert result is not None
-    assert result["goal"] == "P = P"
+    assert _text(result["goal"]) == "P = P"
     assert result["givens"] == []
     # Range covers exactly the `?` token (1-char span).
     assert result["holeRange"]["start"] == {"line": 3, "character": 2}
@@ -626,7 +638,7 @@ def test_hole_context_at_lemmas_excluded_when_disabled(server, open_doc):
     assert result is not None
     assert result["lemmasInScope"] == []
     # Goal still surfaces normally.
-    assert result["goal"] == "P = P"
+    assert _text(result["goal"]) == "P = P"
 
 
 # --------------------------------------------------------------------------

@@ -69,6 +69,7 @@ EXPECTED_PUBLIC = {
     "Range",
     "Location",
     "Diagnostic",
+    "TermTree",
     "Given",
     "Goal",
     "SymbolInfo",

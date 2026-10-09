@@ -25,9 +25,41 @@ struct Outline: Decodable {
         }
     }
 
+    /// A term, formula, type or pattern as Deduce prints it, with its
+    /// structure: its text is the concatenation of `parts` (see `TermTree`
+    /// in `lsp/query.py`).
+    struct Tree: Decodable, Equatable {
+        let kind: String
+        let parts: [Part]
+
+        enum Part: Decodable, Equatable {
+            case text(String)
+            indirect case tree(Tree)
+
+            init(from decoder: Decoder) throws {
+                let container = try decoder.singleValueContainer()
+                if let text = try? container.decode(String.self) {
+                    self = .text(text)
+                } else {
+                    self = .tree(try container.decode(Tree.self))
+                }
+            }
+        }
+
+        /// Exactly what Deduce prints.
+        var text: String {
+            parts.map { part in
+                switch part {
+                case .text(let text): text
+                case .tree(let tree): tree.text
+                }
+            }.joined()
+        }
+    }
+
     struct Theorem: Decodable {
         let name: String
-        let formula: String
+        let formula: Tree
         let lemma: Bool
         let range: Range
     }
@@ -39,14 +71,14 @@ struct Outline: Decodable {
 
     struct Given: Decodable {
         let label: String
-        let formula: String
+        let formula: Tree
     }
 
     struct Step: Decodable {
         let kind: String
         let range: Range
-        let goal: String?
-        let formula: String?
+        let goal: Tree?
+        let formula: Tree?
         let givens: [Given]
         let uses: [Use]
         let status: String  // "ok", "error" or "incomplete"
@@ -57,27 +89,27 @@ struct Outline: Decodable {
     struct Detail: Decodable {
         let vars: [Variable]?
         let label: String?
-        let premise: String?
+        let premise: Tree?
         let variable: String?
-        let subject: String?
+        let subject: Tree?
         let cases: [Case]?
-        let lhs: String?
-        let rhs: String?
-        let claim: String?
+        let lhs: Tree?
+        let rhs: Tree?
+        let claim: Tree?
         let name: String?
-        let term: String?
-        let witnesses: [String]?
+        let term: Tree?
+        let witnesses: [Tree]?
     }
 
     struct Variable: Decodable {
         let name: String
-        let type: String
+        let type: Tree
     }
 
     struct Case: Decodable {
-        let pattern: String?
+        let pattern: Tree?
         let label: String?
-        let formula: String?
+        let formula: Tree?
         let hypotheses: [String]?
         let range: Range
     }

@@ -24,7 +24,7 @@ def test_request_from_json_minimum_fields() -> None:
                 "start": {"line": 3, "character": 2},
                 "end": {"line": 3, "character": 3},
             },
-            "goal": "P = P",
+            "goal": {"kind": "Call", "parts": ["P = P"]},
             "givens": [],
             "lemmasInScope": [],
             "fingerprint": "sha256:abc",
@@ -52,10 +52,22 @@ def test_request_from_json_full_payload() -> None:
                 "start": {"line": 5, "character": 2},
                 "end": {"line": 5, "character": 3},
             },
-            "goal": "Q",
+            "goal": {"kind": "Var", "parts": ["Q"]},
             "givens": [
-                {"label": "pP", "formula": "P"},
-                {"label": None, "formula": "anonymous"},
+                # A formula arrives as the tree deduce/holeContextAt
+                # returns; the sidecar works with its text.
+                {
+                    "label": "pP",
+                    "formula": {
+                        "kind": "Call",
+                        "parts": [
+                            {"kind": "Var", "parts": ["P"]},
+                            " and ",
+                            {"kind": "Var", "parts": ["Q"]},
+                        ],
+                    },
+                },
+                {"label": None, "formula": {"kind": "Var", "parts": ["anonymous"]}},
             ],
             "lemmasInScope": [
                 {"name": "h", "kind": "lemma", "signature": "h: true"},
@@ -67,7 +79,7 @@ def test_request_from_json_full_payload() -> None:
     )
     req = request_from_json(raw)
     assert req.givens == (
-        Given(label="pP", formula="P"),
+        Given(label="pP", formula="P and Q"),
         Given(label=None, formula="anonymous"),
     )
     assert req.lemmas_in_scope == (

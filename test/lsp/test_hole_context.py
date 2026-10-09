@@ -22,7 +22,6 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from lsp.query import (  # noqa: E402
-    Given,
     HoleContext,
     LemmaInfo,
     Position,
@@ -61,11 +60,11 @@ def test_returns_context_with_goal_and_givens() -> None:
     ctx = hole_context_at("test.pf", source, Position(line=6, column=3))
     assert ctx is not None
     assert isinstance(ctx, HoleContext)
-    assert ctx.goal == "P"
-    assert ctx.givens == (
-        Given(label="qQ", formula="Q"),
-        Given(label="pP", formula="P"),
-    )
+    assert str(ctx.goal) == "P"
+    assert [(g.label, str(g.formula)) for g in ctx.givens] == [
+        ("qQ", "Q"),
+        ("pP", "P"),
+    ]
     assert ctx.hole_range == Range(
         start=Position(line=6, column=3),
         end=Position(line=6, column=4),
@@ -108,8 +107,8 @@ def test_picks_cursor_hole_not_first() -> None:
     first = hole_context_at("test.pf", source, Position(line=6, column=17))
     second = hole_context_at("test.pf", source, Position(line=7, column=17))
     assert first is not None and second is not None
-    assert first.goal == "P"
-    assert second.goal == "Q"
+    assert str(first.goal) == "P"
+    assert str(second.goal) == "Q"
     second_labels = {g.label for g in second.givens}
     assert "h1" in second_labels, (
         f"expected h1 in scope at second hole, got {second.givens}"
@@ -251,8 +250,8 @@ def test_fingerprint_changes_when_goal_changes() -> None:
     a = hole_context_at("test.pf", p_eq_p, Position(line=4, column=3))
     b = hole_context_at("test.pf", q_eq_q, Position(line=4, column=3))
     assert a is not None and b is not None
-    assert a.goal == "P = P"
-    assert b.goal == "Q = Q"
+    assert str(a.goal) == "P = P"
+    assert str(b.goal) == "Q = Q"
     assert a.fingerprint != b.fingerprint
 
 
