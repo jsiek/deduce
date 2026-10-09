@@ -5712,17 +5712,19 @@ def proof_outline(
     """
     import flags
     from error import IncompleteProof
-    from lsp.library import check_file
+    from lsp.library import _check_file_lock, check_file
 
     records: dict[tuple[object, ...], "StepRecord"] = {}
-    prev = flags.get_proof_outline()
-    flags.set_proof_outline(records)
-    try:
-        result = check_file(
-            path, content=content, prelude=prelude, collect_errors=True,
-        )
-    finally:
-        flags.set_proof_outline(prev)
+    # Hold the check lock while the recorder is installed, so a
+    # concurrent check can neither write into it nor reset it.
+    with _check_file_lock:
+        flags.set_proof_outline(records)
+        try:
+            result = check_file(
+                path, content=content, prelude=prelude, collect_errors=True,
+            )
+        finally:
+            flags.set_proof_outline(None)
 
     mine = sorted(
         (r for r in records.values() if _meta_in_file(r.proof.location, path)),

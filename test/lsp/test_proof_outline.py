@@ -121,3 +121,41 @@ def test_outline_runs_one_check(tmp_path, monkeypatch):
     outline = proof_outline(path, fixed)
     assert len(calls) == 2
     assert len(outline.steps) == len({s.range for s in outline.steps}) > 8
+
+
+def test_failing_synthesized_node_is_recorded(tmp_path):
+    # The inner `conjunct 5 of pq` is only synthesized (no goal) and
+    # fails inside its handler; it must still be a step, and own the error.
+    source = ERROR_PARTWAY.replace("conjunct 0 of pq\n  conclude", "conjunct 0 of conjunct 5 of pq\n  conclude")
+    outline = proof_outline(str(tmp_path / "nested.pf"), source)
+    inner = [s for s in outline.steps if s.range.start.line == 6 and s.range.start.column == 30]
+    assert [(s.kind, s.status, s.goal, s.formula) for s in inner] == [
+        ("PAndElim", "error", None, None)
+    ]
+    outer = next(
+        s for s in outline.steps
+        if (s.range.start.line, s.range.start.column) == (6, 16)
+    )
+    assert outer.status == "ok"
+
+
+def test_recorder_installed_only_under_check_lock(tmp_path):
+    # While another caller holds the check lock, a pending
+    # proof_outline must not have installed its recorder yet.
+    import threading
+    import time
+
+    import flags
+
+    result = []
+    path = str(tmp_path / "partway.pf")
+    worker = threading.Thread(
+        target=lambda: result.append(proof_outline(path, ERROR_PARTWAY))
+    )
+    with lsp.library._check_file_lock:
+        worker.start()
+        time.sleep(0.2)
+        assert flags.get_proof_outline() is None
+    worker.join()
+    assert flags.get_proof_outline() is None
+    assert len(result[0].steps) > 8

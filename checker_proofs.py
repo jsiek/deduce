@@ -533,6 +533,8 @@ def check_proof(proof: Proof, env: Env) -> CheckedFormula:
   if get_verbose():
     print('check_proof:')
     print('\t' + str(proof))
+  # Record before dispatch so a node whose handler raises is still a step.
+  record_step(proof, env)
   handler = _CHECK_PROOF_HANDLERS.get(type(proof))
   if handler is not None:
     formula = cast(CheckedFormula, handler(proof, env))

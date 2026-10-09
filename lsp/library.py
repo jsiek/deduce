@@ -67,8 +67,10 @@ _ScalarSnapshot = dict[_SnapshotKey, object]
 # corrupt the prelude bootstrap of the next session, surfacing as
 # "undefined variable: Nat" because the second bootstrap cleared
 # ``uniquified_modules`` from under the first.  Serialise here
-# rather than asking every caller to do it.
-_check_file_lock = threading.Lock()
+# rather than asking every caller to do it.  Reentrant so a caller
+# that sets pipeline flags around ``check_file`` (``proof_outline``)
+# can hold it across both.
+_check_file_lock = threading.RLock()
 
 from lark.tree import Meta
 
