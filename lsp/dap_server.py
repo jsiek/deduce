@@ -770,6 +770,11 @@ class DAPServer:
 
 
 def main() -> None:
+    from lsp.library import default_snapshot_dir, set_snapshot_dir
+
+    # Load the post-prelude state from disk instead of re-checking the
+    # stdlib in every new server process (issue #1217).
+    set_snapshot_dir(default_snapshot_dir())
     DAPServer().run()
 
 

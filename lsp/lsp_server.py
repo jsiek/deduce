@@ -1382,6 +1382,11 @@ def on_insert_lemma(
 
 def main() -> None:
     """Run the server over stdio. Used as the ``__main__`` entry."""
+    from lsp.library import default_snapshot_dir, set_snapshot_dir
+
+    # Load the post-prelude state from disk instead of re-checking the
+    # stdlib in every new server process (issue #1217).
+    set_snapshot_dir(default_snapshot_dir())
     server.start_io()
 
 
