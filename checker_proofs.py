@@ -23,7 +23,7 @@ from abstract_syntax import (
     Constructor, Env, EvaluateFact, EvaluateGoal, Formula,
     FunctionType, Hole, IfThen, ImpIntro, IndCase, Induction,
     InductiveInfo, Lambda,
-    ModusPonens, Omitted, Or, OverloadedVar, PAndElim, PAnnot,
+    ModusPonens, Omitted, Or, OverloadedVar, OverloadType, PAndElim, PAnnot,
     PExtensionality, PHelpUse, PHole, PInjective, PLet, PRecall,
     Pattern, PatternTerm, PReflexive, Proof, PSorry, PSymmetric, PTLetNew,
     PTransitive, PTrue,
@@ -1942,6 +1942,12 @@ def _check_proof_of_switch(proof: SwitchProof, formula: CheckedFormula, env: Env
       # As far as I know, it is not possible to switch on a type
       add_diagnostic(loc, "In 'switch' expected a term, got " + str(new_subject)
             + givens_str(env))
+    case OverloadType():
+      # e.g. `switch zero`: Nat or the UInt view (#1236).
+      add_diagnostic(loc, "the subject of 'switch' is ambiguous: "
+            + str(proof.subject) + ' could have any of the types ' + str(ty)
+            + '\nAdd a type annotation, e.g. `switch (' + str(proof.subject)
+            + ' : T) { ... }`' + givens_str(env))
     case _:
       tname = get_type_name(ty)
       match env.get_def_of_type_var(tname):

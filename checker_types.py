@@ -19,6 +19,7 @@ from typing import TypeAlias as TypingTypeAlias, cast
 
 from lark.tree import Meta
 
+from abstract_syntax.ops import _walk_ast_descendants
 from abstract_syntax import (
     All,
     And,
@@ -276,6 +277,13 @@ def _switch_subject_via_bijective_view(
       subterms)
   return checked_view, target_ty
 
+def _has_overload_type(ty: TypeExpr | None) -> bool:
+  """Whether ``ty`` is, or contains, the type of an overloaded constant
+  such as ``zero`` (``Nat`` or the ``UInt`` view), e.g. ``List<(zero:
+  Nat & zero: UIntView)>``. Such a term should take its type from its
+  context rather than impose one on it (issues #1232, #1236)."""
+  return any(isinstance(n, OverloadType) for n in _walk_ast_descendants(ty))
+
 def _is_generic_unknown_argument(arg: Term, env: Env) -> bool:
   match arg:
     case Mark(_, _, subject):
@@ -363,7 +371,7 @@ def type_check_call_funty(
             continue
           else:
             new_arg = type_synth_term(arg, env, recfun, subterms)
-            if isinstance(new_arg.typeof, OverloadType):
+            if _has_overload_type(new_arg.typeof):
               # An overloaded constant such as `zero` (Nat or UInt view):
               # let the other arguments fix the type parameters first,
               # then check it against the result (issue #1232).
@@ -983,11 +991,11 @@ def type_synth_term(
       new_cond = type_check_term(cond, BoolType(loc), env, recfun, subterms)
       new_thn = type_synth_term(thn, env, recfun, subterms)
       new_els = type_synth_term(els, env, recfun, subterms)
-      if isinstance(new_thn.typeof, OverloadType) \
-          and not isinstance(new_els.typeof, OverloadType):
+      if _has_overload_type(new_thn.typeof) \
+          and not _has_overload_type(new_els.typeof):
         new_thn = type_check_term(thn, new_els.typeof, env, recfun, subterms)
-      elif isinstance(new_els.typeof, OverloadType) \
-          and not isinstance(new_thn.typeof, OverloadType):
+      elif _has_overload_type(new_els.typeof) \
+          and not _has_overload_type(new_thn.typeof):
         new_els = type_check_term(els, new_thn.typeof, env, recfun, subterms)
       if new_thn.typeof != new_els.typeof:
         user_error(loc, 'conditional expects same type for the two branches'\
@@ -1076,7 +1084,14 @@ def type_synth_term(
         if op_name == '=' or op_name == '≠':
       assert len(args) == 2
       lhs = type_synth_term(args[0], env, recfun, subterms)
-      rhs = type_check_term(args[1], lhs.typeof, env, recfun, subterms)
+      right = type_synth_term(args[1], env, recfun, subterms) \
+          if _has_overload_type(lhs.typeof) else None
+      if right is not None and not _has_overload_type(right.typeof):
+        # `zero = suc(zero)`: take the type from the right side (#1236).
+        rhs = right
+        lhs = type_check_term(args[0], rhs.typeof, env, recfun, subterms)
+      else:
+        rhs = type_check_term(args[1], lhs.typeof, env, recfun, subterms)
       ty = BoolType(loc)
       if lhs.typeof != rhs.typeof:
           user_error(loc, 'expected arguments of equality to have the same type, but\n' \
@@ -1096,26 +1111,25 @@ def type_synth_term(
         new_subject, ty = view_subject
 
       cases_present: PatternCoverage = {}
-      result_type: list[TypeExpr | None] = [None] # boxed to allow mutable update in process_case
-
-      def process_case(
-          c: SwitchCase,
-          result_type: list[TypeExpr | None],
-          cases_present: PatternCoverage,
-      ) -> SwitchCase:
+      checked: list[tuple[SwitchCase, Env, Term]] = []
+      for c in cases:
         new_env = check_pattern(c.pattern, ty, env, cases_present)
-        new_body = type_synth_term(c.body, new_env, recfun, subterms)
-        case_type = new_body.typeof
-        if result_type[0] == None:
-          result_type[0] = case_type
-        elif case_type != result_type[0]:
+        checked.append(
+            (c, new_env, type_synth_term(c.body, new_env, recfun, subterms)))
+      # A body that is an overloaded constant (e.g. `zero`) takes the
+      # type of the other bodies, as in a conditional (#1236).
+      known = next((b.typeof for (_, _, b) in checked
+                    if not _has_overload_type(b.typeof)), None)
+      new_cases: list[SwitchCase] = []
+      for (c, new_env, new_body) in checked:
+        if known is not None and _has_overload_type(new_body.typeof):
+          new_body = type_check_term(c.body, known, new_env, recfun, subterms)
+        if new_cases and new_body.typeof != new_cases[0].body.typeof:
           user_error(c.location, 'bodies of cases must have same type, but ' \
-                + str(case_type) + ' ≠ ' + str(result_type[0]))
-        return SwitchCase(c.location, c.pattern, new_body)
-
-      new_cases = [process_case(c, result_type, cases_present) \
-                   for c in cases]
-      ret = Switch(loc, result_type[0], new_subject, new_cases)
+                + str(new_body.typeof) + ' ≠ ' + str(new_cases[0].body.typeof))
+        new_cases.append(SwitchCase(c.location, c.pattern, new_body))
+      result_type = new_cases[0].body.typeof if new_cases else None
+      ret = Switch(loc, result_type, new_subject, new_cases)
       
       # check exhaustiveness
       match ty:
@@ -1148,7 +1162,7 @@ def type_synth_term(
 
       # An empty switch (over an uninhabited type) is vacuously exhaustive
       # but has no inferrable result type; ask for an annotation.
-      if result_type[0] is None:
+      if result_type is None:
         user_error(loc, 'cannot infer the type of an empty switch.\n'\
               + 'Add a type annotation, e.g. "(switch ' + str(subject) \
               + ' { } : T)".')

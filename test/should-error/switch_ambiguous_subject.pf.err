@@ -1,0 +1,2 @@
+./test/should-error/switch_ambiguous_subject.pf:8.3-11.4: the subject of 'switch' is ambiguous: zero could have any of the types (zero: Nat & zero: UIntView)
+Add a type annotation, e.g. `switch (zero : T) { ... }`
