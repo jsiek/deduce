@@ -1,0 +1,11 @@
+// The importer's own `foo` doesn't affect how SepCompM is checked: each
+// module is processed in an environment of its own (issue #1250). Before,
+// this reported "the name foo is already defined" inside SepCompM.pf.
+define foo : bool = false
+
+import SepCompM
+
+theorem uses_sep_comp: true
+proof
+  .
+end

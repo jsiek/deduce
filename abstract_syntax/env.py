@@ -126,19 +126,14 @@ class Env:
     else:
       self.dict = {}
 
-  # This is a hack. Not reliable. Added for GenRecFun.
+  # A lookup by base name, which can't tell modules apart. Left only for
+  # the UInt literal hooks in ``literals.py``, which find the stdlib's
+  # binary representation by name (#1250).
   def base_to_unique(self, name: str) -> str | None:
     for k in self.dict.keys():
       if base_name(k) == name:
         return k
     return None
-
-  def base_to_overloads(self, name: str) -> list[str]:
-    overloads = []
-    for k in self.dict.keys():
-      if base_name(k) == name:
-        overloads.append(k)
-    return overloads
 
   def __str__(self) -> str:
     return ',\n'.join(['\t' + name2str(k) + ': ' + str(v) \
@@ -326,6 +321,44 @@ class Env:
   def declare_module(self, module: str) -> Env:
     return self._with_binding('__current_module__', module)
   
+  def import_env(self, module_env: Env) -> Env:
+    """This env with the bindings of an imported module's env added
+    (#1250). A module is processed in an env of its own, so its names
+    can't collide with this env's except where both import the same
+    module, and those bindings are the same. This env keeps its current
+    module and tracing; the auto rules, induction schemes and
+    associativity declarations combine, since a module sees those of
+    everything it imports."""
+    new_env = Env(self.dict)
+    for key, theirs in module_env.dict.items():
+      if key in ('__current_module__', 'tracing'):
+        continue
+      ours = new_env.dict.get(key)
+      if ours is None:
+        new_env.dict[key] = theirs
+      elif key == '__auto__':
+        mine = cast(AutoEquationBinding, ours)
+        other = cast(AutoEquationBinding, theirs)
+        equations = {head: list(rules) for head, rules in mine.equations.items()}
+        for head, rules in other.equations.items():
+          equations[head] = _union(equations.get(head, []), rules)
+        new_env.dict[key] = AutoEquationBinding(
+            mine.location, equations,
+            _union(mine.fallback_equations, other.fallback_equations),
+            module=mine.module)
+      elif key == '__inductive__':
+        new_env.dict[key] = {**cast(dict[str, object], theirs),
+                             **cast(dict[str, object], ours)}
+      elif key.startswith('__associative_'):
+        mine_assoc = cast(AssociativeBinding, ours)
+        other_assoc = cast(AssociativeBinding, theirs)
+        # Newest first, as ``declare_assoc`` keeps them.
+        new_types = [t for t in other_assoc.types if t not in mine_assoc.types]
+        new_env.dict[key] = AssociativeBinding(
+            mine_assoc.location, mine_assoc.opname,
+            new_types + mine_assoc.types, module=mine_assoc.module)
+    return new_env
+
   def declare_tracing(self, function_name: str) -> Env:
     new_env = Env(self.dict)
     new_env.dict['tracing'] = cast(set[str], self.dict.get('tracing', set())) | {function_name}
@@ -505,3 +538,9 @@ class Env:
   def proofs(self) -> list[Formula]:
     return [b.formula for (name, b) in self.dict.items() \
             if isinstance(b, ProofBinding)]
+
+
+def _union[T](first: list[T], second: list[T]) -> list[T]:
+  """``first`` followed by the items of ``second`` not already in it
+  (by identity: modules imported along two paths share their objects)."""
+  return first + [x for x in second if not any(x is y for y in first)]

@@ -1,0 +1,5 @@
+// Defining a non-function with an imported name is still an error, reported
+// in the importer (issue #1250).
+import SepCompM
+
+define foo : bool = false

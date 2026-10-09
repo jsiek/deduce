@@ -84,6 +84,8 @@ import rec_desc_parser as _rd_parser
 from abstract_syntax import (
     Import,
     Statement,
+    Trace,
+    Var,
     UniquifyContext,
     add_uniquified_module,
     get_recursive_descent,
@@ -357,9 +359,12 @@ def _check_file_impl(
         # and the whole point of the explicit choice is to actually
         # run that parser on this file.
         experimental_imperative = get_experimental_imperative()
+        # The `trace` statements ``--trace`` appends must not be cached
+        # as part of the file.
         use_cache = (
             parser is None
             and not experimental_imperative
+            and not tracing_functions
             and (content is None or _content_matches_file(filename, content))
         )
         if use_cache and module_name in cached:
@@ -419,6 +424,14 @@ def _check_file_impl(
                 ]
                 ast = imports + ast
 
+            # `--trace f`: a `trace f` statement at the end, so uniquify
+            # resolves `f` among the names visible in the file; the
+            # checker applies it to the whole file.
+            ast = ast + [
+                Trace(Meta(), Var(Meta(), None, name))  # type: ignore[no-untyped-call, unused-ignore]
+                for name in tracing_functions
+            ]
+
             ast = uniquify_deduce(ast, ctx)
             if use_cache:
                 add_uniquified_module(module_name, ast)
@@ -438,7 +451,7 @@ def _check_file_impl(
         prev_warning_sink = set_active_warning_sink(warning_sink)
         try:
             typechecked_ast = check_deduce(
-                ast, module_name, True, list(tracing_functions), error_sink=sink
+                ast, module_name, True, error_sink=sink
             )
         finally:
             set_active_warning_sink(prev_warning_sink)

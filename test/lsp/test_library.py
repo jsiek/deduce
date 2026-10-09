@@ -232,3 +232,27 @@ def test_collect_errors_includes_expand_residual_hint() -> None:
         "expand-residual hint missing from collect_errors diagnostic:\n"
         + body
     )
+
+
+_TRACED = """\
+union N { z  s(N) }
+recursive dbl(N) -> N {
+  dbl(z) = z
+  dbl(s(n)) = s(s(dbl(n)))
+}
+print dbl(s(z))
+"""
+
+
+def test_trace_flag_resolves_names_visible_in_the_file(tmp_path: Path, capsys) -> None:
+    """``--trace dbl`` becomes a ``trace dbl`` statement, so uniquify
+    resolves it among the file's visible names and every call is traced
+    (issue #1250 replaced a lookup by base name)."""
+    path = tmp_path / "traced.pf"
+    path.write_text(_TRACED)
+    result = check_file(str(path), prelude=(), tracing_functions=["dbl"])
+    assert result.ok, result.error_message
+    assert "> dbl(s(z))" in capsys.readouterr().out
+
+    unknown = check_file(str(path), prelude=(), tracing_functions=["nope"])
+    assert not unknown.ok and "undefined variable: nope" in unknown.error_message

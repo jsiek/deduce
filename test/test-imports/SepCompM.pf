@@ -1,0 +1,8 @@
+// A module for the separate-compilation tests (issue #1250): it must mean
+// the same thing whatever its importer declared before importing it.
+define foo : bool = true
+
+theorem sep_comp_foo: foo = true
+proof
+  expand foo.
+end
