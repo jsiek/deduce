@@ -625,6 +625,12 @@ def test_apply_at_request(server, open_doc):
     assert _text(result["conclusion"]) == "Q"
     assert [_text(p) for p in result["remaining_premises"]] == ["P"]
     assert lsp_server.on_apply_at(server, {**doc, "theorem": "H", "args": "x"}) is None
+    # Args that don't parse: the check never reaches the hole, so there
+    # is no goal tree to send.
+    bad = lsp_server.on_apply_at(
+        server, {**doc, "theorem": "H", "args": ["not_in_scope"]}
+    )
+    assert (bad["outcome"], bad["goal"]) == ("unifies_against", None)
 
 
 def test_auto_rules_at_request(server, open_doc):

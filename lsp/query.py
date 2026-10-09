@@ -3415,10 +3415,12 @@ def apply_at(
        conjunctive premise is split on top-level ``and`` so the list
        maps to what the user would put after ``to``.
 
-    - ``{"outcome": "unifies_against", "goal": TermTree,
+    - ``{"outcome": "unifies_against", "goal": TermTree | None,
        "reason": "<message>"}``
        The conclusion did not match the goal, or instantiation could
-       not deduce the all-bound variables.
+       not deduce the all-bound variables. ``goal`` is ``None`` when
+       ``args`` do not parse, since the check then stops before the
+       hole.
 
     - ``{"outcome": "unbound", "theorem": "<name>"}``
        ``theorem`` is not in scope at the hole.
@@ -3462,7 +3464,7 @@ def apply_at(
             msg = getattr(exc, "message_body", None) or str(exc) or ""
             return {
                 "outcome": "unifies_against",
-                "goal": "",
+                "goal": None,  # the check never reached the hole
                 "reason": "could not parse args: " + msg.strip(),
             }
         return None

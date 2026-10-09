@@ -833,9 +833,10 @@ def apply_at(
       succeed; ``remaining_premises`` is the ordered list of
       obligations the user still has to prove (split on top-level
       ``and`` so it maps to what would go after ``to``).
-    - ``{"outcome": "unifies_against", "goal": "<formula>",
+    - ``{"outcome": "unifies_against", "goal": "<formula>" | null,
        "reason": "<message>"}`` -- the conclusion didn't match the
-      goal, or all-bound variables couldn't be deduced.
+      goal, or all-bound variables couldn't be deduced. ``goal`` is
+      ``null`` when ``args`` don't parse.
     - ``{"outcome": "unbound", "theorem": "<name>"}`` -- the theorem
       isn't in scope at the hole.
     - ``{"outcome": "arity_mismatch", "expected": N, "got": M}``
@@ -1014,8 +1015,10 @@ def auto_rules_at(path: str, line: int, column: int) -> list[JSONDict]:
 
     Lines and columns are 1-indexed.  Each entry has ``name`` (the
     user-visible identifier of the source theorem), ``equation`` (the
-    rendered formula the rule rewrites with), and ``module`` (the
-    module that declared the ``auto`` statement).  Order matches
+    rendered formula the rule rewrites with), ``module`` (the module
+    that declared the ``auto`` statement), and ``premises`` (the
+    conditions of a conditional rule, one formula each; empty for an
+    unconditional rule).  Order matches
     declaration order, which is also the order the auto-rewriter
     tries equations when multiple share a head constructor -- so the
     first hit in the list is the one that fires first.

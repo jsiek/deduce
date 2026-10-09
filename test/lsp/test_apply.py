@@ -276,6 +276,7 @@ def test_apply_at_arg_does_not_parse() -> None:
     assert result is not None
     assert result["outcome"] == "unifies_against"
     assert "could not parse args" in result["reason"]
+    assert result["goal"] is None
 
 
 def test_apply_at_returns_none_when_cursor_not_on_hole() -> None:
