@@ -1,0 +1,9 @@
+// Prove that the length of two appended lists is the sum of their lengths.
+// (The standard library proves this as length_append, so this theorem
+// gets its own name.) Tap the ? to see the goal and the steps you can take.
+
+theorem length_of_append: all U:type, xs:List<U>, ys:List<U>.
+  length(xs ++ ys) = length(xs) + length(ys)
+proof
+  ?
+end

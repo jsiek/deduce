@@ -22,7 +22,8 @@ for pf in "${REPO}"/lib/*.pf; do
   fi
 done
 
-mkdir -p "${APP}/lib" "${APP}/samples"
+mkdir -p "${APP}/lib" "${APP}/samples" "${APP}/exercises"
+rsync -a --delete "${PROJECT_DIR}/exercises/" "${APP}/exercises/"
 rsync -a --delete --exclude __pycache__ "${REPO}/abstract_syntax" "${REPO}/lsp" "${APP}/"
 rsync -a "${REPO}"/*.py "${REPO}/Deduce.lark" "${PROJECT_DIR}/python/" "${APP}/"
 # -a preserves modification times, so each .thm stays at least as new as its .pf.

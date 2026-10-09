@@ -70,9 +70,22 @@ struct Textbook {
         var id: Outline.Range { range }
     }
 
+    /// A `?` still to prove: what the hole inspector works on.
+    struct Hole {
+        let range: Outline.Range
+        let goal: Outline.Tree
+        let givens: [Outline.Given]
+    }
+
     let theorems: [Theorem]
+    /// The file's holes in source order.
+    let holes: [Hole]
 
     init(outline: Outline, source: String) {
+        holes = outline.steps
+            .filter { $0.kind == "PHole" }
+            .compactMap { step in step.goal.map { Hole(range: step.range, goal: $0, givens: step.givens) } }
+            .sorted { $0.range.start < $1.range.start }
         let builder = Builder(source: source)
         theorems = outline.theorems.map { theorem in
             let steps = outline.steps.filter { theorem.range.contains($0.range) }
@@ -170,8 +183,7 @@ struct Textbook {
         let lines: [[Unicode.Scalar]]
 
         init(source: String) {
-            lines = source.split(separator: "\n", omittingEmptySubsequences: false)
-                .map { Array($0.unicodeScalars) }
+            lines = source.scalarLines
         }
 
         func blocks(_ nodes: [Node]) -> [Block] {
@@ -298,22 +310,33 @@ struct Textbook {
                           source: text.split(whereSeparator: \.isWhitespace).joined(separator: " "))
         }
 
-        /// The source text of `range`; columns count Unicode scalars, as
-        /// Python indexes strings.
         func slice(_ range: Outline.Range) -> String {
-            guard range.start.line < lines.count, range.end.line < lines.count else { return "" }
-            var scalars: [Unicode.Scalar] = []
-            for n in range.start.line...range.end.line {
-                let line = lines[n]
-                let from = n == range.start.line ? min(range.start.character, line.count) : 0
-                let to = n == range.end.line ? min(range.end.character, line.count) : line.count
-                if from < to { scalars += line[from..<to] }
-                if n != range.end.line { scalars.append("\n") }
-            }
-            var text = String.UnicodeScalarView()
-            text.append(contentsOf: scalars)
-            return String(text)
+            sourceText(lines, range)
         }
+    }
+}
+
+/// The text of `range` in `source`, split into lines of Unicode scalars;
+/// columns count Unicode scalars, as Python indexes strings.
+func sourceText(_ lines: [[Unicode.Scalar]], _ range: Outline.Range) -> String {
+    guard range.start.line < lines.count, range.end.line < lines.count else { return "" }
+    var scalars: [Unicode.Scalar] = []
+    for n in range.start.line...range.end.line {
+        let line = lines[n]
+        let from = n == range.start.line ? min(range.start.character, line.count) : 0
+        let to = n == range.end.line ? min(range.end.character, line.count) : line.count
+        if from < to { scalars += line[from..<to] }
+        if n != range.end.line { scalars.append("\n") }
+    }
+    var text = String.UnicodeScalarView()
+    text.append(contentsOf: scalars)
+    return String(text)
+}
+
+extension String {
+    /// This text's lines as Unicode scalars, for `sourceText`.
+    var scalarLines: [[Unicode.Scalar]] {
+        split(separator: "\n", omittingEmptySubsequences: false).map { Array($0.unicodeScalars) }
     }
 }
 
