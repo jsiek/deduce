@@ -1,0 +1,12 @@
+// `zero` is both a Nat and a UInt-view constructor, so this switch has no
+// single subject type (issue #1236). Used to crash in get_type_name.
+import Nat
+import UInt
+
+theorem t: true
+proof
+  switch zero {
+    case zero { . }
+    case suc(n) { . }
+  }
+end
