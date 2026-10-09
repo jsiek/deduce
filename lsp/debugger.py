@@ -540,6 +540,10 @@ class Debugger:
                     self._print(f"error running {cmd!r}: {e}")
                     continue
                 if resume:
+                    # Snap focus back to the innermost frame: anything
+                    # evaluated before the next pause (a breakpoint
+                    # condition) must not see an ``up``-selected frame.
+                    self._frame_cursor = -1
                     return
         finally:
             # Save history on every REPL exit (including via

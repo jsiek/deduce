@@ -292,6 +292,28 @@ def test_conditional_breakpoint_on_param():
     assert "n' = zero" in out
 
 
+def test_conditional_breakpoint_ignores_frame_selected_before_resume():
+    """After ``up``, the condition checked on the next call must see the
+    new innermost frame's params. A stale ``up`` cursor counts from the
+    top of the grown stack, so it lands on the frame below the new one
+    (here n' = suc(zero), where the new frame has n' = zero)."""
+    path = _write_fixture(
+        "bp_cond_up.pf",
+        RECURSIVE_PROGRAM.replace("double(suc(suc(zero)))",
+                                  "double(suc(suc(suc(zero))))"),
+    )
+    result, _, out = _run(
+        path,
+        "break double if n' = suc(zero)\n"
+        "continue\n"         # stop in the frame with n' = suc(zero)
+        "up\n"
+        "continue\n"         # next frame has n' = zero: must not stop
+        "where\n",
+    )
+    assert result.ok, result.error_message
+    assert out.count("-> call double") == 1
+
+
 def test_delete_breakpoints():
     path = _write_fixture("bp_delete.pf", RECURSIVE_PROGRAM)
     result, dbg, out = _run(
