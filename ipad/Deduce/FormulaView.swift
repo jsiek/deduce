@@ -94,7 +94,8 @@ struct FormulaView: View {
     }
 
     /// The definitions called in `tree`, in source spelling (`operator++`),
-    /// first occurrence first: what `expand` could unfold there.
+    /// first occurrence first: what `expand` could unfold there. A
+    /// constructor has no definition to unfold.
     static func calledNames(_ tree: Outline.Tree) -> [String] {
         var names: [String] = []
         func visit(_ node: Outline.Tree) {
@@ -103,7 +104,9 @@ struct FormulaView: View {
                 var callee = children[f]
                 if callee.kind == "TermInst", let subject = subtrees(callee).first { callee = subject }
                 let name = callee.text
-                if !logical.contains(name) && !names.contains(spelled(name)) { names.append(spelled(name)) }
+                if callee.kind != "Constructor" && !logical.contains(name) && !names.contains(spelled(name)) {
+                    names.append(spelled(name))
+                }
             }
             children.forEach(visit)
         }

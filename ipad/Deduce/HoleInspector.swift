@@ -15,6 +15,9 @@ struct HoleInspector: View {
     @State private var matching: [String] = []
     @State private var lemmas: [DeduceServer.Lemma] = []
     @State private var preview: (title: String, result: DeduceServer.Preview)?
+    /// The step being previewed, while the server checks it.
+    @State private var previewing: String?
+    @State private var loading = true
     @State private var typing = false
     @State private var typed = ""
 
@@ -40,49 +43,69 @@ struct HoleInspector: View {
                 }
             }
             Section("Steps") {
-                ForEach(actions, id: \.title) { action in
-                    Button(action.title) { server.apply(action.edits) }
-                }
-                pick("Cases on…", splittable, "deduce/caseSplitAt", "variable")
-                pick("Use a given…", eliminable, "deduce/eliminateAt", "label")
-                pick("Prove it with a given…", matching, "deduce/fillFromGivenAt", "label")
-                Button("Type a proof…") {
-                    typed = ""
-                    typing = true
+                if loading {
+                    ProgressView()
+                } else {
+                    ForEach(actions, id: \.title) { action in
+                        Button(action.title) { server.apply(action.edits) }
+                    }
+                    pick("Cases on…", splittable, "deduce/caseSplitAt", "variable")
+                    pick("Use a given…", eliminable, "deduce/eliminateAt", "label")
+                    pick("Prove it with a given…", matching, "deduce/fillFromGivenAt", "label")
+                    Button("Type a proof…") {
+                        typed = ""
+                        typing = true
+                    }
                 }
             }
             Section(subterm == nil ? "The whole goal" : "The selected part: \(display(selected))") {
-                ForEach(expansions, id: \.self) { names in
-                    stepButton("Expand " + names.joined(separator: ", "),
-                               "deduce/previewExpandAtSubterm", ["names": names])
+                // One definition at a time: `expand A | B` fails unless
+                // every name unfolds, which can't be known in advance.
+                ForEach(FormulaView.calledNames(selected), id: \.self) { name in
+                    stepButton("Expand " + name, "deduce/previewExpandAtSubterm", ["names": [name]])
                 }
                 ForEach(equations, id: \.self) { equation in
                     stepButton("Replace using " + equation, "deduce/previewReplaceAtSubterm", ["equation": equation])
                 }
-                if let preview {
-                    previewView(preview.title, preview.result)
-                }
             }
         }
-        .disabled(busy)
-        .task(id: hole.range) { await load() }
-        .task(id: subterm) {
+        // Rows would move under a finger as the steps arrive.
+        .disabled(busy || loading)
+        // The preview stays in sight below the list, whatever its scroll.
+        .safeAreaInset(edge: .bottom) {
+            if previewing != nil || preview != nil {
+                Group {
+                    if let previewing {
+                        HStack {
+                            Text("Checking “\(previewing)”…").font(.caption).foregroundStyle(.secondary)
+                            Spacer()
+                            ProgressView()
+                        }
+                    } else if let preview {
+                        previewView(preview.title, preview.result)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
+                .background(.regularMaterial)
+                .disabled(busy)
+            }
+        }
+        // An edit can leave a hole at the same range, so reload per version too.
+        .task(id: "\(hole.range) v\(server.version)") { await load() }
+        .task(id: "\(hole.range) v\(server.version) \(subterm ?? [])") {
             preview = nil
             lemmas = await server.lemmas(at: position, subterm: subterm ?? [])
         }
         .alert("Type a proof", isPresented: $typing) {
             TextField("e.g. conclude … by …", text: $typed)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
             Button("Insert") { server.apply([TextEdit(range: hole.range, newText: typed)]) }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("It replaces the ?. Write ? where you want to leave more to prove.")
         }
-    }
-
-    /// Each definition called in the selection on its own, then all of them.
-    private var expansions: [[String]] {
-        let names = FormulaView.calledNames(selected)
-        return names.map { [$0] } + (names.count > 1 ? [names] : [])
     }
 
     /// Givens that are equations (either way round), then lemmas that
@@ -115,8 +138,10 @@ struct HoleInspector: View {
     private func stepButton(_ title: String, _ method: String, _ params: [String: Any]) -> some View {
         Button(title) {
             Task {
+                previewing = title
                 let result = await server.preview(method, at: position, subterm: subterm ?? [], params)
                 preview = (title, result)
+                previewing = nil
             }
         }
     }
@@ -139,12 +164,17 @@ struct HoleInspector: View {
         .padding(.vertical, 4)
     }
 
+    /// Ask for every list of steps, then show them together, so the rows
+    /// don't move under a finger while they arrive.
     private func load() async {
         subterm = nil
         preview = nil
-        actions = await server.codeActions(at: position)
-        splittable = await server.names("deduce/splittableVarsAt", at: position)
-        eliminable = await server.names("deduce/eliminableVarsAt", at: position)
-        matching = await server.names("deduce/matchingGivensAt", at: position)
+        loading = true
+        defer { loading = false }
+        let newActions = await server.codeActions(at: position)
+        let newSplittable = await server.names("deduce/splittableVarsAt", at: position)
+        let newEliminable = await server.names("deduce/eliminableVarsAt", at: position)
+        let newMatching = await server.names("deduce/matchingGivensAt", at: position)
+        (actions, splittable, eliminable, matching) = (newActions, newSplittable, newEliminable, newMatching)
     }
 }

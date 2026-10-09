@@ -42,7 +42,8 @@ final class DeduceServer: ObservableObject {
     private var pendingOpen: URL?
     private var openURL: URL?
     private(set) var openURI: String?
-    private var version = 1
+    /// The open document's version, bumped by each edit.
+    private(set) var version = 1
     private var history: [String] = []
     /// Checks the server hasn't answered yet, by document URI. The server
     /// checks one document at a time, so opening a file mid-check queues it.

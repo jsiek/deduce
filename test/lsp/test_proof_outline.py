@@ -35,6 +35,15 @@ def _steps_in_lines(steps: tuple[ProofStep, ...], first: int, last: int):
     return [s for s in steps if first <= s.range.start.line <= last]
 
 
+def _kinds_of(tree: TermTree, name: str) -> set[str]:
+    """The kinds of the subtrees of ``tree`` whose text is ``name``."""
+    found = {tree.kind} if str(tree) == name else set()
+    for p in tree.parts:
+        if isinstance(p, TermTree):
+            found |= _kinds_of(p, name)
+    return found
+
+
 def _theorem_lines(source: str, name: str) -> tuple[int, int]:
     """1-indexed (theorem line, matching ``end`` line)."""
     lines = source.splitlines()
@@ -67,6 +76,9 @@ def test_length_append_induction_and_equations():
         "1 + (length(xs') + length(ys)) = #length(node(n, xs'))# + length(ys)",
     ]
     assert len({s.range.start.line for s in links}) == 3
+    # A constructor is marked as one, so a client doesn't offer to expand it.
+    assert _kinds_of(links[0].formula, "node") == {"Constructor"}
+    assert _kinds_of(links[0].formula, "length") == {"Var"}
     assert links[1].uses == (StepUse("IH", "given"),)
     assert links[2].uses == (StepUse("length", "definition"),)
     assert all(

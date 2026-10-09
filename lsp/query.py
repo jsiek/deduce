@@ -217,7 +217,9 @@ class TermTree:
 
     ``kind`` is the AST class (``"Call"``, ``"All"``, ``"Mark"``,
     ``"TermInst"``, ...), except that every variable reference, and
-    every operator, is ``"Var"``. Children come in printed order: a
+    every operator, is ``"Var"``, or ``"Constructor"`` when it names a
+    union's constructor (in proof-outline goals, which know the
+    environment). Children come in printed order: a
     call's callee before its arguments, an infix operator between them.
     A subterm's *path* is the list of indices among the tree-valued
     parts from the root down: in ``x + suc(y)`` the ``+`` node has path
@@ -1142,12 +1144,15 @@ def _normalized_tree(
     return None if str(reduced) == str(formula) else _term_tree(reduced)
 
 
-def _term_tree(node: "AST") -> TermTree:
+def _term_tree(
+    node: "AST", constructors: frozenset[str] = frozenset()
+) -> TermTree:
     """The :class:`TermTree` of ``node``: its printed text, with each
     child (see :func:`_tree_children`) placed at the first match of its
     own printed text, scanning left to right. A child whose text does
     not appear (or appears only inside an identifier) stays part of the
-    parent's text."""
+    parent's text. A reference to a name in ``constructors`` is a
+    ``"Constructor"``."""
     from abstract_syntax import TermInst, VarRef
 
     # An instantiation that prints as its subject (inferred type
@@ -1155,7 +1160,7 @@ def _term_tree(node: "AST") -> TermTree:
     # stands for the instantiation (so a callee is still its call's
     # ``rator``).
     if isinstance(node, TermInst) and str(node) == str(node.subject):
-        subject = _term_tree(node.subject)
+        subject = _term_tree(node.subject, constructors)
         return TermTree(subject.kind, subject.parts, node)
     text = str(node)
     parts: list[Union[str, TermTree]] = []
@@ -1167,13 +1172,19 @@ def _term_tree(node: "AST") -> TermTree:
             continue
         if start > pos:
             parts.append(text[pos:start])
-        parts.append(child if isinstance(child, TermTree) else _term_tree(child))
+        parts.append(
+            child if isinstance(child, TermTree)
+            else _term_tree(child, constructors)
+        )
         pos = start + len(child_text)
     if pos < len(text) or not parts:
         parts.append(text[pos:])
     # Variable references come in several internal classes
     # (``ResolvedVar``, ``OverloadedVar``, ...); clients just see "Var".
-    kind = "Var" if isinstance(node, VarRef) else type(node).__name__
+    if isinstance(node, VarRef):
+        kind = "Constructor" if node.get_name() in constructors else "Var"
+    else:
+        kind = type(node).__name__
     return TermTree(kind, tuple(parts), node)
 
 
@@ -5812,14 +5823,25 @@ def proof_outline(
             status[i] = (
                 "incomplete" if isinstance(exc, IncompleteProof) else "error"
             )
-    from abstract_syntax import PSorry
+    from abstract_syntax import PSorry, TypeBinding, Union
 
+    # Environments only grow through a file, so the last step's has
+    # every constructor a goal can mention.
+    constructors = frozenset(
+        c.name
+        for b in (mine[-1].env.dict.values() if mine else ())
+        if isinstance(b, TypeBinding) and isinstance(b.defn, Union)
+        for c in b.defn.alternatives
+    )
     steps = tuple(
         ProofStep(
             kind=type(r.proof).__name__,
             range=_range_from_meta(r.proof.location),
-            goal=None if r.goal is None else _term_tree(r.goal),
-            formula=None if r.formula is None else _term_tree(r.formula),
+            goal=None if r.goal is None else _term_tree(r.goal, constructors),
+            formula=(
+                None if r.formula is None
+                else _term_tree(r.formula, constructors)
+            ),
             givens=_givens(r.env, normalize=False),
             uses=_step_uses(r.proof, r.env),
             status="incomplete" if isinstance(r.proof, PSorry) else st,
