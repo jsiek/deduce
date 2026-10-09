@@ -162,6 +162,7 @@ MATCHING_GIVENS_REQUEST = "deduce/matchingGivensAt"
 # state so the client doesn't have to round-trip the tier.
 AVAILABLE_LEMMAS_REQUEST = "deduce/availableLemmasAt"
 INSERT_LEMMA_REQUEST = "deduce/insertLemma"
+PREVIEW_LEMMA_REQUEST = "deduce/previewLemmaAt"
 
 # Custom request for the Claude hole-fill sidecar (hole-fill-plan
 # Phase 1 / Step 2). Returns goal + givens + lemmas-in-scope +
@@ -1375,6 +1376,40 @@ def on_insert_lemma(
     if edit is None:
         return None
     return _workspace_edit_payload(uri, edit)
+
+
+@server.feature(PREVIEW_LEMMA_REQUEST)
+def on_preview_lemma_at(
+    ls: LanguageServer, params: object
+) -> Optional[dict[str, object]]:
+    """Custom request: check the step ``deduce/insertLemma`` would make
+    at a hole, before it's made.
+
+    Params: as ``deduce/insertLemma``, with ``position`` on a ``?``.
+
+    Result: ``{"outcome": "ok" | "error", "goals": [Tree] (what the
+    step leaves to prove; empty when it proves the goal), "edit":
+    WorkspaceEdit (the step), "message": str | null}``, or ``null`` off
+    a hole or when ``name`` isn't in scope. See
+    :class:`lsp.query.LemmaPreview`.
+    """
+    uri = _field_as_str(_get_field(params, "textDocument"), "uri")
+    at = _at_position(ls, params)
+    name = _field_as_str(params, "name")
+    if not uri or at is None or not name:
+        return None
+    path, content, pos = at
+    preview = _query.preview_lemma_at(
+        path, content, pos, name, prelude=_prelude_for(path)
+    )
+    if preview is None:
+        return None
+    return {
+        "outcome": preview.outcome,
+        "goals": [_json(g) for g in preview.goals],
+        "edit": _workspace_edit_payload(uri, preview.edit),
+        "message": preview.message,
+    }
 
 
 # --- Entry point ---------------------------------------------------------

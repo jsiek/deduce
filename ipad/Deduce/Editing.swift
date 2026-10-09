@@ -58,10 +58,10 @@ func decode<T: Decodable>(_ type: T.Type, _ value: Any?) -> T? {
 
 /// The proof steps the server can take at a hole, as typed calls.
 extension DeduceServer {
-    /// A step the server checked before it's applied: the goal it leaves
-    /// (`nil` when it proves the goal) and the edit that makes it.
+    /// A step the server checked before it's applied: the goals it leaves
+    /// (none when it proves the goal) and the edit that makes it.
     struct Preview {
-        let goal: Outline.Tree?
+        let goals: [Outline.Tree]
         let edits: [TextEdit]
         /// Why the step can't be taken, when it can't.
         let problem: String?
@@ -73,6 +73,11 @@ extension DeduceServer {
         let unify_tier: String?
 
         var id: String { name }
+
+        /// What the lemma says: its signature (`name: formula`) without the name.
+        var statement: String? {
+            signature.map { $0.hasPrefix(name + ": ") ? String($0.dropFirst(name.count + 2)) : $0 }
+        }
     }
 
     private func position(_ p: Outline.Position) -> [String: Any] {
@@ -106,25 +111,36 @@ extension DeduceServer {
         return TextEdit.edits(in: result, for: uri)
     }
 
-    /// Preview `expand names` or `replace equation` on the subterm of the
-    /// goal at `path` (`[]` for the whole goal).
-    func preview(_ method: String, at hole: Outline.Position, subterm path: [Int],
-                 _ params: [String: Any]) async -> Preview {
+    /// Preview a step at `hole`: `expand` / `replace` on a subterm
+    /// (`deduce/preview…AtSubterm`, with `"subterm"` in `params`) or using
+    /// a lemma (`deduce/previewLemmaAt`, with `"name"`).
+    func preview(_ method: String, at hole: Outline.Position, _ params: [String: Any]) async -> Preview {
         var all = params
         all["position"] = position(hole)
-        all["subterm"] = path
         guard let uri = openURI, let result = await request(method, all) as? [String: Any] else {
-            return Preview(goal: nil, edits: [], problem: "The server didn't answer.")
+            return Preview(goals: [], edits: [], problem: "The server didn't answer.")
         }
         let edits = TextEdit.edits(in: result["edit"], for: uri)
         let problem = result["outcome"] as? String == "ok" ? nil
             : (result["message"] as? String ?? "This step doesn't apply here.")
-        return Preview(goal: decode(Outline.Tree.self, result["goal"]), edits: edits, problem: problem)
+        // A subterm preview leaves one goal (`true` when it proves the
+        // goal); a lemma preview lists them.
+        let goals = decode([Outline.Tree].self, result["goals"])
+            ?? decode(Outline.Tree.self, result["goal"]).map { $0.text == "true" ? [] : [$0] } ?? []
+        return Preview(goals: goals, edits: edits, problem: problem)
     }
 
     /// Lemmas ranked against the subterm at `path`, best first.
     func lemmas(at hole: Outline.Position, subterm path: [Int]) async -> [Lemma] {
         decode([Lemma].self, await request("deduce/lemmasForSubterm",
                                            ["position": position(hole), "subterm": path, "limit": 12])) ?? []
+    }
+
+    /// Lemmas in scope at `hole`, ranked against its goal and, when
+    /// `query` isn't empty, matching it.
+    func lemmas(at hole: Outline.Position, matching query: String) async -> [Lemma] {
+        var params: [String: Any] = ["position": position(hole), "limit": 20]
+        if !query.isEmpty { params["query"] = query }
+        return decode([Lemma].self, await request("deduce/availableLemmasAt", params)) ?? []
     }
 }

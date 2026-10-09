@@ -4056,6 +4056,9 @@ def insert_lemma_at(
     discharged: tuple[tuple[str, str], ...] = ()
     instantiations: tuple[str, ...] = ()
     if goal_ast is not None and env is not None:
+        # Classify with the type-checked formula, as the ranking does
+        # (see ``_typed_formula_index``), so the step matches its tier.
+        target_formula = _typed_formula_index(env).get(name, target_formula)
         given_pairs = _collect_local_givens(env)
         _score, tier, discharged, instantiations = _unify_score(
             target_formula, goal_ast, env, given_pairs
@@ -4073,6 +4076,100 @@ def insert_lemma_at(
         template, _line_indent_at(content, hole_range.start)
     )
     return WorkspaceEdit(path=path, range=hole_range, new_text=template)
+
+
+@dataclass(frozen=True)
+class LemmaPreview:
+    """Result of :func:`preview_lemma_at`: what the step
+    :func:`insert_lemma_at` makes at a hole would do.
+
+    ``outcome`` is ``"ok"``, with ``goals`` the goals of the ``?``s the
+    step leaves, in source order (none when it proves the goal), or
+    ``"error"``, with the checker's ``message``. ``edit`` is the step
+    either way."""
+
+    outcome: str
+    edit: WorkspaceEdit
+    goals: tuple[TermTree, ...] = ()
+    message: Optional[str] = None
+
+
+def preview_lemma_at(
+    path: str,
+    content: str,
+    pos: Position,
+    name: str,
+    prelude: Sequence[str] = (),
+) -> Optional[LemmaPreview]:
+    """Check the step :func:`insert_lemma_at` would put at the hole at
+    ``pos`` before it's made: one check of the file with the step in
+    place of the ``?``. ``None`` when ``pos`` isn't on a hole or
+    ``name`` isn't in scope there."""
+    from error import IncompleteProof
+    from lsp.library import check_file
+
+    hole = _find_hole_at(content, pos)
+    if hole is None:
+        return None
+    edit = insert_lemma_at(path, content, pos, name, prelude=prelude)
+    if edit is None:
+        return None
+
+    def message(exc: BaseException) -> str:
+        return getattr(exc, "message_body", None) or str(exc)
+
+    # A check that stops before the hole says nothing about the step.
+    before = _check_at_hole(path, content, hole, prelude)
+    if not isinstance(before, IncompleteProof):
+        return LemmaPreview(
+            "error", edit,
+            message="the check stops before this hole"
+            + ("" if before is None else ": " + message(before)),
+        )
+    start = _line_col_to_offset(content, edit.range.start)
+    end = _line_col_to_offset(content, edit.range.end)
+    assert start is not None and end is not None
+    spliced = content[:start] + edit.new_text + content[end:]
+    first = (edit.range.start.line, edit.range.start.column)
+    last = _offset_to_line_col(spliced, start + len(edit.new_text))
+    result = check_file(path, content=spliced, prelude=prelude, collect_errors=True)
+    statement = next(
+        (loc for loc in (getattr(s, "location", None) for s in result.ast or ())
+         if loc is not None and not getattr(loc, "empty", True)
+         and (loc.line, loc.column) <= first <= (loc.end_line, loc.end_column)),
+        None,
+    )
+    def in_statement(loc: Optional[Meta]) -> bool:
+        return statement is None or loc is None or getattr(loc, "empty", False) or (
+            (statement.line, statement.column) <= (loc.line, loc.column)
+            <= (statement.end_line, statement.end_column)
+        )
+
+    goals = []
+    unfinished: Optional["Formula"] = None
+    # What the step raised: the holes it leaves, a goal it leaves open
+    # (reported at the end of the proof), and any error in its theorem,
+    # which reached the hole before. Other holes, and errors in other
+    # statements, are not its doing.
+    for exc in result.errors or ():
+        loc = getattr(exc, "location", None)
+        if not isinstance(exc, IncompleteProof):
+            if in_statement(loc):
+                return LemmaPreview("error", edit, message=message(exc))
+            continue
+        formula = getattr(exc, "formula", None)
+        if loc is None or formula is None or not in_statement(loc):
+            continue
+        if first <= (loc.line, loc.column) < last:
+            goals.append(_term_tree(formula))
+        elif spliced[_line_col_to_offset(spliced, Position(loc.line, loc.column)) or 0] != "?":
+            unfinished = formula
+    if unfinished is not None:
+        # Leave a hole for what remains, as the subterm previews do.
+        indent = _line_indent_at(content, hole.start)
+        edit = WorkspaceEdit(path, edit.range, f"{edit.new_text}\n{indent}?")
+        goals.append(_term_tree(unfinished))
+    return LemmaPreview("ok", edit, tuple(goals))
 
 
 def _insert_lemma_template(
