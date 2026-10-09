@@ -40,7 +40,9 @@ module.  Issue #368.
 
 from __future__ import annotations
 
+import hashlib
 import os
+import pickle
 import sys
 import threading
 import traceback as _traceback
@@ -75,6 +77,7 @@ _check_file_lock = threading.RLock()
 from lark.tree import Meta
 
 import abstract_syntax as _abstract_syntax
+import flags as _flags
 import parser as _lark_parser
 import proof_checker as _proof_checker
 import rec_desc_parser as _rd_parser
@@ -544,6 +547,11 @@ _TRACKED_CONTAINERS: tuple[_TrackedAttr, ...] = (
     (_proof_checker, "checked_modules"),
     (_proof_checker, "modules"),
     (_proof_checker, "dirty_files"),
+    # Filled in by declarations (`Rat`'s constructors, a `view`'s alias)
+    # rather than by import, so a user file's declarations must not
+    # outlive its check, and the prelude's must survive a disk snapshot.
+    (_abstract_syntax, "rat_constructors"),
+    (_flags, "view_source_aliases"),
 )
 
 # Module-level scalar counters in the pipeline whose post-prelude
@@ -611,6 +619,10 @@ def _prepare_state(
         return
 
     _clear_containers()
+    snapshot_file = _snapshot_file(cache_key)
+    if snapshot_file is not None and _load_snapshot(snapshot_file):
+        _prelude_key = cache_key
+        return
     bootstrap_ctx = UniquifyContext()
     if prelude_key:
         # Bootstrap the prelude by running the pipeline on an empty
@@ -645,6 +657,134 @@ def _prepare_state(
     _prelude_snapshot = _capture_containers()
     _prelude_scalars = _capture_scalars()
     _post_prelude_ctx = bootstrap_ctx.snapshot()
+    if snapshot_file is not None:
+        _save_snapshot(snapshot_file)
+
+
+# ---------------------------------------------------------------------------
+# Post-prelude snapshot on disk (issue #1217)
+# ---------------------------------------------------------------------------
+#
+# Checking the stdlib prelude takes seconds, and every new process paid
+# it once. With a snapshot directory set, ``_prepare_state`` saves the
+# post-prelude state (the tracked containers and scalars, and the
+# uniquify baseline) to a pickle, and a later process loads it instead
+# of checking the prelude. The file's name is keyed by the prelude, the
+# flags and the checker's sources; inside, a manifest of the ``.pf``
+# files the prelude loaded decides whether the snapshot is still fresh.
+
+# Bump when the snapshot's contents or meaning change.
+_SNAPSHOT_FORMAT = 2
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_snapshot_dir: Optional[Path] = None
+
+
+def set_snapshot_dir(path: Optional[str]) -> None:
+    """Save and load post-prelude snapshots in ``path``; ``None`` (the
+    default) turns snapshots off."""
+    global _snapshot_dir
+    _snapshot_dir = Path(path) if path else None
+
+
+def default_snapshot_dir() -> Optional[str]:
+    """``$DEDUCE_SNAPSHOT_DIR`` if set (empty disables snapshots), else
+    ``~/.cache/deduce``. Long-lived servers pass this to
+    :func:`set_snapshot_dir` at start-up."""
+    if "DEDUCE_SNAPSHOT_DIR" in os.environ:
+        return os.environ["DEDUCE_SNAPSHOT_DIR"] or None
+    cache = os.environ.get("XDG_CACHE_HOME") or os.path.join(Path.home(), ".cache")
+    return os.path.join(cache, "deduce")
+
+
+def _snapshot_file(
+    cache_key: tuple[tuple[str, ...], tuple[str, ...]]
+) -> Optional[Path]:
+    """Where the snapshot for ``cache_key`` lives: a name hashed from the
+    key, the parser and flags that shape the state, the Python version
+    and the checker's own sources. The ``.pf`` files the prelude loads
+    are checked separately, against the manifest saved in the file
+    (:func:`_manifest`)."""
+    if _snapshot_dir is None:
+        return None
+    h = hashlib.sha256()
+    h.update(repr((
+        _SNAPSHOT_FORMAT, sys.version, cache_key,
+        get_recursive_descent(), get_experimental_imperative(),
+    )).encode())
+    sources = [
+        *_REPO_ROOT.glob("*.py"),
+        *(_REPO_ROOT / "abstract_syntax").glob("*.py"),
+        _REPO_ROOT / "Deduce.lark",
+    ]
+    for source in sorted(sources):
+        h.update(source.name.encode())
+        h.update(source.read_bytes())
+    return _snapshot_dir / f"prelude-{h.hexdigest()[:32]}.pickle"
+
+
+def _manifest(names: Sequence[str]) -> dict[str, Optional[tuple[str, str]]]:
+    """For each module in ``names``, the file an import of it resolves to
+    now (as ``find_file`` searches the import directories) and a hash of
+    its content; ``None`` if it no longer resolves. A snapshot is fresh
+    exactly when the manifest of the modules it holds is unchanged, which
+    covers the prelude's transitive imports wherever they live, and a new
+    file that would now shadow one of them."""
+    manifest: dict[str, Optional[tuple[str, str]]] = {}
+    for name in sorted(names):
+        manifest[name] = None
+        for directory in _flags.get_import_directories():
+            candidate = Path(directory) / f"{name}.pf"
+            if candidate.is_file():
+                manifest[name] = (
+                    str(candidate.resolve()),
+                    hashlib.sha256(candidate.read_bytes()).hexdigest(),
+                )
+                break
+    return manifest
+
+
+def _load_snapshot(path: Path) -> bool:
+    """Restore the post-prelude state from ``path``; ``False`` (leaving
+    the state cleared) if there is no snapshot there, or it is stale."""
+    global _prelude_snapshot, _prelude_scalars, _post_prelude_ctx
+    try:
+        with open(path, "rb") as f:
+            manifest = pickle.load(f)
+            if manifest != _manifest(list(manifest)):
+                return False
+            containers, scalars, ctx = pickle.load(f)
+    except FileNotFoundError:
+        return False
+    except Exception as e:  # a truncated or foreign file: rebuild it
+        print(f"deduce: ignoring prelude snapshot {path}: {e}", file=sys.stderr)
+        return False
+    _prelude_snapshot, _prelude_scalars, _post_prelude_ctx = containers, scalars, ctx
+    _restore_containers(containers)
+    _restore_scalars(scalars)
+    return True
+
+
+def _save_snapshot(path: Path) -> None:
+    """Write the post-prelude state to ``path`` atomically (other
+    processes may be reading the same directory); failures only cost
+    the next process a prelude check."""
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+        with open(tmp, "wb") as f:
+            # The manifest goes first, so a stale snapshot is detected
+            # without unpickling the rest.
+            pickle.dump(
+                _manifest(list(_abstract_syntax.uniquified_modules)),
+                f, protocol=pickle.HIGHEST_PROTOCOL,
+            )
+            pickle.dump(
+                (_prelude_snapshot, _prelude_scalars, _post_prelude_ctx),
+                f, protocol=pickle.HIGHEST_PROTOCOL,
+            )
+        os.replace(tmp, path)
+    except Exception as e:
+        print(f"deduce: could not save prelude snapshot {path}: {e}", file=sys.stderr)
 
 
 def _capture_containers() -> _ContainerSnapshot:
