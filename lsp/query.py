@@ -1151,9 +1151,12 @@ def _term_tree(node: "AST") -> TermTree:
     from abstract_syntax import TermInst, VarRef
 
     # An instantiation that prints as its subject (inferred type
-    # arguments) is invisible: its tree is the subject's.
+    # arguments) is invisible: its tree is the subject's, though it
+    # stands for the instantiation (so a callee is still its call's
+    # ``rator``).
     if isinstance(node, TermInst) and str(node) == str(node.subject):
-        return _term_tree(node.subject)
+        subject = _term_tree(node.subject)
+        return TermTree(subject.kind, subject.parts, node)
     text = str(node)
     parts: list[Union[str, TermTree]] = []
     pos = 0
@@ -3958,10 +3961,10 @@ def _available_lemmas(
             goal_ast = getattr(exc, "formula", None)
             env = getattr(exc, "env", None)
             if subterm is not None and goal_ast is not None:
-                node = _subterm_at(_term_tree(goal_ast), subterm)
-                if node is None:
+                found = _subterm_at(_term_tree(goal_ast), subterm)
+                if found is None:
                     return ()
-                goal_text, goal_ast = str(node), cast("Formula", node.ast)
+                goal_text, goal_ast = str(found[0]), cast("Formula", found[0].ast)
         ast_nodes = result.ast
     else:
         if subterm is not None:
@@ -6026,6 +6029,7 @@ def _step_uses(proof: "AST", env: "Env") -> tuple[StepUse, ...]:
 # to a subterm with `#…#` marks in the goal, so the step restates the goal
 # with the mark (`show …`) -- but only when the plain step would also
 # touch other occurrences, keeping the source free of marks otherwise.
+# The mark goes into the goal's text at the span the path names.
 
 
 def preview_replace_at_subterm(
@@ -6124,21 +6128,25 @@ def _subterm_step(
     if formula is None:
         return None
     tree = _term_tree(formula)
-    target = _subterm_at(tree, subterm)
+    found = _subterm_at(tree, subterm)
     parent = _subterm_at(tree, subterm[:-1]) if subterm else None
-    if target is None or not isinstance(target.ast, Term):
+    if found is None or not isinstance(found[0].ast, Term):
         return SubtermPreview(
             "invalid_path", message=f"the goal has no term at path {list(subterm)}"
         )
-    if parent is not None and isinstance(parent.ast, Call) and target.ast is parent.ast.rator:
+    target, start = found
+    if parent is not None and isinstance(parent[0].ast, Call) \
+            and target.ast is parent[0].ast.rator:
         return SubtermPreview(
             "invalid_path",
-            message=f"`{target}` is the function of a call; choose the call `{parent}`",
+            message=f"`{target}` is the function of a call; choose the call `{parent[0]}`",
         )
 
-    marked = _try_step(
-        path, content, hole, f"show {_mark(formula, target.ast)}\n{tactic}", prelude
-    )
+    # Mark the occurrence in the goal's text: the path names exactly one,
+    # even when the AST shares a node between several.
+    text, end = str(tree), start + len(str(target))
+    goal_marked = f"{text[:start]}#{text[start:end]}#{text[end:]}"
+    marked = _try_step(path, content, hole, f"show {goal_marked}\n{tactic}", prelude)
     if isinstance(marked, str):
         return SubtermPreview("error", message=marked)
     plain = _try_step(path, content, hole, tactic, prelude)
@@ -6192,40 +6200,20 @@ def _try_step(
     return getattr(exc, "message_body", None) or str(exc)
 
 
-def _subterm_at(tree: TermTree, path: Sequence[int]) -> Optional[TermTree]:
-    """The node of ``tree`` at ``path`` (see :class:`TermTree`)."""
+def _subterm_at(
+    tree: TermTree, path: Sequence[int]
+) -> Optional[tuple[TermTree, int]]:
+    """The node of ``tree`` at ``path`` (see :class:`TermTree`) and the
+    offset of its text in ``str(tree)``."""
+    offset = 0
     for i in path:
         children = [p for p in tree.parts if isinstance(p, TermTree)]
         if not 0 <= i < len(children):
             return None
+        for part in tree.parts:
+            if part is children[i]:
+                break
+            offset += len(str(part))
         tree = children[i]
-    return tree
+    return tree, offset
 
-
-def _mark(node: Any, target: "Term") -> Any:
-    """``node`` with ``target`` (found by identity) wrapped in ``#…#``.
-    Copies only the nodes on the way to ``target``."""
-    # Any: walks AST nodes and the lists / tuples in their fields.
-    import copy
-    from dataclasses import fields
-
-    from abstract_syntax import AST, Mark
-
-    if node is target:
-        return Mark(node.location, node.typeof, node)
-    if isinstance(node, (list, tuple)):
-        items = [_mark(x, target) for x in node]
-        changed = any(a is not b for a, b in zip(items, node))
-        return type(node)(items) if changed else node
-    if not isinstance(node, AST):
-        return node
-    new = None
-    for f in fields(node):
-        if f.name in ("location", "typeof"):
-            continue
-        value = getattr(node, f.name)
-        marked = _mark(value, target)
-        if marked is not value:
-            new = new or copy.copy(node)
-            setattr(new, f.name, marked)
-    return new or node

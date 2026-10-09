@@ -12,8 +12,9 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from lsp.library import check_file  # noqa: E402
 from lsp.query import (  # noqa: E402
-    Position, WorkspaceEdit, _line_col_to_offset, lemmas_for_subterm,
-    preview_expand_at_subterm, preview_replace_at_subterm,
+    Position, WorkspaceEdit, _line_col_to_offset, _subterm_at, _target_hole,
+    _term_tree, lemmas_for_subterm, preview_expand_at_subterm,
+    preview_replace_at_subterm,
 )
 
 PRELUDE = """\
@@ -122,3 +123,49 @@ def test_lemmas_ranked_against_the_subterm():
     assert lemmas and lemmas[0].name == "dbl_s"
     assert lemmas[0].unify_tier == "rewrite_subterm"
     assert lemmas_for_subterm("t.pf", TWO_OCCURRENCES, HOLE, [7]) == ()
+
+
+REPEATED = PRELUDE + """\
+postulate to_z: all n:N. n = z
+theorem t: all a:N. R(a, a)
+proof
+  arbitrary a:N
+  ?
+end
+"""
+
+
+def test_mark_follows_the_path_not_the_node():
+    """The path picks one occurrence by its place in the goal's text,
+    even when the AST shares one node between several occurrences (as
+    substitution can produce)."""
+    preview = preview_replace_at_subterm("t.pf", REPEATED, Position(12, 3), [2], "to_z[a]")
+    assert preview is not None and preview.outcome == "ok"
+    assert preview.edit.new_text.startswith("show R(a, #a#)\n")
+    assert str(preview.goal) == "R(a, z)"
+
+    with _target_hole((12, 3)):
+        goal = check_file("t.pf", content=REPEATED, prelude=()).exception.formula
+    goal.args[1] = goal.args[0]  # share one node between both occurrences
+    node, start = _subterm_at(_term_tree(goal), [2])
+    assert (str(node), start) == ("a", len("R(a, "))
+
+
+def test_callee_behind_an_inferred_instantiation_is_rejected():
+    source = PRELUDE + (
+        "union L<T> { nil  cons(T, L<T>) }\n"
+        "recursive len<T>(L<T>) -> N {\n"
+        "  len(nil) = z\n"
+        "  len(cons(x, xs)) = s(len(xs))\n"
+        "}\n"
+        "theorem t: all xs:L<N>. R(len(xs), len(xs))\n"
+        "proof\n"
+        "  arbitrary xs:L<N>\n"
+        "  ?\n"
+        "end\n"
+    )
+    # [1, 0] is `len` in the first `len(xs)`, an instantiation `len<N>`
+    # whose type argument is inferred.
+    preview = preview_expand_at_subterm("t.pf", source, Position(16, 3), [1, 0], ["len"])
+    assert preview is not None and preview.outcome == "invalid_path"
+    assert "`len` is the function of a call" in preview.message
