@@ -93,6 +93,7 @@ __all__ = [
     "OutlineTheorem",
     "ProofOutline",
     "SubtermPreview",
+    "LemmaPreview",
     # Query functions
     "check",
     "goal_at",
@@ -112,6 +113,7 @@ __all__ = [
     "hole_context_at",
     "available_lemmas_at",
     "insert_lemma_at",
+    "preview_lemma_at",
     "validate_proof_at",
     "preview_replace_at",
     "preview_expand_at",
@@ -2066,10 +2068,10 @@ def refine_at(
             supported_shapes=REFINE_SUPPORTED_SHAPES,
         )
 
-    template = _indent_continuation(
-        template, _line_indent_at(content, hole_range.start)
+    return WorkspaceEdit(
+        path=path, range=hole_range,
+        new_text=_hole_text(content, hole_range, template),
     )
-    return WorkspaceEdit(path=path, range=hole_range, new_text=template)
 
 
 def _find_hole_at(content: str, pos: Position) -> Optional[Range]:
@@ -2149,6 +2151,31 @@ def _indent_continuation(template: str, indent: str) -> str:
     if not indent or "\n" not in template:
         return template
     return template.replace("\n", "\n" + indent)
+
+
+def _hole_text(content: str, hole: Range, template: str) -> str:
+    """``template`` as the text to put in place of the ``?`` at
+    ``hole``: continuation lines indented like the hole's line, and, when
+    the ``?`` is part of a larger step (an argument of ``apply ... to ?,
+    ?``), parenthesized unless it is a single word, so that it stays one
+    argument (``to conclude P by h, ?`` would read as ``by (h, ?)``)."""
+    template = _indent_continuation(template, _line_indent_at(content, hole.start))
+    if _inside_step(content, hole) and re.search(r"[\s,]", template):
+        return f"({template})"
+    return template
+
+
+def _inside_step(content: str, hole: Range) -> bool:
+    """Whether the ``?`` at ``hole`` is part of a larger step: there is
+    other text on its line."""
+    start = _line_col_to_offset(content, hole.start)
+    end = _line_col_to_offset(content, hole.end)
+    if start is None or end is None:
+        return False
+    line_start = content.rfind("\n", 0, start) + 1
+    line_end = content.find("\n", end)
+    rest = content[end:] if line_end < 0 else content[end:line_end]
+    return bool((content[line_start:start] + rest).strip())
 
 
 def _offset_to_line_col(content: str, offset: int) -> tuple[int, int]:
@@ -2300,10 +2327,10 @@ def case_split_at(
     if template is None:
         return None
 
-    template = _indent_continuation(
-        template, _line_indent_at(content, hole_range.start)
+    return WorkspaceEdit(
+        path=path, range=hole_range,
+        new_text=_hole_text(content, hole_range, template),
     )
-    return WorkspaceEdit(path=path, range=hole_range, new_text=template)
 
 
 def splittable_vars_at(
@@ -2590,10 +2617,10 @@ def induction_skeleton_at(
     if template is None:
         return None
 
-    template = _indent_continuation(
-        template, _line_indent_at(content, hole_range.start)
+    return WorkspaceEdit(
+        path=path, range=hole_range,
+        new_text=_hole_text(content, hole_range, template),
     )
-    return WorkspaceEdit(path=path, range=hole_range, new_text=template)
 
 
 def _induction_template(formula: "Formula", env: "Env") -> Optional[str]:
@@ -2758,10 +2785,10 @@ def eliminate_at(
     if template is None:
         return None
 
-    template = _indent_continuation(
-        template, _line_indent_at(content, hole_range.start)
+    return WorkspaceEdit(
+        path=path, range=hole_range,
+        new_text=_hole_text(content, hole_range, template),
     )
-    return WorkspaceEdit(path=path, range=hole_range, new_text=template)
 
 
 def eliminable_vars_at(
@@ -3093,10 +3120,10 @@ def fill_from_given_at(
     if template is None:
         return None
 
-    template = _indent_continuation(
-        template, _line_indent_at(content, hole_range.start)
+    return WorkspaceEdit(
+        path=path, range=hole_range,
+        new_text=_hole_text(content, hole_range, template),
     )
-    return WorkspaceEdit(path=path, range=hole_range, new_text=template)
 
 
 def matching_givens_at(
@@ -4056,6 +4083,9 @@ def insert_lemma_at(
     discharged: tuple[tuple[str, str], ...] = ()
     instantiations: tuple[str, ...] = ()
     if goal_ast is not None and env is not None:
+        # Classify with the type-checked formula, as the ranking does
+        # (see ``_typed_formula_index``), so the step matches its tier.
+        target_formula = _typed_formula_index(env).get(name, target_formula)
         given_pairs = _collect_local_givens(env)
         _score, tier, discharged, instantiations = _unify_score(
             target_formula, goal_ast, env, given_pairs
@@ -4069,10 +4099,108 @@ def insert_lemma_at(
         zero_range = Range(start=pos, end=pos)
         return WorkspaceEdit(path=path, range=zero_range, new_text=template)
 
-    template = _indent_continuation(
-        template, _line_indent_at(content, hole_range.start)
+    return WorkspaceEdit(
+        path=path, range=hole_range,
+        new_text=_hole_text(content, hole_range, template),
     )
-    return WorkspaceEdit(path=path, range=hole_range, new_text=template)
+
+
+@dataclass(frozen=True)
+class LemmaPreview:
+    """Result of :func:`preview_lemma_at`: what the step
+    :func:`insert_lemma_at` makes at a hole would do.
+
+    ``outcome`` is ``"ok"``, with ``goals`` the goals of the ``?``s the
+    step leaves, in source order (none when it proves the goal), or
+    ``"error"``, with the checker's ``message``. ``edit`` is the step
+    either way."""
+
+    outcome: str
+    edit: WorkspaceEdit
+    goals: tuple[TermTree, ...] = ()
+    message: Optional[str] = None
+
+
+def preview_lemma_at(
+    path: str,
+    content: str,
+    pos: Position,
+    name: str,
+    prelude: Sequence[str] = (),
+) -> Optional[LemmaPreview]:
+    """Check the step :func:`insert_lemma_at` would put at the hole at
+    ``pos`` before it's made: one check of the file with the step in
+    place of the ``?``. ``None`` when ``pos`` isn't on a hole or
+    ``name`` isn't in scope there."""
+    from error import IncompleteProof
+    from lsp.library import check_file
+
+    hole = _find_hole_at(content, pos)
+    if hole is None:
+        return None
+    edit = insert_lemma_at(path, content, pos, name, prelude=prelude)
+    if edit is None:
+        return None
+
+    def message(exc: BaseException) -> str:
+        return getattr(exc, "message_body", None) or str(exc)
+
+    # A check that stops before the hole says nothing about the step.
+    before = _check_at_hole(path, content, hole, prelude)
+    if not isinstance(before, IncompleteProof):
+        return LemmaPreview(
+            "error", edit,
+            message="the check stops before this hole"
+            + ("" if before is None else ": " + message(before)),
+        )
+    start = _line_col_to_offset(content, edit.range.start)
+    end = _line_col_to_offset(content, edit.range.end)
+    assert start is not None and end is not None
+    spliced = content[:start] + edit.new_text + content[end:]
+    first = (edit.range.start.line, edit.range.start.column)
+    last = _offset_to_line_col(spliced, start + len(edit.new_text))
+    result = check_file(path, content=spliced, prelude=prelude, collect_errors=True)
+    statement = next(
+        (loc for loc in (getattr(s, "location", None) for s in result.ast or ())
+         if loc is not None and not getattr(loc, "empty", True)
+         and (loc.line, loc.column) <= first <= (loc.end_line, loc.end_column)),
+        None,
+    )
+    def in_statement(loc: Optional[Meta]) -> bool:
+        return statement is None or loc is None or getattr(loc, "empty", False) or (
+            (statement.line, statement.column) <= (loc.line, loc.column)
+            <= (statement.end_line, statement.end_column)
+        )
+
+    goals = []
+    unfinished: Optional["Formula"] = None
+    # What the step raised: the holes it leaves, a goal it leaves open
+    # (reported at the end of the proof), and any error in its theorem,
+    # which reached the hole before. Other holes, and errors in other
+    # statements, are not its doing.
+    for exc in result.errors or ():
+        loc = getattr(exc, "location", None)
+        if not isinstance(exc, IncompleteProof):
+            if in_statement(loc):
+                return LemmaPreview("error", edit, message=message(exc))
+            continue
+        formula = getattr(exc, "formula", None)
+        if loc is None or formula is None or not in_statement(loc):
+            continue
+        if first <= (loc.line, loc.column) < last:
+            goals.append(_term_tree(formula))
+        elif spliced[_line_col_to_offset(spliced, Position(loc.line, loc.column)) or 0] != "?":
+            unfinished = formula
+    if unfinished is not None:
+        # Leave a hole for what remains, as the subterm previews do
+        # (inside the step's parentheses, if it has them).
+        hole_line = f"\n{_line_indent_at(content, hole.start)}?"
+        text = edit.new_text
+        wrapped = _inside_step(content, hole) and text.startswith("(")
+        text = f"{text[:-1]}{hole_line})" if wrapped else text + hole_line
+        edit = WorkspaceEdit(path, edit.range, text)
+        goals.append(_term_tree(unfinished))
+    return LemmaPreview("ok", edit, tuple(goals))
 
 
 def _insert_lemma_template(
@@ -4895,6 +5023,8 @@ def _unify_score(
         # it's what `replace` and `apply` would see, and unfolding
         # definitions on every mismatch made ranking take seconds.
         formula_match(location, vars, conc, goal_ast, matching, Env(), outer_env=env)
+        if any(v.name not in matching for v in vars):
+            _match_premises_with_givens(vars, premises, given_pairs, matching, location, env)
         unmatched = [v for v in vars if v.name not in matching]
         if not unmatched and _matching_respects_var_types(vars, matching):
             conc_matched = True
@@ -4965,6 +5095,39 @@ def _unify_score(
         )
 
     return (0.0, None, (), ())
+
+
+def _match_premises_with_givens(
+    vars: list["ResolvedVar"],
+    premises: list["Formula"],
+    given_pairs: tuple[tuple[str, "Formula"], ...],
+    matching: dict[str, "Term"],
+    location: object,
+    env: "Env",
+) -> None:
+    """Bind, in ``matching``, the variables a lemma's conclusion leaves
+    open (the ``y`` of ``x ≤ y and y ≤ z`` in a transitivity lemma) by
+    matching each of its premises with a given, or with a conjunct of
+    one. A premise that matches no given binds nothing."""
+    from abstract_syntax import And, Env, formula_match
+    from error import MatchFailed
+
+    facts = [
+        part
+        for _, given in given_pairs
+        for part in (given.args if isinstance(given, And) else [given])
+    ]
+    for premise in premises:
+        for fact in facts:
+            trial = dict(matching)
+            try:
+                formula_match(location, vars, premise, fact, trial, Env(), outer_env=env)
+            except MatchFailed:
+                continue
+            except Exception:
+                continue
+            matching.update(trial)
+            break
 
 
 def _equation_subterm_match(
@@ -6157,8 +6320,10 @@ def _subterm_step(
             return SubtermPreview("error", message=whole)
         text, goal = whole
     if isinstance(goal.ast, Bool) and goal.ast.value:
-        # The step proves the goal: end it with `.` rather than a `?`.
-        text = text[: -len("?")].rstrip() + "."
+        # The step proves the goal: end it with `.` rather than a `?`
+        # (the last one, which may be inside the step's parentheses).
+        i = text.rindex("?")
+        text = text[:i].rstrip() + "." + text[i + 1:]
     return SubtermPreview("ok", goal=goal, edit=WorkspaceEdit(path, hole, text))
 
 
@@ -6228,9 +6393,9 @@ def _try_step(
     start = _line_col_to_offset(content, hole.start)
     end = _line_col_to_offset(content, hole.end)
     assert start is not None and end is not None
-    text = _indent_continuation(step + "\n?", _line_indent_at(content, hole.start))
+    text = _hole_text(content, hole, step + "\n?")
     new_content = content[:start] + text + content[end:]
-    line, col = _offset_to_line_col(new_content, start + len(text) - 1)
+    line, col = _offset_to_line_col(new_content, start + text.rindex("?"))
     exc = _check_at_hole(
         path, new_content, Range(Position(line, col), Position(line, col + 1)),
         prelude, remember=False,

@@ -139,6 +139,7 @@ def test_all_expected_features_are_registered():
         lsp_server.VALIDATE_PROOF_REQUEST,
         lsp_server.AVAILABLE_LEMMAS_REQUEST,
         lsp_server.INSERT_LEMMA_REQUEST,
+        lsp_server.PREVIEW_LEMMA_REQUEST,
         lsp_server.PROOF_OUTLINE,
         lsp_server.PREVIEW_REPLACE_AT_SUBTERM_REQUEST,
         lsp_server.PREVIEW_EXPAND_AT_SUBTERM_REQUEST,
@@ -1451,6 +1452,43 @@ def test_insert_lemma_returns_full_tier_workspace_edit(server, open_doc):
     )
     assert edits[0]["range"]["start"] == {"line": 13, "character": 2}
     assert edits[0]["range"]["end"] == {"line": 13, "character": 3}
+
+
+def test_preview_lemma_checks_the_insert_lemma_step(server, open_doc):
+    """`deduce/previewLemmaAt` checks the step `deduce/insertLemma` would
+    make: here it proves the goal, so nothing is left."""
+    src = (
+        "theorem and_intro: all P:bool, Q:bool. if P then if Q then P and Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  suppose pP: P\n"
+        "  suppose qQ: Q\n"
+        "  pP, qQ\n"
+        "end\n"
+        "\n"
+        "theorem with_hole: all P:bool, Q:bool."
+        " if P then if Q then P and Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  suppose pP: P\n"
+        "  suppose qQ: Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    _, uri = open_doc("preview_lemma.pf", src)
+    params = {
+        "textDocument": {"uri": uri},
+        "position": {"line": 13, "character": 2},
+        "name": "and_intro",
+    }
+    result = lsp_server.on_preview_lemma_at(server, params)
+    assert result is not None
+    assert result["outcome"] == "ok" and result["goals"] == []
+    assert result["edit"]["changes"][uri][0]["newText"] == (
+        "conclude (P and Q) by apply (apply and_intro[P, Q] to pP) to qQ"
+    )
+    params["name"] = "no_such_lemma"
+    assert lsp_server.on_preview_lemma_at(server, params) is None
 
 
 def test_insert_lemma_returns_null_for_unknown_name(server, open_doc):

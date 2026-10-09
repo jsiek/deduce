@@ -33,7 +33,11 @@ struct ContentView: View {
                     ForEach(exercises, id: \.self) { url in
                         Button(url.lastPathComponent) { server.open(url) }
                             .contextMenu {
-                                Button("Start over", role: .destructive) { server.reset(url) }
+                                Button("Start over", role: .destructive) {
+                                    server.reset(url)
+                                    // The same file reopens, so the selection isn't reset otherwise.
+                                    selection = nil
+                                }
                                     .disabled(server.checking && url.lastPathComponent == server.openFile)
                             }
                     }
