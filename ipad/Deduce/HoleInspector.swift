@@ -22,7 +22,6 @@ struct HoleInspector: View {
     @State private var typed = ""
 
     private var position: Outline.Position { hole.range.start }
-    private var busy: Bool { if case .running = server.check { true } else { false } }
     private var selected: Outline.Tree { subterm.flatMap { FormulaView.subtree(hole.goal, at: $0) } ?? hole.goal }
 
     var body: some View {
@@ -69,8 +68,9 @@ struct HoleInspector: View {
                 }
             }
         }
-        // Rows would move under a finger as the steps arrive.
-        .disabled(busy || loading)
+        // Rows would move under a finger as the steps arrive, and a preview
+        // is for the selection it was asked about.
+        .disabled(server.checking || loading || previewing != nil)
         // The preview stays in sight below the list, whatever its scroll.
         .safeAreaInset(edge: .bottom) {
             if previewing != nil || preview != nil {
@@ -88,7 +88,7 @@ struct HoleInspector: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding()
                 .background(.regularMaterial)
-                .disabled(busy)
+                .disabled(server.checking)
             }
         }
         // An edit can leave a hole at the same range, so reload per version too.
@@ -139,9 +139,11 @@ struct HoleInspector: View {
         Button(title) {
             Task {
                 previewing = title
+                let version = server.version
                 let result = await server.preview(method, at: position, subterm: subterm ?? [], params)
-                preview = (title, result)
                 previewing = nil
+                // Undo or an edit as text may have changed the file meanwhile.
+                if server.version == version { preview = (title, result) }
             }
         }
     }

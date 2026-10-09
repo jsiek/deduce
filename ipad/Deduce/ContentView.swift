@@ -34,6 +34,7 @@ struct ContentView: View {
                         Button(url.lastPathComponent) { server.open(url) }
                             .contextMenu {
                                 Button("Start over", role: .destructive) { server.reset(url) }
+                                    .disabled(server.checking && url.lastPathComponent == server.openFile)
                             }
                     }
                 }
@@ -74,7 +75,7 @@ struct ContentView: View {
                 ToolbarItemGroup(placement: .primaryAction) {
                     if server.editable {
                         Button { server.undo() } label: { Label("Undo", systemImage: "arrow.uturn.backward") }
-                            .disabled(!server.canUndo)
+                            .disabled(!server.canUndo || server.checking)
                         Button { selectNextHole() } label: { Label("Next hole", systemImage: "questionmark.circle") }
                             .disabled(server.textbook?.holes.isEmpty ?? true)
                     }
@@ -149,6 +150,7 @@ struct ContentView: View {
                             }
                             editing = nil
                         }
+                        .disabled(server.checking)
                     }
                 }
         }

@@ -27,8 +27,8 @@ final class DeduceServer: ObservableObject {
     /// samples and standard library are read-only).
     @Published var editable = false
     @Published var canUndo = false
-    /// Where the latest edit started, so the view can select the hole it
-    /// left once the new outline arrives.
+    /// Where the latest edit (or undone edit) started, so the view can
+    /// select the hole it left once the new outline arrives.
     @Published var lastEdit: Outline.Position?
 
     let appDirectory = URL(fileURLWithPath: Bundle.main.resourcePath!).appendingPathComponent("app")
@@ -44,7 +44,9 @@ final class DeduceServer: ObservableObject {
     private(set) var openURI: String?
     /// The open document's version, bumped by each edit.
     private(set) var version = 1
-    private var history: [String] = []
+    /// The text before each edit, and where the edit started (where Undo
+    /// puts the selection back).
+    private var history: [(source: String, at: Outline.Position)] = []
     /// Checks the server hasn't answered yet, by document URI. The server
     /// checks one document at a time, so opening a file mid-check queues it.
     private var checkStarted: [String: Date] = [:]
@@ -114,25 +116,31 @@ final class DeduceServer: ObservableObject {
                                           "version": version, "text": text]]])
     }
 
+    /// Whether the open file is being checked. Edits wait for the check:
+    /// results are matched to checks by document, so a second edit's
+    /// check would be confused with the first's.
+    var checking: Bool { if case .running = check { true } else { false } }
+
     /// Apply `edits` (from the server) to the open file: save it, and send
     /// the server the new text, which re-checks it.
     func apply(_ edits: [TextEdit]) {
-        guard editable, !edits.isEmpty else { return }
+        guard editable, !checking, !edits.isEmpty else { return }
         var text = source
         // Later edits first, so earlier ranges stay valid.
         for edit in edits.sorted(by: { $0.range.start > $1.range.start }) {
             text = text.applying(edit)
         }
-        history.append(source)
-        replaceSource(with: text, at: edits.map(\.range.start).min()!)
+        let start = edits.map(\.range.start).min()!
+        history.append((source, start))
+        replaceSource(with: text, at: start)
     }
 
     func undo() {
-        guard let previous = history.popLast() else { return }
-        replaceSource(with: previous, at: nil)
+        guard !checking, let previous = history.popLast() else { return }
+        replaceSource(with: previous.source, at: previous.at)
     }
 
-    private func replaceSource(with text: String, at start: Outline.Position?) {
+    private func replaceSource(with text: String, at start: Outline.Position) {
         guard let url = openURL, let uri = openURI else { return }
         source = text
         canUndo = !history.isEmpty
@@ -180,6 +188,8 @@ final class DeduceServer: ObservableObject {
 
     /// Replace an exercise with its original, bundled version.
     func reset(_ url: URL) {
+        // Reopening the file being checked is an edit too (see `checking`).
+        guard !(checking && url.absoluteString == openURI) else { return }
         let original = appDirectory.appendingPathComponent("exercises").appendingPathComponent(url.lastPathComponent)
         guard let text = try? String(contentsOf: original, encoding: .utf8) else { return }
         try? text.write(to: url, atomically: true, encoding: .utf8)
