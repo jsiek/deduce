@@ -232,3 +232,64 @@ def test_collect_errors_includes_expand_residual_hint() -> None:
         "expand-residual hint missing from collect_errors diagnostic:\n"
         + body
     )
+
+
+_TRACED = """\
+union N { z  s(N) }
+recursive dbl(N) -> N {
+  dbl(z) = z
+  dbl(s(n)) = s(s(dbl(n)))
+}
+print dbl(s(z))
+"""
+
+
+def test_trace_flag_resolves_names_visible_in_the_file(tmp_path: Path, capsys) -> None:
+    """``--trace dbl`` becomes a ``trace dbl`` statement, so uniquify
+    resolves it among the file's visible names and every call is traced
+    (issue #1250 replaced a lookup by base name)."""
+    path = tmp_path / "traced.pf"
+    path.write_text(_TRACED)
+    result = check_file(str(path), prelude=(), tracing_functions=["dbl"])
+    assert result.ok, result.error_message
+    assert "> dbl(s(z))" in capsys.readouterr().out
+
+    unknown = check_file(str(path), prelude=(), tracing_functions=["nope"])
+    assert not unknown.ok and "undefined variable: nope" in unknown.error_message
+
+
+_OVERLOADED = """\
+union N { z  s(N) }
+union L { nil  cons(N, L) }
+recursive f(N) -> N {
+  f(z) = z
+  f(s(n)) = s(f(n))
+}
+recursive f(L) -> N {
+  f(nil) = z
+  f(cons(x, xs)) = s(f(xs))
+}
+print f(s(z))
+print f(cons(z, nil))
+"""
+
+
+def test_trace_flag_traces_every_overload(tmp_path: Path, capsys) -> None:
+    """``--trace f`` on an overloaded name traces every overload (#1251
+    review); before, the flag traced only the first match."""
+    path = tmp_path / "overloaded.pf"
+    path.write_text(_OVERLOADED)
+    result = check_file(str(path), prelude=(), tracing_functions=["f"])
+    assert result.ok, result.error_message
+    out = capsys.readouterr().out
+    assert "> f(s(z))" in out and "> f(cons(z, nil))" in out
+
+
+def test_trace_statement_accepts_an_overloaded_name(tmp_path: Path, capsys) -> None:
+    path = tmp_path / "overloaded_stmt.pf"
+    source = _OVERLOADED.replace("print f(s(z))", "trace f\nprint f(s(z))")
+    path.write_text(source)
+    result = check_file(str(path), prelude=())
+    assert result.ok, result.error_message
+    out = capsys.readouterr().out
+    assert "> f(s(z))" in out and "> f(cons(z, nil))" in out

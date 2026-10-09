@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from imperative_verifier import ImperativeObligation
 
 from abstract_syntax import (
-    All, And, Array, ArrayGet, ArraySet, Assert, AST, Associative, Auto, Bool,
+    All, And, Array, ArrayGet, ArraySet, Assert, AST, Associative, Auto, Binding, Bool,
     Call, Conditional, Constructor, Declaration, Define, Env, Export,
     Formula, FunCase, FunctionType, GenRecFun, Generic, GenericUnknownInst,
     Hole, IfThen, ImpAlloc, ImpAssert, ImpAssign, ImpAssume, ImpCallExpr,
@@ -73,7 +73,10 @@ from flags import (
 )
 from postulate_report import record_pending, record_statement
 
-imported_modules: set[str] = set()
+# The modules processed in the current check, each with the env its
+# statements produced (#1250: a module is processed once, in an env of
+# its own, and every import of it merges that env in).
+imported_modules: dict[str, Env] = {}
 checked_modules: set[str] = set()
 
 Substitution = dict[str, Term | Type | RecFun | GenRecFun]
@@ -954,19 +957,17 @@ def process_declaration_visibility(decl: Declaration, env: Env,
         new_ty = check_type(ty, env)
         new_body = body
 
-      # Only allow overloading of functions
-      unique_name = {base_name(n): n for n in env.dict.keys()}
-      orig_name = base_name(name)
-      if orig_name in unique_name.keys():
-          match new_ty:
-            case FunctionType(_, _, params, _):
-              pass
-            case _:
-              binding = env.dict[unique_name[orig_name]]
-              user_error(loc, 'the name ' + orig_name + ' is already defined:\n' \
-                    + error_header(binding.location) \
-                    + ' ' + orig_name + ' : ' + str(binding) + '\n' \
-                    + 'Only functions may have multiple definitions with the same name.')
+      # Only allow overloading of functions: a non-function may not share
+      # its name with another definition visible here (``uniquify``
+      # recorded which).
+      clashes = [n for n in decl.overloads if n in env.dict]
+      if clashes and not isinstance(new_ty, FunctionType):
+          orig_name = base_name(name)
+          binding = cast(Binding, env.dict[clashes[0]])
+          user_error(loc, 'the name ' + orig_name + ' is already defined:\n' \
+                + error_header(binding.location) \
+                + ' ' + orig_name + ' : ' + str(binding) + '\n' \
+                + 'Only functions may have multiple definitions with the same name.')
       decl.typ = new_ty
       return Define(loc, name, new_ty, new_body,
                     visibility=decl.visibility), \
@@ -1138,29 +1139,33 @@ def process_declaration_visibility(decl: Declaration, env: Env,
                 + '\nwhile processing files:\n\t' \
                 + ', '.join(module_chain))
       elif name in imported_modules:
+          # Processed earlier in this check: just bring its bindings in.
           set_verbose(old_verbose)
           if name in dirty_files:
               downstream_needs_checking[0] = True
-          return Import(loc, name, ast, visibility=vis), env
+          return Import(loc, name, ast, visibility=vis), \
+              env.import_env(imported_modules[name])
       else:
-          current_module = env.get_current_module()
-          imported_modules.add(name)
           module_chain = [name] + module_chain
 
           filename = find_file(loc, name)
           needs_checking = [get_check_imports() and is_modified(filename)]
 
+          # Separate compilation (#1250): the module's statements are
+          # processed in an env of their own, starting from the module's
+          # own imports, never in the importer's env.
+          module_env = Env().declare_module(name)
           ast2 = []
           assert ast is not None
           check_exported_contract_visibility(ast)
           for s in ast:
-            new_s, env = process_declaration(s, env, module_chain, needs_checking)
+            new_s, module_env = process_declaration(s, module_env, module_chain, needs_checking)
             ast2.append(new_s)
 
           ast3 = []
           already_done_imports : dict[str, bool] = {}
           for s in ast2:
-            new_s = type_check_stmt(s, env, already_done_imports)
+            new_s = type_check_stmt(s, module_env, already_done_imports)
             if new_s != None:
               ast3.append(new_s)
 
@@ -1173,22 +1178,23 @@ def process_declaration_visibility(decl: Declaration, env: Env,
                   print('> checking ' + name)
               
           for s in ast3:
-            env = collect_env(s, env)
+            module_env = collect_env(s, module_env)
 
             # TODO: only check if the pf file is newer than the thm file
             if name not in checked_modules and needs_checking[0]:
-              check_proofs(s, env)
-            
+              check_proofs(s, module_env)
+
           if name not in checked_modules:
-            checked_modules.add(name)  
+            checked_modules.add(name)
+          imported_modules[name] = module_env
 
           set_verbose(old_verbose)
 
           if needs_checking[0]:
             print_theorems(filename, ast3)
-          
+
           return Import(loc, name, ast3, visibility=decl.visibility), \
-              env.declare_module(current_module)
+              env.import_env(module_env)
 
     case Predicate(loc, name, typarams, sig, rules, keyword):
       if typarams:
@@ -1738,7 +1744,7 @@ def _type_check_stmt(stmt: Statement, env: Env,
                              checked_returns, new_measure, checked_measure_ty,
                              new_body, terminates,
                              stmt.trusted_terminates,
-                             visibility=stmt.visibility)
+                             visibility=stmt.visibility, less=stmt.less)
       # print('type check stmt:')
       # print(new_recfun.pretty_print(4))
       return new_recfun
@@ -1769,10 +1775,10 @@ def _type_check_stmt(stmt: Statement, env: Env,
 
     case Trace(loc, var):
       var_ty = env.get_type_of_term_var(var)
-      match var_ty:
-        case FunctionType(_, _, _, _):
-          pass
-        case _:
+      # An overloaded name is fine when every overload is a function.
+      overload_types = [t for (_, t) in var_ty.types] \
+          if isinstance(var_ty, OverloadType) else [var_ty]
+      if not all(isinstance(t, FunctionType) for t in overload_types):
           user_error(var.location, 'trace expects an identifer of type function, but instead got type ' + str(var_ty))
       return stmt
   
@@ -1960,7 +1966,9 @@ def collect_env(stmt: Statement, env: Env) -> Env:
           user_error(loc, 'Could not find a proof of\n\t' + str(assoc_formula))
   
     case Trace(loc, function_name):
-      return env.declare_tracing(function_name.get_name())
+      for traced in _traced_names(function_name):
+        env = env.declare_tracing(traced)
+      return env
 
     case _:
       internal_error(stmt.location, "collect_env, unrecognized statement:\n" + str(stmt))
@@ -2164,9 +2172,7 @@ def _check_proofs(stmt: Statement, env: Env) -> None:
       for call in calls:
         lhs = cast(Term, measure.substitute({x: arg for ((x,t),arg) in zip(params,call.args)}))
         rhs = measure.copy()
-        #less = env.base_to_unique('<') # This doesn't work!
-        less_ovlds = env.base_to_overloads('<')
-        less = OverloadedVar(loc, None, less_ovlds)
+        less = OverloadedVar(loc, None, stmt.less)
         # `Call` is a Term in the class hierarchy but acts as a Formula
         # when its return type is Bool (here: `<` overloads).
         less_frm = cast(Formula, Call(loc, None, less, [lhs,rhs]))
@@ -2353,6 +2359,14 @@ def check_exported_contract_visibility(ast: List[Statement]) -> None:
                  + "' in its contract; a public contract may only mention "
                  + 'names visible to importing modules.')
 
+def _traced_names(var: Term) -> list[str]:
+  """The unique names a `trace` statement turns on: every overload of
+  an overloaded function name."""
+  if isinstance(var, OverloadedVar):
+    return list(var.resolved_names)
+  return [cast(VarRef, var).get_name()]
+
+
 def _prelude_imports_key(
     ast: list[Statement], module_name: str
 ) -> Optional[tuple[object, ...]]:
@@ -2376,7 +2390,6 @@ def _prelude_imports_key(
 
 
 def check_deduce(ast: List[Statement], module_name: str, modified: bool,
-                 tracing_functions: List[str],
                  error_sink: Optional[ErrorSink] = None) -> List[Statement]:
   """Run the four-phase pipeline (process_declarations, type_check_stmt,
   collect_env, check_proofs) over ``ast``.
@@ -2406,14 +2419,13 @@ def check_deduce(ast: List[Statement], module_name: str, modified: bool,
   set_active_sink(error_sink)
   try:
     return _check_deduce_body(
-      ast, module_name, modified, tracing_functions, error_sink, env, needs_checking
+      ast, module_name, modified, error_sink, env, needs_checking
     )
   finally:
     set_active_sink(prev_sink)
 
 
 def _check_deduce_body(ast: list[Statement], module_name: str, modified: bool,
-                       tracing_functions: list[str],
                        error_sink: Optional[ErrorSink], env: Env,
                        needs_checking: list[bool]) -> list[Statement]:
   """Body of ``check_deduce``, split out so the ``_active_sink``
@@ -2448,7 +2460,7 @@ def _check_deduce_body(ast: list[Statement], module_name: str, modified: bool,
     pairs, env_after, imported = cached
     ast2_pairs.extend(cast(list[tuple[Statement, int]], pairs))
     env = cast(Env, env_after).declare_module(module_name)
-    imported_modules.update(imported)
+    imported_modules.update(cast(dict[str, Env], imported))
   for s in ast[len(ast2_pairs):]:
     sh = _hash_ast(s)
     try:
@@ -2462,18 +2474,19 @@ def _check_deduce_body(ast: list[Statement], module_name: str, modified: bool,
       # only side effect, rewriting the `.thm` file of an import that
       # looks modified, already happened now.)
       _prelude_imports_cache[prefix_key] = (
-        list(ast2_pairs), env, set(imported_modules))
+        list(ast2_pairs), env, dict(imported_modules))
   if get_verbose():
     for s, _ in ast2_pairs:
       print(s)
 
-  for func_name in tracing_functions:
-    # TODO: base_to_unique is a hack so use another function instead
-    new_name = env.base_to_unique(func_name)
-    if new_name is None:
-      print("Couldn't find function to trace:", func_name)
-    else:
-      env = env.declare_tracing(new_name)
+  # `--trace f` arrives as a `trace f` statement appended to the file
+  # with no location (``lsp.library``), so uniquify resolved `f` among the
+  # names visible in it. Unlike a `trace` the user wrote, it applies to
+  # the whole file.
+  for s, _ in ast2_pairs:
+    if isinstance(s, Trace) and s.location.empty:
+      for traced in _traced_names(s.rec_fun):
+        env = env.declare_tracing(traced)
 
   if get_verbose():
     print('--------- Type Checking ------------------------')

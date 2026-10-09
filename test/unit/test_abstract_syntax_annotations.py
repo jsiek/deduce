@@ -47,7 +47,6 @@ def test_issue_586_abstract_syntax_function_parameters_are_annotated() -> None:
 def test_issue_586_env_method_parameters_are_annotated() -> None:
     methods: list[tuple[Callable[..., Any], set[str]]] = [
         (ast.Env.base_to_unique, {"name"}),
-        (ast.Env.base_to_overloads, {"name"}),
         (ast.Env.__contains__, {"item"}),
         (ast.Env.declare_type, {"loc", "name", "vis"}),
         (ast.Env.declare_type_vars, {"loc", "type_vars"}),

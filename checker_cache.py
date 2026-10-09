@@ -58,8 +58,8 @@ _stmt_cache: dict[_StmtCacheKey, bool] = {}
 # post-prelude state, so ``check_deduce`` keeps it here, keyed by the
 # imports (and the identity of the module ASTs they carry), and reuses
 # it. The value is the processed (statement, hash) pairs, the env after
-# them, and the modules they import.
-_prelude_imports_cache: dict[tuple[object, ...], tuple[list[tuple[object, int]], object, set[str]]] = {}
+# them, and the modules they import (each with its env).
+_prelude_imports_cache: dict[tuple[object, ...], tuple[list[tuple[object, int]], object, dict[str, object]]] = {}
 
 # Hits and misses bucketed by loop, for the test instrumentation
 # the plan requires ("untouched statements were cache hits").

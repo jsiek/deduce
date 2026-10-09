@@ -1349,6 +1349,10 @@ class GenRecFun(Declaration):
   body: Term
   terminates: Proof
   trusted_terminates: bool = False
+  # The unique names of the `<` visible where this function is defined,
+  # recorded by ``uniquify``: the termination conditions compare the
+  # measure with it (#1250).
+  less: List[str] = field(default_factory=list, kw_only=True)
 
   def uniquify(self, env: object, ctx: object) -> GenRecFun:
     env_map = cast(UniquifyEnv, env)
@@ -1382,7 +1386,8 @@ class GenRecFun(Declaration):
     return GenRecFun(self.location, new_name, new_type_params,
                      new_vars, new_returns, new_measure,
                      new_measure_ty, new_body, new_terminates,
-                     self.trusted_terminates, visibility=self.visibility)
+                     self.trusted_terminates, visibility=self.visibility,
+                     less=list(env_map.get('<', [])))
     
   _exports_overload = True
 
@@ -1579,6 +1584,10 @@ class ViewDecl(Declaration):
 class Define(Declaration):
   typ: Optional[Type]
   body: Term
+  # The unique names visible under the same base name where this define
+  # appears, recorded by ``uniquify``: the checker allows only a function
+  # to share its name with them (#1250).
+  overloads: List[str] = field(default_factory=list, kw_only=True)
 
   def _can_use_fun_form(self) -> bool:
     # The `fun name(params) { body }` shape drops `self.typ`, so it
@@ -1618,10 +1627,11 @@ class Define(Declaration):
     new_typ = self.typ.uniquify(env, ctx) if self.typ else None
     new_body = self.body.uniquify(env, ctx)
 
+    overloads = list(env.get(self.name, []))
     new_name = generate_name(self.name, ctx)
     extend(env, self.name, new_name, self.location)
     return Define(self.location, new_name, new_typ, new_body,
-                  visibility=self.visibility)
+                  visibility=self.visibility, overloads=overloads)
 
   _exports_overload = True
 
