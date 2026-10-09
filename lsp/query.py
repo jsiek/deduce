@@ -93,6 +93,7 @@ __all__ = [
     "OutlineTheorem",
     "ProofOutline",
     "SubtermPreview",
+    "LemmaPreview",
     # Query functions
     "check",
     "goal_at",
@@ -112,6 +113,7 @@ __all__ = [
     "hole_context_at",
     "available_lemmas_at",
     "insert_lemma_at",
+    "preview_lemma_at",
     "validate_proof_at",
     "preview_replace_at",
     "preview_expand_at",
