@@ -751,6 +751,9 @@ def check(
     # That keeps the protocol-neutral boundary cheap to enforce.
     from lsp.library import check_file
 
+    # A fresh check is the newest word on every document's holes: a
+    # module they import may have changed (see ``_hole_checks``).
+    _hole_checks.clear()
     return _diagnostics_of(check_file(
         path, content=content, prelude=prelude,
         collect_errors=True, parser=parser,
@@ -921,7 +924,6 @@ def goal_at(
 
     ``prelude`` matches the meaning in :func:`check`.
     """
-    from lsp.library import check_file
 
     # Cursor on (or just past) an existing `?`?  Don't insert a
     # second one -- `_insert_hole` would emit `?\n?` which the parser
@@ -939,8 +941,9 @@ def goal_at(
         goal_range = Range(start=pos, end=pos)
         target = (hole_pos.line, hole_pos.column)
 
-    with _target_hole(target):
-        result = check_file(path, content=modified, prelude=prelude)
+    result = _check_at_target(
+        path, modified, target, prelude, remember=existing_hole is not None
+    )
     if result.ok:
         # No PHole was hit -- the surrounding proof was already complete
         # without needing the inserted ?. Nothing to report.
@@ -1444,13 +1447,11 @@ def _completion_env_and_goal(
       branch sets it to whatever goal happens to be visible at that
       point, which is fine for the matching-given priority boost.
     """
-    from lsp.library import check_file
 
     existing = _find_hole_at(content, pos)
     if existing is not None:
         target = (existing.start.line, existing.start.column)
-        with _target_hole(target):
-            result = check_file(path, content=content, prelude=prelude)
+        result = _check_at_target(path, content, target, prelude)
         if result.ok:
             return (None, None)
         exc = result.exception
@@ -1465,8 +1466,7 @@ def _completion_env_and_goal(
         return (None, None)
     modified, hole_pos = inserted
     target = (hole_pos.line, hole_pos.column)
-    with _target_hole(target):
-        result = check_file(path, content=modified, prelude=prelude)
+    result = _check_at_target(path, modified, target, prelude, remember=False)
     if result.ok:
         return (None, None)
     exc = result.exception
@@ -2047,11 +2047,8 @@ def refine_at(
     if hole_range is None:
         return None
 
-    from lsp.library import check_file
-
     target = (hole_range.start.line, hole_range.start.column)
-    with _target_hole(target):
-        result = check_file(path, content=content, prelude=prelude)
+    result = _check_at_target(path, content, target, prelude)
     if result.ok:
         return None
 
@@ -2289,11 +2286,8 @@ def case_split_at(
     if hole_range is None:
         return None
 
-    from lsp.library import check_file
-
     target = (hole_range.start.line, hole_range.start.column)
-    with _target_hole(target):
-        result = check_file(path, content=content, prelude=prelude)
+    result = _check_at_target(path, content, target, prelude)
     if result.ok:
         return None
 
@@ -2333,11 +2327,8 @@ def splittable_vars_at(
     if hole_range is None:
         return ()
 
-    from lsp.library import check_file
-
     target = (hole_range.start.line, hole_range.start.column)
-    with _target_hole(target):
-        result = check_file(path, content=content, prelude=prelude)
+    result = _check_at_target(path, content, target, prelude)
     if result.ok:
         return ()
 
@@ -2584,11 +2575,8 @@ def induction_skeleton_at(
     if hole_range is None:
         return None
 
-    from lsp.library import check_file
-
     target = (hole_range.start.line, hole_range.start.column)
-    with _target_hole(target):
-        result = check_file(path, content=content, prelude=prelude)
+    result = _check_at_target(path, content, target, prelude)
     if result.ok:
         return None
 
@@ -2759,13 +2747,9 @@ def eliminate_at(
     if hole_range is None:
         return None
 
-    from lsp.library import check_file
-
-    result = check_file(path, content=content, prelude=prelude)
-    if result.ok:
+    exc = _check_at_hole(path, content, hole_range, prelude)
+    if exc is None:
         return None
-
-    exc = result.exception
     env = getattr(exc, "env", None)
     if env is None:
         return None
@@ -2801,13 +2785,9 @@ def eliminable_vars_at(
     if hole_range is None:
         return ()
 
-    from lsp.library import check_file
-
-    result = check_file(path, content=content, prelude=prelude)
-    if result.ok:
+    exc = _check_at_hole(path, content, hole_range, prelude)
+    if exc is None:
         return ()
-
-    exc = result.exception
     env = getattr(exc, "env", None)
     if env is None:
         return ()
@@ -3101,13 +3081,9 @@ def fill_from_given_at(
     if hole_range is None:
         return None
 
-    from lsp.library import check_file
-
-    result = check_file(path, content=content, prelude=prelude)
-    if result.ok:
+    exc = _check_at_hole(path, content, hole_range, prelude)
+    if exc is None:
         return None
-
-    exc = result.exception
     env = getattr(exc, "env", None)
     goal = getattr(exc, "formula", None)
     if env is None or goal is None:
@@ -3138,13 +3114,9 @@ def matching_givens_at(
     if hole_range is None:
         return ()
 
-    from lsp.library import check_file
-
-    result = check_file(path, content=content, prelude=prelude)
-    if result.ok:
+    exc = _check_at_hole(path, content, hole_range, prelude)
+    if exc is None:
         return ()
-
-    exc = result.exception
     env = getattr(exc, "env", None)
     goal = getattr(exc, "formula", None)
     if env is None or goal is None:
@@ -3325,13 +3297,9 @@ def preview_conclude_at(
     if hole_range is None:
         return None
 
-    from lsp.library import check_file
-
-    result = check_file(path, content=content, prelude=prelude)
-    if result.ok:
+    exc = _check_at_hole(path, content, hole_range, prelude)
+    if exc is None:
         return None
-
-    exc = result.exception
     env = getattr(exc, "env", None)
     goal = getattr(exc, "formula", None)
     if env is None or goal is None:
@@ -3447,7 +3415,6 @@ def apply_at(
         return None
 
     from error import IncompleteProof
-    from lsp.library import check_file
 
     # Splice ``define`` statements at the hole so user-supplied arg
     # expressions are parsed and type-checked in the surrounding
@@ -3461,8 +3428,9 @@ def apply_at(
         run_content = content
         target = (hole_range.start.line, hole_range.start.column)
 
-    with _target_hole(target):
-        result = check_file(run_path, content=run_content, prelude=prelude)
+    result = _check_at_target(
+        run_path, run_content, target, prelude, remember=not args
+    )
     if result.ok:
         return None
 
@@ -3739,11 +3707,8 @@ def hole_context_at(
     if hole_range is None:
         return None
 
-    from lsp.library import check_file
-
     target = (hole_range.start.line, hole_range.start.column)
-    with _target_hole(target):
-        result = check_file(path, content=content, prelude=prelude)
+    result = _check_at_target(path, content, target, prelude)
     if result.ok:
         return None
 
@@ -3964,8 +3929,7 @@ def _available_lemmas(
     env: Optional["Env"] = None
     if hole_range is not None:
         target = (hole_range.start.line, hole_range.start.column)
-        with _target_hole(target):
-            result = check_file(path, content=content, prelude=prelude)
+        result = _check_at_target(path, content, target, prelude)
         if not result.ok:
             goal = _goal_from_exception(result.exception, hole_range)
             if goal is not None:
@@ -4066,8 +4030,7 @@ def insert_lemma_at(
 
     if hole_range is not None:
         target = (hole_range.start.line, hole_range.start.column)
-        with _target_hole(target):
-            result = check_file(path, content=content, prelude=prelude)
+        result = _check_at_target(path, content, target, prelude)
         if not result.ok:
             exc = result.exception
             goal = _goal_from_exception(exc, hole_range)
@@ -4914,7 +4877,7 @@ def _unify_score(
     if goal_ast is None or env is None or formula is None:
         return (0.0, None, (), ())
 
-    from abstract_syntax import formula_match
+    from abstract_syntax import Env, formula_match
     from error import MatchFailed
 
     peeled = _peel_quantified_implication(formula)
@@ -4928,7 +4891,10 @@ def _unify_score(
     matching: dict[str, "Term"] = {}
     conc_matched = False
     try:
-        formula_match(location, vars, conc, goal_ast, matching, env)
+        # Match in an empty env, as the rewriter does (``try_rewrite``):
+        # it's what `replace` and `apply` would see, and unfolding
+        # definitions on every mismatch made ranking take seconds.
+        formula_match(location, vars, conc, goal_ast, matching, Env(), outer_env=env)
         unmatched = [v for v in vars if v.name not in matching]
         if not unmatched and _matching_respects_var_types(vars, matching):
             conc_matched = True
@@ -5013,7 +4979,7 @@ def _equation_subterm_match(
     ``rewrite_subterm`` match). ``None`` when ``conc`` isn't an equation
     or no side matches. Wrapped broadly: a ranking heuristic must never
     crash the caller."""
-    from abstract_syntax import Call, VarRef, formula_match
+    from abstract_syntax import Call, Env, VarRef, formula_match
     from error import MatchFailed
 
     if not (
@@ -5040,7 +5006,10 @@ def _equation_subterm_match(
             for sub in subterms:
                 sub_matching: dict[str, "Term"] = {}
                 try:
-                    formula_match(location, vars, side, sub, sub_matching, env)
+                    formula_match(
+                        location, vars, side, sub, sub_matching, Env(),
+                        outer_env=env,
+                    )
                 except MatchFailed:
                     continue
                 except Exception:
@@ -5412,11 +5381,8 @@ def preview_replace_at(
     if hole_range is None:
         return None
 
-    from lsp.library import check_file
-
     target = (hole_range.start.line, hole_range.start.column)
-    with _target_hole(target):
-        result = check_file(path, content=content, prelude=prelude)
+    result = _check_at_target(path, content, target, prelude)
     if result.ok:
         return None
 
@@ -5551,11 +5517,8 @@ def preview_expand_at(
     if hole_range is None:
         return None
 
-    from lsp.library import check_file
-
     target = (hole_range.start.line, hole_range.start.column)
-    with _target_hole(target):
-        result = check_file(path, content=content, prelude=prelude)
+    result = _check_at_target(path, content, target, prelude)
     if result.ok:
         return None
 
@@ -5797,7 +5760,7 @@ def proof_outline(
     """
     import flags
     from error import IncompleteProof
-    from lsp.library import _check_file_lock, check_file
+    from lsp.library import CheckResult, _check_file_lock, check_file
 
     records: dict[tuple[object, ...], "StepRecord"] = {}
     # Hold the check lock while the recorder is installed, so a
@@ -5810,6 +5773,20 @@ def proof_outline(
             )
         finally:
             flags.set_proof_outline(None)
+
+    # This check reached every hole, so the step queries at a hole
+    # (:func:`_check_at_target`) needn't check again. It replaces what
+    # earlier checks found, here and in other documents: a module they
+    # import may have changed.
+    _hole_checks.clear()
+    holes = _hole_checks_for(path, content, prelude)
+    for exc in result.errors or ():
+        loc = getattr(exc, "location", None)
+        if isinstance(exc, IncompleteProof) and loc is not None:
+            holes[(loc.line, loc.column)] = CheckResult(
+                ok=False, error_message=str(exc), error_traceback=None,
+                exception=exc, module_name=result.module_name, ast=result.ast,
+            )
 
     mine = sorted(
         (r for r in records.values() if _meta_in_file(r.proof.location, path)),
@@ -6163,15 +6140,22 @@ def _subterm_step(
             message=f"`{target}` is the function of a call; choose the call `{parent[0]}`",
         )
 
-    # Mark the occurrence in the goal's text: the path names exactly one,
-    # even when the AST shares a node between several.
-    text, end = str(tree), start + len(str(target))
-    goal_marked = f"{text[:start]}#{text[start:end]}#{text[end:]}"
-    marked = _try_step(path, content, hole, f"show {goal_marked}\n{tactic}", prelude)
-    if isinstance(marked, str):
-        return SubtermPreview("error", message=marked)
-    plain = _try_step(path, content, hole, tactic, prelude)
-    text, goal = plain if not isinstance(plain, str) and plain[1] == marked[1] else marked
+    if subterm:
+        # Mark the occurrence in the goal's text: the path names exactly
+        # one, even when the AST shares a node between several.
+        text, end = str(tree), start + len(str(target))
+        goal_marked = f"{text[:start]}#{text[start:end]}#{text[end:]}"
+        marked = _try_step(path, content, hole, f"show {goal_marked}\n{tactic}", prelude)
+        if isinstance(marked, str):
+            return SubtermPreview("error", message=marked)
+        plain = _try_step(path, content, hole, tactic, prelude)
+        text, goal = plain if not isinstance(plain, str) and plain[1] == marked[1] else marked
+    else:
+        # The whole goal: marking all of it would change nothing.
+        whole = _try_step(path, content, hole, tactic, prelude)
+        if isinstance(whole, str):
+            return SubtermPreview("error", message=whole)
+        text, goal = whole
     if isinstance(goal.ast, Bool) and goal.ast.value:
         # The step proves the goal: end it with `.` rather than a `?`.
         text = text[: -len("?")].rstrip() + "."
@@ -6179,15 +6163,58 @@ def _subterm_step(
 
 
 def _check_at_hole(
-    path: str, content: str, hole: Range, prelude: Sequence[str]
+    path: str, content: str, hole: Range, prelude: Sequence[str],
+    remember: bool = True,
 ) -> Optional[BaseException]:
     """Check ``content`` stopping at the hole at ``hole`` (other holes
     count as proved); the exception, or ``None`` if the check passed."""
+    result = _check_at_target(
+        path, content, (hole.start.line, hole.start.column), prelude, remember
+    )
+    return None if result.ok else result.exception
+
+
+# What checking a document raised at each of its holes: by document
+# (path, text, prelude), then by the hole's (line, column). Every step
+# query at a hole needs the goal and givens there, which takes a check
+# of the whole file; this lets the queries share one, and
+# :func:`proof_outline` (run after each edit) fills in every hole from
+# its own check. The key doesn't capture the modules a document
+# imports, so the checks the server runs when any document is opened,
+# changed or saved (:func:`check`, :func:`proof_outline`) start it
+# afresh. Only the latest few documents are kept.
+_hole_checks: dict[
+    tuple[str, str, tuple[str, ...]], dict[tuple[int, int], "CheckResult"]
+] = {}
+_HOLE_CHECK_DOCUMENTS = 4
+
+
+def _hole_checks_for(
+    path: str, content: str, prelude: Sequence[str]
+) -> dict[tuple[int, int], "CheckResult"]:
+    key = (path, content, tuple(prelude))
+    holes = _hole_checks.pop(key, {})
+    _hole_checks[key] = holes
+    while len(_hole_checks) > _HOLE_CHECK_DOCUMENTS:
+        del _hole_checks[next(iter(_hole_checks))]
+    return holes
+
+
+def _check_at_target(
+    path: str, content: str, target: tuple[int, int], prelude: Sequence[str],
+    remember: bool = True,
+) -> "CheckResult":
+    """``check_file`` stopping at the hole at ``target`` (other holes
+    count as proved), shared through ``_hole_checks``. Pass
+    ``remember=False`` for a one-off text (a step spliced in to preview
+    it), so it doesn't push the document's own checks out."""
     from lsp.library import check_file
 
-    with _target_hole((hole.start.line, hole.start.column)):
-        result = check_file(path, content=content, prelude=prelude)
-    return None if result.ok else result.exception
+    holes = _hole_checks_for(path, content, prelude) if remember else {}
+    if target not in holes:
+        with _target_hole(target):
+            holes[target] = check_file(path, content=content, prelude=prelude)
+    return holes[target]
 
 
 def _try_step(
@@ -6205,7 +6232,8 @@ def _try_step(
     new_content = content[:start] + text + content[end:]
     line, col = _offset_to_line_col(new_content, start + len(text) - 1)
     exc = _check_at_hole(
-        path, new_content, Range(Position(line, col), Position(line, col + 1)), prelude
+        path, new_content, Range(Position(line, col), Position(line, col + 1)),
+        prelude, remember=False,
     )
     loc = getattr(exc, "location", None)
     formula = getattr(exc, "formula", None)
