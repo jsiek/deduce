@@ -15,6 +15,10 @@ from lsp.query import ProofStep, StepUse, proof_outline  # noqa: E402
 LIST_PF = REPO_ROOT / "lib" / "List.pf"
 
 
+def _at(pos) -> tuple[int, int]:
+    return (pos.line, pos.column)
+
+
 def _steps_in_lines(steps: tuple[ProofStep, ...], first: int, last: int):
     return [s for s in steps if first <= s.range.start.line <= last]
 
@@ -63,6 +67,100 @@ def test_length_append_induction_and_equations():
     replace = next(s for s in steps if s.kind == "RewriteGoal")
     assert replace.goal == "#1 + length(xs' ++ ys)# = 1 + (length(xs') + length(ys))"
     assert replace.formula == "true"
+
+    # `detail` carries what a textbook rendering needs.
+    assert steps[0].detail == {"vars": [{"name": "U", "type": "type"}]}
+    cases = induction.detail["cases"]
+    assert induction.detail["variable"] == "xs"
+    assert [(c["pattern"], c["hypotheses"]) for c in cases] == [
+        ("[]", []), ("node(n, xs')", ["IH"]),
+    ]
+    # Each case's range covers all of its steps.
+    in_node_case = [
+        s for s in steps
+        if _at(cases[1]["range"].start) <= _at(s.range.start)
+        and _at(s.range.end) <= _at(cases[1]["range"].end)
+    ]
+    assert {s.range for s in links} <= {s.range for s in in_node_case}
+    assert [(s.detail["lhs"], s.detail["rhs"]) for s in links] == [
+        ("length(node(n, xs') ++ ys)", "1 + length(xs' ++ ys)"),
+        ("1 + length(xs' ++ ys)", "1 + (length(xs') + length(ys))"),
+        ("1 + (length(xs') + length(ys))", "#length(node(n, xs'))# + length(ys)"),
+    ]
+
+    theorem = next(t for t in outline.theorems if t.name == "length_append")
+    assert theorem.formula == (
+        "(all U:type, xs:List<U>, ys:List<U>. length(xs ++ ys) = length(xs) + length(ys))"
+    )
+    assert not theorem.lemma
+    assert (theorem.range.start.line, theorem.range.end.line) == (first, last)
+
+
+DETAIL_SRC = """\
+theorem or_swap: all P:bool, Q:bool. if P or Q then Q or P
+proof
+  arbitrary P:bool, Q:bool
+  assume pq: P or Q
+  cases pq
+  case p: P {
+    have p2: P by p
+    conclude Q or P by p2
+  }
+  case q: Q {
+    conclude Q or P by q
+  }
+end
+
+lemma bool_cases: all b:bool. b or not b
+proof
+  arbitrary b:bool
+  switch b {
+    case true {
+      .
+    }
+    case false {
+      .
+    }
+  }
+end
+"""
+
+
+def test_step_detail_for_assume_have_cases_and_switch(tmp_path):
+    outline = proof_outline(str(tmp_path / "detail.pf"), DETAIL_SRC)
+    assert outline.diagnostics == ()
+    by_kind: dict[str, list[ProofStep]] = {}
+    for s in outline.steps:
+        by_kind.setdefault(s.kind, []).append(s)
+
+    # The whole `arbitrary` list, though it desugars to nested AllIntros.
+    assert by_kind["AllIntro"][0].detail == {
+        "vars": [{"name": "P", "type": "bool"}, {"name": "Q", "type": "bool"}]
+    }
+    assert by_kind["ImpIntro"][0].detail == {"label": "pq", "premise": "(P or Q)"}
+    assert by_kind["PLet"][0].detail == {"label": "p2"}
+
+    [cases] = by_kind["Cases"]
+    arms = cases.detail["cases"]
+    assert [(a["label"], a["formula"]) for a in arms] == [("p", "P"), ("q", "Q")]
+    # Arms partition the steps: `have p2` is in the first, the last
+    # `conclude` in the second.
+    have = by_kind["PLet"][0]
+    last = by_kind["PAnnot"][-1]
+    assert (
+        _at(arms[0]["range"].start) <= _at(have.range.start)
+        < _at(arms[1]["range"].start)
+    )
+    assert _at(arms[1]["range"].start) <= _at(last.range.start)
+    assert _at(last.range.end) <= _at(arms[1]["range"].end)
+
+    [switch] = by_kind["SwitchProof"]
+    assert switch.detail["subject"] == "b"
+    assert [c["pattern"] for c in switch.detail["cases"]] == ["true", "false"]
+
+    assert [(t.name, t.lemma) for t in outline.theorems] == [
+        ("or_swap", False), ("bool_cases", True),
+    ]
 
 
 ERROR_PARTWAY = """\

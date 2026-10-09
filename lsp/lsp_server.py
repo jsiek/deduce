@@ -330,10 +330,32 @@ def _proof_outline_payload(
                 ],
                 "uses": [{"name": u.name, "kind": u.kind} for u in st.uses],
                 "status": st.status,
+                "detail": _detail_payload(st.detail),
             }
             for st in outline.steps
         ],
+        "theorems": [
+            {
+                "name": th.name,
+                "formula": th.formula,
+                "lemma": th.lemma,
+                "range": _range_payload_from_query(th.range),
+            }
+            for th in outline.theorems
+        ],
     }
+
+
+def _detail_payload(value: object) -> object:
+    """A step's ``detail`` with its query ``Range``s (case bodies) made
+    0-indexed LSP ranges, like every other range in the payload."""
+    if isinstance(value, _query.Range):
+        return _range_payload_from_query(value)
+    if isinstance(value, dict):
+        return {k: _detail_payload(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_detail_payload(v) for v in value]
+    return value
 
 
 @server.feature(lsp_types.INITIALIZE)
@@ -400,7 +422,7 @@ def on_did_close(
         lsp_types.PublishDiagnosticsParams(uri=uri, diagnostics=[])
     )
     if _push_proof_outline:
-        ls.protocol.notify(PROOF_OUTLINE, {"uri": uri, "steps": []})
+        ls.protocol.notify(PROOF_OUTLINE, {"uri": uri, "steps": [], "theorems": []})
 
 
 # --- Query features ------------------------------------------------------

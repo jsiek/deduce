@@ -89,6 +89,7 @@ __all__ = [
     "AutoRule",
     "StepUse",
     "ProofStep",
+    "OutlineTheorem",
     "ProofOutline",
     # Query functions
     "check",
@@ -600,6 +601,21 @@ class ProofStep:
     ``sorry``). It reflects only diagnostics whose innermost enclosing
     step is this one, so a ``have`` whose continuation fails stays
     ``"ok"``.
+
+    ``detail`` holds what a textbook-style rendering needs beyond the
+    formulas, keyed by ``kind`` (empty for other kinds):
+
+    - ``AllIntro``: ``vars``, ``[{name, type}]`` for the whole
+      ``arbitrary`` list.
+    - ``ImpIntro``: ``label`` and ``premise`` (``None`` if unwritten).
+    - ``Induction``: ``variable`` (the goal's first ``all`` binder) and
+      ``cases``; ``SwitchProof``: ``subject`` and ``cases``. Each case
+      is ``{pattern, hypotheses, range}``, ``range`` (a :class:`Range`)
+      covering the whole case, so it contains the case's steps.
+    - ``Cases``: ``cases``, each ``{label, formula, range}``, ``range``
+      running from the arm's proof to the next arm's.
+    - ``PAnnot`` proving an equation: ``lhs`` and ``rhs``.
+    - ``PLet``: ``label``. ``Suffices``: ``claim``.
     """
 
     kind: str
@@ -609,15 +625,30 @@ class ProofStep:
     givens: tuple[Given, ...]
     uses: tuple[StepUse, ...]
     status: str
+    # Any: JSON payload whose shape depends on ``kind`` (see above).
+    detail: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class OutlineTheorem:
+    """A theorem or lemma of the file, for :func:`proof_outline` views
+    that typeset a ``Theorem.`` header before its proof's steps."""
+
+    name: str
+    formula: str
+    lemma: bool
+    range: Range
 
 
 @dataclass(frozen=True)
 class ProofOutline:
     """Result of :func:`proof_outline`: the steps of every proof in the
-    file in source order, plus the diagnostics of the same check."""
+    file in source order, the file's theorems, and the diagnostics of
+    the same check."""
 
     steps: tuple[ProofStep, ...]
     diagnostics: tuple[Diagnostic, ...]
+    theorems: tuple[OutlineTheorem, ...]
 
 
 # ---------------------------------------------------------------------------
@@ -5751,10 +5782,114 @@ def proof_outline(
             ),
             uses=_step_uses(r.proof, r.env),
             status="incomplete" if isinstance(r.proof, PSorry) else st,
+            detail=_step_detail(r),
         )
         for r, st in zip(mine, status)
     )
-    return ProofOutline(steps, tuple(_diagnostics_of(result)))
+    return ProofOutline(
+        steps, tuple(_diagnostics_of(result)), _outline_theorems(result.ast, path)
+    )
+
+
+def _outline_theorems(
+    ast: Optional[Sequence["Statement"]], path: str
+) -> tuple[OutlineTheorem, ...]:
+    from abstract_syntax import Theorem, base_name
+
+    return tuple(
+        OutlineTheorem(
+            base_name(s.name), str(s.what), s.isLemma, _range_from_meta(s.location)
+        )
+        for s in ast or ()
+        if isinstance(s, Theorem) and _meta_in_file(s.location, path)
+    )
+
+
+# Any: JSON payload whose shape depends on the step kind (see ProofStep).
+def _step_detail(rec: "StepRecord") -> dict[str, Any]:
+    """The ``detail`` of a :class:`ProofStep` (see its docstring)."""
+    from abstract_syntax import (
+        All, AllIntro, Call, Cases, ImpIntro, Induction, PAnnot, PLet,
+        Suffices, SwitchProof, VarRef, base_name,
+    )
+
+    proof = rec.proof
+
+    def case_range(case: "AST") -> Range:
+        return _range_from_meta(case.location)
+
+    match proof:
+        case AllIntro():
+            # `arbitrary x, y` desugars into nested AllIntros sharing one
+            # location; the record holds the outermost.
+            vars = []
+            node: object = proof
+            where = _meta_order(proof.location)
+            while isinstance(node, AllIntro) and _meta_order(node.location) == where:
+                name, ty = node.var
+                vars.append({"name": base_name(name), "type": str(ty)})
+                node = node.body
+            return {"vars": vars}
+        case ImpIntro(label=label, premise=premise):
+            return {
+                "label": base_name(label),
+                "premise": None if premise is None else str(premise),
+            }
+        case Induction(cases=cases):
+            goal = rec.goal
+            return {
+                "variable": base_name(goal.var[0]) if isinstance(goal, All) else None,
+                "cases": [
+                    {
+                        "pattern": str(c.pattern),
+                        "hypotheses": [base_name(x) for x, _ in c.induction_hypotheses],
+                        "range": case_range(c),
+                    }
+                    for c in cases
+                ],
+            }
+        case SwitchProof(subject=subject, cases=cases):
+            return {
+                "subject": str(subject),
+                "cases": [
+                    {
+                        "pattern": str(c.pattern),
+                        "hypotheses": [base_name(x) for x, _ in c.assumptions if x],
+                        "range": case_range(c),
+                    }
+                    for c in cases
+                ],
+            }
+        case Cases(cases=cases):
+            # An arm is a bare tuple with no location of its own, so it
+            # spans from its proof to the next arm's (or the end).
+            starts = [
+                Position(body.location.line, body.location.column)
+                for _, _, body in cases
+            ]
+            ends = starts[1:] + [
+                Position(proof.location.end_line, proof.location.end_column)
+            ]
+            return {
+                "cases": [
+                    {
+                        "label": base_name(label),
+                        "formula": None if frm is None else str(frm),
+                        "range": Range(start=start, end=end),
+                    }
+                    for (label, frm, _), start, end in zip(cases, starts, ends)
+                ],
+            }
+        case PAnnot():
+            match rec.formula:
+                case Call(rator=VarRef() as rator, args=[lhs, rhs]) if rator.get_name() == "=":
+                    return {"lhs": str(lhs), "rhs": str(rhs)}
+            return {}
+        case PLet(label=label):
+            return {"label": base_name(label)}
+        case Suffices(claim=claim):
+            return {"claim": str(claim)}
+    return {}
 
 
 def _meta_order(meta: Meta) -> tuple[int, int, int, int]:

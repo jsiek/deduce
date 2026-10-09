@@ -84,6 +84,7 @@ EXPECTED_PUBLIC = {
     "AutoRule",
     "StepUse",
     "ProofStep",
+    "OutlineTheorem",
     "ProofOutline",
     "check",
     "goal_at",

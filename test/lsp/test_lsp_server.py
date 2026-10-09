@@ -464,6 +464,11 @@ def test_proof_outline_request_returns_steps(server, open_doc):
     assert hole["goal"] == "P"
     assert hole["givens"] == [{"label": "p", "formula": "P"}]
     assert hole["range"]["start"] == {"line": 4, "character": 2}
+    assert result["steps"][0]["detail"] == {"vars": [{"name": "P", "type": "bool"}]}
+    assert result["steps"][1]["detail"] == {"label": "p", "premise": None}
+    [theorem] = result["theorems"]
+    assert (theorem["name"], theorem["lemma"]) == ("t", False)
+    assert theorem["range"]["start"] == {"line": 0, "character": 0}
     assert server.notified == []
 
 
@@ -499,7 +504,9 @@ def test_proof_outline_notification_is_opt_in(server, open_doc, monkeypatch):
             text_document=lsp_types.TextDocumentIdentifier(uri=uri)
         ),
     )
-    assert server.notified[-1] == (lsp_server.PROOF_OUTLINE, {"uri": uri, "steps": []})
+    assert server.notified[-1] == (
+        lsp_server.PROOF_OUTLINE, {"uri": uri, "steps": [], "theorems": []}
+    )
 
 
 def test_goal_at_returns_none_outside_proof(server, open_doc):
