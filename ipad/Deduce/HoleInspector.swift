@@ -171,6 +171,13 @@ struct HoleInspector: View {
         }
     }
 
+    /// `message` without the `/path/to/File.pf:13.86-13.119: ` locations
+    /// the checker puts in front of nested errors.
+    static func withoutLocations(_ message: String) -> String {
+        message.replacingOccurrences(of: #"\S+\.pf:\d+\.\d+-\d+\.\d+: "#, with: "",
+                                     options: .regularExpression)
+    }
+
     /// How a lemma fits the goal, by the server's `unify_tier`.
     private static let fits = [
         "full": "proves it",
@@ -219,7 +226,13 @@ struct HoleInspector: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title).font(.caption).foregroundStyle(.secondary)
             if let problem = result.problem {
-                Text(problem).font(.system(.footnote, design: .monospaced)).foregroundStyle(.red)
+                // The checker's messages can be long; keep the list in sight.
+                ScrollView {
+                    Text(Self.withoutLocations(problem))
+                        .font(.system(.footnote, design: .monospaced)).foregroundStyle(.red)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(maxHeight: 160)
             } else if result.goals.count == 1, display(result.goals[0]) == display(hole.goal) {
                 Text("Leaves the goal as it is.")
             } else {
