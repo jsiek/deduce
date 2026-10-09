@@ -1775,10 +1775,10 @@ def _type_check_stmt(stmt: Statement, env: Env,
 
     case Trace(loc, var):
       var_ty = env.get_type_of_term_var(var)
-      match var_ty:
-        case FunctionType(_, _, _, _):
-          pass
-        case _:
+      # An overloaded name is fine when every overload is a function.
+      overload_types = [t for (_, t) in var_ty.types] \
+          if isinstance(var_ty, OverloadType) else [var_ty]
+      if not all(isinstance(t, FunctionType) for t in overload_types):
           user_error(var.location, 'trace expects an identifer of type function, but instead got type ' + str(var_ty))
       return stmt
   
@@ -1966,7 +1966,9 @@ def collect_env(stmt: Statement, env: Env) -> Env:
           user_error(loc, 'Could not find a proof of\n\t' + str(assoc_formula))
   
     case Trace(loc, function_name):
-      return env.declare_tracing(function_name.get_name())
+      for traced in _traced_names(function_name):
+        env = env.declare_tracing(traced)
+      return env
 
     case _:
       internal_error(stmt.location, "collect_env, unrecognized statement:\n" + str(stmt))
@@ -2357,6 +2359,14 @@ def check_exported_contract_visibility(ast: List[Statement]) -> None:
                  + "' in its contract; a public contract may only mention "
                  + 'names visible to importing modules.')
 
+def _traced_names(var: Term) -> list[str]:
+  """The unique names a `trace` statement turns on: every overload of
+  an overloaded function name."""
+  if isinstance(var, OverloadedVar):
+    return list(var.resolved_names)
+  return [cast(VarRef, var).get_name()]
+
+
 def _prelude_imports_key(
     ast: list[Statement], module_name: str
 ) -> Optional[tuple[object, ...]]:
@@ -2475,7 +2485,8 @@ def _check_deduce_body(ast: list[Statement], module_name: str, modified: bool,
   # the whole file.
   for s, _ in ast2_pairs:
     if isinstance(s, Trace) and s.location.empty:
-      env = env.declare_tracing(s.rec_fun.get_name())
+      for traced in _traced_names(s.rec_fun):
+        env = env.declare_tracing(traced)
 
   if get_verbose():
     print('--------- Type Checking ------------------------')
