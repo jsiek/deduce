@@ -185,10 +185,12 @@ def flatten_assoc_list(op_name: str, args: Sequence[Term]) -> list[Term]:
 # new class hierarchy.
 # --------------------------------------------------------------------------
 
-def _walk_ast_descendants(roots: object) -> Iterator[object]:
+def _walk_ast_descendants(roots: object, into_imports: bool = True) -> Iterator[object]:
   """Yield every AST descendant reachable from ``roots`` (a single
   node or an iterable). Memoized by ``id()`` so shared sub-ASTs
-  (e.g. cached imported-module statements) aren't revisited."""
+  (e.g. cached imported-module statements) aren't revisited. With
+  ``into_imports=False``, an ``Import`` is yielded but the module
+  body it carries is not walked."""
   from dataclasses import fields, is_dataclass
   seen: set[int] = set()
   stack: list[object] = []
@@ -208,6 +210,8 @@ def _walk_ast_descendants(roots: object) -> Iterator[object]:
       continue
     if isinstance(node, dict):
       stack.extend(node.values())
+      continue
+    if isinstance(node, Import) and not into_imports:
       continue
     if isinstance(node, AST) and is_dataclass(node):
       for f in fields(node):
@@ -230,9 +234,13 @@ def check_post_uniquify_invariants(ast_list: Sequence[Statement]) -> None:
   arithmetic) already produce a fully-narrowed reference, and that's
   fine — it just means there's nothing for type-check to do.
 
+  Imported module bodies are not walked: each was checked by the
+  ``uniquify_deduce`` that built it (directly, or when it was cached),
+  and re-walking the whole prelude cost most of a warm check (#1245).
+
   Raises ``Exception`` listing up to 20 offending nodes on failure."""
   bad = []
-  for node in _walk_ast_descendants(ast_list):
+  for node in _walk_ast_descendants(ast_list, into_imports=False):
     if type(node) is Var:
       bad.append((getattr(node, 'location', None), node.name))
   if bad:
@@ -270,8 +278,10 @@ def check_post_typecheck_invariants(ast_list: Sequence[Statement]) -> None:
     except Exception:
       pass
     return ''
+  # As in ``check_post_uniquify_invariants``, imported module bodies are
+  # not walked: each module is checked as a file of its own (#1245).
   bad_var = []
-  for node in _walk_ast_descendants(ast_list):
+  for node in _walk_ast_descendants(ast_list, into_imports=False):
     if type(node) is Var:
       bad_var.append((getattr(node, 'location', None), node.name))
   if bad_var:
