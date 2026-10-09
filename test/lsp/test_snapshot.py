@@ -96,7 +96,8 @@ def test_second_start_loads_the_snapshot_instead_of_checking_the_prelude(
     assert list((tmp_path / "snapshots").glob("prelude-*.pickle")) == [snapshot]
 
 
-def test_editing_a_prelude_file_invalidates_the_snapshot(prelude_dir, tmp_path):
+def test_editing_a_prelude_file_invalidates_the_snapshot(prelude_dir, monkeypatch):
+    bootstraps = _bootstraps(monkeypatch)
     assert library.check_file("user.pf", content=USER, prelude=("Mini",)).ok
 
     (prelude_dir / "Mini.pf").write_text(MINI.replace("bit_cases", "bit_split"))
@@ -104,7 +105,33 @@ def test_editing_a_prelude_file_invalidates_the_snapshot(prelude_dir, tmp_path):
     result = library.check_file("user.pf", content=USER, prelude=("Mini",))
     # The renamed theorem shows the prelude was checked afresh.
     assert not result.ok and "bit_cases" in result.error_message
-    assert len(list((tmp_path / "snapshots").glob("prelude-*.pickle"))) == 2
+    assert len(bootstraps) == 2
+
+
+def test_editing_a_dependency_in_another_directory_invalidates_the_snapshot(
+    prelude_dir, tmp_path, monkeypatch
+):
+    """The prelude module imports a module from a different import
+    directory; editing that dependency must still be noticed."""
+    deps = tmp_path / "deps"
+    deps.mkdir()
+    (deps / "Dep.pf").write_text("union Bit { o  i }\n")
+    (prelude_dir / "Mini.pf").write_text(
+        "public import Dep\n" + MINI.replace("union Bit { o  i }\n", "")
+    )
+    monkeypatch.setattr(flags, "import_directories", flags.import_directories | {str(deps)})
+    bootstraps = _bootstraps(monkeypatch)
+    assert library.check_file("user.pf", content=USER, prelude=("Mini",)).ok
+
+    _new_process()
+    assert library.check_file("user.pf", content=USER, prelude=("Mini",)).ok
+    assert len(bootstraps) == 1  # unchanged: the snapshot was used
+
+    (deps / "Dep.pf").write_text("union Bit { o  i  x }\n")
+    _new_process()
+    uses_x = "theorem sees_x: x = x\nproof\n  .\nend\n"
+    assert library.check_file("user.pf", content=uses_x, prelude=("Mini",)).ok
+    assert len(bootstraps) == 2  # the edit to Dep forced a fresh check
 
 
 def test_a_corrupt_snapshot_is_rebuilt(prelude_dir, tmp_path, capsys):
