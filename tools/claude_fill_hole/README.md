@@ -99,9 +99,11 @@ can forward the LSP response directly with minimal munging.
     "start": {"line": 10, "character": 4},
     "end":   {"line": 10, "character": 5}
   },
-  "goal": "P = P",
+  "goal": {"kind": "Call", "parts": [
+    {"kind": "Var", "parts": ["P"]}, " = ", {"kind": "Var", "parts": ["P"]}
+  ]},
   "givens": [
-    {"label": "H", "formula": "P or Q"}
+    {"label": "H", "formula": {"kind": "Call", "parts": ["P or Q"]}}
   ],
   "lemmasInScope": [
     {"name": "list_length_zero", "kind": "lemma",
@@ -112,6 +114,11 @@ can forward the LSP response directly with minimal munging.
   "surroundingExcerpt": "<optional, ~30 lines around the hole>"
 }
 ```
+
+`goal` and each given's `formula` are formula trees, exactly as
+`deduce/holeContextAt` returns them: `{"kind": str, "parts": [str |
+tree]}`, whose text is the concatenation of the parts. The sidecar
+uses that text.
 
 `content` and `surroundingExcerpt` are optional. When `content` is
 absent, the sidecar reads `file` from disk. When `surroundingExcerpt`

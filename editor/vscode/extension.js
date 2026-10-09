@@ -863,23 +863,34 @@ function lemmaTierTag(lemma) {
     return '';
 }
 
+// The text of a formula tree, as deduce/goalAt and friends send it:
+// { kind: str, parts: [str | tree] }, whose text is the concatenation
+// of the parts. Mirror of editor/emacs/deduce-lsp.el's
+// `deduce-lsp--formula-text'.
+function formulaText(tree) {
+    if (typeof tree === 'string') {
+        return tree;
+    }
+    return tree.parts.map(formulaText).join('');
+}
+
 // Pretty-print a deduce/goalAt response into the goal Output channel.
 // Mirror of editor/emacs/deduce-lsp.el's `deduce-lsp--render-goal'.
-// Shape: { formula: str, givens: [{ label: str|null, formula: str }], range: ... }
+// Shape: { formula: tree, givens: [{ label: str|null, formula: tree }], range: ... }
 function renderGoal(channel, response) {
     if (!response) {
         channel.appendLine('No goal at this position.');
         return;
     }
     channel.appendLine('Goal:');
-    channel.appendLine('  ' + (response.formula || '?'));
+    channel.appendLine('  ' + (response.formula ? formulaText(response.formula) : '?'));
     const givens = response.givens || [];
     if (givens.length > 0) {
         channel.appendLine('');
         channel.appendLine('Givens:');
         for (const g of givens) {
             const label = g.label || '_';
-            const formula = g.formula || '';
+            const formula = g.formula ? formulaText(g.formula) : '';
             channel.appendLine(`  ${label}: ${formula}`);
         }
     }

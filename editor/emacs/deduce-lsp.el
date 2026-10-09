@@ -261,20 +261,32 @@ point of update."
     (jsonrpc-request server method params)))
 
 
+(defun deduce-lsp--formula-text (tree)
+  "The text of formula TREE, as `deduce/goalAt' and friends send it.
+A tree is `(:kind STR :parts VEC)', each part a string or a tree; its
+text is the concatenation of the parts."
+  (if (stringp tree)
+      tree
+    (mapconcat #'deduce-lsp--formula-text (plist-get tree :parts) "")))
+
+
 (defun deduce-lsp--render-goal (response)
   "Pretty-print a `deduce/goalAt' RESPONSE into the current buffer.
 
 Expected shape (post-JSON-decode plist):
 
-  (:formula STR :givens VEC :range PLIST)
+  (:formula TREE :givens VEC :range PLIST)
 
-where each element of `givens' is `(:label STR-OR-NIL :formula STR)'.
+where each element of `givens' is `(:label STR-OR-NIL :formula TREE)'
+and a TREE is rendered by `deduce-lsp--formula-text'.
 A nil RESPONSE means \"no goal at this position\"."
   (if (null response)
       (insert "No goal at this position.\n")
     (let ((formula (plist-get response :formula))
           (givens (plist-get response :givens)))
-      (insert "Goal:\n  " (or formula "?") "\n")
+      (insert "Goal:\n  "
+              (if formula (deduce-lsp--formula-text formula) "?")
+              "\n")
       (when (and givens (> (length givens) 0))
         (insert "\nGivens:\n")
         (seq-doseq (g givens)
@@ -283,7 +295,7 @@ A nil RESPONSE means \"no goal at this position\"."
             (insert "  "
                     (or label "_")
                     ": "
-                    (or gformula "")
+                    (if gformula (deduce-lsp--formula-text gformula) "")
                     "\n")))))))
 
 

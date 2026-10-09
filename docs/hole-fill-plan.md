@@ -80,8 +80,8 @@ Both steps live under `tools/claude-fill-hole/`. Layout: `__main__.py`, `agent.p
   "file": "/abs/path/to/proof.pf",
   "holeRange": { "start": {"line": 10, "character": 4},
                  "end":   {"line": 10, "character": 5} },
-  "goal": "P = P",
-  "givens": [ {"label": "H", "formula": "P or Q"} ],
+  "goal": {"kind": "Call", "parts": ["P = P"]},   // formula tree, as holeContextAt sends it
+  "givens": [ {"label": "H", "formula": {"kind": "Call", "parts": ["P or Q"]}} ],
   "lemmasInScope": [ {"name": "...", "signature": "...", "kind": "lemma"} ],
   "fingerprint": "sha256:...",
   "lspEndpoint": "stdio:///path/to/socket"   // optional; falls back to subprocess

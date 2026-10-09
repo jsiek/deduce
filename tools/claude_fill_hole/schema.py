@@ -149,7 +149,7 @@ def _request_from_dict(raw: dict[str, object]) -> HoleFillRequest:
     return HoleFillRequest(
         file=_expect_str(raw["file"], "file"),
         hole_range=hole_range,
-        goal=_expect_str(raw["goal"], "goal"),
+        goal=_expect_formula(raw["goal"], "goal"),
         givens=givens,
         lemmas_in_scope=lemmas,
         fingerprint=_expect_str(raw.get("fingerprint", ""), "fingerprint"),
@@ -164,7 +164,7 @@ def _given_from_object(value: object, index: int) -> Given:
     raw = _expect_object(value, f"givens[{index}]")
     return Given(
         label=_optional_str(raw.get("label"), f"givens[{index}].label"),
-        formula=_expect_str(raw["formula"], f"givens[{index}].formula"),
+        formula=_expect_formula(raw["formula"], f"givens[{index}].formula"),
     )
 
 
@@ -195,6 +195,20 @@ def _expect_list(value: object, field: str) -> list[object]:
     if not isinstance(value, list):
         raise TypeError(f"{field} must be a list")
     return cast(list[object], value)
+
+
+def _expect_formula(value: object, field: str) -> str:
+    """The text of a formula tree, ``{"kind": str, "parts": [str |
+    tree]}``, as ``deduce/holeContextAt`` returns it: the
+    concatenation of its parts."""
+    raw = _expect_object(value, field)
+    parts = raw.get("parts")
+    if not isinstance(parts, list):
+        raise TypeError(f"{field}.parts must be a list")
+    return "".join(
+        p if isinstance(p, str) else _expect_formula(p, f"{field}.parts")
+        for p in parts
+    )
 
 
 def _expect_str(value: object, field: str) -> str:

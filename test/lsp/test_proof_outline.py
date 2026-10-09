@@ -10,9 +10,21 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 import lsp.library  # noqa: E402
-from lsp.query import ProofStep, StepUse, proof_outline  # noqa: E402
+from lsp.query import ProofStep, StepUse, TermTree, proof_outline  # noqa: E402
 
 LIST_PF = REPO_ROOT / "lib" / "List.pf"
+
+
+def text(x):
+    """``x`` with every :class:`TermTree` (also inside dicts and lists)
+    rendered as its text."""
+    if isinstance(x, TermTree):
+        return str(x)
+    if isinstance(x, dict):
+        return {k: text(v) for k, v in x.items()}
+    if isinstance(x, (list, tuple)):
+        return type(x)(text(v) for v in x)
+    return x
 
 
 def _at(pos) -> tuple[int, int]:
@@ -42,14 +54,14 @@ def test_length_append_induction_and_equations():
     assert all(s.status == "ok" for s in steps)
 
     induction = next(s for s in steps if s.kind == "Induction")
-    assert induction.goal == (
+    assert text(induction.goal) == (
         "(all xs:List<U>, ys:List<U>. length(xs ++ ys) = length(xs) + length(ys))"
     )
 
     # The three links of the `equations` chain in the `node` case each
     # get their own range and the equation they establish.
     links = [s for s in steps if s.kind == "PAnnot" and s.range.start.line > first + 10]
-    assert [s.formula for s in links] == [
+    assert [text(s.formula) for s in links] == [
         "length(node(n, xs') ++ ys) = 1 + length(xs' ++ ys)",
         "1 + length(xs' ++ ys) = 1 + (length(xs') + length(ys))",
         "1 + (length(xs') + length(ys)) = #length(node(n, xs'))# + length(ys)",
@@ -58,19 +70,19 @@ def test_length_append_induction_and_equations():
     assert links[1].uses == (StepUse("IH", "given"),)
     assert links[2].uses == (StepUse("length", "definition"),)
     assert all(
-        [(g.label, g.formula) for g in s.givens]
+        [(g.label, text(g.formula)) for g in s.givens]
         == [("IH", "(all ys:List<U>. length(xs' ++ ys) = length(xs') + length(ys))")]
         for s in links
     )
 
     # `replace` / `expand` record the goal they leave behind.
     replace = next(s for s in steps if s.kind == "RewriteGoal")
-    assert replace.goal == "#1 + length(xs' ++ ys)# = 1 + (length(xs') + length(ys))"
-    assert replace.formula == "true"
+    assert text(replace.goal) == "#1 + length(xs' ++ ys)# = 1 + (length(xs') + length(ys))"
+    assert text(replace.formula) == "true"
 
     # `detail` carries what a textbook rendering needs.
-    assert steps[0].detail == {"vars": [{"name": "U", "type": "type"}]}
-    cases = induction.detail["cases"]
+    assert text(steps[0].detail) == {"vars": [{"name": "U", "type": "type"}]}
+    cases = text(induction.detail["cases"])
     assert induction.detail["variable"] == "xs"
     assert [(c["pattern"], c["hypotheses"]) for c in cases] == [
         ("[]", []), ("node(n, xs')", ["IH"]),
@@ -82,14 +94,14 @@ def test_length_append_induction_and_equations():
         and _at(s.range.end) <= _at(cases[1]["range"].end)
     ]
     assert {s.range for s in links} <= {s.range for s in in_node_case}
-    assert [(s.detail["lhs"], s.detail["rhs"]) for s in links] == [
+    assert [text((s.detail["lhs"], s.detail["rhs"])) for s in links] == [
         ("length(node(n, xs') ++ ys)", "1 + length(xs' ++ ys)"),
         ("1 + length(xs' ++ ys)", "1 + (length(xs') + length(ys))"),
         ("1 + (length(xs') + length(ys))", "#length(node(n, xs'))# + length(ys)"),
     ]
 
     theorem = next(t for t in outline.theorems if t.name == "length_append")
-    assert theorem.formula == (
+    assert text(theorem.formula) == (
         "(all U:type, xs:List<U>, ys:List<U>. length(xs ++ ys) = length(xs) + length(ys))"
     )
     assert not theorem.lemma
@@ -134,14 +146,14 @@ def test_step_detail_for_assume_have_cases_and_switch(tmp_path):
         by_kind.setdefault(s.kind, []).append(s)
 
     # The whole `arbitrary` list, though it desugars to nested AllIntros.
-    assert by_kind["AllIntro"][0].detail == {
+    assert text(by_kind["AllIntro"][0].detail) == {
         "vars": [{"name": "P", "type": "bool"}, {"name": "Q", "type": "bool"}]
     }
-    assert by_kind["ImpIntro"][0].detail == {"label": "pq", "premise": "(P or Q)"}
+    assert text(by_kind["ImpIntro"][0].detail) == {"label": "pq", "premise": "(P or Q)"}
     assert by_kind["PLet"][0].detail == {"label": "p2"}
 
     [cases] = by_kind["Cases"]
-    arms = cases.detail["cases"]
+    arms = text(cases.detail["cases"])
     assert [(a["label"], a["formula"]) for a in arms] == [("p", "P"), ("q", "Q")]
     # Arms partition the steps: `have p2` is in the first, the last
     # `conclude` in the second.
@@ -155,10 +167,10 @@ def test_step_detail_for_assume_have_cases_and_switch(tmp_path):
     assert _at(last.range.end) <= _at(arms[1]["range"].end)
 
     [switch] = by_kind["SwitchProof"]
-    assert switch.detail["subject"] == "b"
+    assert text(switch.detail["subject"]) == "b"
     # A case with no `assume` gets an anonymous `_` assumption from the
     # parser; it isn't a hypothesis anyone can cite, so it's left out.
-    assert [(c["pattern"], c["hypotheses"]) for c in switch.detail["cases"]] == [
+    assert [(c["pattern"], c["hypotheses"]) for c in text(switch.detail["cases"])] == [
         ("true", []), ("false", []),
     ]
 
@@ -178,7 +190,7 @@ def test_step_detail_for_define_and_choose(tmp_path):
     )
     outline = proof_outline(str(tmp_path / "choose.pf"), source)
     assert outline.diagnostics == ()
-    details = {s.kind: s.detail for s in outline.steps}
+    details = {s.kind: text(s.detail) for s in outline.steps}
     assert details["PTLetNew"] == {"name": "t", "term": "true"}
     assert details["SomeIntro"] == {"witnesses": ["t"]}
 
@@ -204,19 +216,20 @@ def test_error_partway_keeps_earlier_and_later_steps(tmp_path):
 
     have_p = by_line[5][0]
     assert (have_p.kind, have_p.status) == ("PLet", "ok")
-    assert (have_p.goal, have_p.formula) == ("(Q and P)", "P")
+    assert text((have_p.goal, have_p.formula)) == ("(Q and P)", "P")
     assert have_p.uses == (StepUse("pq", "given"),)
-    assert [(g.label, g.formula) for g in have_p.givens] == [("pq", "(P and Q)")]
+    assert [(g.label, text(g.formula)) for g in have_p.givens] == [("pq", "(P and Q)")]
 
     # The bad `conjunct 0` owns the error; the `have` around it doesn't.
     have_q, bad = by_line[6][0], by_line[6][1]
     assert (have_q.kind, have_q.status) == ("PLet", "ok")
-    assert (bad.kind, bad.status, bad.formula) == ("PAndElim", "error", "P")
+    assert text((bad.kind, bad.status, bad.formula)) == ("PAndElim", "error", "P")
 
     conclude, hole = by_line[7]
     assert (conclude.kind, conclude.status) == ("PAnnot", "ok")
-    assert [g.label for g in conclude.givens] == ["pq", "p", "q"]
-    assert (hole.kind, hole.status, hole.goal) == ("PHole", "incomplete", "(Q and P)")
+    # Most recent first, as the checker lists givens.
+    assert [g.label for g in conclude.givens] == ["q", "p", "pq"]
+    assert text((hole.kind, hole.status, hole.goal)) == ("PHole", "incomplete", "(Q and P)")
 
     assert len(outline.diagnostics) == 2
 

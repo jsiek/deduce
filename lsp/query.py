@@ -74,6 +74,7 @@ __all__ = [
     "Range",
     "Location",
     "Diagnostic",
+    "TermTree",
     "Given",
     "Goal",
     "SymbolInfo",
@@ -204,13 +205,45 @@ class Diagnostic:
 
 
 @dataclass(frozen=True)
+class TermTree:
+    """A term, formula, type or pattern as Deduce prints it, with its
+    structure: ``parts`` interleaves literal text with the trees of the
+    subterms that appear in it, so concatenating the parts (``str()``)
+    gives exactly what Deduce's printer produces.
+
+    ``kind`` is the AST class (``"Call"``, ``"All"``, ``"Mark"``,
+    ``"TermInst"``, ...), except that every variable reference is
+    ``"Var"``. A subterm's *path* is the
+    list of indices among the tree-valued parts from the root down: in
+    ``x + suc(y)`` the ``suc(y)`` node has path ``[1]`` and ``y`` has
+    ``[1, 0]``. Subterms the printer does not show verbatim (the
+    numeral ``2`` for ``suc(suc(zero))``, the tail of a ``[a, b]``
+    list) stay inside their parent's text.
+    """
+
+    kind: str
+    parts: tuple[Union[str, "TermTree"], ...]
+
+    def __str__(self) -> str:
+        return "".join(str(p) for p in self.parts)
+
+    # Any: JSON value (nested str / dict / list).
+    def to_json(self) -> dict[str, Any]:
+        """``{"kind": str, "parts": [str | tree]}``: the wire form used
+        by the LSP server and the hole-fill sidecar."""
+        return {
+            "kind": self.kind,
+            "parts": [p if isinstance(p, str) else p.to_json() for p in self.parts],
+        }
+
+
+@dataclass(frozen=True)
 class Given:
     """A bound hypothesis available at a proof point.
 
     ``label`` is ``None`` for anonymous givens (premises without an
-    explicit label). ``formula`` is rendered text -- the same string
-    Deduce's printer would produce -- not an AST node, so the type
-    survives serialization across the MCP boundary.
+    explicit label). ``formula`` is a :class:`TermTree`, which renders
+    with ``str()`` as Deduce's printer would.
 
     ``formula_normalized`` is the post-auto-reduction form -- the shape
     the proof checker actually compares against. ``None`` when it
@@ -219,16 +252,16 @@ class Given:
     """
 
     label: Optional[str]
-    formula: str
-    formula_normalized: Optional[str] = None
+    formula: TermTree
+    formula_normalized: Optional[TermTree] = None
 
 
 @dataclass(frozen=True)
 class Goal:
     """The proof obligation visible at a source position.
 
-    Returned by :func:`goal_at`. ``formula`` is the goal as rendered
-    text. ``givens`` is a tuple (not list) so ``Goal`` stays hashable.
+    Returned by :func:`goal_at`. ``formula`` is the goal's
+    :class:`TermTree`. ``givens`` is a tuple (not list) so ``Goal`` stays hashable.
     ``range`` is the source range the goal corresponds to -- typically
     where the cursor or hole sits.
 
@@ -239,10 +272,10 @@ class Goal:
     available to compute it. See issue #421.
     """
 
-    formula: str
+    formula: TermTree
     givens: tuple[Given, ...]
     range: Range
-    formula_normalized: Optional[str] = None
+    formula_normalized: Optional[TermTree] = None
 
 
 @dataclass(frozen=True)
@@ -472,7 +505,7 @@ class HoleContext:
     """
 
     hole_range: Range
-    goal: str
+    goal: TermTree
     givens: tuple[Given, ...]
     lemmas_in_scope: tuple[LemmaInfo, ...]
     fingerprint: str
@@ -603,7 +636,8 @@ class ProofStep:
     ``"ok"``.
 
     ``detail`` holds what a textbook-style rendering needs beyond the
-    formulas, keyed by ``kind`` (empty for other kinds):
+    formulas, keyed by ``kind`` (empty for other kinds). Its terms,
+    formulas, types and patterns are trees (:class:`TermTree`):
 
     - ``AllIntro``: ``vars``, ``[{name, type}]`` for the whole
       ``arbitrary`` list.
@@ -622,8 +656,8 @@ class ProofStep:
 
     kind: str
     range: Range
-    goal: Optional[str]
-    formula: Optional[str]
+    goal: Optional[TermTree]
+    formula: Optional[TermTree]
     givens: tuple[Given, ...]
     uses: tuple[StepUse, ...]
     status: str
@@ -637,7 +671,7 @@ class OutlineTheorem:
     that typeset a ``Theorem.`` header before its proof's steps."""
 
     name: str
-    formula: str
+    formula: TermTree
     lemma: bool
     range: Range
 
@@ -1056,164 +1090,115 @@ def _goal_from_exception(
     is something other than the goal-bearing PHole, like a parse error
     triggered by the inserted ``?`` ending up in a bad spot).
     """
-    if exc is None:
-        return None
-    body = getattr(exc, "message_body", None)
-    if body is None:
-        return None
-
-    formula = _extract_goal_formula(body)
-    if formula is None:
-        return None
-
-    formula_ast = getattr(exc, "formula", None)
+    formula = getattr(exc, "formula", None)
     env = getattr(exc, "env", None)
-    formula_normalized = _normalize_formula(formula_ast, env, formula)
-
-    givens = _parse_givens_section(body)
-    givens = _attach_normalized_givens(givens, env)
-
+    if formula is None or env is None:
+        return None
     return Goal(
-        formula=formula,
-        givens=givens,
+        formula=_term_tree(formula),
+        givens=_givens(env, normalize=True),
         range=goal_range,
-        formula_normalized=formula_normalized,
+        formula_normalized=_normalized_tree(formula, env),
     )
 
 
-def _normalize_formula(
-    formula_ast: Optional["Formula"], env: Optional["Env"], rendered: str
-) -> Optional[str]:
-    """Render the auto-reduced form of ``formula_ast`` under ``env``.
+def _givens(env: "Env", normalize: bool) -> tuple[Given, ...]:
+    """The local givens of ``env``, most recent first, as the checker's
+    ``Givens:`` list shows them. With ``normalize``, each also carries
+    its auto-reduced form when that differs."""
+    from abstract_syntax import ProofBinding, name2str
 
-    Returns ``None`` when reduction is unavailable (missing AST or env)
-    or when the result matches the source-shaped ``rendered`` string,
-    so callers don't have to compare to know "no auto rule fired".
-    """
-    if formula_ast is None or env is None:
-        return None
-    try:
-        reduced = formula_ast.reduce(env)
-    except Exception:
-        return None
-    text = str(reduced)
-    if text == rendered:
-        return None
-    return text
-
-
-def _attach_normalized_givens(
-    givens: tuple[Given, ...], env: Optional["Env"]
-) -> tuple[Given, ...]:
-    """Add ``formula_normalized`` to each given when env exposes its AST.
-
-    Walks ``env``'s ``ProofBinding`` entries to map each printed label
-    back to its formula AST, reduces under ``env``, and attaches the
-    string form when it differs from what the given carries. Givens
-    that we can't match (anonymous, env unavailable, label collisions)
-    pass through unchanged.
-    """
-    if env is None or not givens:
-        return givens
-    try:
-        from abstract_syntax import ProofBinding, name2str
-    except Exception:
-        return givens
-
-    by_label: dict[str, "Formula"] = {}
-    for unique, binding in env.dict.items():
-        if not isinstance(binding, ProofBinding):
-            continue
-        label = name2str(unique)
-        # A label could appear more than once across nested scopes;
-        # keep the most recent (later-inserted) binding to match what
-        # the proof checker resolves to at the hole.
-        by_label[label] = binding.formula
-
-    result = []
-    for given in givens:
-        if given.label is None or given.label not in by_label:
-            result.append(given)
-            continue
-        try:
-            reduced = by_label[given.label].reduce(env)
-        except Exception:
-            result.append(given)
-            continue
-        text = str(reduced)
-        if text == given.formula:
-            result.append(given)
-            continue
-        result.append(
-            Given(
-                label=given.label,
-                formula=given.formula,
-                formula_normalized=text,
-            )
+    return tuple(
+        Given(
+            name2str(name),
+            _term_tree(b.formula),
+            _normalized_tree(b.formula, env) if normalize else None,
         )
-    return tuple(result)
+        for name, b in reversed(env.dict.items())
+        if isinstance(b, ProofBinding) and b.local
+    )
 
 
-def _extract_goal_formula(body: str) -> Optional[str]:
-    """Return the formula on the line immediately after ``Goal:``.
-
-    The formula is always a single line because Deduce's ``__str__``
-    renderers don't emit newlines inside a formula. Returns ``None``
-    when no ``Goal:`` header is present.
-    """
-    idx = body.find("Goal:")
-    if idx < 0:
+def _normalized_tree(
+    formula: "Formula", env: "Env"
+) -> Optional[TermTree]:
+    """The auto-reduced form of ``formula`` (the shape the checker
+    compares against), or ``None`` when reduction leaves it unchanged
+    or fails."""
+    try:
+        reduced = formula.reduce(env)
+    except Exception:
         return None
-    after = body[idx + len("Goal:"):]
-    for line in after.splitlines():
-        if not line.strip():
+    return None if str(reduced) == str(formula) else _term_tree(reduced)
+
+
+def _term_tree(node: "AST") -> TermTree:
+    """The :class:`TermTree` of ``node``: its printed text, with each
+    child placed at the first match of its own printed text, scanning
+    left to right. A child whose text does not appear (or appears only
+    inside an identifier) stays part of the parent's text."""
+    from abstract_syntax import AST, Call, VarRef
+
+    text = str(node)
+    parts: list[Union[str, TermTree]] = []
+    pos = 0
+    for child in _tree_children(node, AST, Call):
+        child_text = str(child)
+        start = _token_find(text, child_text, pos)
+        if start is None:
             continue
-        # Section content is indented with a tab; drop one level.
-        if line.startswith("\t"):
-            line = line[1:]
-        return line.strip()
+        if start > pos:
+            parts.append(text[pos:start])
+        parts.append(_term_tree(child))
+        pos = start + len(child_text)
+    if pos < len(text) or not parts:
+        parts.append(text[pos:])
+    # Variable references come in several internal classes
+    # (``ResolvedVar``, ``OverloadedVar``, ...); clients just see "Var".
+    kind = "Var" if isinstance(node, VarRef) else type(node).__name__
+    return TermTree(kind, tuple(parts))
+
+
+def _tree_children(node: "AST", ast_type: type, call_type: type) -> Iterator["AST"]:
+    """``node``'s AST children in field order, looking inside lists and
+    tuples. A call's operator is printed as plain text (``+``, ``f``),
+    so it is not a child."""
+    from dataclasses import fields
+
+    def walk(value: object) -> Iterator["AST"]:
+        if isinstance(value, ast_type):
+            yield value
+        elif isinstance(value, (list, tuple)):
+            for v in value:
+                yield from walk(v)
+
+    for f in fields(node):
+        if f.name in ("location", "typeof") or (
+            isinstance(node, call_type) and f.name == "rator"
+        ):
+            continue
+        yield from walk(getattr(node, f.name))
+
+
+def _token_find(text: str, sub: str, pos: int) -> Optional[int]:
+    """First index >= ``pos`` of ``sub`` in ``text`` that does not cut
+    through an identifier (so the type ``Nat`` is not found inside the
+    name ``Nat2``)."""
+    def ident(c: str) -> bool:
+        return c != "" and (c.isalnum() or c in "_'")
+
+    if not sub:
+        return None
+    i = text.find(sub, pos)
+    while i >= 0:
+        before = text[i - 1] if i > 0 else ""
+        after = text[i + len(sub)] if i + len(sub) < len(text) else ""
+        if not (ident(sub[0]) and ident(before)) and not (
+            ident(sub[-1]) and ident(after)
+        ):
+            return i
+        i = text.find(sub, i + 1)
     return None
-
-
-def _parse_givens_section(body: str) -> tuple[Given, ...]:
-    """Pull a ``Givens:`` block (if any) into a tuple of ``Given``.
-
-    Each entry has the form ``<label>: <formula>``, joined by ``,\\n``
-    (see ``Env.proofs_str``). Lines that don't start with a tab are
-    treated as outside the section and stop iteration -- which never
-    actually happens today since Givens is the last section, but keeps
-    us robust if a future change appends more text.
-    """
-    idx = body.find("Givens:")
-    if idx < 0:
-        return ()
-    after = body[idx + len("Givens:"):]
-    if after.startswith("\n"):
-        after = after[1:]
-
-    section_lines = []
-    for line in after.splitlines():
-        if line == "" or line.startswith("\t"):
-            section_lines.append(line)
-        else:
-            break
-    block = "\n".join(section_lines)
-
-    givens = []
-    # Split on ",\n" rather than just commas because formulas can
-    # contain commas (e.g. argument lists).
-    for entry in block.split(",\n"):
-        entry = entry.strip()
-        if not entry:
-            continue
-        sep = entry.find(":")
-        if sep < 0:
-            givens.append(Given(label=None, formula=entry))
-            continue
-        label = entry[:sep].strip()
-        formula = entry[sep + 1:].strip()
-        givens.append(Given(label=label or None, formula=formula))
-    return tuple(givens)
 
 
 def definition_of(
@@ -3722,7 +3707,7 @@ def hole_context_at(
     else:
         lemmas = ()
 
-    fingerprint = _hole_fingerprint(goal.formula, goal.givens)
+    fingerprint = _hole_fingerprint(goal)
     return HoleContext(
         hole_range=hole_range,
         goal=goal.formula,
@@ -3921,7 +3906,7 @@ def available_lemmas_at(
         if not result.ok:
             goal = _goal_from_exception(result.exception, hole_range)
             if goal is not None:
-                goal_text = goal.formula
+                goal_text = str(goal.formula)
             exc = result.exception
             goal_ast = getattr(exc, "formula", None)
             env = getattr(exc, "env", None)
@@ -4017,7 +4002,7 @@ def insert_lemma_at(
             exc = result.exception
             goal = _goal_from_exception(exc, hole_range)
             if goal is not None:
-                goal_text = goal.formula
+                goal_text = str(goal.formula)
             goal_ast = getattr(exc, "formula", None)
             env = getattr(exc, "env", None)
         ast_nodes = result.ast
@@ -5234,7 +5219,7 @@ def _rank_lemmas(
     return matches
 
 
-def _hole_fingerprint(goal_formula: str, givens: tuple[Given, ...]) -> str:
+def _hole_fingerprint(goal: Goal) -> str:
     """Hex SHA-256 over a canonical rendering of goal + givens.
 
     Givens are sorted alphabetically by ``"label: formula"`` so the
@@ -5245,9 +5230,9 @@ def _hole_fingerprint(goal_formula: str, givens: tuple[Given, ...]) -> str:
     import hashlib
 
     given_lines = sorted(
-        f"{g.label or ''}: {g.formula}" for g in givens
+        f"{g.label or ''}: {g.formula}" for g in goal.givens
     )
-    canonical = goal_formula + "\n" + "\n".join(given_lines)
+    canonical = f"{goal.formula}\n" + "\n".join(given_lines)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
@@ -5776,12 +5761,9 @@ def proof_outline(
         ProofStep(
             kind=type(r.proof).__name__,
             range=_range_from_meta(r.proof.location),
-            goal=None if r.goal is None else str(r.goal),
-            formula=None if r.formula is None else str(r.formula),
-            givens=tuple(
-                Given(label, str(frm))
-                for label, frm in _collect_local_givens(r.env)
-            ),
+            goal=None if r.goal is None else _term_tree(r.goal),
+            formula=None if r.formula is None else _term_tree(r.formula),
+            givens=_givens(r.env, normalize=False),
             uses=_step_uses(r.proof, r.env),
             status="incomplete" if isinstance(r.proof, PSorry) else st,
             detail=_step_detail(r),
@@ -5800,7 +5782,8 @@ def _outline_theorems(
 
     return tuple(
         OutlineTheorem(
-            base_name(s.name), str(s.what), s.isLemma, _range_from_meta(s.location)
+            base_name(s.name), _term_tree(s.what), s.isLemma,
+            _range_from_meta(s.location),
         )
         for s in ast or ()
         if isinstance(s, Theorem) and _meta_in_file(s.location, path)
@@ -5829,7 +5812,7 @@ def _step_detail(rec: "StepRecord") -> dict[str, Any]:
             where = _meta_order(proof.location)
             while isinstance(node, AllIntro) and _meta_order(node.location) == where:
                 name, ty = node.var
-                vars.append({"name": base_name(name), "type": str(ty)})
+                vars.append({"name": base_name(name), "type": _term_tree(ty)})
                 node = node.body
             return {"vars": vars}
         case ImpIntro(label=label, premise=premise):
@@ -5838,7 +5821,7 @@ def _step_detail(rec: "StepRecord") -> dict[str, Any]:
                 premise = rec.goal.premise
             return {
                 "label": base_name(label),
-                "premise": None if premise is None else str(premise),
+                "premise": None if premise is None else _term_tree(premise),
             }
         case Induction(cases=cases):
             goal = rec.goal
@@ -5846,7 +5829,7 @@ def _step_detail(rec: "StepRecord") -> dict[str, Any]:
                 "variable": base_name(goal.var[0]) if isinstance(goal, All) else None,
                 "cases": [
                     {
-                        "pattern": str(c.pattern),
+                        "pattern": _term_tree(c.pattern),
                         "hypotheses": [base_name(x) for x, _ in c.induction_hypotheses],
                         "range": case_range(c),
                     }
@@ -5855,10 +5838,10 @@ def _step_detail(rec: "StepRecord") -> dict[str, Any]:
             }
         case SwitchProof(subject=subject, cases=cases):
             return {
-                "subject": str(subject),
+                "subject": _term_tree(subject),
                 "cases": [
                     {
-                        "pattern": str(c.pattern),
+                        "pattern": _term_tree(c.pattern),
                         # Unnamed assumptions (written `_`, or none) are anonymous.
                         "hypotheses": [
                             base_name(x) for x, _ in c.assumptions
@@ -5883,7 +5866,7 @@ def _step_detail(rec: "StepRecord") -> dict[str, Any]:
                 "cases": [
                     {
                         "label": base_name(label),
-                        "formula": None if frm is None else str(frm),
+                        "formula": None if frm is None else _term_tree(frm),
                         "range": Range(start=start, end=end),
                     }
                     for (label, frm, _), start, end in zip(cases, starts, ends)
@@ -5892,16 +5875,16 @@ def _step_detail(rec: "StepRecord") -> dict[str, Any]:
         case PAnnot():
             match rec.formula:
                 case Call(rator=VarRef() as rator, args=[lhs, rhs]) if rator.get_name() == "=":
-                    return {"lhs": str(lhs), "rhs": str(rhs)}
+                    return {"lhs": _term_tree(lhs), "rhs": _term_tree(rhs)}
             return {}
         case PLet(label=label):
             return {"label": base_name(label)}
         case Suffices(claim=claim):
-            return {"claim": str(claim)}
+            return {"claim": _term_tree(claim)}
         case PTLetNew(var=var, rhs=rhs):
-            return {"name": base_name(var), "term": str(rhs)}
+            return {"name": base_name(var), "term": _term_tree(rhs)}
         case SomeIntro(witnesses=witnesses):
-            return {"witnesses": [str(w) for w in witnesses]}
+            return {"witnesses": [_term_tree(w) for w in witnesses]}
     return {}
 
 

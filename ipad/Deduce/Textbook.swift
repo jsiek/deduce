@@ -81,7 +81,7 @@ struct Textbook {
                 range: theorem.range,
                 name: theorem.name,
                 lemma: theorem.lemma,
-                statement: withoutTypeParameters(clean(theorem.formula)),
+                statement: withoutTypeParameters(display(theorem.formula)),
                 blocks: builder.blocks(roots),
                 status: roots.map(\.status).max() ?? .ok)
         }
@@ -184,37 +184,37 @@ struct Textbook {
                 case "AllIntro":
                     // Type parameters are input-only: the statement already
                     // shows them, and textbooks don't introduce them.
-                    let vars = (detail.vars ?? []).filter { $0.type != "type" }
+                    let vars = (detail.vars ?? []).filter { $0.type.kind != "TypeType" }
                     if !vars.isEmpty {
-                        let list = vars.map { "\($0.name) : \(clean($0.type))" }
+                        let list = vars.map { "\($0.name) : \(display($0.type))" }
                         blocks.append(line(node, "Let \(list.joined(separator: ", ")) be arbitrary.", nil))
                     }
                 case "ImpIntro":
                     let label = detail.label ?? ""
                     blocks.append(line(node, "Assume \(label)" + (detail.premise == nil ? "." : ":"),
-                                       detail.premise.map(clean)))
+                                       detail.premise.map(display)))
                 case "Induction", "SwitchProof", "Cases":
                     blocks.append(cases(node, rest: &rest))
                 case "PTransitive" where node.isChain:
                     blocks.append(chain(node, rest: &rest))
                 case "PLet":
-                    blocks.append(line(node, "\(detail.label ?? "") :", step.formula.map(clean), reason: true))
+                    blocks.append(line(node, "\(detail.label ?? "") :", step.formula.map(display), reason: true))
                 case "PAnnot":
-                    blocks.append(line(node, "Hence", step.formula.map(clean), reason: true))
+                    blocks.append(line(node, "Hence", step.formula.map(display), reason: true))
                 case "Suffices":
-                    blocks.append(line(node, "It suffices to show", detail.claim.map(clean), reason: true))
+                    blocks.append(line(node, "It suffices to show", detail.claim.map(display), reason: true))
                 case "RewriteGoal", "ApplyDefsGoal", "SimplifyGoal":
-                    if step.formula == "true" {
+                    if step.formula?.text == "true" {
                         blocks.append(line(node, "This is immediate.", nil, reason: true))
                     } else {
-                        blocks.append(line(node, "It remains to show", step.formula.map(clean), reason: true))
+                        blocks.append(line(node, "It remains to show", step.formula.map(display), reason: true))
                     }
                 case "PHole", "PSorry":
-                    blocks.append(line(node, "Still to prove:", step.goal.map(clean)))
+                    blocks.append(line(node, "Still to prove:", step.goal.map(display)))
                 case "PTLetNew":
-                    blocks.append(line(node, "Define \(detail.name ?? "") =", detail.term.map(clean)))
+                    blocks.append(line(node, "Define \(detail.name ?? "") =", detail.term.map(display)))
                 case "SomeIntro":
-                    let witnesses = (detail.witnesses ?? []).map(clean).joined(separator: ", ")
+                    let witnesses = (detail.witnesses ?? []).map(display).joined(separator: ", ")
                     blocks.append(line(node, "Choose \(witnesses).", nil))
                 default:
                     // A proof term that finishes the goal, e.g. `p2` or `.`.
@@ -246,11 +246,11 @@ struct Textbook {
             }
             let intro = switch step.kind {
             case "Induction": "By induction on \(step.detail.variable ?? "it")."
-            case "SwitchProof": "By cases on \(clean(step.detail.subject ?? ""))."
+            case "SwitchProof": "By cases on \(step.detail.subject.map(display) ?? "it")."
             default: "By cases."
             }
             return .cases(range: step.range, intro: intro, arms: arms.map { arm in
-                let header = arm.pattern.map(clean) ?? [arm.label, arm.formula.map(clean)]
+                let header = arm.pattern.map(display) ?? [arm.label, arm.formula.map(display)]
                     .compactMap { $0 }.joined(separator: ": ")
                 let assume = (arm.hypotheses ?? []).isEmpty
                     ? "" : " Assume \(arm.hypotheses!.joined(separator: ", "))."
@@ -261,18 +261,18 @@ struct Textbook {
 
         /// `equations`: its links follow it as siblings, each starting where
         /// the previous one ended. (`equations` marks each link's left side
-        /// with `#…#`, so compare them cleaned.)
+        /// with `#…#`, so compare them as displayed.)
         private func chain(_ node: Node, rest: inout ArraySlice<Node>) -> Block {
             var links: [Node] = []
             while let next = rest.first, next.step.kind == "PAnnot", let lhs = next.step.detail.lhs,
-                  links.last.map({ clean($0.step.detail.rhs ?? "") == clean(lhs) }) ?? true {
+                  links.last.map({ $0.step.detail.rhs.map(display) == display(lhs) }) ?? true {
                 links.append(rest.removeFirst())
             }
             return .chain(
                 range: node.step.range,
-                first: clean(links.first?.step.detail.lhs ?? ""),
+                first: links.first?.step.detail.lhs.map(display) ?? "",
                 links: links.map {
-                    Link(range: $0.step.range, rhs: clean($0.step.detail.rhs ?? ""),
+                    Link(range: $0.step.range, rhs: $0.step.detail.rhs.map(display) ?? "",
                          reason: reason($0.step), status: $0.status)
                 })
         }
@@ -317,17 +317,31 @@ struct Textbook {
     }
 }
 
-/// Remove input-only syntax from a formula for display: `#…#` expansion
-/// marks, explicit type arguments such as `@[]<U>`, and a pair of
+/// A formula for display: without input-only syntax (`#…#` expansion
+/// marks, explicit type arguments such as `@[]<U>`) or a pair of
 /// parentheses around the whole formula. Primes are typeset as ′.
-func clean(_ formula: String) -> String {
-    var text = formula.replacingOccurrences(of: "#", with: "")
-    text = text.replacingOccurrences(
-        of: #"@(\[\]|[A-Za-z_][A-Za-z0-9_']*)<[^<>]*>"#, with: "$1", options: .regularExpression)
+func display(_ formula: Outline.Tree) -> String {
+    var text = shown(formula)
     if text.hasPrefix("(") && text.hasSuffix(")") && closingParen(of: text) == text.index(before: text.endIndex) {
         text = String(text.dropFirst().dropLast())
     }
     return text.replacingOccurrences(of: "'", with: "′")
+}
+
+/// `tree`'s text, keeping only the subject of a `Mark` (`#…#`) or of a
+/// `TermInst` (`@f<T>`): the first subtree of either.
+private func shown(_ tree: Outline.Tree) -> String {
+    if tree.kind == "Mark" || tree.kind == "TermInst" {
+        for case .tree(let subject) in tree.parts {
+            return shown(subject)
+        }
+    }
+    return tree.parts.map { part in
+        switch part {
+        case .text(let text): text
+        case .tree(let child): shown(child)
+        }
+    }.joined()
 }
 
 /// Drop `T:type` binders from a statement's leading `all`, as the proof

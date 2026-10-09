@@ -122,9 +122,9 @@ def build_request(fixture: Path) -> dict[str, object]:
             "start": {"line": line0, "character": char0},
             "end": {"line": line0, "character": char0 + 1},
         },
-        "goal": ctx.goal,
+        "goal": ctx.goal.to_json(),
         "givens": [
-            {"label": g.label, "formula": g.formula} for g in ctx.givens
+            {"label": g.label, "formula": g.formula.to_json()} for g in ctx.givens
         ],
         "lemmasInScope": [
             {"name": lemma.name, "kind": lemma.kind.value,

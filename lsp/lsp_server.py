@@ -323,21 +323,19 @@ def _proof_outline_payload(
             {
                 "kind": st.kind,
                 "range": _range_payload_from_query(st.range),
-                "goal": st.goal,
-                "formula": st.formula,
-                "givens": [
-                    {"label": g.label, "formula": g.formula} for g in st.givens
-                ],
+                "goal": _json(st.goal),
+                "formula": _json(st.formula),
+                "givens": _givens_payload(st.givens),
                 "uses": [{"name": u.name, "kind": u.kind} for u in st.uses],
                 "status": st.status,
-                "detail": _detail_payload(st.detail),
+                "detail": _json(st.detail),
             }
             for st in outline.steps
         ],
         "theorems": [
             {
                 "name": th.name,
-                "formula": th.formula,
+                "formula": _json(th.formula),
                 "lemma": th.lemma,
                 "range": _range_payload_from_query(th.range),
             }
@@ -346,16 +344,24 @@ def _proof_outline_payload(
     }
 
 
-def _detail_payload(value: object) -> object:
-    """A step's ``detail`` with its query ``Range``s (case bodies) made
-    0-indexed LSP ranges, like every other range in the payload."""
+def _json(value: object) -> object:
+    """``value`` for the wire: a :class:`~lsp.query.TermTree` becomes
+    ``{"kind": str, "parts": [str | tree]}`` (its text is the
+    concatenation of the parts), a query ``Range`` a 0-indexed LSP
+    range; dicts and lists are converted inside."""
+    if isinstance(value, _query.TermTree):
+        return value.to_json()
     if isinstance(value, _query.Range):
         return _range_payload_from_query(value)
     if isinstance(value, dict):
-        return {k: _detail_payload(v) for k, v in value.items()}
-    if isinstance(value, list):
-        return [_detail_payload(v) for v in value]
+        return {k: _json(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json(v) for v in value]
     return value
+
+
+def _givens_payload(givens: tuple[_query.Given, ...]) -> object:
+    return [{"label": g.label, "formula": _json(g.formula)} for g in givens]
 
 
 @server.feature(lsp_types.INITIALIZE)
@@ -701,8 +707,9 @@ def on_goal_at(
     Params: ``{"textDocument": {"uri": "..."}, "position": {"line":
     int, "character": int}}`` (LSP-shaped position; 0-indexed).
 
-    Result: ``{"formula": str, "givens": [{"label": str | None,
-    "formula": str}], "range": Range}`` or ``null``.
+    Result: ``{"formula": Tree, "givens": [{"label": str | None,
+    "formula": Tree}], "range": Range}`` or ``null``, where ``Tree`` is
+    ``{"kind": str, "parts": [str | Tree]}`` (see :func:`_json`).
     """
     text_doc = _get_field(params, "textDocument")
     pos_obj = _get_field(params, "position")
@@ -720,10 +727,8 @@ def on_goal_at(
     if goal is None:
         return None
     return {
-        "formula": goal.formula,
-        "givens": [
-            {"label": g.label, "formula": g.formula} for g in goal.givens
-        ],
+        "formula": _json(goal.formula),
+        "givens": _givens_payload(goal.givens),
         "range": _range_payload_from_query(goal.range),
     }
 
@@ -737,8 +742,8 @@ def on_proof_outline(
     Params: ``{"textDocument": {"uri": "..."}}``.
 
     Result: ``{"uri": str, "steps": [{"kind": str, "range": Range,
-    "goal": str | None, "formula": str | None, "givens": [{"label":
-    str | None, "formula": str}], "uses": [{"name": str, "kind":
+    "goal": Tree | None, "formula": Tree | None, "givens": [{"label":
+    str | None, "formula": Tree}], "uses": [{"name": str, "kind":
     "given" | "lemma" | "definition"}], "status": "ok" | "error" |
     "incomplete"}]}`` or ``null``. See :class:`lsp.query.ProofStep`.
     """
@@ -768,8 +773,8 @@ def on_hole_context_at(
     int, "character": int}, "includeLemmas": bool?}``. ``includeLemmas``
     defaults to ``True``.
 
-    Result: ``{"holeRange": Range, "goal": str, "givens":
-    [{"label": str | None, "formula": str}], "lemmasInScope":
+    Result: ``{"holeRange": Range, "goal": Tree, "givens":
+    [{"label": str | None, "formula": Tree}], "lemmasInScope":
     [{"name": str, "kind": str, "signature": str}], "fingerprint":
     str}`` or ``null``.
     """
@@ -797,10 +802,8 @@ def on_hole_context_at(
         return None
     return {
         "holeRange": _range_payload_from_query(ctx.hole_range),
-        "goal": ctx.goal,
-        "givens": [
-            {"label": g.label, "formula": g.formula} for g in ctx.givens
-        ],
+        "goal": _json(ctx.goal),
+        "givens": _givens_payload(ctx.givens),
         "lemmasInScope": [
             {
                 "name": lemma.name,

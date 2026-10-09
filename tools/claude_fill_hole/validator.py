@@ -375,9 +375,9 @@ class HoleQuerier:
             )
 
         givens = tuple(
-            _Given(label=g.label, formula=g.formula) for g in ctx.givens
+            _Given(label=g.label, formula=str(g.formula)) for g in ctx.givens
         )
-        return QueryOutcome(ok=True, goal=ctx.goal, givens=givens)
+        return QueryOutcome(ok=True, goal=str(ctx.goal), givens=givens)
 
 
 def _offset_to_line_col_1indexed(text: str, offset: int) -> tuple[int, int]:
