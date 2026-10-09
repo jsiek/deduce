@@ -91,10 +91,12 @@ struct HoleInspector: View {
                 .disabled(server.checking)
             }
         }
-        // An edit can leave a hole at the same range, so reload per version too.
-        .task(id: "\(hole.range) v\(server.version)") { await load() }
-        .task(id: "\(hole.range) v\(server.version) \(subterm ?? [])") {
+        // Reload when each edit's check is done: an edit can leave a hole
+        // at the same range, and until the check the hole may be stale.
+        .task(id: "\(hole.range) v\(server.version) \(server.checking)") { await load() }
+        .task(id: "\(hole.range) v\(server.version) \(server.checking) \(subterm ?? [])") {
             preview = nil
+            guard !server.checking else { return }
             lemmas = await server.lemmas(at: position, subterm: subterm ?? [])
         }
         .alert("Type a proof", isPresented: $typing) {
@@ -172,11 +174,13 @@ struct HoleInspector: View {
         subterm = nil
         preview = nil
         loading = true
-        defer { loading = false }
+        // The steps come once the check is done (this runs again then).
+        guard !server.checking else { return }
         let newActions = await server.codeActions(at: position)
         let newSplittable = await server.names("deduce/splittableVarsAt", at: position)
         let newEliminable = await server.names("deduce/eliminableVarsAt", at: position)
         let newMatching = await server.names("deduce/matchingGivensAt", at: position)
         (actions, splittable, eliminable, matching) = (newActions, newSplittable, newEliminable, newMatching)
+        loading = false
     }
 }

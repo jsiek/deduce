@@ -166,10 +166,13 @@ final class DeduceServer: ObservableObject {
         nextRequest += 1
         var all = params
         all["textDocument"] = ["uri": uri]
-        return await withCheckedContinuation { continuation in
+        let sent = Date()
+        let result = await withCheckedContinuation { continuation in
             waiting[id] = continuation
             send(["jsonrpc": "2.0", "id": id, "method": method, "params": all])
         }
+        print(String(format: "deduce-timing: %@ %.3f s", method, Date().timeIntervalSince(sent)))
+        return result
     }
 
     /// Copy the bundled exercises that aren't in Documents yet, so a
