@@ -188,6 +188,12 @@ PROOF_OUTLINE = "deduce/proofOutline"
 PREVIEW_REPLACE_AT_SUBTERM_REQUEST = "deduce/previewReplaceAtSubterm"
 PREVIEW_EXPAND_AT_SUBTERM_REQUEST = "deduce/previewExpandAtSubterm"
 LEMMAS_FOR_SUBTERM_REQUEST = "deduce/lemmasForSubterm"
+
+# Previews that were MCP-only (issue #1216). Whole-goal replace / expand
+# previews are the subterm requests above with ``"subterm": []``.
+PREVIEW_CONCLUDE_AT_REQUEST = "deduce/previewConcludeAt"
+APPLY_AT_REQUEST = "deduce/applyAt"
+AUTO_RULES_AT_REQUEST = "deduce/autoRulesAt"
 _push_proof_outline = False
 
 server = LanguageServer(
@@ -1246,6 +1252,90 @@ def on_lemmas_for_subterm(
         limit=limit_obj if isinstance(limit_obj, int) else 50,
     )
     return [_lemma_match_payload(m) for m in matches]
+
+
+def _at_position(
+    ls: LanguageServer, params: object
+) -> Optional[tuple[str, str, _query.Position]]:
+    """``(path, content, position)`` from ``{"textDocument": {"uri"},
+    "position"}`` params, or ``None`` when the document is unknown."""
+    uri = _field_as_str(_get_field(params, "textDocument"), "uri")
+    if not uri:
+        return None
+    content = _document_content(ls, uri)
+    if content is None:
+        return None
+    pos = _query_pos_from_lsp(_position_from_param(_get_field(params, "position")))
+    return _path_from_uri(uri), content, pos
+
+
+@server.feature(PREVIEW_CONCLUDE_AT_REQUEST)
+def on_preview_conclude_at(ls: LanguageServer, params: object) -> object:
+    """Custom request: would ``conclude <goal> by <label>`` prove the
+    goal at the hole, modulo ``auto`` rules?
+
+    Params: ``{"textDocument": {"uri"}, "position": Position (on a
+    ``?``), "label": str}``. Result: ``{"outcome": "discharges" |
+    "no_match" | "unbound" | "not_local", ...}`` with the normalized
+    goal and given as trees, or ``null`` off a hole. See
+    :func:`lsp.query.preview_conclude_at`.
+    """
+    at = _at_position(ls, params)
+    label = _field_as_str(params, "label")
+    if at is None or not label:
+        return None
+    path, content, pos = at
+    return _json(_query.preview_conclude_at(
+        path, content, pos, label, prelude=_prelude_for(path)
+    ))
+
+
+@server.feature(APPLY_AT_REQUEST)
+def on_apply_at(ls: LanguageServer, params: object) -> object:
+    """Custom request: preview ``apply <theorem>[<args>] to ?`` at the
+    hole.
+
+    Params: ``{"textDocument": {"uri"}, "position": Position (on a
+    ``?``), "theorem": str, "args": [str]?}``. Result: ``{"outcome":
+    "ok" | "unifies_against" | "arity_mismatch" | ..., ...}`` with
+    formulas as trees, or ``null`` off a hole. See
+    :func:`lsp.query.apply_at`.
+    """
+    at = _at_position(ls, params)
+    theorem = _field_as_str(params, "theorem")
+    args = _get_field(params, "args")
+    if at is None or not theorem or (
+        args is not None
+        and not (isinstance(args, list) and all(isinstance(a, str) for a in args))
+    ):
+        return None
+    path, content, pos = at
+    return _json(_query.apply_at(
+        path, content, pos, theorem, args=args, prelude=_prelude_for(path)
+    ))
+
+
+@server.feature(AUTO_RULES_AT_REQUEST)
+def on_auto_rules_at(ls: LanguageServer, params: object) -> list[object]:
+    """Custom request: the ``auto`` rewrite rules in scope at a position.
+
+    Params: ``{"textDocument": {"uri"}, "position": Position}``.
+    Result: ``[{"name": str, "equation": Tree | null, "module": str,
+    "premises": [Tree]}]`` in the order the rewriter tries them.
+    """
+    at = _at_position(ls, params)
+    if at is None:
+        return []
+    path, content, pos = at
+    return [
+        {
+            "name": rule.name,
+            "equation": _json(rule.equation),
+            "module": rule.module,
+            "premises": _json(rule.premises),
+        }
+        for rule in _query.auto_rules_at(path, content, pos, prelude=_prelude_for(path))
+    ]
 
 
 @server.feature(INSERT_LEMMA_REQUEST)

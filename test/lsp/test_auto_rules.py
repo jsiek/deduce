@@ -17,6 +17,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from lsp.query import (  # noqa: E402
     AutoRule,
     Position,
+    TermTree,
     auto_rules_at,
 )
 
@@ -64,8 +65,8 @@ def test_auto_rules_at_lists_both_in_declaration_order() -> None:
     assert [r.name for r in rules] == ["fadd_zero_left", "fadd_succ"]
     # Equation text echoes the theorem's body (parentheses around the
     # quantifier are how the printer renders ``all``).
-    assert "fadd(fzero, y) = y" in rules[0].equation
-    assert "fadd(fsucc(x), y) = fsucc(fadd(x, y))" in rules[1].equation
+    assert "fadd(fzero, y) = y" in str(rules[0].equation)
+    assert "fadd(fsucc(x), y) = fsucc(fadd(x, y))" in str(rules[1].equation)
 
 
 def test_auto_rules_at_attributes_module_to_user_file_stem() -> None:
@@ -96,7 +97,7 @@ def test_auto_rules_at_returns_AutoRule_dataclass() -> None:
     rules = auto_rules_at("test.pf", SRC, Position(line=30, column=3))
     assert all(isinstance(r, AutoRule) for r in rules)
     assert all(isinstance(r.name, str) for r in rules)
-    assert all(isinstance(r.equation, str) for r in rules)
+    assert all(isinstance(r.equation, TermTree) for r in rules)
     assert all(isinstance(r.module, str) for r in rules)
 
 

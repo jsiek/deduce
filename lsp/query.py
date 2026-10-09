@@ -600,18 +600,19 @@ class AutoRule:
     Returned (in tuples) by :func:`auto_rules_at`. ``name`` is the
     user-visible identifier of the theorem the rule was declared from
     (i.e. ``base_name`` of the uniquified name). ``equation`` is the
-    rendered formula -- the same string Deduce's printer would
-    produce for the theorem's body -- so callers can see what shape
-    the auto-rewriter will rewrite. ``module`` is the module that
+    theorem's formula (``None`` if it could not be found), so callers
+    can see what shape the auto-rewriter will rewrite, and
+    ``premises`` are the conditions of a conditional rule. ``module``
+    is the module that
     declared the ``auto`` statement (the file stem for prelude
     modules and for the user file itself), useful to disambiguate
     rules with the same base name from different modules.
     """
 
     name: str
-    equation: str
+    equation: Optional[TermTree]
     module: str
-    premise: Optional[str] = None
+    premises: tuple[TermTree, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -3289,12 +3290,12 @@ def preview_conclude_at(
     no incomplete proof at that hole. Otherwise returns a dict whose
     ``outcome`` field discriminates:
 
-    - ``{"outcome": "discharges", "goal_normalized": "<str>",
-       "given_normalized": "<str>"}`` -- the label's formula
+    - ``{"outcome": "discharges", "goal_normalized": TermTree,
+       "given_normalized": TermTree}`` -- the label's formula
        (post-reduce) implies the goal (post-reduce).
 
-    - ``{"outcome": "no_match", "goal_normalized": "<str>",
-       "given_normalized": "<str>", "reason": "<msg>"}`` -- the label
+    - ``{"outcome": "no_match", "goal_normalized": TermTree,
+       "given_normalized": TermTree, "reason": "<msg>"}`` -- the label
        is bound but its formula does not discharge the goal, even
        modulo auto.
 
@@ -3342,14 +3343,14 @@ def preview_conclude_at(
     if given_red == goal_red or _implies(given_red, goal_red):
         return {
             "outcome": "discharges",
-            "goal_normalized": str(goal_red),
-            "given_normalized": str(given_red),
+            "goal_normalized": _term_tree(goal_red),
+            "given_normalized": _term_tree(given_red),
         }
 
     return {
         "outcome": "no_match",
-        "goal_normalized": str(goal_red),
-        "given_normalized": str(given_red),
+        "goal_normalized": _term_tree(goal_red),
+        "given_normalized": _term_tree(given_red),
         "reason": (
             f"{label}: {given_red} does not imply {goal_red} "
             "(checked modulo auto-rule normalization)"
@@ -3406,15 +3407,15 @@ def apply_at(
     targeted hole (e.g. earlier parse / type errors). Otherwise returns
     a dict whose ``outcome`` field discriminates the shape:
 
-    - ``{"outcome": "ok", "conclusion": "<rendered formula>",
-       "remaining_premises": ["<formula>", ...]}``
+    - ``{"outcome": "ok", "conclusion": TermTree,
+       "remaining_premises": [TermTree, ...]}``
        The apply would succeed; ``conclusion`` is the goal at the hole
        (which the apply matched), and ``remaining_premises`` is the
        ordered list of obligations the user still has to prove. A
        conjunctive premise is split on top-level ``and`` so the list
        maps to what the user would put after ``to``.
 
-    - ``{"outcome": "unifies_against", "goal": "<rendered formula>",
+    - ``{"outcome": "unifies_against", "goal": TermTree,
        "reason": "<message>"}``
        The conclusion did not match the goal, or instantiation could
        not deduce the all-bound variables.
@@ -3482,9 +3483,8 @@ def apply_at(
             goal_for_display = goal.reduce(env)
         finally:
             _call_untyped(set_reduce_all, False)
-        goal_str = str(goal_for_display)
     else:
-        goal_str = str(goal)
+        goal_for_display = goal
 
     from abstract_syntax import ProofBinding, TermBinding, base_name
     matches = [k for k in env.dict if base_name(k) == theorem]
@@ -3503,7 +3503,7 @@ def apply_at(
             if not arg_matches:
                 return {
                     "outcome": "unifies_against",
-                    "goal": goal_str,
+                    "goal": _term_tree(goal_for_display),
                     "reason": "could not parse arg #" + str(i + 1)
                               + ": " + raw_arg,
                 }
@@ -3511,7 +3511,7 @@ def apply_at(
             if not isinstance(binding, TermBinding) or binding.defn is None:
                 return {
                     "outcome": "unifies_against",
-                    "goal": goal_str,
+                    "goal": _term_tree(goal_for_display),
                     "reason": "arg #" + str(i + 1) + " is not a term: "
                               + raw_arg,
                 }
@@ -3524,7 +3524,7 @@ def apply_at(
                 }
             formula = _call_untyped(instantiate, formula.location, formula, binding.defn)
 
-    return _apply_match_manual(formula, goal, env, goal_str)
+    return _apply_match_manual(formula, goal, env, goal_for_display)
 
 
 _APPLY_AT_ARG_PREFIX = "_apply_at_arg_"
@@ -3557,7 +3557,7 @@ def _splice_apply_args(
 
 
 def _apply_match_manual(
-    formula: "Formula", goal: "Formula", env: "Env", goal_str: str
+    formula: "Formula", goal: "Formula", env: "Env", shown_goal: "Formula"
     # Any: MCP tool-result payload -- discriminated dict (see apply_at).
 ) -> dict[str, Any]:
     """Compute the result of ``apply <formula> to ?`` against ``goal``.
@@ -3591,15 +3591,15 @@ def _apply_match_manual(
                 premise = formula.premise.reduce(env)
                 return {
                     "outcome": "ok",
-                    "conclusion": goal_str,
+                    "conclusion": _term_tree(shown_goal),
                     "remaining_premises": _split_premise_on_and(premise),
                 }
             return {
                 "outcome": "unifies_against",
-                "goal": goal_str,
+                "goal": _term_tree(shown_goal),
                 "reason": (
                     "the proved formula\n\t" + str(formula.conclusion)
-                    + "\ndoes not match the goal\n\t" + goal_str
+                    + "\ndoes not match the goal\n\t" + str(shown_goal)
                 ),
             }
 
@@ -3642,12 +3642,12 @@ def _apply_match_manual(
                 premise = prem.substitute(matching).reduce(env)
                 return {
                     "outcome": "ok",
-                    "conclusion": goal_str,
+                    "conclusion": _term_tree(shown_goal),
                     "remaining_premises": _split_premise_on_and(premise),
                 }
             return {
                 "outcome": "unifies_against",
-                "goal": goal_str,
+                "goal": _term_tree(shown_goal),
                 "reason": (
                     "\n".join(reasons) if reasons
                     else "no quantified implication conclusion matched the goal"
@@ -3662,7 +3662,7 @@ def _apply_match_manual(
         _call_untyped(set_reduce_all, False)
 
 
-def _split_premise_on_and(formula: "Formula") -> list[str]:
+def _split_premise_on_and(formula: "Formula") -> list[TermTree]:
     """If ``formula`` is a top-level conjunction, render each conjunct
     separately so the result maps to what the user would put after
     ``to`` (Deduce desugars ``to A, B`` into a tuple proof of an
@@ -3670,8 +3670,8 @@ def _split_premise_on_and(formula: "Formula") -> list[str]:
     from abstract_syntax import And
 
     if isinstance(formula, And):
-        return [str(arg) for arg in formula.args]
-    return [str(formula)]
+        return [_term_tree(arg) for arg in formula.args]
+    return [_term_tree(formula)]
 
 
 # ---------------------------------------------------------------------------
@@ -5757,19 +5757,16 @@ def _auto_rule_from_stmt(
     if unique is None:
         # Best effort: render whatever Term is here (shouldn't happen
         # in practice -- the parsers always emit a PVar).
-        return AutoRule(
-            name=str(stmt.name), equation="", module=module_name
-        )
+        return AutoRule(name=str(stmt.name), equation=None, module=module_name)
     formula = formula_by_name.get(unique)
     if formula is None:
-        return AutoRule(name=base_name(unique), equation="", module=module_name)
+        return AutoRule(name=base_name(unique), equation=None, module=module_name)
     rule = split_auto_rule(stmt.location, formula, Env())
-    premise = " and ".join(str(prem) for prem in rule.premises) or None
     return AutoRule(
         name=base_name(unique),
-        equation=str(formula),
+        equation=_term_tree(formula),
         module=module_name,
-        premise=premise,
+        premises=tuple(_term_tree(prem) for prem in rule.premises),
     )
 
 
