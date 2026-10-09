@@ -465,7 +465,8 @@ def test_proof_outline_request_returns_steps(server, open_doc):
     assert hole["givens"] == [{"label": "p", "formula": "P"}]
     assert hole["range"]["start"] == {"line": 4, "character": 2}
     assert result["steps"][0]["detail"] == {"vars": [{"name": "P", "type": "bool"}]}
-    assert result["steps"][1]["detail"] == {"label": "p", "premise": None}
+    # `assume p` writes no formula; the premise comes from the goal.
+    assert result["steps"][1]["detail"] == {"label": "p", "premise": "P"}
     [theorem] = result["theorems"]
     assert (theorem["name"], theorem["lemma"]) == ("t", False)
     assert theorem["range"]["start"] == {"line": 0, "character": 0}

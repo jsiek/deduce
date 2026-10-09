@@ -4,8 +4,15 @@ A SwiftUI app that runs the Deduce checker on the device, using an embedded CPyt
 existing LSP server (`lsp/lsp_server.py`) in-process. Design: [`docs/ipad-app-design.md`](../docs/ipad-app-design.md).
 Tracking issue: #1213.
 
-This is currently the **spike** (#1220). It opens a bundled sample or stdlib file, checks it,
-shows the diagnostics and timings, and can interrupt a running check.
+It opens a bundled sample or stdlib file, checks it, and shows a **textbook view** (#1221):
+each theorem as "Theorem. … Proof. … ∎", each step as prose and the formula it establishes,
+`equations` as an aligned chain, and nested sub-proofs. Reasons sit to the side at one of three
+levels (Full, Summary, Hidden), set for the document in the toolbar or per step by tapping. The
+Source toggle shows the `.pf` with the selected step highlighted, and Interrupt cancels a check.
+
+The view is built in `Deduce/Textbook.swift` from the `deduce/proofOutline` notification
+(`lsp/query.py`'s `proof_outline`): steps are nested by source range, and each step kind becomes
+a sentence, using the per-kind `detail` the outline carries.
 
 ## Build
 

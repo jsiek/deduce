@@ -607,7 +607,7 @@ class ProofStep:
 
     - ``AllIntro``: ``vars``, ``[{name, type}]`` for the whole
       ``arbitrary`` list.
-    - ``ImpIntro``: ``label`` and ``premise`` (``None`` if unwritten).
+    - ``ImpIntro``: ``label`` and ``premise`` (from the goal if unwritten).
     - ``Induction``: ``variable`` (the goal's first ``all`` binder) and
       ``cases``; ``SwitchProof``: ``subject`` and ``cases``. Each case
       is ``{pattern, hypotheses, range}``, ``range`` (a :class:`Range`)
@@ -616,6 +616,8 @@ class ProofStep:
       running from the arm's proof to the next arm's.
     - ``PAnnot`` proving an equation: ``lhs`` and ``rhs``.
     - ``PLet``: ``label``. ``Suffices``: ``claim``.
+    - ``PTLetNew`` (``define`` in a proof): ``name`` and ``term``.
+    - ``SomeIntro`` (``choose``): ``witnesses``.
     """
 
     kind: str
@@ -5809,8 +5811,8 @@ def _outline_theorems(
 def _step_detail(rec: "StepRecord") -> dict[str, Any]:
     """The ``detail`` of a :class:`ProofStep` (see its docstring)."""
     from abstract_syntax import (
-        All, AllIntro, Call, Cases, ImpIntro, Induction, PAnnot, PLet,
-        Suffices, SwitchProof, VarRef, base_name,
+        All, AllIntro, Call, Cases, IfThen, ImpIntro, Induction, PAnnot, PLet,
+        PTLetNew, SomeIntro, Suffices, SwitchProof, VarRef, base_name,
     )
 
     proof = rec.proof
@@ -5831,6 +5833,9 @@ def _step_detail(rec: "StepRecord") -> dict[str, Any]:
                 node = node.body
             return {"vars": vars}
         case ImpIntro(label=label, premise=premise):
+            # `assume h` without a formula assumes the goal's premise.
+            if premise is None and isinstance(rec.goal, IfThen):
+                premise = rec.goal.premise
             return {
                 "label": base_name(label),
                 "premise": None if premise is None else str(premise),
@@ -5854,7 +5859,11 @@ def _step_detail(rec: "StepRecord") -> dict[str, Any]:
                 "cases": [
                     {
                         "pattern": str(c.pattern),
-                        "hypotheses": [base_name(x) for x, _ in c.assumptions if x],
+                        # Unnamed assumptions (written `_`, or none) are anonymous.
+                        "hypotheses": [
+                            base_name(x) for x, _ in c.assumptions
+                            if x and base_name(x) != "_"
+                        ],
                         "range": case_range(c),
                     }
                     for c in cases
@@ -5889,6 +5898,10 @@ def _step_detail(rec: "StepRecord") -> dict[str, Any]:
             return {"label": base_name(label)}
         case Suffices(claim=claim):
             return {"claim": str(claim)}
+        case PTLetNew(var=var, rhs=rhs):
+            return {"name": base_name(var), "term": str(rhs)}
+        case SomeIntro(witnesses=witnesses):
+            return {"witnesses": [str(w) for w in witnesses]}
     return {}
 
 

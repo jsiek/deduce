@@ -156,11 +156,31 @@ def test_step_detail_for_assume_have_cases_and_switch(tmp_path):
 
     [switch] = by_kind["SwitchProof"]
     assert switch.detail["subject"] == "b"
-    assert [c["pattern"] for c in switch.detail["cases"]] == ["true", "false"]
+    # A case with no `assume` gets an anonymous `_` assumption from the
+    # parser; it isn't a hypothesis anyone can cite, so it's left out.
+    assert [(c["pattern"], c["hypotheses"]) for c in switch.detail["cases"]] == [
+        ("true", []), ("false", []),
+    ]
 
     assert [(t.name, t.lemma) for t in outline.theorems] == [
         ("or_swap", False), ("bool_cases", True),
     ]
+
+
+def test_step_detail_for_define_and_choose(tmp_path):
+    source = (
+        "theorem some_true: some b:bool. b\n"
+        "proof\n"
+        "  define t = true\n"
+        "  choose t\n"
+        "  expand t.\n"
+        "end\n"
+    )
+    outline = proof_outline(str(tmp_path / "choose.pf"), source)
+    assert outline.diagnostics == ()
+    details = {s.kind: s.detail for s in outline.steps}
+    assert details["PTLetNew"] == {"name": "t", "term": "true"}
+    assert details["SomeIntro"] == {"witnesses": ["t"]}
 
 
 ERROR_PARTWAY = """\
