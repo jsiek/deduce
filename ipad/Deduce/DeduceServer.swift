@@ -20,6 +20,8 @@ final class DeduceServer: ObservableObject {
     @Published var openFile: String?
     @Published var check: CheckState?
     @Published var diagnostics: [Diagnostic] = []
+    @Published var source = ""
+    @Published var textbook: Textbook?
     @Published var log: [String] = []
 
     let appDirectory = URL(fileURLWithPath: Bundle.main.resourcePath!).appendingPathComponent("app")
@@ -63,7 +65,8 @@ final class DeduceServer: ObservableObject {
             }
         }
         send(["jsonrpc": "2.0", "id": 1, "method": "initialize",
-              "params": ["processId": NSNull(), "rootUri": NSNull(), "capabilities": [String: Any]()]])
+              "params": ["processId": NSNull(), "rootUri": NSNull(), "capabilities": [String: Any](),
+                         "initializationOptions": ["proofOutline": true]]])
     }
 
     func open(_ url: URL) {
@@ -75,6 +78,8 @@ final class DeduceServer: ObservableObject {
         let uri = url.absoluteString
         openFile = url.lastPathComponent
         openURI = uri
+        source = text
+        textbook = nil
         diagnostics = []
         check = .running
         checkStarted[uri] = Date()
@@ -122,6 +127,16 @@ final class DeduceServer: ObservableObject {
             if uri == openURI {
                 diagnostics = results
                 check = .finished(seconds: seconds)
+            }
+        case "deduce/proofOutline":
+            guard params["uri"] as? String == openURI,
+                  let data = try? JSONSerialization.data(withJSONObject: params)
+            else { return }
+            do {
+                textbook = Textbook(outline: try JSONDecoder().decode(Outline.self, from: data), source: source)
+                print("deduce-outline: \(textbook!.theorems.count) theorems")
+            } catch {
+                record("could not read the proof outline: \(error)")
             }
         case "window/logMessage":
             let text = params["message"] as? String ?? ""
