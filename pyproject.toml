@@ -27,6 +27,8 @@ exclude = [
     ".claude",
     "gh_pages/pages",
     "gh_pages/deduce-code",
+    "ipad/build",
+    "ipad/Support",
 ]
 
 [tool.ruff.lint]
@@ -58,7 +60,9 @@ select = ["F401", "F403", "F405", "F541", "F601", "F811", "F821", "F841"]
 #                   so [[tool.mypy.overrides]] cannot target it; revisit
 #                   if/when it is renamed.
 #   - tmp/, lark/, editor/, live_code_vercel_api/, autograder_docker/,
-#     .claude/, gh_pages/    match the ruff `exclude` list above.
+#     .claude/, gh_pages/, ipad/build/, ipad/Support/    match the ruff
+#     `exclude` list above. The ipad/ ones hold the downloaded iOS Python
+#     and the built app (which bundles a copy of Python's stdlib).
 python_version = "3.12"
 strict = true
 ignore_missing_imports = true
@@ -73,6 +77,8 @@ exclude = [
     '^autograder_docker/',
     '^\\.claude/',
     '^gh_pages/',
+    '^ipad/build/',
+    '^ipad/Support/',
 ]
 
 # Keep the no-dependencies mypy pass useful without weakening the rest
