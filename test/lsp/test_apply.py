@@ -30,10 +30,24 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from lsp.query import (  # noqa: E402
-    Position,
-    apply_at,
-)
+from lsp import query  # noqa: E402
+from lsp.query import Position, TermTree  # noqa: E402
+
+
+def _text(x):
+    """``x`` with every formula tree rendered as its text."""
+    if isinstance(x, TermTree):
+        return str(x)
+    if isinstance(x, dict):
+        return {k: _text(v) for k, v in x.items()}
+    if isinstance(x, (list, tuple)):
+        return type(x)(_text(v) for v in x)
+    return x
+
+
+def apply_at(*args, **kwargs):
+    # Formulas in the result are trees; these tests compare their text.
+    return _text(query.apply_at(*args, **kwargs))
 
 
 def test_apply_at_local_ifthen_hypothesis() -> None:
@@ -262,6 +276,7 @@ def test_apply_at_arg_does_not_parse() -> None:
     assert result is not None
     assert result["outcome"] == "unifies_against"
     assert "could not parse args" in result["reason"]
+    assert result["goal"] is None
 
 
 def test_apply_at_returns_none_when_cursor_not_on_hole() -> None:

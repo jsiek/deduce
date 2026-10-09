@@ -143,6 +143,9 @@ def test_all_expected_features_are_registered():
         lsp_server.PREVIEW_REPLACE_AT_SUBTERM_REQUEST,
         lsp_server.PREVIEW_EXPAND_AT_SUBTERM_REQUEST,
         lsp_server.LEMMAS_FOR_SUBTERM_REQUEST,
+        lsp_server.PREVIEW_CONCLUDE_AT_REQUEST,
+        lsp_server.APPLY_AT_REQUEST,
+        lsp_server.AUTO_RULES_AT_REQUEST,
     }
     assert expected.issubset(set(fm.features))
 
@@ -585,6 +588,76 @@ def test_subterm_requests_reject_bad_params(server, open_doc):
         server, _subterm_params(uri, names=[])
     ) is None
     assert lsp_server.on_lemmas_for_subterm(server, {"textDocument": {"uri": uri}}) == []
+
+
+_HOLE_SRC = (
+    "theorem t: all P:bool, Q:bool. if (if P then Q) then if P or Q then P or Q\n"
+    "proof\n"
+    "  arbitrary P:bool, Q:bool\n"
+    "  assume H: if P then Q\n"
+    "  assume pq: P or Q\n"
+    "  ?\n"
+    "end\n"
+)
+_HOLE = {"line": 5, "character": 2}
+
+
+def test_preview_conclude_at_request(server, open_doc):
+    _, uri = open_doc("conclude.pf", _HOLE_SRC)
+    doc = {"textDocument": {"uri": uri}, "position": _HOLE}
+    result = lsp_server.on_preview_conclude_at(server, {**doc, "label": "pq"})
+    assert result["outcome"] == "discharges"
+    assert _text(result["goal_normalized"]) == "(P or Q)"
+    assert result["goal_normalized"]["kind"] == "Or"
+    assert lsp_server.on_preview_conclude_at(server, {**doc, "label": "nope"}) == {
+        "outcome": "unbound", "label": "nope",
+    }
+    assert lsp_server.on_preview_conclude_at(server, doc) is None
+
+
+def test_apply_at_request(server, open_doc):
+    source = _HOLE_SRC.replace("then if P or Q then P or Q", "then if P then Q")
+    source = source.replace("  assume pq: P or Q\n", "  assume p: P\n")
+    _, uri = open_doc("apply.pf", source)
+    doc = {"textDocument": {"uri": uri}, "position": _HOLE}
+    result = lsp_server.on_apply_at(server, {**doc, "theorem": "H"})
+    assert result["outcome"] == "ok"
+    assert _text(result["conclusion"]) == "Q"
+    assert [_text(p) for p in result["remaining_premises"]] == ["P"]
+    assert lsp_server.on_apply_at(server, {**doc, "theorem": "H", "args": "x"}) is None
+    # Args that don't parse: the check never reaches the hole, so there
+    # is no goal tree to send.
+    bad = lsp_server.on_apply_at(
+        server, {**doc, "theorem": "H", "args": ["not_in_scope"]}
+    )
+    assert (bad["outcome"], bad["goal"]) == ("unifies_against", None)
+
+
+def test_auto_rules_at_request(server, open_doc):
+    source = (
+        "union N { z  s(N) }\n"
+        "recursive add(N, N) -> N {\n"
+        "  add(z, y) = y\n"
+        "  add(s(x), y) = s(add(x, y))\n"
+        "}\n"
+        "theorem add_z: all y:N. add(z, y) = y\n"
+        "proof\n"
+        "  arbitrary y:N\n"
+        "  expand add.\n"
+        "end\n"
+        "auto add_z\n"
+        "theorem u: true\n"
+        "proof\n"
+        "  .\n"
+        "end\n"
+    )
+    _, uri = open_doc("auto.pf", source)
+    [rule] = lsp_server.on_auto_rules_at(
+        server, {"textDocument": {"uri": uri}, "position": {"line": 13, "character": 2}}
+    )
+    assert (rule["name"], rule["premises"]) == ("add_z", [])
+    assert _text(rule["equation"]) == "(all y:N. add(z, y) = y)"
+    assert lsp_server.on_auto_rules_at(server, {"textDocument": {}}) == []
 
 
 def test_goal_at_returns_none_outside_proof(server, open_doc):
