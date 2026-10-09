@@ -29,7 +29,10 @@ final class DeduceServer: ObservableObject {
     private let launched = Date()
     private var ready = false
     private var pendingOpen: URL?
-    private var checkStarted: Date?
+    private var openURI: String?
+    /// Checks the server hasn't answered yet, by document URI. The server
+    /// checks one document at a time, so opening a file mid-check queues it.
+    private var checkStarted: [String: Date] = [:]
 
     init() {
         // Python takes ownership of (and closes) the descriptors it is
@@ -69,12 +72,14 @@ final class DeduceServer: ObservableObject {
             return
         }
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { return }
+        let uri = url.absoluteString
         openFile = url.lastPathComponent
+        openURI = uri
         diagnostics = []
         check = .running
-        checkStarted = Date()
+        checkStarted[uri] = Date()
         send(["jsonrpc": "2.0", "method": "textDocument/didOpen",
-              "params": ["textDocument": ["uri": url.absoluteString, "languageId": "deduce",
+              "params": ["textDocument": ["uri": uri, "languageId": "deduce",
                                           "version": 1, "text": text]]])
     }
 
@@ -101,26 +106,30 @@ final class DeduceServer: ObservableObject {
         let params = message["params"] as? [String: Any] ?? [:]
         switch message["method"] as? String {
         case "textDocument/publishDiagnostics":
+            let uri = params["uri"] as? String ?? ""
+            guard let started = checkStarted.removeValue(forKey: uri) else { return }
+            let seconds = Date().timeIntervalSince(started)
             let items = params["diagnostics"] as? [[String: Any]] ?? []
-            diagnostics = items.map { item in
+            let results = items.map { item in
                 let range = item["range"] as? [String: Any]
                 let start = range?["start"] as? [String: Any]
                 return Diagnostic(line: (start?["line"] as? Int ?? 0) + 1,
                                   message: item["message"] as? String ?? "")
             }
-            if let started = checkStarted {
-                let seconds = Date().timeIntervalSince(started)
+            print(String(format: "deduce-timing: check %@ %.3f s, %d diagnostics",
+                         URL(string: uri)?.lastPathComponent ?? uri, seconds, results.count))
+            results.forEach { print("deduce-diagnostic: line \($0.line): \($0.message)") }
+            if uri == openURI {
+                diagnostics = results
                 check = .finished(seconds: seconds)
-                checkStarted = nil
-                print(String(format: "deduce-timing: check %@ %.3f s, %d diagnostics",
-                             openFile ?? "?", seconds, diagnostics.count))
-                diagnostics.forEach { print("deduce-diagnostic: line \($0.line): \($0.message)") }
             }
         case "window/logMessage":
             let text = params["message"] as? String ?? ""
-            if text.hasPrefix("check cancelled") {
-                check = .cancelled
-                checkStarted = nil
+            let cancelledPrefix = "check cancelled: "
+            if text.hasPrefix(cancelledPrefix) {
+                let uri = String(text.dropFirst(cancelledPrefix.count))
+                checkStarted.removeValue(forKey: uri)
+                if uri == openURI { check = .cancelled }
             }
             record(text)
         default:
