@@ -1,0 +1,17 @@
+// An overloaded constant (`zero` is both a Nat and a UInt-view constructor)
+// passed to a generic function: the other arguments fix the type
+// argument, then the constant resolves against it (issue #1232).
+import Nat
+import UInt
+import List
+
+assert node(zero, node(suc(zero), empty)) = node(zero, node(suc(zero), empty))
+assert node(suc(zero), node(zero, empty)) = node(suc(zero), node(zero, empty))
+assert length(node(zero, node(suc(zero), empty))) = 2
+
+theorem overload_constant_type_arg: all xs:List<Nat>.
+  length(node(zero, xs)) = 1 + length(xs)
+proof
+  arbitrary xs:List<Nat>
+  expand length.
+end

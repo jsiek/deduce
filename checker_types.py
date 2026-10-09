@@ -363,6 +363,12 @@ def type_check_call_funty(
             continue
           else:
             new_arg = type_synth_term(arg, env, recfun, subterms)
+            if isinstance(new_arg.typeof, OverloadType):
+              # An overloaded constant such as `zero` (Nat or UInt view):
+              # let the other arguments fix the type parameters first,
+              # then check it against the result (issue #1232).
+              delayed_args.append((index, arg, param_ty))
+              continue
             type_match(loc, type_params, param_type, new_arg.typeof, matching)
           checked_args[index] = new_arg
 
