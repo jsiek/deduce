@@ -442,10 +442,10 @@ def test_goal_at_returns_goal_dict(server, open_doc):
     goal = lsp_server.on_goal_at(server, params)
     assert goal is not None
     assert _text(goal["formula"]) == "P = P"
-    # The tree's structure: `P = P` is a call whose two arguments are
-    # variables, joined by the operator text.
+    # The tree's structure: `P = P` is a call of `=` on two variables,
+    # the operator between them.
     assert [p if isinstance(p, str) else p["kind"] for p in goal["formula"]["parts"]] == [
-        "Var", " = ", "Var",
+        "Var", " ", "Var", " ", "Var",
     ]
     assert goal["givens"] == []
     # Range is echoed back at the cursor.

@@ -212,13 +212,16 @@ class TermTree:
     gives exactly what Deduce's printer produces.
 
     ``kind`` is the AST class (``"Call"``, ``"All"``, ``"Mark"``,
-    ``"TermInst"``, ...), except that every variable reference is
-    ``"Var"``. A subterm's *path* is the
-    list of indices among the tree-valued parts from the root down: in
-    ``x + suc(y)`` the ``suc(y)`` node has path ``[1]`` and ``y`` has
-    ``[1, 0]``. Subterms the printer does not show verbatim (the
-    numeral ``2`` for ``suc(suc(zero))``, the tail of a ``[a, b]``
-    list) stay inside their parent's text.
+    ``"TermInst"``, ...), except that every variable reference, and
+    every operator, is ``"Var"``. Children come in printed order: a
+    call's callee before its arguments, an infix operator between them.
+    A subterm's *path* is the list of indices among the tree-valued
+    parts from the root down: in ``x + suc(y)`` the ``+`` node has path
+    ``[1]``, ``suc(y)`` has ``[2]`` and its ``y`` has ``[2, 1]``.
+    Subterms the printer does not show verbatim (the numeral ``2`` for
+    ``suc(suc(zero))``, the tail of a ``[a, b]`` list) stay inside
+    their parent's text, and an instantiation with inferred type
+    arguments is just its subject's node.
     """
 
     kind: str
@@ -1134,22 +1137,27 @@ def _normalized_tree(
 
 def _term_tree(node: "AST") -> TermTree:
     """The :class:`TermTree` of ``node``: its printed text, with each
-    child placed at the first match of its own printed text, scanning
-    left to right. A child whose text does not appear (or appears only
-    inside an identifier) stays part of the parent's text."""
-    from abstract_syntax import AST, Call, VarRef
+    child (see :func:`_tree_children`) placed at the first match of its
+    own printed text, scanning left to right. A child whose text does
+    not appear (or appears only inside an identifier) stays part of the
+    parent's text."""
+    from abstract_syntax import TermInst, VarRef
 
+    # An instantiation that prints as its subject (inferred type
+    # arguments) is invisible: its tree is the subject's.
+    if isinstance(node, TermInst) and str(node) == str(node.subject):
+        return _term_tree(node.subject)
     text = str(node)
     parts: list[Union[str, TermTree]] = []
     pos = 0
-    for child in _tree_children(node, AST, Call):
+    for child in _tree_children(node):
         child_text = str(child)
         start = _token_find(text, child_text, pos)
         if start is None:
             continue
         if start > pos:
             parts.append(text[pos:start])
-        parts.append(_term_tree(child))
+        parts.append(child if isinstance(child, TermTree) else _term_tree(child))
         pos = start + len(child_text)
     if pos < len(text) or not parts:
         parts.append(text[pos:])
@@ -1159,25 +1167,43 @@ def _term_tree(node: "AST") -> TermTree:
     return TermTree(kind, tuple(parts))
 
 
-def _tree_children(node: "AST", ast_type: type, call_type: type) -> Iterator["AST"]:
-    """``node``'s AST children in field order, looking inside lists and
-    tuples. A call's operator is printed as plain text (``+``, ``f``),
-    so it is not a child."""
+def _tree_children(node: "AST") -> Iterator[Union["AST", TermTree]]:
+    """``node``'s children in printed order: its AST children in field
+    order, looking inside lists and tuples, except that a call prints as
+    ``f(a, b)`` (callee, then arguments) or with an operator before or
+    between its arguments (``- a``, ``a + b``). An operator is a "Var"
+    node of its displayed name, built here because the operator's own
+    ``str()`` can differ (``operator +``)."""
     from dataclasses import fields
 
+    from abstract_syntax import (
+        AST, Call, is_infix_operator, is_prefix_operator,
+        operator_display_name,
+    )
+
+    if isinstance(node, Call):
+        op = None
+        if is_infix_operator(node.rator) and len(node.args) >= 2 \
+                or is_prefix_operator(node.rator) and len(node.args) == 1:
+            op = TermTree("Var", (operator_display_name(node.rator),))
+        if op is None:
+            yield node.rator
+        for i, arg in enumerate(node.args):
+            if op is not None and (i > 0 or len(node.args) == 1):
+                yield op
+            yield arg
+        return
+
     def walk(value: object) -> Iterator["AST"]:
-        if isinstance(value, ast_type):
+        if isinstance(value, AST):
             yield value
         elif isinstance(value, (list, tuple)):
             for v in value:
                 yield from walk(v)
 
     for f in fields(node):
-        if f.name in ("location", "typeof") or (
-            isinstance(node, call_type) and f.name == "rator"
-        ):
-            continue
-        yield from walk(getattr(node, f.name))
+        if f.name not in ("location", "typeof"):
+            yield from walk(getattr(node, f.name))
 
 
 def _token_find(text: str, sub: str, pos: int) -> Optional[int]:
