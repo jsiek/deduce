@@ -97,9 +97,7 @@ class PLet(Proof):
   def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> PLet:
     new_proved = self.proved.uniquify(env, ctx)
     new_because = self.because.uniquify(env, ctx)
-    body_env = {x:y for (x,y) in env.items()}
-    new_label = generate_name(self.label, ctx)
-    overwrite(body_env, self.label, new_label, self.location)
+    body_env, new_label = uniquify_binder(env, self.label, ctx, self.location)
     new_body = self.body.uniquify(body_env, ctx)
     return PLet(self.location, new_label, new_proved, new_because, new_body)
 
@@ -119,9 +117,7 @@ class PTLetNew(Proof):
 
   def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> PTLetNew:
     new_rhs = self.rhs.uniquify(env, ctx)
-    body_env = {x:y for (x,y) in env.items()}
-    new_var = generate_name(self.var, ctx)
-    overwrite(body_env, self.var, new_var, self.location)
+    body_env, new_var = uniquify_binder(env, self.var, ctx, self.location)
     new_body = self.body.uniquify(body_env, ctx)
     return PTLetNew(self.location, new_var, new_rhs, new_body)
 
@@ -259,9 +255,7 @@ class ImpIntro(Proof):
 
   def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> ImpIntro:
     new_premise = self.premise.uniquify(env, ctx) if self.premise else None
-    body_env = copy_dict(env)
-    new_label = generate_name(self.label, ctx)
-    overwrite(body_env, self.label, new_label, self.location)
+    body_env, new_label = uniquify_binder(env, self.label, ctx, self.location)
     new_body = self.body.uniquify(body_env, ctx)
     return ImpIntro(self.location, new_label, new_premise, new_body)
 
