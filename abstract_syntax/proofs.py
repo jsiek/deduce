@@ -804,24 +804,37 @@ def _proof_list_item_str(p: Proof) -> str:
   return str(p)
 
 
+# The ``simplify``/``expand``/``replace`` tactics each come in a goal-directed
+# form and an ``in <fact>`` form that render the same leading head. These
+# helpers build that shared head so the Goal/Fact twins (and the goal form's
+# own ``pretty_print``) stay in sync.
+def _simplify_head(givens: List[Proof]) -> str:
+  head = 'simplify'
+  if givens:
+    head += ' with ' + ' | '.join(_proof_list_item_str(p) for p in givens)
+  return head
+
+
+def _expand_head(definitions: List[Term]) -> str:
+  return 'expand ' + ' | '.join(str(d) for d in definitions)
+
+
+def _replace_head(equations: List[Proof]) -> str:
+  return 'replace ' + ' | '.join(
+      _proof_list_item_str(eqn) for eqn in equations)
+
+
 @dataclass
 class SimplifyGoal(Proof):
   body: Proof
   givens: List[Proof]
 
-  def _head(self) -> str:
-      head = 'simplify'
-      if self.givens:
-        head += ' with ' + ' | '.join(
-            _proof_list_item_str(p) for p in self.givens)
-      return head
-
   def pretty_print(self, indent: int) -> str:
-      return indent*' ' + self._head() + '\n' \
+      return indent*' ' + _simplify_head(self.givens) + '\n' \
         + maybe_pretty_print(self.body, indent)
 
   def __str__(self) -> str:
-      return self._head() + '\n' + str(self.body)
+      return _simplify_head(self.givens) + '\n' + str(self.body)
 
 
 @dataclass
@@ -830,11 +843,7 @@ class SimplifyFact(Proof):
   givens: List[Proof]
 
   def __str__(self) -> str:
-    head = 'simplify'
-    if self.givens:
-      head += ' with ' + ' | '.join(
-          _proof_list_item_str(p) for p in self.givens)
-    return head + ' in ' + str(self.subject)
+    return _simplify_head(self.givens) + ' in ' + str(self.subject)
 
 @dataclass
 class ApplyDefsGoal(Proof):
@@ -842,13 +851,11 @@ class ApplyDefsGoal(Proof):
   body: Proof
 
   def pretty_print(self, indent: int) -> str:
-      return indent*' ' + 'expand ' \
-        + ' | '.join([str(d) for d in self.definitions]) + '\n' \
+      return indent*' ' + _expand_head(self.definitions) + '\n' \
         + maybe_pretty_print(self.body, indent)
 
   def __str__(self) -> str:
-      return 'expand ' + ' | '.join([str(d) for d in self.definitions]) \
-        + ' ' + str(self.body)
+      return _expand_head(self.definitions) + ' ' + str(self.body)
 
 @dataclass
 class ApplyDefsFact(Proof):
@@ -856,8 +863,7 @@ class ApplyDefsFact(Proof):
   subject: Proof
 
   def __str__(self) -> str:
-      return 'expand ' + ' | '.join([str(d) for d in self.definitions]) \
-        + ' in ' + str(self.subject)
+      return _expand_head(self.definitions) + ' in ' + str(self.subject)
 
 @dataclass
 class RewriteGoal(Proof):
@@ -865,14 +871,11 @@ class RewriteGoal(Proof):
   body: Proof
 
   def pretty_print(self, indent: int) -> str:
-      return indent*' ' + 'replace ' \
-        + ' | '.join(_proof_list_item_str(eqn) for eqn in self.equations) \
-        + '\n' + maybe_pretty_print(self.body, indent)
+      return indent*' ' + _replace_head(self.equations) + '\n' \
+        + maybe_pretty_print(self.body, indent)
 
   def __str__(self) -> str:
-      return 'replace ' \
-        + '|'.join(_proof_list_item_str(eqn) for eqn in self.equations) \
-        + '\n' + str(self.body)
+      return _replace_head(self.equations) + '\n' + str(self.body)
 
 @dataclass
 class RewriteFact(Proof):
@@ -880,6 +883,4 @@ class RewriteFact(Proof):
   equations: List[Proof]
 
   def __str__(self) -> str:
-      return 'replace ' \
-        + ' | '.join(_proof_list_item_str(eqn) for eqn in self.equations) \
-        + ' in ' + str(self.subject)
+      return _replace_head(self.equations) + ' in ' + str(self.subject)
