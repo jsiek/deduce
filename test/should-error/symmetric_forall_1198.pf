@@ -1,0 +1,9 @@
+// `symmetric` of an equation under `all` proves the flipped equation
+// under the same `all`: flipping it twice gives back the original
+// direction, which isn't the goal (#1198).
+import UInt
+
+theorem wrong: all a:UInt, x:UInt, y:UInt. a * x + a * y = a * (x + y)
+proof
+  symmetric symmetric uint_dist_mult_add
+end
