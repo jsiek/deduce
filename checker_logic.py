@@ -386,9 +386,9 @@ def auto_simplified_hint(new_formula: Formula) -> str:
 def _walk_ast(root: object) -> Iterator[object]:
   # Yield every node reachable from `root` through its dataclass fields
   # (recursing into lists/tuples/dict values, skipping scalars), id-deduplicated
-  # and in DFS pop-order. No general `free_vars` is defined across all Term
-  # subclasses, so callers that need to find every `VarRef` walk the fields
-  # directly via this generator.
+  # and in DFS pop-order. Callers that need every `VarRef` occurrence (bound
+  # ones, and every candidate of an `OverloadedVar`, included) walk the
+  # fields directly via this generator; `Term.free_vars` gives the free ones.
   seen: set[int] = set()
   stack: list[object] = [root]
   while stack:

@@ -57,7 +57,7 @@ if TYPE_CHECKING:
     # annotations and never execute.
     from abstract_syntax import (
         AST, All, And, Auto, Env, Formula, IfThen, Import, Or,
-        ResolvedVar, Some, Statement, Term, Type,
+        ProofBinding, ResolvedVar, Some, Statement, Term, Type,
     )
     from abstract_syntax import Union as UnionDecl
     from error import WarningRecord
@@ -94,6 +94,7 @@ __all__ = [
     "ProofOutline",
     "SubtermPreview",
     "LemmaPreview",
+    "InstantiationVar",
     # Query functions
     "check",
     "goal_at",
@@ -106,6 +107,8 @@ __all__ = [
     "induction_skeleton_at",
     "eliminate_at",
     "eliminable_vars_at",
+    "instantiation_vars_at",
+    "instantiate_at",
     "fill_from_given_at",
     "matching_givens_at",
     "preview_conclude_at",
@@ -2999,7 +3002,148 @@ def _eliminate_all(label: str, formula: "All", env: "Env") -> str:
     ``H[?, ?]''.  Separate blocks (``all x:T1. all y:T2. P'')
     instantiate one at a time -- the user can chain.
     """
-    from abstract_syntax import All, TypeType
+    from abstract_syntax import TypeType
+
+    vars_in_block = _block_vars(formula)
+    if not vars_in_block:
+        return f"{label}[?]"
+
+    has_type_param = any(isinstance(ty, TypeType) for _, ty in vars_in_block)
+    open_b, close_b = ("<", ">") if has_type_param else ("[", "]")
+    placeholders = ", ".join(["?"] * len(vars_in_block))
+    return f"{label}{open_b}{placeholders}{close_b}"
+
+
+@dataclass(frozen=True)
+class InstantiationVar:
+    """A variable of an ``all`` given's first block (see
+    :func:`instantiation_vars_at`): its name, its type, and values worth
+    suggesting for it."""
+
+    name: str
+    type: str
+    suggestions: tuple[str, ...]
+
+
+def instantiation_vars_at(
+    path: str, content: str, pos: Position, label: str,
+    prelude: Sequence[str] = (),
+) -> tuple[InstantiationVar, ...]:
+    """The variables to give values for, to use the ``all`` given
+    ``label`` at the hole at ``pos`` (:func:`instantiate_at`). Each
+    comes with suggestions: the goal's subterms of its type that are in
+    scope at the hole, shortest first, then the variables in scope of
+    its type.
+
+    Empty off a hole, when ``label`` isn't a local ``all`` given, or
+    when its first block binds a type (``all T:type``)."""
+    from abstract_syntax import Term, TermBinding, TypeType, base_name, remove_mark
+
+    hole_range = _find_hole_at(content, pos)
+    if hole_range is None:
+        return ()
+    exc = _check_at_hole(path, content, hole_range, prelude)
+    env = getattr(exc, "env", None)
+    goal = getattr(exc, "formula", None)
+    binding = None if env is None else _local_proof_binding(label, env)
+    if env is None or binding is None:
+        return ()
+    block = _block_vars(binding.formula)
+    if not block or any(isinstance(ty, TypeType) for _, ty in block):
+        return ()
+
+    def subterms(tree: TermTree) -> Iterator[TermTree]:
+        yield tree
+        for part in tree.parts:
+            if isinstance(part, TermTree):
+                yield from subterms(part)
+
+    found = [] if goal is None else [
+        (str(node), node.ast) for node in subterms(_term_tree(remove_mark(goal)))
+        if isinstance(node.ast, Term) and node.ast.typeof is not None
+        and node.ast.free_vars() <= env.dict.keys()
+    ]
+    result = []
+    for x, ty in block:
+        suggestions: list[str] = []
+        # Shorter subterms first: `ys` is likelier than `l2 ++ ys`.
+        for text in sorted((text for text, term in found if term.typeof == ty), key=len) + [
+            base_name(k) for k, b in env.dict.items()
+            if isinstance(b, TermBinding) and b.local and b.typ == ty
+        ]:
+            if text not in suggestions:
+                suggestions.append(text)
+        result.append(InstantiationVar(base_name(x), str(ty), tuple(suggestions)))
+    return tuple(result)
+
+
+def instantiate_at(
+    path: str, content: str, pos: Position, label: str,
+    values: Sequence[str], prelude: Sequence[str] = (),
+) -> Union[WorkspaceEdit, str, None]:
+    """Use the ``all`` given ``label`` at the hole at ``pos`` with
+    ``values`` for the variables of its first block: the edit putting
+    ``have H: <formula> by label[values]`` before the ``?``, or the
+    checker's message when the values don't check. ``None`` off a hole
+    or when ``label`` isn't a local given.
+
+    The formula is the checker's: ``have H: ? by label[values]`` is
+    checked in place of the hole, and a ``have`` whose formula is ``?``
+    proves what its reason does."""
+    hole_range = _find_hole_at(content, pos)
+    if hole_range is None:
+        return None
+    exc = _check_at_hole(path, content, hole_range, prelude)
+    env = getattr(exc, "env", None)
+    if env is None or _local_proof_binding(label, env) is None:
+        return None
+    h = _fresh_h_labels(env, 1)[0]
+    reason = f"{label}[{', '.join(values)}]"
+    start = _line_col_to_offset(content, hole_range.start)
+    end = _line_col_to_offset(content, hole_range.end)
+    assert start is not None and end is not None
+    trial = _hole_text(content, hole_range, f"have {h}: ? by {reason}\n?")
+    trial_content = content[:start] + trial + content[end:]
+    records, result = _recorded_check(path, trial_content, prelude)
+    first, last = (_offset_to_line_col(trial_content, start),
+                   _offset_to_line_col(trial_content, start + len(trial)))
+
+    def inserted(meta: object) -> bool:
+        at = (getattr(meta, "line", 0), getattr(meta, "column", 0))
+        return first <= at <= last
+
+    # The `have` is the first step in the inserted text (a `{` may
+    # come before it); an error there is about the values.
+    haves = [r for r in records.values()
+             if type(r.proof).__name__ == "PLet" and _meta_in_file(r.proof.location, path)
+             and inserted(r.proof.location)]
+    have = min(haves, key=lambda r: _meta_order(r.proof.location), default=None)
+    errors = [e for e in result.errors or ()
+              if type(e).__name__ != "IncompleteProof" and inserted(getattr(e, "location", None))]
+    if errors:
+        return getattr(errors[0], "message_body", None) or str(errors[0])
+    if have is None or have.formula is None:
+        return "the values don't check"
+    return WorkspaceEdit(
+        path=path, range=hole_range,
+        new_text=_hole_text(content, hole_range, f"have {h}: {have.formula} by {reason}\n?"),
+    )
+
+
+def _local_proof_binding(label: str, env: "Env") -> Optional["ProofBinding"]:
+    """The local given ``label`` in ``env``, if any."""
+    from abstract_syntax import ProofBinding, base_name
+
+    for unique, binding in env.dict.items():
+        if base_name(unique) == label and isinstance(binding, ProofBinding) and binding.local:
+            return binding
+    return None
+
+
+def _block_vars(formula: "Formula") -> list[tuple[str, "Type"]]:
+    """The variables of ``formula``'s first ``all`` block, which one
+    ``H[...]`` instantiates."""
+    from abstract_syntax import All
 
     vars_in_block: list[tuple[str, Type]] = []
     cur: "Formula" = formula
@@ -3012,14 +3156,7 @@ def _eliminate_all(label: str, formula: "All", env: "Env") -> str:
             # All-of-the-same-block.
             break
         cur = cur.body
-
-    if not vars_in_block:
-        return f"{label}[?]"
-
-    has_type_param = any(isinstance(ty, TypeType) for _, ty in vars_in_block)
-    open_b, close_b = ("<", ">") if has_type_param else ("[", "]")
-    placeholders = ", ".join(["?"] * len(vars_in_block))
-    return f"{label}{open_b}{placeholders}{close_b}"
+    return vars_in_block
 
 
 def _eliminate_some(label: str, formula: "Some", env: "Env") -> str:
@@ -5978,21 +6115,13 @@ def _auto_rule_from_stmt(
     )
 
 
-def proof_outline(
-    path: str, content: str, prelude: Sequence[str] = ()
-) -> ProofOutline:
-    """Annotate every proof step in ``content`` from a single check.
-
-    Where :func:`goal_at` re-checks the enclosing theorem once per
-    position, this runs the checker once with the proof-outline
-    recorder on (``flags.proof_outline``), so a view of a *k*-step
-    proof costs one check rather than *k*. Errors are collected rather
-    than raised, so steps before (and independent of) an error are
-    still annotated. ``prelude`` matches the meaning in :func:`check`.
-    """
+def _recorded_check(
+    path: str, content: str, prelude: Sequence[str]
+) -> tuple[dict[tuple[object, ...], "StepRecord"], "CheckResult"]:
+    """Check ``content`` with the proof-outline recorder on, collecting
+    errors: the step records, by location, and the result."""
     import flags
-    from error import IncompleteProof
-    from lsp.library import CheckResult, _check_file_lock, check_file
+    from lsp.library import _check_file_lock, check_file
 
     records: dict[tuple[object, ...], "StepRecord"] = {}
     # Hold the check lock while the recorder is installed, so a
@@ -6005,6 +6134,25 @@ def proof_outline(
             )
         finally:
             flags.set_proof_outline(None)
+    return records, result
+
+
+def proof_outline(
+    path: str, content: str, prelude: Sequence[str] = ()
+) -> ProofOutline:
+    """Annotate every proof step in ``content`` from a single check.
+
+    Where :func:`goal_at` re-checks the enclosing theorem once per
+    position, this runs the checker once with the proof-outline
+    recorder on (``flags.proof_outline``), so a view of a *k*-step
+    proof costs one check rather than *k*. Errors are collected rather
+    than raised, so steps before (and independent of) an error are
+    still annotated. ``prelude`` matches the meaning in :func:`check`.
+    """
+    from error import IncompleteProof
+    from lsp.library import CheckResult
+
+    records, result = _recorded_check(path, content, prelude)
 
     # This check reached every hole, so the step queries at a hole
     # (:func:`_check_at_target`) needn't check again. It replaces what

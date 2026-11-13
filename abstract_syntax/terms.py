@@ -358,6 +358,9 @@ class Generic(Term):
   type_params: List[str]
   body: Term
 
+  def free_vars(self) -> Set[str]:
+    return self.body.free_vars() - set(self.type_params)
+
   def __str__(self) -> str:
     return "generic " + ",".join([(t if get_verbose() else base_name(t)) for t in self.type_params]) \
       + " { " + str(self.body) + " }"
@@ -740,6 +743,10 @@ class Lambda(Term):
   # `--eval-all` so the closure can be applied later. `None` for an
   # un-reduced lambda.
   env: Optional['Env'] = None
+
+  def free_vars(self) -> Set[str]:
+    return (self.body.free_vars() - {x for x, _ in self.vars}).union(
+      *(t.free_vars() for _, t in self.vars if t is not None))
 
   def __str__(self) -> str:
     if get_unique_names():
@@ -1483,6 +1490,10 @@ class Switch(Term):
   subject: Term
   cases: List[SwitchCase]
 
+  def free_vars(self) -> Set[str]:
+    return self.subject.free_vars().union(
+      *(c.body.free_vars() - set(c.pattern.bindings()) for c in self.cases))
+
   def __str__(self) -> str:
       return 'switch ' + str(self.subject) + ' { ' \
           + ' '.join([str(c) for c in self.cases]) \
@@ -1720,6 +1731,9 @@ class TLet(Term):
   var: str
   rhs: Term
   body: Term
+
+  def free_vars(self) -> Set[str]:
+    return self.rhs.free_vars() | (self.body.free_vars() - {self.var})
 
   def __str__(self) -> str:
     return 'define ' + base_name(self.var) + ' = ' + str(self.rhs) + ';' \
@@ -2025,6 +2039,10 @@ class All(Formula):
   # members are bound by ``body`` (see ``abstract_syntax/concepts.py``).
   where: Optional[WhereClause] = field(default=None, kw_only=True)
 
+  def free_vars(self) -> Set[str]:
+    x, ty = self.var
+    return (self.body.free_vars() - {x}) | ty.free_vars()
+
   def __str__(self) -> str:
     v, t = self.var
     v = name2str(v)
@@ -2084,6 +2102,10 @@ class All(Formula):
 class Some(Formula):
   vars: list[Tuple[str,Type]]
   body: Formula
+
+  def free_vars(self) -> Set[str]:
+    return (self.body.free_vars() - {x for x, _ in self.vars}).union(
+      *(t.free_vars() for _, t in self.vars))
 
   def __str__(self) -> str:
       return 'some ' + ",".join([(v if get_verbose() else base_name(v)) + ":" + str(t) \
