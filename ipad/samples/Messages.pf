@@ -15,6 +15,16 @@ proof
   conclude y ≤ x by less_equal_refl
 end
 
+// Errors in two adjacent links of a chain of equations.
+theorem wrong_link: all x:UInt. (x + 0) + 0 = x
+proof
+  arbitrary x:UInt
+  equations
+    (x + 0) + 0 = x + 0  by .
+            ... = x + 1  by .
+            ... = x      by .
+end
+
 // An error in the statement itself.
 theorem bad_statement: all xs:List<Nat>. length(xs) = true
 proof

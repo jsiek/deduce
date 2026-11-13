@@ -122,7 +122,10 @@ struct Textbook {
         let lines = theorems.flatMap { Self.lineRanges($0.blocks) }
         for diagnostic in diagnostics where !diagnostic.isHole {
             let at = diagnostic.range.start
-            let around = { (range: Outline.Range) in range.start <= at && at <= range.end }
+            // Ranges are end-exclusive, so adjacent links don't both claim it.
+            let around = { (range: Outline.Range) in
+                range.start <= at && (at < range.end || at == range.start)
+            }
             // The innermost: the one inside all the others that contain it.
             if let range = lines.filter(around).reduce(nil, { (best: Outline.Range?, range) in
                 best.map { $0.contains(range) ? range : $0 } ?? range
