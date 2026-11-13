@@ -1,5 +1,5 @@
 from abstract_syntax import (
-    All, AllElim, ConceptDecl, ConceptRef, ModelDecl, WhereClause, AllElimTypes, AllIntro, And, ApplyDefsFact,
+    All, AllElim, ConceptDecl, ConceptMember, ConceptMemberProof, ConceptRef, ModelDecl, WhereClause, AllElimTypes, AllIntro, And, ApplyDefsFact,
     ApplyDefsGoal, ArrayGet, ArrayType, Assert, Associative, Auto,
     Bool, BoolType, Call, Cases, Conditional, Constructor,
     Define, Emp, EvaluateFact, EvaluateGoal, Export, FieldAccess, FunCase,
@@ -304,6 +304,15 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
         return PointsTo(e.meta, None,
                         parse_tree_to_ast(e.children[0], e),
                         parse_tree_to_ast(e.children[1], e))
+    elif e.data == 'field_access' and isinstance(e.children[0], Tree) \
+         and e.children[0].data == 'term_inst':
+        # `@C<τ>.m`: a member of a concept instance (#1264).
+        inst = e.children[0]
+        subject = parse_tree_to_ast(inst.children[0], e)
+        return ConceptMember(e.meta, None,
+                             ConceptRef(inst.meta, subject.name,
+                                        parse_tree_to_list(inst.children[1], e)),
+                             _field_name(e, 1))
     elif e.data == 'field_access':
         _require_experimental_imperative(e.meta)
         return FieldAccess(e.meta, None,
@@ -1224,6 +1233,11 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
         set_visibility(statement, visibility)
         return statement
 
+    elif e.data == 'concept_member_proof':
+        return ConceptMemberProof(
+            e.meta, ConceptRef(e.meta, _token_text(e, 0),
+                               parse_tree_to_list(e.children[1], e)),
+            _field_name(e, 2))
     elif e.data == 'concept_ref':
         return ConceptRef(e.meta, _token_text(e, 0),
                           parse_tree_to_list(e.children[1], e))

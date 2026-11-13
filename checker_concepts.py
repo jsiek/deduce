@@ -28,7 +28,8 @@ import itertools
 from typing import Callable, cast
 
 from abstract_syntax import (
-    All, AllElimTypes, And, BoolType, ConceptBinding, ConceptDecl, ConceptRef, Env,
+    All, AllElimTypes, And, BoolType, ConceptBinding, ConceptDecl,
+    ConceptMember, ConceptMemberProof, ConceptRef, Env,
     Formula, IfThen, ModelBinding, ModelDecl, Proof, ResolvedVar, Term, Type,
     FunctionType, TypeInst, TypeType, VarRef, WhereClause, WhereMember, base_name, concept_closure,
 )
@@ -301,9 +302,20 @@ def instantiate_where(loc: Meta, allfrm: All, type_arg: Type,
   assert allfrm.where is not None
   sub = {allfrm.var[0]: type_arg}
   where = allfrm.where.substitute(sub)
-  instances = concept_closure(where.constraints)
-  models = [(inst, find_model(env, inst, in_scope, loc)) for inst in instances]
-  # Coherence: every refinement path to an instance reaches one model.
+  models = _models_in_scope(loc, where.constraints, in_scope, env)
+  lookup = _model_lookup(env, models, False, loc)
+  frm = _strip_operations(loc, allfrm.body.substitute(sub), where, lookup)
+  frm = _discharge(loc, frm, _premise(env, where, lookup, loc))
+  return _unfold(frm, [m for (_, m) in models], env)
+
+
+def _models_in_scope(loc: Meta, refs: list[ConceptRef], in_scope: list[str],
+                     env: Env) -> Models:
+  """The models in scope of the concept instances ``refs`` require
+  (their refinement closure), checked for coherence: every refinement
+  path to an instance reaches one model."""
+  models = [(inst, find_model(env, inst, in_scope, loc))
+            for inst in concept_closure(refs)]
   for (_, model) in models:
     concept = concept_of(env, model.model.concept.concept, loc)
     psub = _param_sub(concept, model.model.concept)
@@ -313,9 +325,40 @@ def instantiate_where(loc: Meta, allfrm: All, type_arg: Type,
         user_error(loc, 'the model of ' + str(model.model.concept)
                    + ' uses a different model of ' + str(inst)
                    + ' than the one in scope here')
-  lookup = _model_lookup(env, models, False, loc)
-  frm = _strip_operations(loc, allfrm.body.substitute(sub), where, lookup)
-  frm = _discharge(loc, frm, _premise(env, where, lookup, loc))
+  return models
+
+
+def _qualified(loc: Meta, ref: ConceptRef, in_scope: list[str],
+               env: Env) -> tuple[ConceptRef, Models]:
+  ref = check_where(WhereClause(loc, [ref]), env).constraints[0]
+  return ref, _models_in_scope(loc, [ref], in_scope, env)
+
+
+def check_concept_member(term: ConceptMember, env: Env) -> Term:
+  """`@C<τ>.m` outside a where clause binding ``C<τ>``: the operation of
+  the model in scope, unfolded where the model is visible."""
+  loc = term.location
+  ref, models = _qualified(loc, term.ref, term.models, env)
+  model = _model_for(models, ref)
+  found = [(m, define) for (m, define, _) in model.model.funs
+           if base_name(m) == term.member]
+  if len(found) > 1:
+    user_error(loc, '@' + str(ref) + '.' + term.member + ' could be any of '
+               + str(len(found)) + ' operations of the model; use the'
+               + ' operation unqualified, where its type tells which')
+  (m, define) = found[0]
+  var = ResolvedVar(loc, member_type(env, ref, m, loc), define)
+  return _unfold(var, [model], env)
+
+
+def concept_member_formula(proof: ConceptMemberProof, env: Env) -> Formula:
+  """`@C<τ>.thm` outside a where clause binding ``C<τ>``: the concept's
+  theorem at the operations of the model in scope (which proved it)."""
+  loc = proof.location
+  ref, models = _qualified(loc, proof.ref, proof.models, env)
+  decl = concept_of(env, ref.concept, loc)
+  theorem = next(m for (m, _) in decl.theorems if base_name(m) == proof.member)
+  frm = axiom(env, ref, theorem, _model_lookup(env, models, False, loc), loc)
   return _unfold(frm, [m for (_, m) in models], env)
 
 
