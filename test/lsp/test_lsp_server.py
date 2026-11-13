@@ -59,6 +59,10 @@ class _FakeWorkspace:
             raise KeyError(uri)
         self._docs[uri].source = content
 
+    @property
+    def text_documents(self) -> dict[str, SimpleNamespace]:
+        return self._docs
+
     def get_text_document(self, uri: str) -> SimpleNamespace:
         if uri not in self._docs:
             raise KeyError(uri)
@@ -362,6 +366,121 @@ def test_check_finished_before_close_is_not_published(server, open_doc):
     assert server.published[uri] == []
 
 
+# --------------------------------------------------------------------------
+# Workspace folders (#1225)
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture
+def workspace(server: FakeServer, tmp_path: Path, monkeypatch):
+    """A workspace folder whose ``A.pf`` imports its sibling ``B.pf``,
+    with the server's working directory elsewhere. Yields ``(folder,
+    uri of A.pf)``; afterwards drops the folder from the import
+    directories again."""
+    folder = tmp_path / "proj"
+    folder.mkdir()
+    (folder / "B.pf").write_text("theorem b: true\nproof\n  .\nend\n")
+    src = "import B\ntheorem a: true\nproof\n  b\nend\n"
+    (folder / "A.pf").write_text(src)
+    uri = _file_uri(folder / "A.pf")
+    server.workspace.add_document(uri, src)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    yield folder, uri
+    lsp_server._worker.submit(
+        lsp_server._update_workspace_folders, [], [str(folder)]
+    ).result(timeout=60)
+
+
+def _open(server: FakeServer, uri: str) -> None:
+    source = server.workspace.get_text_document(uri).source
+    asyncio.run(lsp_server.on_did_open(server, lsp_types.DidOpenTextDocumentParams(
+        text_document=lsp_types.TextDocumentItem(
+            uri=uri, language_id="deduce", version=1, text=source,
+        )
+    )))
+
+
+def test_sibling_import_resolves_in_a_workspace_folder(server, workspace):
+    folder, uri = workspace
+    asyncio.run(lsp_server.on_initialize(server, lsp_types.InitializeParams(
+        capabilities=lsp_types.ClientCapabilities(),
+        workspace_folders=[lsp_types.WorkspaceFolder(uri=_file_uri(folder), name="proj")],
+    )))
+    _open(server, uri)
+    assert server.published[uri] == []
+
+
+def test_sibling_import_resolves_under_the_root_uri(server, workspace):
+    folder, uri = workspace
+    asyncio.run(lsp_server.on_initialize(server, lsp_types.InitializeParams(
+        capabilities=lsp_types.ClientCapabilities(), root_uri=_file_uri(folder),
+    )))
+    _open(server, uri)
+    assert server.published[uri] == []
+
+
+def test_adding_a_workspace_folder_rechecks_open_documents(server, workspace):
+    folder, uri = workspace
+    _open(server, uri)
+    [diag] = server.published[uri]
+    assert "could not find a file for import: B" in diag.message
+
+    folder_param = lsp_types.WorkspaceFolder(uri=_file_uri(folder), name="proj")
+    asyncio.run(lsp_server.on_did_change_workspace_folders(
+        server, lsp_types.DidChangeWorkspaceFoldersParams(
+            event=lsp_types.WorkspaceFoldersChangeEvent(added=[folder_param], removed=[])
+        )))
+    assert server.published[uri] == []
+
+    asyncio.run(lsp_server.on_did_change_workspace_folders(
+        server, lsp_types.DidChangeWorkspaceFoldersParams(
+            event=lsp_types.WorkspaceFoldersChangeEvent(added=[], removed=[folder_param])
+        )))
+    [diag] = server.published[uri]
+    assert "could not find a file for import: B" in diag.message
+
+
+def test_each_workspace_imports_its_own_modules(server, tmp_path, monkeypatch):
+    """Two workspace folders with a same-named module: each file imports
+    its own folder's, and never a module only the other folder has."""
+    monkeypatch.chdir(tmp_path)
+    uris, folders = {}, []
+    for name in ("one", "two"):
+        folder = tmp_path / name
+        folder.mkdir()
+        folders.append(folder)
+        (folder / "B.pf").write_text(f"theorem b_{name}: true\nproof\n  .\nend\n")
+        src = f"import B\ntheorem a: true\nproof\n  b_{name}\nend\n"
+        (folder / "A.pf").write_text(src)
+        uris[name] = _file_uri(folder / "A.pf")
+        server.workspace.add_document(uris[name], src)
+    (folders[1] / "C.pf").write_text("theorem c: true\nproof\n  .\nend\n")
+    only_in_two = "import C\ntheorem d: true\nproof\n  c\nend\n"
+    (folders[0] / "D.pf").write_text(only_in_two)
+    uris["d"] = _file_uri(folders[0] / "D.pf")
+    server.workspace.add_document(uris["d"], only_in_two)
+    try:
+        asyncio.run(lsp_server.on_initialize(server, lsp_types.InitializeParams(
+            capabilities=lsp_types.ClientCapabilities(),
+            workspace_folders=[
+                lsp_types.WorkspaceFolder(uri=_file_uri(f), name=f.name) for f in folders
+            ],
+        )))
+        for _ in range(3):  # the folders are a set: try more than one order
+            for name in ("one", "two"):
+                _open(server, uris[name])
+                assert server.published[uris[name]] == [], name
+        _open(server, uris["d"])
+        [diag] = server.published[uris["d"]]
+        assert "could not find a file for import: C" in diag.message
+    finally:
+        lsp_server._worker.submit(
+            lsp_server._update_workspace_folders, [], [str(f) for f in folders]
+        ).result(timeout=60)
+
+
 def test_did_close_clears_diagnostics(server, open_doc):
     _, uri = open_doc("close.pf", "theorem t: true\nproof\n  .\nend\n")
     # Pretend a previous run had stored some diagnostics.
@@ -536,13 +655,13 @@ def test_proof_outline_notification_is_opt_in(server, open_doc, monkeypatch):
     assert server.notified == []
 
     monkeypatch.setattr(lsp_server, "_push_proof_outline", False)
-    lsp_server.on_initialize(
+    asyncio.run(lsp_server.on_initialize(
         server,
         lsp_types.InitializeParams(
             capabilities=lsp_types.ClientCapabilities(),
             initialization_options={"proofOutline": True},
         ),
-    )
+    ))
     assert lsp_server._push_proof_outline
     asyncio.run(lsp_server.on_did_open(server, params))
     assert len(server.published[uri]) == 1

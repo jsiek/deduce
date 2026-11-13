@@ -285,6 +285,8 @@ def _check_file_locked(
     # rationale: this is the only sensible default and avoids PR #269's
     # "first prelude statement traps" bug in long-lived daemons.
     _prepare_state(tuple(prelude), tuple(prewarm_modules))
+    # After the prelude, which must not resolve into a workspace.
+    _flags.set_workspace_folder(_owning_folder(filename))
     # Each user-file check forks a fresh ctx from the post-prelude
     # baseline so successive checks produce reproducible names.  See
     # ``UniquifyContext`` and the ``_post_prelude_ctx`` machinery
@@ -592,6 +594,7 @@ _TRACKED_SCALARS: tuple[_TrackedAttr, ...] = (
 _SCOPED_STATE: tuple[_TrackedAttr, ...] = (
     (_flags, "verbose"),
     (_flags, "target_hole_location"),
+    (_flags, "workspace_folder"),
     (_flags, "debugger"),
     (_flags, "proof_outline"),
     (_flags, "_suppress_view_alias_depth"),
@@ -614,6 +617,27 @@ _SCOPED_STATE: tuple[_TrackedAttr, ...] = (
 # before anything has run.
 _IDLE_STATE: tuple[object, ...] = tuple(
     getattr(module, attr) for module, attr in _SCOPED_STATE)
+
+
+# The LSP's workspace folders (#1225). Each check resolves imports first
+# in the one that holds its file (``flags.workspace_folder``), and never
+# in the others, so two projects with a same-named module don't import
+# each other's. Replaced in one assignment, so an interrupted update
+# leaves it either old or new, and can simply be repeated.
+workspace_folders: frozenset[str] = frozenset()
+
+
+def update_workspace_folders(added: Sequence[str], removed: Sequence[str]) -> None:
+    global workspace_folders
+    workspace_folders = (workspace_folders - set(removed)) | set(added)
+
+
+def _owning_folder(filename: str) -> Optional[str]:
+    """The innermost workspace folder that holds ``filename``, if any."""
+    path = os.path.abspath(filename)
+    owners = [f for f in workspace_folders
+              if os.path.commonpath([os.path.abspath(f), path]) == os.path.abspath(f)]
+    return max(owners, key=len, default=None)
 
 
 def reset_scoped_state() -> None:

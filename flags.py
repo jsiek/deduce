@@ -116,6 +116,19 @@ def add_import_directory(dir: str) -> None:
   global import_directories
   import_directories.add(dir)
 
+# The LSP workspace folder that holds the file being checked, if any
+# (#1225). Its imports resolve there first, ahead of the import
+# directories, and never in another workspace's folder. Set by
+# ``lsp.library.check_file`` for each check.
+workspace_folder: Optional[str] = None
+
+def get_workspace_folder() -> Optional[str]:
+  return workspace_folder
+
+def set_workspace_folder(folder: Optional[str]) -> None:
+  global workspace_folder
+  workspace_folder = folder
+
 # flag for recursive descent parser
 
 recursive_descent: bool = True

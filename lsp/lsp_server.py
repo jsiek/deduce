@@ -140,7 +140,7 @@ from pygls.lsp.server import LanguageServer  # noqa: E402
 from pygls.exceptions import JsonRpcRequestCancelled  # noqa: E402
 
 from lsp import query as _query  # noqa: E402
-from lsp.library import reset_scoped_state  # noqa: E402
+from lsp.library import reset_scoped_state, update_workspace_folders  # noqa: E402
 from lsp.worker import CheckCancelled, CheckSuperseded, Worker  # noqa: E402
 
 
@@ -471,15 +471,46 @@ def _givens_payload(givens: tuple[_query.Given, ...]) -> object:
     return [{"label": g.label, "formula": _json(g.formula)} for g in givens]
 
 
+def _update_workspace_folders(added: list[str], removed: list[str]) -> None:
+    """Add and remove workspace folders (see
+    ``library.update_workspace_folders``). Runs on the worker, which
+    owns the checker's configuration."""
+    update_workspace_folders(added, removed)
+    # Hole checks made before the change may have failed an import.
+    _query._hole_checks.clear()
+
+
 @server.feature(lsp_types.INITIALIZE)
-def on_initialize(
+async def on_initialize(
     ls: LanguageServer, params: lsp_types.InitializeParams
 ) -> None:
-    """Read the ``proofOutline`` initialization option."""
+    """Read the ``proofOutline`` initialization option, and register the
+    workspace folders (or the root, when there are none), where imports
+    resolve first for the files they hold."""
     global _push_proof_outline
     _push_proof_outline = _field_as_bool(
         params.initialization_options, "proofOutline", False
     )
+    if params.workspace_folders:
+        uris = [f.uri for f in params.workspace_folders]
+    else:
+        uris = [params.root_uri] if params.root_uri else []
+    await _on_worker(_update_workspace_folders, [_path_from_uri(u) for u in uris], [])
+
+
+@server.feature(lsp_types.WORKSPACE_DID_CHANGE_WORKSPACE_FOLDERS)
+async def on_did_change_workspace_folders(
+    ls: LanguageServer, params: lsp_types.DidChangeWorkspaceFoldersParams
+) -> None:
+    """Update the workspace folders, then re-check the open documents,
+    whose imports may resolve differently now."""
+    await _on_worker(
+        _update_workspace_folders,
+        [_path_from_uri(f.uri) for f in params.event.added],
+        [_path_from_uri(f.uri) for f in params.event.removed],
+    )
+    for uri in list(ls.workspace.text_documents):
+        await _publish_diagnostics(ls, uri)
 
 
 # --- Document sync features ----------------------------------------------
