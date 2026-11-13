@@ -134,9 +134,13 @@ class WhereClause(AST):
       env[name] = binders + [n for n in env.get(name, []) if n not in binders]
       if len(env[name]) > 1:
         overloaded.add(name)
-    env[WHERE_MEMBERS_KEY] = env.get(WHERE_MEMBERS_KEY, []) \
-        + [(wm.instance, base_name(wm.member), wm.binder, wm.is_theorem)
-           for wm in members]
+    # Innermost first, so an inner clause binding the same instance as an
+    # outer one takes precedence; the clause is identified by its first
+    # binder.
+    clause = members[0].binder if members else ''
+    env[WHERE_MEMBERS_KEY] = \
+        [(wm.instance, base_name(wm.member), wm.binder, wm.is_theorem, clause)
+         for wm in members] + env.get(WHERE_MEMBERS_KEY, [])
     if overloaded:
       env[OVERLOADED_PROOFS_KEY] = env.get(OVERLOADED_PROOFS_KEY, set()) | overloaded
     return WhereClause(self.location, constraints, members)
@@ -174,10 +178,12 @@ def where_body(frm: All) -> Formula:
 
 def _where_binders(ref: ConceptRef, member: str, is_theorem: bool,
                    env: UniquifyEnv) -> List[str]:
-  """The binders of ``member`` of the instance ``ref``, if a where clause in
-  scope binds that instance."""
-  return [binder for (inst, m, binder, thm) in env.get(WHERE_MEMBERS_KEY, [])
-          if inst == ref and m == member and thm == is_theorem]
+  """The binders of ``member`` of the instance ``ref`` in the innermost
+  where clause in scope that binds that instance."""
+  found = [(binder, clause)
+           for (inst, m, binder, thm, clause) in env.get(WHERE_MEMBERS_KEY, [])
+           if inst == ref and m == member and thm == is_theorem]
+  return [binder for (binder, clause) in found if clause == found[0][1]]
 
 
 def _check_member(ref: ConceptRef, member: str, is_theorem: bool,

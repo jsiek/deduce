@@ -196,3 +196,13 @@ theorem qualified_model_theorem: all x:bool. bor(x, false) = x
 proof
   @Monoid<bool>.add_zero
 end
+
+// Nested where clauses binding the same instance: `@C<τ>.m` names the
+// innermost clause's member.
+theorem nested_qualified: all T:type where { Pointed<T> }.
+  all U:type where { Pointed<T> }. @Pointed<T>.ok(@Pointed<T>.pt)
+proof
+  arbitrary T:type where { Pointed<T> }
+  arbitrary U:type where { Pointed<T> }
+  @Pointed<T>.pt_ok
+end

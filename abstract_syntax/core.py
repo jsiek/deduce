@@ -110,8 +110,9 @@ MODELS_KEY = ' models'
 OVERLOADED_PROOFS_KEY = ' overloaded proofs'
 
 # The uniquify-environment key for the members a where clause binds, as
-# (concept instance, member base name, binder, is_theorem): qualified
-# access `@C<τ>.m` to an instance of the where clause names its binder.
+# (concept instance, member base name, binder, is_theorem, clause),
+# innermost clause first: qualified access `@C<τ>.m` to an instance of a
+# where clause names its binder.
 WHERE_MEMBERS_KEY = ' where members'
 
 ############ AST Base Classes ###########

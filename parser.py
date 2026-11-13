@@ -304,20 +304,16 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
         return PointsTo(e.meta, None,
                         parse_tree_to_ast(e.children[0], e),
                         parse_tree_to_ast(e.children[1], e))
-    elif e.data == 'field_access' and isinstance(e.children[0], Tree) \
-         and e.children[0].data == 'term_inst':
-        # `@C<τ>.m`: a member of a concept instance (#1264).
-        inst = e.children[0]
-        subject = parse_tree_to_ast(inst.children[0], e)
-        return ConceptMember(e.meta, None,
-                             ConceptRef(inst.meta, subject.name,
-                                        parse_tree_to_list(inst.children[1], e)),
-                             _field_name(e, 1))
     elif e.data == 'field_access':
+        subject = parse_tree_to_ast(e.children[0], e)
+        if isinstance(subject, TermInst) and isinstance(subject.subject, Var):
+            # `@C<τ>.m`: a member of a concept instance (#1264).
+            return ConceptMember(e.meta, None,
+                                 ConceptRef(subject.location, subject.subject.name,
+                                            subject.type_args),
+                                 _field_name(e, 1))
         _require_experimental_imperative(e.meta)
-        return FieldAccess(e.meta, None,
-                           parse_tree_to_ast(e.children[0], e),
-                           _field_name(e, 1))
+        return FieldAccess(e.meta, None, subject, _field_name(e, 1))
     elif e.data == 'rejected_new_term' \
             and not get_experimental_imperative_enabled():
         # A bare `new` in a pure term is an ordinary (here, undefined)
