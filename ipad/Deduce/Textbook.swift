@@ -248,8 +248,7 @@ struct Textbook {
                     // shows them, and textbooks don't introduce them.
                     let vars = (detail.vars ?? []).filter { $0.type.kind != "TypeType" }
                     if !vars.isEmpty {
-                        let list = vars.map { "\($0.name) : \(display($0.type))" }
-                        blocks.append(line(node, "Let \(list.joined(separator: ", ")) be arbitrary.", nil))
+                        blocks.append(line(node, letArbitrary(vars.map { ($0.name, display($0.type)) }) + ".", nil))
                     }
                 case "ImpIntro":
                     let label = detail.label ?? ""
@@ -429,6 +428,14 @@ func isQuantifier(_ tree: Outline.Tree) -> Bool {
 /// binders ends the line, so "all x:Nat. P" shows P on a line of its own.
 func leadingBreak(_ text: String) -> String {
     text.hasSuffix(". ") ? String(text.dropLast()) + "\n" : text
+}
+
+/// `arbitrary a:Nat, xs:List<Nat>` in words: "Let a be an arbitrary Nat
+/// and xs an arbitrary List<Nat>".
+func letArbitrary(_ vars: [(name: String, type: String)]) -> String {
+    let clauses = vars.enumerated().map { i, v in "\(v.name)\(i == 0 ? " be" : "") an arbitrary \(v.type)" }
+    let last = clauses.count > 1 ? " and " + clauses.last! : ""
+    return "Let " + clauses.dropLast(last.isEmpty ? 0 : 1).joined(separator: ", ") + last
 }
 
 /// A checker message without the `/path/to/File.pf:13.86-13.119: `
