@@ -2157,25 +2157,31 @@ def _hole_text(content: str, hole: Range, template: str) -> str:
     """``template`` as the text to put in place of the ``?`` at
     ``hole``: continuation lines indented like the hole's line, and, when
     the ``?`` is part of a larger step (an argument of ``apply ... to ?,
-    ?``), parenthesized unless it is a single word, so that it stays one
-    argument (``to conclude P by h, ?`` would read as ``by (h, ?)``)."""
+    ?``, a slot of ``?, ?``), in braces unless it is a single word, so
+    that it stays one argument (``to conclude P by h, ?`` would read as
+    ``by (h, ?)``). Not parentheses: a proof in parentheses at the start
+    of a line, as in ``(conclude Q by h), ?``, doesn't parse."""
     template = _indent_continuation(template, _line_indent_at(content, hole.start))
     if _inside_step(content, hole) and re.search(r"[\s,]", template):
-        return f"({template})"
+        return f"{{ {template} }}"
     return template
 
 
 def _inside_step(content: str, hole: Range) -> bool:
     """Whether the ``?`` at ``hole`` is part of a larger step: there is
-    other text on its line."""
+    other text on its line, besides the braces of a block it fills alone
+    (``case [] { ? }``)."""
     start = _line_col_to_offset(content, hole.start)
     end = _line_col_to_offset(content, hole.end)
     if start is None or end is None:
         return False
     line_start = content.rfind("\n", 0, start) + 1
     line_end = content.find("\n", end)
-    rest = content[end:] if line_end < 0 else content[end:line_end]
-    return bool((content[line_start:start] + rest).strip())
+    before = content[line_start:start].rstrip()
+    after = (content[end:] if line_end < 0 else content[end:line_end]).lstrip()
+    if before.endswith("{") and after.startswith("}"):
+        return False
+    return bool(before.strip() or after)
 
 
 def _offset_to_line_col(content: str, offset: int) -> tuple[int, int]:
