@@ -84,7 +84,13 @@ final class DeduceServer: ObservableObject {
                 if chunk.isEmpty { return }
                 buffer.append(chunk)
                 while let message = Self.takeMessage(from: &buffer) {
-                    Task { @MainActor in self?.handle(message) }
+                    // The main queue runs blocks in order, so messages are
+                    // handled in the order the server sent them (separate
+                    // Tasks need not be): a check's diagnostics come just
+                    // before its outline, and `handle` relies on that.
+                    DispatchQueue.main.async {
+                        MainActor.assumeIsolated { self?.handle(message) }
+                    }
                 }
             }
         }
