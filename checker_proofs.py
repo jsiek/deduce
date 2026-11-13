@@ -14,12 +14,12 @@ File charter:
 
 import dataclasses
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional, TypeAlias, cast
+from typing import TYPE_CHECKING, Callable, Optional, TypeAlias, cast
 
 from lark.tree import Meta
 
 from abstract_syntax import (
-    All, AllElim, AllElimTypes, AllIntro, And, ApplyDefsFact,
+    All, AllElim, AllElimTypes, AllIntro, And, ApplyDefsFact, ConceptMemberProof,
     ApplyDefsGoal, Bool, BoolType, Call, Cases,
     Constructor, Env, EvaluateFact, EvaluateGoal, Formula,
     FunctionType, Hole, IfThen, ImpIntro, IndCase, Induction,
@@ -44,7 +44,9 @@ from checker_logic import (
     expand_definitions, expand_residual_hint, ground_goal_evaluate_hint,
     instantiate, isolate_difference, pattern_to_term, rewrite,
 )
-from checker_concepts import instantiate_where, intro_where
+from checker_concepts import (
+    concept_member_formula, instantiate_where, intro_where, where_instances,
+)
 from checker_types import (
     check_formula, check_pattern, check_type, type_check_term,
     lookup_union, type_first_letter, type_synth_term,
@@ -180,65 +182,122 @@ def _check_proof_recall(proof: PRecall, env: Env) -> CheckedFormula:
       return results[0]
   user_error(loc, 'expected some facts after `recall`')
 
-def _overloaded_base(proof: Proof) -> PVar | None:
-  """The theorem name at the base of ``proof`` (a name, or a name
-  instantiated with ``[...]`` and ``<...>``) if a where clause overloads
-  it (#1264)."""
+def _types_given(proof: Proof) -> bool:
+  """Whether the theorem at the base of ``proof`` is instantiated with
+  types (``thm<τ>``) right away."""
+  above = None
+  while isinstance(proof, (AllElim, AllElimTypes)):
+    above, proof = proof, proof.univ
+  return isinstance(above, AllElimTypes)
+
+def _chain_base(proof: Proof) -> Proof:
   while isinstance(proof, (AllElim, AllElimTypes)):
     proof = proof.univ
-  return proof if isinstance(proof, PVar) and proof.overloads else None
+  return proof
 
-def _proof_candidates(base: PVar, env: Env) -> list[str]:
-  """The overloads of ``base`` that are proofs: an outer name it adds to
-  may also name, say, a function."""
-  return [name for name in base.overloads
-          if isinstance(env.dict.get(name), ProofBinding)]
+def _proof_var_formula(name: str, env: Env) -> Formula | None:
+  binding = env.dict.get(name)
+  return binding.formula if isinstance(binding, ProofBinding) else None
 
-def _with_base(proof: Proof, name: str) -> Proof:
-  """``proof`` with its overloaded base name replaced by ``name``."""
+def _base_candidates(proof: Proof, env: Env) -> list[Proof] | None:
+  """What the theorem name at the base of ``proof`` (a name, possibly
+  instantiated with ``[...]`` and ``<...>``) can mean, when the checker
+  has to choose (#1264): the theorems a where clause overloads it with,
+  and, for a where theorem used without its types, its instantiations at
+  the types that the models in scope allow. ``None`` when there is no
+  choice to make."""
+  base = _chain_base(proof)
+  if not isinstance(base, PVar):
+    return None
+  explicit = _types_given(proof)
+  names = [name for name in base.overloads
+           if _proof_var_formula(name, env) is not None] \
+      if base.overloads else [base.name]
+  candidates: list[Proof] = []
+  inferred = False
+  for name in names:
+    pvar = PVar(base.location, name, models=base.models)
+    frm = _proof_var_formula(name, env)
+    instances = None if explicit or frm is None \
+        else where_instances(base.location, frm, pvar, base.models, env)
+    if instances is None:
+      candidates.append(pvar)
+    else:
+      candidates += instances
+      inferred = True
+  if not base.overloads and not inferred:
+    return None
+  return candidates
+
+def _with_base(proof: Proof, replacement: Proof) -> Proof:
+  """``proof`` with the name at its base replaced by ``replacement``."""
   if isinstance(proof, (AllElim, AllElimTypes)):
-    return dataclasses.replace(proof, univ=_with_base(proof.univ, name))
-  return PVar(proof.location, name)
+    return dataclasses.replace(proof, univ=_with_base(proof.univ, replacement))
+  return replacement
 
-def _check_overloaded_instantiation(proof: Proof, base: PVar,
-                                    env: Env) -> CheckedFormula:
-  """Instantiate the candidate whose parameters fit the arguments: each
-  candidate is tried with the whole argument list, so `add_commute[zero, a]`
-  resolves by `a` even though `zero` alone is ambiguous."""
+def _choice_site(proof: Proof) -> tuple[Proof, Callable[[Proof], Proof]] | None:
+  """The part of ``proof`` whose base theorem may need choosing, and how
+  to rebuild ``proof`` around a choice: the theorem itself, or the
+  implication of `apply ... to ...`."""
+  if isinstance(proof, (PVar, AllElim, AllElimTypes)):
+    return proof, lambda p: p
+  if isinstance(proof, ModusPonens):
+    return proof.implication, lambda p: dataclasses.replace(proof, implication=p)
+  return None
+
+def _choices(proof: Proof, env: Env) -> list[Proof] | None:
+  """``proof`` with each candidate meaning of its base theorem, if it
+  has a choice to make."""
+  site = _choice_site(proof)
+  if site is None:
+    return None
+  sub, rebuild = site
+  candidates = _base_candidates(sub, env)
+  if candidates is None:
+    return None
+  return [rebuild(_with_base(sub, c)) for c in candidates]
+
+def _check_proof_by_choice(proof: Proof, options: list[Proof],
+                           env: Env) -> CheckedFormula:
+  """The formula of the option that fits: each is tried in full, so
+  `add_commute[zero, a]` resolves by `a` even though `zero` alone fits
+  several. Options that fit with different results are ambiguous."""
   found: list[CheckedFormula] = []
-  candidates = _proof_candidates(base, env)
-  for name in candidates:
+  for option in options:
     try:
       with speculative_probe():
-        found.append(check_proof(_with_base(proof, name), env))
+        found.append(check_proof(option, env))
     except UserError:
       pass
   if not found:
-    # Report why the first candidate does not fit.
-    return check_proof(_with_base(proof, candidates[0]), env)
+    if not options:
+      user_error(proof.location, 'cannot infer the types of the where clause in\n\t'
+                 + str(proof) + '\nbecause no model in scope fits it.'
+                 + ' Import a model, or give the types, as in `thm<Rat>`.')
+    # Report why the first option does not fit.
+    return check_proof(options[0], env)
   if any(f != found[0] for f in found[1:]):
+    site = _choice_site(proof)
+    assert site is not None
     shown = list(dict.fromkeys(map(str, found)))
-    user_error(proof.location, 'ambiguous use of ' + base_name(base.name)
-               + ': it is a theorem of ' + str(len(found))
-               + ' concept instances in the where clause, and these arguments'
-               + ' fit each of them, giving\n\t' + '\n\t'.join(shown)
-               + '\nat different types. Give the type of an argument,'
-               + ' as in `(x:T)`.')
+    user_error(proof.location, 'ambiguous use of ' + str(_chain_base(site[0]))
+               + ': it could mean ' + str(len(found))
+               + ' theorems that fit here, giving\n\t' + '\n\t'.join(shown)
+               + '\nGive the type of an argument, as in `(x:T)`,'
+               + ' or the types of the theorem, as in `thm<Rat>`.')
   return found[0]
 
 def _resolve_rewrite_overloads(loc: Meta, proofs: list[Proof],
                                formula: Formula, env: Env) -> list[Proof]:
-  """For each overloaded theorem name among ``replace``'s equations, the
-  candidate that rewrites the formula (the equations apply in order)."""
-  if not any(_overloaded_base(p) for p in proofs):
+  """For each equation of ``replace`` whose theorem needs choosing, the
+  first choice that rewrites the formula (the equations apply in order)."""
+  choices = [_choices(p, env) for p in proofs]
+  if all(c is None for c in choices):
     return proofs
   current = formula.reduce(env)
   resolved = []
-  for p in proofs:
-    base = _overloaded_base(p)
-    options = [_with_base(p, name) for name in _proof_candidates(base, env)] \
-        if base else [p]
-    for option in options:
+  for p, options in zip(proofs, choices):
+    for option in options or [p]:
       try:
         with speculative_probe():
           rewritten = apply_rewrites(loc, current, [check_proof(option, env)], env)
@@ -248,7 +307,7 @@ def _resolve_rewrite_overloads(loc: Meta, proofs: list[Proof],
       except UserError:
         continue
     else:
-      resolved.append(options[0])   # replace itself reports the error
+      resolved.append((options or [p])[0])   # replace itself reports the error
   return resolved
 
 def _check_proof_var(proof: PVar, env: Env) -> CheckedFormula:
@@ -257,7 +316,8 @@ def _check_proof_var(proof: PVar, env: Env) -> CheckedFormula:
     # Every candidate is a given, so the name stands for all of them.
     return And(loc, BoolType(loc),
                [_check_proof_var(PVar(loc, name), env)
-                for name in _proof_candidates(proof, env)])
+                for name in proof.overloads
+                if _proof_var_formula(name, env) is not None])
   try:
     formula = env.get_formula_of_proof_var(proof)
     if formula:
@@ -567,7 +627,14 @@ def _check_proof_injective(proof: PInjective, env: Env) -> CheckedFormula:
 
 def _check_proof_symmetric(proof: PSymmetric, env: Env) -> CheckedFormula:
   loc = proof.location
-  frm = check_proof(proof.body, env)
+  return _swap_sides(loc, check_proof(proof.body, env), env)
+
+def _swap_sides(loc: Meta, frm: CheckedFormula, env: Env) -> CheckedFormula:
+  """``all x. R = L`` from ``all x. L = R``: the quantifiers stay, so
+  ``replace symmetric thm`` rewrites any instance (#1198)."""
+  frm = reduce_lets(frm, env)
+  if isinstance(frm, All):
+    return dataclasses.replace(frm, body=_swap_sides(loc, frm.body, env))
   (a,b) = split_equation(loc, frm, env)
   return mkEqual(loc, b, a)
 
@@ -590,6 +657,7 @@ def _check_proof_transitive(proof: PTransitive, env: Env) -> CheckedFormula:
 _CHECK_PROOF_HANDLERS = {
   PRecall: _check_proof_recall,
   PVar: _check_proof_var,
+  ConceptMemberProof: lambda proof, env: concept_member_formula(proof, env),
   PTrue: _check_proof_true,
   PAndElim: _check_proof_and_elim,
   EvaluateFact: _check_proof_evaluate_fact,
@@ -619,9 +687,8 @@ def check_proof(proof: Proof, env: Env) -> CheckedFormula:
     print('\t' + str(proof))
   # Record before dispatch so a node whose handler raises is still a step.
   record_step(proof, env)
-  if isinstance(proof, (AllElim, AllElimTypes)) \
-     and (base := _overloaded_base(proof)) is not None:
-    return _check_overloaded_instantiation(proof, base, env)
+  if not isinstance(proof, PVar) and (options := _choices(proof, env)) is not None:
+    return _check_proof_by_choice(proof, options, env)
   handler = _CHECK_PROOF_HANDLERS.get(type(proof))
   if handler is not None:
     formula = cast(CheckedFormula, handler(proof, env))
@@ -1451,10 +1518,7 @@ def _check_proof_of_reflexive(proof: PReflexive, formula: CheckedFormula, env: E
                      + givens_str(env))
 
 def _check_proof_of_symmetric(proof: PSymmetric, formula: CheckedFormula, env: Env) -> None:
-  loc = proof.location
-  (a,b) = split_equation(loc, formula, env)
-  flip_formula = mkEqual(loc, b, a)
-  _try_check_proof_of(proof.body, flip_formula, env)
+  _try_check_proof_of(proof.body, _swap_sides(proof.location, formula, env), env)
 
 def _check_proof_of_transitive(proof: PTransitive, formula: CheckedFormula, env: Env) -> None:
   loc = proof.location
@@ -2235,17 +2299,16 @@ def check_proof_of(proof: Proof, formula: CheckedFormula, env: Env) -> None:
     print('check_proof_of: ' + str(formula) + '?')
     print('\t' + str(proof))
   record_step(proof, env, goal=formula)
-  if (base := _overloaded_base(proof)) is not None:
-    # Any candidate that proves the goal will do; the first is used.
-    candidates = _proof_candidates(base, env)
-    for name in candidates:
+  if (options := _choices(proof, env)) is not None and options:
+    # Any choice that proves the goal will do; the first is used.
+    for option in options:
       try:
         with speculative_probe():
-          check_proof_of(_with_base(proof, name), formula, env)
+          check_proof_of(option, formula, env)
         return None
       except UserError:
         pass
-    return check_proof_of(_with_base(proof, candidates[0]), formula, env)
+    return check_proof_of(options[0], formula, env)
   handler = _CHECK_PROOF_OF_HANDLERS.get(type(proof))
   if handler is not None:
     return handler(proof, formula, env)

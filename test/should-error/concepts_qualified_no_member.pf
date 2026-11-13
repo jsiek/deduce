@@ -1,0 +1,9 @@
+// Qualified access `@C<τ>.m` must name a member of the concept (#1264).
+
+import ConceptMonoid
+import ConceptBoolModel
+
+theorem nope: @Monoid<bool>.one = false
+proof
+  .
+end

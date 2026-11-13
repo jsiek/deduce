@@ -42,3 +42,27 @@ theorem real_add_le_left_mono_again: all x:Real, y:Real, z:Real.
 proof
   ordered_add_le_left_mono<Real>
 end
+
+// Without the type: it is inferred from the models in scope that fit.
+
+// ... by the goal
+theorem real_zero_add_inferred: all x:Real. real(+0) + x = x
+proof
+  group_zero_add
+end
+
+// ... by an argument
+theorem rat_zero_add_arg: all y:Rat. rat(+0) + y = y
+proof
+  arbitrary y:Rat
+  group_zero_add[y]
+end
+
+// ... inside `apply ... to`, by the arguments
+theorem real_le_left_inferred: all x:Real, y:Real, z:Real.
+  if x ≤ y then z + x ≤ z + y
+proof
+  arbitrary x:Real, y:Real, z:Real
+  assume xy
+  apply ordered_add_le_left_mono[x, y, z] to xy
+end

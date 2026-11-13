@@ -3102,7 +3102,9 @@ conclusion ::= "symmetric" proof
 ```
 
 If `X` is a proof of `a = b`, then `symmetric X` is a proof of `b = a`
-for any terms `a` and `b`.
+for any terms `a` and `b`. If `X` proves an equation under `all`, such
+as `all x. a = b`, then `symmetric X` proves `all x. b = a`, so
+`replace symmetric X` rewrites any instance of `b` to `a`.
 
 
 ## Theorem (Statement)
@@ -3538,6 +3540,47 @@ proof
   zero_zero<bool>
 end
 ```
+
+The types can also be left out: then Deduce tries the theorem at each
+type that the models in scope allow, and uses the one that fits. It
+fits by the goal it proves, by the types of its arguments, or, in
+`replace`, by what it rewrites:
+
+```
+theorem bor_false_false: bor(false, false) = false
+proof
+  zero_zero
+end
+```
+
+If more than one type fits the arguments with different results,
+Deduce reports the ambiguity; give the types, as in `zero_zero<bool>`.
+
+**Qualified members.** `@C<T>.m` names the member `m` of the concept
+instance `C<T>`, in a term (an operation) or a proof (a theorem):
+
+```deduce-grammar
+atomic_term ::= "@" atomic_term "<" type_list ">"
+atomic_proof ::= "@" IDENT "<" type_list ">" FIELDACCESS
+```
+
+Inside a where clause that names `C<T>`, it is the clause's member, which
+picks one instance when the clause names a concept more than once:
+
+```
+theorem qualified_in_where: all T:type, U:type where { Monoid<T>, Monoid<U> }.
+  @Monoid<U>.zero + @Monoid<U>.zero = @Monoid<U>.zero
+proof
+  arbitrary T:type, U:type where { Monoid<T>, Monoid<U> }
+  @Monoid<U>.add_zero[@Monoid<U>.zero]
+end
+```
+
+Elsewhere it is the member of the model of `C<T>` in scope: an
+operation unfolds to the model's definition (unless the model is
+opaque), and a theorem is the concept's theorem at the model's
+operations, e.g. `@Monoid<bool>.add_zero` proves
+`all x:bool. bor(x, false) = x`.
 
 A where formula means `all T:type. all ops. if axioms then P`, where
 `ops` are the concepts' operations and `axioms` their theorems, so it

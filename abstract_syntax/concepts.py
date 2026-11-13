@@ -134,6 +134,13 @@ class WhereClause(AST):
       env[name] = binders + [n for n in env.get(name, []) if n not in binders]
       if len(env[name]) > 1:
         overloaded.add(name)
+    # Innermost first, so an inner clause binding the same instance as an
+    # outer one takes precedence; the clause is identified by its first
+    # binder.
+    clause = members[0].binder if members else ''
+    env[WHERE_MEMBERS_KEY] = \
+        [(wm.instance, base_name(wm.member), wm.binder, wm.is_theorem, clause)
+         for wm in members] + env.get(WHERE_MEMBERS_KEY, [])
     if overloaded:
       env[OVERLOADED_PROOFS_KEY] = env.get(OVERLOADED_PROOFS_KEY, set()) | overloaded
     return WhereClause(self.location, constraints, members)
@@ -167,6 +174,72 @@ def where_body(frm: All) -> Formula:
   if frm.where.theorems() and isinstance(body, IfThen):
     return body.conclusion
   return body
+
+
+def _where_binders(ref: ConceptRef, member: str, is_theorem: bool,
+                   env: UniquifyEnv) -> List[str]:
+  """The binders of ``member`` of the instance ``ref`` in the innermost
+  where clause in scope that binds that instance."""
+  found = [(binder, clause)
+           for (inst, m, binder, thm, clause) in env.get(WHERE_MEMBERS_KEY, [])
+           if inst == ref and m == member and thm == is_theorem]
+  return [binder for (binder, clause) in found if clause == found[0][1]]
+
+
+def _check_member(ref: ConceptRef, member: str, is_theorem: bool,
+                  loc: Meta) -> None:
+  decl = concept_decls[ref.concept]
+  names = [m for (m, _) in (decl.theorems if is_theorem else decl.funs)]
+  if member not in map(base_name, names):
+    static_error(loc, base_name(ref.concept) + ' has no '
+                 + ('theorem ' if is_theorem else 'operation ') + member)
+
+
+@dataclass
+class ConceptMember(Term):
+  """`@C<τ>.m`: the operation ``m`` of the instance ``C<τ>``. Uniquify
+  turns it into the where clause's binder when a where clause in scope
+  binds the instance; otherwise the checker takes it from the model in
+  scope (recorded in ``models``)."""
+  ref: ConceptRef
+  member: str
+  models: List[str] = field(default_factory=list, kw_only=True)
+
+  def __str__(self) -> str:
+    return '@' + str(self.ref) + '.' + member_str(self.member)
+
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> Term:  # type: ignore[override]
+    ref = self.ref.uniquify(env, ctx)
+    _check_member(ref, self.member, False, self.location)
+    binders = _where_binders(ref, self.member, False, env)
+    if binders:
+      return OverloadedVar(self.location, None, binders)
+    return ConceptMember(self.location, None, ref, self.member,
+                         models=env.get(MODELS_KEY, []))
+
+
+@dataclass
+class ConceptMemberProof(Proof):
+  """`@C<τ>.thm`: the theorem ``thm`` of the instance ``C<τ>``: the
+  where clause's assumption, or the model's theorem."""
+  ref: ConceptRef
+  member: str
+  models: List[str] = field(default_factory=list, kw_only=True)
+
+  def __str__(self) -> str:
+    return '@' + str(self.ref) + '.' + self.member
+
+  def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
+    return str(self)
+
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> Proof:  # type: ignore[override]
+    ref = self.ref.uniquify(env, ctx)
+    _check_member(ref, self.member, True, self.location)
+    binders = _where_binders(ref, self.member, True, env)
+    if binders:
+      return PVar(self.location, binders[0])
+    return ConceptMemberProof(self.location, ref, self.member,
+                              models=env.get(MODELS_KEY, []))
 
 
 def member_str(name: str) -> str:

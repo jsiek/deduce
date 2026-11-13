@@ -1,0 +1,30 @@
+// `symmetric` keeps the quantifiers of the equation it flips, so
+// `replace symmetric thm` rewrites right to left without instantiating
+// `thm` (#1198).
+import UInt
+
+// uint_dist_mult_add: all a, x, y. a * (x + y) = a * x + a * y
+theorem uint_factor: all a:UInt, b:UInt, c:UInt. a * b + a * c = a * (b + c)
+proof
+  arbitrary a:UInt, b:UInt, c:UInt
+  replace symmetric uint_dist_mult_add.
+end
+
+// Proved outright, and checked against a given goal.
+theorem flipped: all a:UInt, x:UInt, y:UInt. a * x + a * y = a * (x + y)
+proof
+  symmetric uint_dist_mult_add
+end
+
+theorem flipped_have: all a:UInt, x:UInt, y:UInt. a * x + a * y = a * (x + y)
+proof
+  have f: all a:UInt, x:UInt, y:UInt. a * x + a * y = a * (x + y)
+    by symmetric uint_dist_mult_add
+  f
+end
+
+theorem flipped_used: all b:UInt. b * b + b * b = b * (b + b)
+proof
+  arbitrary b:UInt
+  (symmetric uint_dist_mult_add)[b, b, b]
+end

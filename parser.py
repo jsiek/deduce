@@ -1,5 +1,5 @@
 from abstract_syntax import (
-    All, AllElim, ConceptDecl, ConceptRef, ModelDecl, WhereClause, AllElimTypes, AllIntro, And, ApplyDefsFact,
+    All, AllElim, ConceptDecl, ConceptMember, ConceptMemberProof, ConceptRef, ModelDecl, WhereClause, AllElimTypes, AllIntro, And, ApplyDefsFact,
     ApplyDefsGoal, ArrayGet, ArrayType, Assert, Associative, Auto,
     Bool, BoolType, Call, Cases, Conditional, Constructor,
     Define, Emp, EvaluateFact, EvaluateGoal, Export, FieldAccess, FunCase,
@@ -305,10 +305,15 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
                         parse_tree_to_ast(e.children[0], e),
                         parse_tree_to_ast(e.children[1], e))
     elif e.data == 'field_access':
+        subject = parse_tree_to_ast(e.children[0], e)
+        if isinstance(subject, TermInst) and isinstance(subject.subject, Var):
+            # `@C<τ>.m`: a member of a concept instance (#1264).
+            return ConceptMember(e.meta, None,
+                                 ConceptRef(subject.location, subject.subject.name,
+                                            subject.type_args),
+                                 _field_name(e, 1))
         _require_experimental_imperative(e.meta)
-        return FieldAccess(e.meta, None,
-                           parse_tree_to_ast(e.children[0], e),
-                           _field_name(e, 1))
+        return FieldAccess(e.meta, None, subject, _field_name(e, 1))
     elif e.data == 'rejected_new_term' \
             and not get_experimental_imperative_enabled():
         # A bare `new` in a pure term is an ordinary (here, undefined)
@@ -1224,6 +1229,11 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
         set_visibility(statement, visibility)
         return statement
 
+    elif e.data == 'concept_member_proof':
+        return ConceptMemberProof(
+            e.meta, ConceptRef(e.meta, _token_text(e, 0),
+                               parse_tree_to_list(e.children[1], e)),
+            _field_name(e, 2))
     elif e.data == 'concept_ref':
         return ConceptRef(e.meta, _token_text(e, 0),
                           parse_tree_to_list(e.children[1], e))
