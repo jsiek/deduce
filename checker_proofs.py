@@ -567,7 +567,14 @@ def _check_proof_injective(proof: PInjective, env: Env) -> CheckedFormula:
 
 def _check_proof_symmetric(proof: PSymmetric, env: Env) -> CheckedFormula:
   loc = proof.location
-  frm = check_proof(proof.body, env)
+  return _swap_sides(loc, check_proof(proof.body, env), env)
+
+def _swap_sides(loc: Meta, frm: CheckedFormula, env: Env) -> CheckedFormula:
+  """``all x. R = L`` from ``all x. L = R``: the quantifiers stay, so
+  ``replace symmetric thm`` rewrites any instance (#1198)."""
+  frm = reduce_lets(frm, env)
+  if isinstance(frm, All):
+    return dataclasses.replace(frm, body=_swap_sides(loc, frm.body, env))
   (a,b) = split_equation(loc, frm, env)
   return mkEqual(loc, b, a)
 
@@ -1449,10 +1456,7 @@ def _check_proof_of_reflexive(proof: PReflexive, formula: CheckedFormula, env: E
                      + givens_str(env))
 
 def _check_proof_of_symmetric(proof: PSymmetric, formula: CheckedFormula, env: Env) -> None:
-  loc = proof.location
-  (a,b) = split_equation(loc, formula, env)
-  flip_formula = mkEqual(loc, b, a)
-  _try_check_proof_of(proof.body, flip_formula, env)
+  _try_check_proof_of(proof.body, _swap_sides(proof.location, formula, env), env)
 
 def _check_proof_of_transitive(proof: PTransitive, formula: CheckedFormula, env: Env) -> None:
   loc = proof.location

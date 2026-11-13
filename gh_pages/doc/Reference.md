@@ -3102,7 +3102,9 @@ conclusion ::= "symmetric" proof
 ```
 
 If `X` is a proof of `a = b`, then `symmetric X` is a proof of `b = a`
-for any terms `a` and `b`.
+for any terms `a` and `b`. If `X` proves an equation under `all`, such
+as `all x. a = b`, then `symmetric X` proves `all x. b = a`, so
+`replace symmetric X` rewrites any instance of `b` to `a`.
 
 
 ## Theorem (Statement)

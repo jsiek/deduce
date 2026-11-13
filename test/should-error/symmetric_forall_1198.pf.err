@@ -1,0 +1,24 @@
+./test/should-error/symmetric_forall_1198.pf:8.23-8.41: error, the proved formula:
+	a * (x + y) = a * x + a * y
+does not match the goal:
+	a * x + a * y = a * (x + y)
+because
+	operator *
+	≠ operator +
+
+
+While trying to prove that
+	y:UInt. a * (x + y) = a * x + a * y
+implies
+	y:UInt. a * x + a * y = a * (x + y)
+
+While trying to prove that
+	x:UInt, y:UInt. a * (x + y) = a * x + a * y
+implies
+	x:UInt, y:UInt. a * x + a * y = a * (x + y)
+
+While trying to prove that
+	(all a:UInt, x:UInt, y:UInt. a * (x + y) = a * x + a * y)
+implies
+	(all a:UInt, x:UInt, y:UInt. a * x + a * y = a * (x + y))
+Did you mean `replace uint_dist_mult_add`?
