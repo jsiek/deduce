@@ -60,8 +60,11 @@ final class DeduceServer: ObservableObject {
         let readFD = dup(toServer.fileHandleForReading.fileDescriptor)
         let writeFD = dup(fromServer.fileHandleForWriting.fileDescriptor)
         let resources = Bundle.main.resourcePath!
+        // The post-prelude snapshot lives in Caches: iOS may purge it, and
+        // the next launch then just rebuilds it.
+        let snapshots = URL.cachesDirectory.appendingPathComponent("deduce").path
         let thread = Thread {
-            let failed = deduce_python_serve(resources, readFD, writeFD)
+            let failed = deduce_python_serve(resources, snapshots, readFD, writeFD)
             Task { @MainActor in self.status = "Python exited (\(failed))" }
         }
         // The checker recurses deeply (RECURSION_LIMIT is 40000); the
