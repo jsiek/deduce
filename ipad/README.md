@@ -37,14 +37,18 @@ xcodebuild -project ipad/Deduce.xcodeproj -target Deduce -sdk iphonesimulator AR
 
 - `Deduce/PythonHost.c` initializes CPython (home: the bundle's `python/`) and calls
   `deduce_ipad.serve`, which runs the LSP server on a pipe pair.
-- `Deduce/DeduceServer.swift` starts that on a thread with a 256 MB stack (the checker recurses
-  deeply; iOS gives secondary threads 512 KB by default), and speaks JSON-RPC to it.
+- `Deduce/DeduceServer.swift` starts that on a thread with a 256 MB stack, and speaks JSON-RPC
+  to it. That thread runs pygls's I/O loop; the checks and requests run on the server's worker
+  thread (`lsp/worker.py`), which also gets a 256 MB stack (the checker recurses deeply; iOS
+  gives secondary threads 512 KB by default).
 - `scripts/bundle-app.sh` (an Xcode build phase) copies the checker, `lib/` with its `.thm`
   files, the samples and the packages into the app, then runs BeeWare's `install_python`.
   The `.thm` files make imports skip re-proving the stdlib, and the app never writes into its
   read-only bundle.
-- **Interrupt** calls `deduce_ipad.interrupt`, which raises `CheckCancelled` in the checking
-  thread with `PyThreadState_SetAsyncExc`.
+- **Interrupt** calls `deduce_ipad.interrupt`, which raises `CheckCancelled` in the worker
+  thread with `PyThreadState_SetAsyncExc`, ending the check or request in progress. The server
+  also interrupts a check on its own when a newer version of the document arrives, and logs
+  `check superseded: <uri>` instead of `check cancelled: <uri>`.
 
 ## Driving it headlessly
 

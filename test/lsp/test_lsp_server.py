@@ -15,6 +15,7 @@ mapping logic that's specific to this PR.
 
 from __future__ import annotations
 
+import asyncio
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -76,6 +77,7 @@ class FakeServer:
         self.workspace = _FakeWorkspace()
         self.published: dict[str, list[lsp_types.Diagnostic]] = {}
         self.notified: list[tuple[str, object]] = []
+        self.logged: list[str] = []
         self.protocol = SimpleNamespace(
             notify=lambda method, params: self.notified.append((method, params))
         )
@@ -84,6 +86,9 @@ class FakeServer:
         self, params: lsp_types.PublishDiagnosticsParams
     ) -> None:
         self.published[params.uri] = list(params.diagnostics)
+
+    def window_log_message(self, params: lsp_types.LogMessageParams) -> None:
+        self.logged.append(params.message)
 
 
 def _text(tree: dict) -> str:
@@ -198,7 +203,7 @@ def test_did_open_publishes_no_diagnostics_for_valid_file(
             text=fp.read_text(),
         )
     )
-    lsp_server.on_did_open(server, params)
+    asyncio.run(lsp_server.on_did_open(server, params))
     assert server.published[uri] == []
 
 
@@ -218,7 +223,7 @@ def test_did_open_publishes_error_diagnostic_for_broken_file(
             text=fp.read_text(),
         )
     )
-    lsp_server.on_did_open(server, params)
+    asyncio.run(lsp_server.on_did_open(server, params))
     diags = server.published[uri]
     assert len(diags) == 1
     diag = diags[0]
@@ -237,7 +242,7 @@ def test_did_save_re_runs_diagnostics(server, open_doc):
     save_params = lsp_types.DidSaveTextDocumentParams(
         text_document=lsp_types.TextDocumentIdentifier(uri=uri),
     )
-    lsp_server.on_did_save(server, save_params)
+    asyncio.run(lsp_server.on_did_save(server, save_params))
     assert server.published[uri] == []
 
 
@@ -260,7 +265,7 @@ def test_did_change_re_runs_diagnostics(server, open_doc):
             text=src1,
         )
     )
-    lsp_server.on_did_open(server, open_params)
+    asyncio.run(lsp_server.on_did_open(server, open_params))
     assert len(server.published[uri]) == 1
     initial_line = server.published[uri][0].range.start.line  # `?` on
     #  0-indexed line 2.
@@ -284,7 +289,7 @@ def test_did_change_re_runs_diagnostics(server, open_doc):
         ),
         content_changes=[],  # pygls already applied; we drive the handler
     )
-    lsp_server.on_did_change(server, change_params)
+    asyncio.run(lsp_server.on_did_change(server, change_params))
 
     # Diagnostic re-published; the new range follows the new `?`.
     assert len(server.published[uri]) == 1
@@ -311,7 +316,7 @@ def test_did_change_clears_diagnostics_when_proof_completes(
             text=src_with_hole,
         )
     )
-    lsp_server.on_did_open(server, open_params)
+    asyncio.run(lsp_server.on_did_open(server, open_params))
     assert len(server.published[uri]) == 1
 
     # Replace `?` with `.` -- now the proof validates.
@@ -324,7 +329,7 @@ def test_did_change_clears_diagnostics_when_proof_completes(
         ),
         content_changes=[],
     )
-    lsp_server.on_did_change(server, change_params)
+    asyncio.run(lsp_server.on_did_change(server, change_params))
 
     assert server.published[uri] == []
 
@@ -499,7 +504,7 @@ def test_proof_outline_notification_is_opt_in(server, open_doc, monkeypatch):
             uri=uri, language_id="deduce", version=1, text=fp.read_text(),
         )
     )
-    lsp_server.on_did_open(server, params)
+    asyncio.run(lsp_server.on_did_open(server, params))
     assert server.notified == []
 
     monkeypatch.setattr(lsp_server, "_push_proof_outline", False)
@@ -511,7 +516,7 @@ def test_proof_outline_notification_is_opt_in(server, open_doc, monkeypatch):
         ),
     )
     assert lsp_server._push_proof_outline
-    lsp_server.on_did_open(server, params)
+    asyncio.run(lsp_server.on_did_open(server, params))
     assert len(server.published[uri]) == 1
     [(method, payload)] = server.notified
     assert method == lsp_server.PROOF_OUTLINE
