@@ -79,3 +79,51 @@ def test_not_a_variable_to_induct_on(tmp_path: Path) -> None:
     path = _write(tmp_path)
     assert query.induction_at(path, SOURCE, HOLE, "U", prelude=PRELUDE) is None
     assert query.induction_at(path, SOURCE, HOLE, "zs", prelude=PRELUDE) is None
+
+
+WHERE = """\
+concept Monoid<T> {
+  fun operator+ : fn (T, T) -> T
+  fun zero : T
+  theorem add_zero: all x:T. x + zero = x
+}
+theorem t: all T:type, U:type where { Monoid<U> }. all xs:List<T>, ys:List<T>.
+  length(xs ++ ys) = length(xs) + length(ys)
+proof
+  ?
+end
+"""
+WHERE_HOLE = Position(line=9, column=3)
+
+
+def test_a_where_clause_goes_with_its_variables(tmp_path: Path) -> None:
+    """``arbitrary`` repeats the goal's ``where`` clause after the last
+    variable it constrains, and the variables after it get their own
+    ``arbitrary``."""
+    path = str(tmp_path / "t.pf")
+    Path(path).write_text(WHERE)
+
+    def step(make, variable: str) -> str:
+        edit = make(path, WHERE, WHERE_HOLE, variable, prelude=PRELUDE)
+        assert isinstance(edit, WorkspaceEdit)
+        text = WHERE.replace("  ?\n", "  " + edit.new_text + "\n")
+        Path(path).write_text(text)
+        assert [d.message for d in query.check(path, text, prelude=PRELUDE)
+                if not d.message.startswith("incomplete proof")] == []
+        Path(path).write_text(WHERE)
+        return edit.new_text
+
+    assert [b.name for b in query.goal_binders_at(path, WHERE, WHERE_HOLE, prelude=PRELUDE)] \
+        == ["T", "U", "xs", "ys"]
+    assert step(query.arbitrary_at, "T") == "arbitrary T:type\n  ?"
+    assert step(query.arbitrary_at, "U") == "arbitrary T:type, U:type where { Monoid<U> }\n  ?"
+    assert step(query.arbitrary_at, "xs") \
+        == "arbitrary T:type, U:type where { Monoid<U> }\n  arbitrary xs:List<T>\n  ?"
+    assert step(query.induction_at, "ys").startswith(
+        "arbitrary T:type, U:type where { Monoid<U> }\n  arbitrary xs:List<T>\n  induction List<T>\n")
+
+    # So does Refine, on the variable with the where clause.
+    after_t = WHERE.replace("  ?\n", "  arbitrary T:type\n  ?\n")
+    edit = query.refine_at(path, after_t, Position(line=10, column=3), prelude=PRELUDE)
+    assert isinstance(edit, WorkspaceEdit)
+    assert edit.new_text == "arbitrary U:type where { Monoid<U> }\n  ?"

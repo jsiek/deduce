@@ -1,0 +1,12 @@
+// The goal at a hole shows a where clause once, as written, and the
+// advice repeats it after the last variable it constrains.
+concept Monoid<T> {
+  fun operator+ : fn (T, T) -> T
+  fun zero : T
+  theorem add_zero: all x:T. x + zero = x
+}
+
+theorem t: all T:type, U:type where { Monoid<U> }. all x:U. x + zero = x
+proof
+  ?
+end

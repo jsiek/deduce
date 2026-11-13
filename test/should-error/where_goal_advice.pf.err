@@ -1,0 +1,13 @@
+test/should-error/where_goal_advice.pf:11.3-11.4: incomplete proof
+Goal:
+	(all T:type, U:type where { Monoid<U> }. (all x:U. x + zero = x))
+Advice:
+	This goal simplifies to
+		true
+	Consider using
+		simplify
+
+	Prove this "all" formula with:
+		arbitrary T:type, U:type where { Monoid<U> }
+	followed by a proof of:
+		(all x:U. x + zero = x)

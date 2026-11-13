@@ -57,7 +57,7 @@ if TYPE_CHECKING:
     # annotations and never execute.
     from abstract_syntax import (
         AST, All, And, Auto, Env, Formula, IfThen, Import, Or,
-        ProofBinding, ResolvedVar, Some, Statement, Term, Type,
+        ProofBinding, ResolvedVar, Some, Statement, Term, Type, WhereClause,
     )
     from abstract_syntax import Union as UnionDecl
     from error import WarningRecord
@@ -2218,9 +2218,8 @@ def _refine_template(formula: "Formula", env: Optional["Env"]) -> Optional[str]:
         case IfThen(_, _, prem, _conc):
             label = _fresh_assume_label(env)
             return f"assume {label}: {prem}\n?"
-        case All(_, _, var, _, _body):
-            x, ty = var
-            return f"arbitrary {base_name(x)}:{ty}\n?"
+        case All(_, _, (x, ty), _, _body):
+            return _arbitrary_steps([(f"{base_name(x)}:{ty}", formula.where)]) + "?"
         case Some(_, _, vars, _body):
             choices = ", ".join("?" for _ in vars)
             return f"choose {choices}\n?"
@@ -2678,7 +2677,7 @@ def arbitrary_at(
         return None
     hole_range, before, node, _ = found
     x, ty = node.var
-    step = f"arbitrary {', '.join(before + [f'{base_name(x)}:{ty}'])}\n?"
+    step = _arbitrary_steps(before + [(f"{base_name(x)}:{ty}", node.where)]) + "?"
     return WorkspaceEdit(path=path, range=hole_range, new_text=_hole_text(content, hole_range, step))
 
 
@@ -2699,30 +2698,43 @@ def induction_at(
     template = _induction_template(node, env)
     if template is None:
         return None
-    prefix = f"arbitrary {', '.join(before)}\n" if before else ""
     return WorkspaceEdit(path=path, range=hole_range,
-                         new_text=_hole_text(content, hole_range, prefix + template))
+                         new_text=_hole_text(content, hole_range, _arbitrary_steps(before) + template))
+
+
+def _arbitrary_steps(binders: list[tuple[str, Optional["WhereClause"]]]) -> str:
+    """``arbitrary`` steps, each line ending in a newline, for ``binders``
+    (``x:T`` with the where clause on it, if any): a where clause ends its
+    step, since it comes after the last variable it constrains."""
+    steps, group = "", []
+    for binder, where in binders:
+        group.append(binder)
+        if where is not None:
+            steps += f"arbitrary {', '.join(group)} {where}\n"
+            group = []
+    return steps + (f"arbitrary {', '.join(group)}\n" if group else "")
 
 
 def _up_to(
     path: str, content: str, pos: Position, variable: str, prelude: Sequence[str]
-) -> Optional[tuple[Range, list[str], "All", "Env"]]:
+) -> Optional[tuple[Range, list[tuple[str, Optional["WhereClause"]]], "All", "Env"]]:
     """The hole at ``pos``, the variables its goal binds up front before
-    ``variable`` (as ``x:T``), the goal's ``all`` for ``variable`` (as it
-    is once those are arbitrary) and the env; ``None`` off a hole or when
-    the goal doesn't bind ``variable`` up front."""
+    ``variable`` (as ``x:T``, with the where clause on each), the goal's
+    ``all`` for ``variable`` (as it is once those are arbitrary) and the
+    env; ``None`` off a hole or when the goal doesn't bind ``variable`` up
+    front."""
     from abstract_syntax import base_name
 
     at = _hole_goal(path, content, pos, prelude)
     if at is None:
         return None
     hole_range, formula, env = at
-    before: list[str] = []
+    before: list[tuple[str, Optional["WhereClause"]]] = []
     for node in _leading_alls(formula):
         x, ty = node.var
         if base_name(x) == variable:
             return hole_range, before, node, env
-        before.append(f"{base_name(x)}:{ty}")
+        before.append((f"{base_name(x)}:{ty}", node.where))
     return None
 
 
@@ -2749,13 +2761,13 @@ def _leading_alls(formula: "Formula") -> Iterator["All"]:
     Each is the goal left after ``arbitrary`` for the ones before it: like
     the checker, re-head a block (``update_all_head``) when its first
     variable goes, so it still prints as ``all y. …``."""
-    from abstract_syntax import All
+    from abstract_syntax import All, where_body
     from proof_checker import update_all_head
 
     while isinstance(formula, All):
         yield formula
         s, _ = formula.pos
-        formula = update_all_head(formula.body) if s != 0 else formula.body
+        formula = update_all_head(formula.body) if s != 0 else where_body(formula)
 
 
 def _induction_template(formula: "Formula", env: "Env") -> Optional[str]:
