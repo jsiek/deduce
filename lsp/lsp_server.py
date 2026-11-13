@@ -82,7 +82,7 @@ from abstract_syntax import (  # noqa: E402
     add_import_directory,
     init_import_directories,
 )
-from flags import RECURSION_LIMIT, set_quiet_mode  # noqa: E402
+from flags import RECURSION_LIMIT, get_import_directories, set_quiet_mode  # noqa: E402
 
 sys.setrecursionlimit(RECURSION_LIMIT)
 set_quiet_mode(True)
@@ -471,15 +471,61 @@ def _givens_payload(givens: tuple[_query.Given, ...]) -> object:
     return [{"label": g.label, "formula": _json(g.formula)} for g in givens]
 
 
+# The import directories added for workspace folders. Owned by the
+# worker, like ``flags.import_directories`` itself, which the checker
+# iterates while it resolves imports.
+_workspace_dirs: set[str] = set()
+
+
+def _update_workspace_dirs(added: list[str], removed: list[str]) -> None:
+    """Make the workspace folders ``added`` import directories, and stop
+    resolving imports in the ``removed`` ones, so a file's imports of its
+    sibling modules resolve wherever the server was started (#1225).
+    Runs on the worker."""
+    import_directories = get_import_directories()
+    for folder in removed:
+        if folder in _workspace_dirs:
+            _workspace_dirs.discard(folder)
+            import_directories.discard(folder)
+    for folder in added:
+        if folder not in import_directories:
+            _workspace_dirs.add(folder)
+            import_directories.add(folder)
+    # Hole checks made before the change may have failed an import.
+    _query._hole_checks.clear()
+
+
 @server.feature(lsp_types.INITIALIZE)
-def on_initialize(
+async def on_initialize(
     ls: LanguageServer, params: lsp_types.InitializeParams
 ) -> None:
-    """Read the ``proofOutline`` initialization option."""
+    """Read the ``proofOutline`` initialization option, and register the
+    workspace folders (or the root, when there are none) as import
+    directories."""
     global _push_proof_outline
     _push_proof_outline = _field_as_bool(
         params.initialization_options, "proofOutline", False
     )
+    if params.workspace_folders:
+        uris = [f.uri for f in params.workspace_folders]
+    else:
+        uris = [params.root_uri] if params.root_uri else []
+    await _on_worker(_update_workspace_dirs, [_path_from_uri(u) for u in uris], [])
+
+
+@server.feature(lsp_types.WORKSPACE_DID_CHANGE_WORKSPACE_FOLDERS)
+async def on_did_change_workspace_folders(
+    ls: LanguageServer, params: lsp_types.DidChangeWorkspaceFoldersParams
+) -> None:
+    """Update the import directories, then re-check the open documents,
+    whose imports may resolve differently now."""
+    await _on_worker(
+        _update_workspace_dirs,
+        [_path_from_uri(f.uri) for f in params.event.added],
+        [_path_from_uri(f.uri) for f in params.event.removed],
+    )
+    for uri in list(ls.workspace.text_documents):
+        await _publish_diagnostics(ls, uri)
 
 
 # --- Document sync features ----------------------------------------------

@@ -28,7 +28,7 @@ There are exactly two threads:
 | Thread | What it does | What it owns |
 |---|---|---|
 | **I/O loop** (pygls's asyncio loop) | Reads messages, submits jobs, awaits their futures, sends responses and notifications. | The pygls protocol and transport, the workspace's documents, `lsp_server._checks`. |
-| **Worker** (`Worker` in `lsp/worker.py`, 256 MB stack) | Runs jobs in submission order, one at a time. | Everything the Deduce pipeline touches: `flags`, the `abstract_syntax` globals, the caches in `lsp/library.py` and `lsp/query.py`, the statement cache. |
+| **Worker** (`Worker` in `lsp/worker.py`, 256 MB stack) | Runs jobs in submission order, one at a time. | Everything the Deduce pipeline touches: `flags` (including the import directories), the `abstract_syntax` globals, the caches in `lsp/library.py` and `lsp/query.py`, the statement cache, `lsp_server._workspace_dirs`. |
 
 On the iPad, the app's own large-stack thread runs the I/O loop, and the
 app's Stop button calls `lsp_server.interrupt()` from yet another thread.
@@ -92,7 +92,10 @@ on cleanup having run. Three things make sure it doesn't:
    pipeline calls must never overlap. Don't run a "quick" query on the
    I/O loop or a thread pool: route it through `_feature` or
    `_worker.submit`. (`check_file`'s lock is a second line of defense,
-   not the design.)
+   not the design.) The same goes for configuration the checker reads,
+   such as `flags.import_directories`: `find_file` iterates it, so the
+   workspace-folder handlers change it with a worker job
+   (`_update_workspace_dirs`), never directly from the I/O loop.
 2. **Only the I/O loop talks to the client.** Jobs return values; the
    I/O loop sends them. Never call `ls.text_document_publish_diagnostics`,
    `ls.protocol.notify` or `ls.window_log_message` from a job.
