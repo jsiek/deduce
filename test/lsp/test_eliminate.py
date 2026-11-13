@@ -42,6 +42,7 @@ from lsp.query import (  # noqa: E402
     Position,
     Range,
     WorkspaceEdit,
+    check,
     eliminable_vars_at,
     eliminate_at,
 )
@@ -73,8 +74,8 @@ CASES = [
         cursor=Position(line=5, column=3),
         label="H",
         expected_text=(
-            "have H1: P by conjunct 1 of H\n"
-            "  have H2: Q by conjunct 2 of H\n"
+            "have H1: P by conjunct 0 of H\n"
+            "  have H2: Q by conjunct 1 of H\n"
             "  ?"
         ),
         expected_range=Range(
@@ -250,6 +251,23 @@ def test_eliminate_at_template(case: EliminateCase) -> None:
         f"  expected: {case.expected_text!r}\n"
         f"  got:      {edit.new_text!r}"
     )
+
+
+@pytest.mark.parametrize("case", CASES, ids=lambda c: c.name)
+def test_eliminate_at_template_checks(case: EliminateCase) -> None:
+    """The edit leaves a proof that checks, apart from its new holes."""
+    edit = eliminate_at("test.pf", case.source, case.cursor, case.label)
+    assert edit is not None
+    lines = case.source.split("\n")
+    start, end = edit.range.start, edit.range.end
+    assert start.line == end.line
+    row = lines[start.line - 1]
+    lines[start.line - 1] = row[: start.column - 1] + edit.new_text + row[end.column - 1 :]
+    errors = [
+        d.message for d in check("test.pf", "\n".join(lines))
+        if not d.message.startswith("incomplete proof")
+    ]
+    assert errors == [], f"{case.name}: {errors}"
 
 
 def test_eliminate_at_returns_none_for_true_fact() -> None:

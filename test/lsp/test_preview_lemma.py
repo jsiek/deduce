@@ -115,19 +115,60 @@ end
 """
 
 
-def test_a_step_inside_an_apply_is_parenthesized(tmp_path):
-    # Unparenthesized, `to conclude a < b by H1, ?` reads as `by (H1, ?)`.
+def test_a_step_inside_an_apply_is_braced(tmp_path):
+    # Unbraced, `to conclude a < b by H1, ?` reads as `by (H1, ?)`.
     path = str(tmp_path / "t.pf")
     line = NESTED.splitlines()[4]
     first, second = (
         query.Position(5, i + 1) for i, ch in enumerate(line) if ch == "?"
     )
     fill = query.fill_from_given_at(path, NESTED, first, "H1", prelude=PRELUDE)
-    assert fill is not None and fill.new_text == "(conclude a < b by H1)"
+    assert fill is not None and fill.new_text == "{ conclude a < b by H1 }"
     p = query.preview_lemma_at(path, NESTED, second, "less_trans", prelude=PRELUDE)
     assert p is not None and p.outcome == "ok"
-    assert p.edit.new_text == "(apply less_trans[b, c, d] to ?, ?)"
+    assert p.edit.new_text == "{ apply less_trans[b, c, d] to ?, ? }"
     assert [str(g) for g in p.goals] == ["b < c", "c < d"]
+
+
+SLOTS = """\
+theorem t: all P:bool, Q:bool. if P and Q then Q and P
+proof
+  arbitrary P:bool, Q:bool
+  assume H1: P and Q
+  ?, ?
+end
+"""
+
+
+def test_a_step_in_the_first_slot_of_a_pair_checks(tmp_path):
+    # `(conclude Q by H1), ?` doesn't parse: a proof can't start with `(`.
+    path = str(tmp_path / "t.pf")
+    fill = query.fill_from_given_at(path, SLOTS, query.Position(5, 3), "H1", prelude=PRELUDE)
+    assert fill is not None and fill.new_text == "{ conclude Q by H1 }"
+    lines = SLOTS.splitlines()
+    lines[4] = "  " + fill.new_text + lines[4][3:]
+    errors = [d.message for d in query.check(path, "\n".join(lines), prelude=PRELUDE)
+              if not d.message.startswith("incomplete proof")]
+    assert errors == []
+
+
+CASE_BLOCK = """\
+theorem t: all U:type. all xs:List<U>, ys:List<U>. length(xs ++ ys) = length(xs) + length(ys)
+proof
+  arbitrary U:type
+  induction List<U>
+  case [] { ? }
+  case node(t1, l2) assume IH1 { ? }
+end
+"""
+
+
+def test_a_step_filling_a_block_alone_is_not_braced(tmp_path):
+    # `case [] { ? }`: the ? is the whole block, so no extra braces.
+    path = str(tmp_path / "t.pf")
+    pos = query.Position(5, CASE_BLOCK.splitlines()[4].index("?") + 1)
+    edit = query.refine_at(path, CASE_BLOCK, pos, prelude=PRELUDE)
+    assert edit is not None and edit.new_text == "arbitrary ys:List<U>\n  ?"
 
 
 def test_insert_lemma_matches_the_ranking_tier(tmp_path):
