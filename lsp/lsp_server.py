@@ -173,6 +173,14 @@ ELIMINABLE_VARS_REQUEST = "deduce/eliminableVarsAt"
 INSTANTIATION_VARS_REQUEST = "deduce/instantiationVarsAt"
 INSTANTIATE_REQUEST = "deduce/instantiateAt"
 
+# The variables the goal binds up front (``deduce/goalBindersAt``): make
+# one arbitrary (``deduce/arbitraryAt``) or induct on it
+# (``deduce/inductionAt``; the Induction code action takes the first),
+# after ``arbitrary`` for those before it.
+GOAL_BINDERS_REQUEST = "deduce/goalBindersAt"
+ARBITRARY_REQUEST = "deduce/arbitraryAt"
+INDUCTION_REQUEST = "deduce/inductionAt"
+
 # Custom requests for issue #353 (fill hole with a given).  Same shape
 # as the eliminate pair: the editor fetches matching-given labels via
 # ``deduce/matchingGivensAt`` for completion, then issues
@@ -1199,6 +1207,65 @@ def on_instantiate_at(ls: LanguageServer, params: object) -> Optional[dict[str, 
     if isinstance(result, str):
         return {"message": result}
     return {"edit": _workspace_edit_payload(uri, result)}
+
+
+@_feature(GOAL_BINDERS_REQUEST)
+def on_goal_binders_at(ls: LanguageServer, params: object) -> list[dict[str, object]]:
+    """Custom request: the variables the goal at the hole binds up front.
+
+    Params: ``{"textDocument", "position" (on a ``?``)}``. Result:
+    ``[{"name": str, "type": str, "induction": bool}]``, outermost first;
+    empty off a hole. See :func:`lsp.query.goal_binders_at`.
+    """
+    at = _at_position(ls, params)
+    if at is None:
+        return []
+    path, content, pos = at
+    return [
+        {"name": b.name, "type": b.type, "induction": b.induction}
+        for b in _query.goal_binders_at(path, content, pos, prelude=_prelude_for(path))
+    ]
+
+
+def _variable_step(
+    ls: LanguageServer, params: object,
+    step: Callable[..., Optional[_query.WorkspaceEdit]],
+) -> Optional[dict[str, object]]:
+    """The WorkspaceEdit ``step`` makes for ``params["variable"]`` at the
+    hole, or ``None``."""
+    uri = _field_as_str(_get_field(params, "textDocument"), "uri")
+    at = _at_position(ls, params)
+    variable = _field_as_str(params, "variable")
+    if not uri or at is None or not variable:
+        return None
+    path, content, pos = at
+    edit = step(path, content, pos, variable, prelude=_prelude_for(path))
+    return None if edit is None else _workspace_edit_payload(uri, edit)
+
+
+@_feature(ARBITRARY_REQUEST)
+def on_arbitrary_at(ls: LanguageServer, params: object) -> Optional[dict[str, object]]:
+    """Custom request: ``arbitrary`` for the variables the goal at the hole
+    binds up front, up to and including ``variable``.
+
+    Params: ``{"textDocument", "position" (on a ``?``), "variable": str}``.
+    Result: a WorkspaceEdit, or ``null`` when the goal doesn't bind
+    ``variable`` up front. See :func:`lsp.query.arbitrary_at`.
+    """
+    return _variable_step(ls, params, _query.arbitrary_at)
+
+
+@_feature(INDUCTION_REQUEST)
+def on_induction_at(ls: LanguageServer, params: object) -> Optional[dict[str, object]]:
+    """Custom request: induction on ``variable`` at the hole, after
+    ``arbitrary`` for the variables the goal binds before it.
+
+    Params: ``{"textDocument", "position" (on a ``?``), "variable": str}``.
+    Result: a WorkspaceEdit, or ``null`` when the goal doesn't bind
+    ``variable`` up front or it can't be inducted on. See
+    :func:`lsp.query.induction_at`.
+    """
+    return _variable_step(ls, params, _query.induction_at)
 
 
 @_feature(MATCHING_GIVENS_REQUEST)

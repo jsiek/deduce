@@ -10,8 +10,10 @@ struct ContentView: View {
     @State private var editing: EditingStep?
     /// The steps at a hole, for the file's version they were asked about.
     @State private var loaded: (hole: Outline.Range, version: Int, steps: DeduceServer.HoleSteps)?
-    /// The `all` given being given values, in a popover beside it.
+    /// The `all` given being given values, in a box beside it.
     @State private var instantiating: String?
+    /// The goal variable being asked about: make it arbitrary, or induct.
+    @State private var choosingFor: String?
 
     /// A step being edited as text.
     struct EditingStep: Identifiable {
@@ -45,7 +47,7 @@ struct ContentView: View {
         let quantified = hole.givens.filter { $0.formula.kind == "All" }
         let overTypes = Set(quantified.filter { FormulaView.subtrees($0.formula).first?.kind == "TypeType" }.map(\.label))
         let overTerms = Set(quantified.map(\.label)).subtracting(overTypes)
-        return book.givens(at: hole.range).reduce(into: [:]) { uses, given in
+        return book.introduced(at: hole.range).reduce(into: [:]) { uses, given in
             let (label, range) = given
             let proves = steps.matching.contains(label)
             if proves || (steps.eliminable.contains(label) && !overTypes.contains(label)) {
@@ -65,6 +67,43 @@ struct ContentView: View {
         }
         let method = use.proves ? "deduce/fillFromGivenAt" : "deduce/eliminateAt"
         Task { server.apply(await server.edits(method, at: hole.range.start, ["label": label])) }
+    }
+
+    /// The variables the selected hole can split on that the proof shows
+    /// where they're introduced, with the line or arm that does. (A given
+    /// of an `or` the server can split on too, but it's used by tapping it
+    /// as a given.)
+    private var splittable: [String: Outline.Range] {
+        guard let hole, let steps, let book = server.textbook else { return [:] }
+        return book.introduced(at: hole.range).filter { name, _ in
+            steps.splittable.contains(name) && !steps.eliminable.contains(name) && !steps.matching.contains(name)
+        }
+    }
+
+    /// Split on the variable `name` at the selected hole ("Cases on x").
+    private func split(_ name: String) {
+        guard let hole else { return }
+        Task { server.apply(await server.edits("deduce/caseSplitAt", at: hole.range.start, ["variable": name])) }
+    }
+
+    /// A variable the selected hole's goal binds up front was tapped: make
+    /// it arbitrary, or, when it can also be inducted on, ask which.
+    private func tapBinder(_ name: String) {
+        guard let binder = steps?.binders.first(where: { $0.name == name }) else { return }
+        if binder.induction {
+            choosingFor = name
+        } else {
+            introduce(name, induction: false)
+        }
+    }
+
+    /// Make the goal variable `name` arbitrary, or induct on it, after
+    /// making the ones before it arbitrary.
+    private func introduce(_ name: String, induction: Bool) {
+        guard let hole else { return }
+        choosingFor = nil
+        let method = induction ? "deduce/inductionAt" : "deduce/arbitraryAt"
+        Task { server.apply(await server.edits(method, at: hole.range.start, ["variable": name])) }
     }
 
     var body: some View {
@@ -93,7 +132,12 @@ struct ContentView: View {
                     textbook
                     if let hole {
                         Divider()
-                        HoleInspector(hole: hole, steps: steps, givensToTap: !uses.isEmpty).frame(maxWidth: 440)
+                        HoleInspector(hole: hole, steps: steps,
+                                      marked: !uses.isEmpty || !splittable.isEmpty || !(steps?.binders.isEmpty ?? true),
+                                      otherSplittable: (steps?.splittable ?? []).filter {
+                                          splittable[$0] == nil && !(steps?.eliminable.contains($0) ?? false)
+                                      })
+                            .frame(maxWidth: 440)
                     } else if showSource {
                         Divider()
                         SourceView(source: server.source, highlight: selection)
@@ -142,7 +186,10 @@ struct ContentView: View {
                 // A load superseded meanwhile must not write over the current one's.
                 if !Task.isCancelled { loaded = (range, version, steps) }
             }
-            .onChange(of: selection) { instantiating = nil }
+            .onChange(of: selection) {
+                instantiating = nil
+                choosingFor = nil
+            }
             .onChange(of: reasonLevel) { levels = [:] }
             .onChange(of: server.openFile) {
                 levels = [:]
@@ -181,7 +228,10 @@ struct ContentView: View {
                                  InstantiateView(label: label, hole: hole.range.start) { instantiating = nil }
                                      .environmentObject(server)
                              })
-                         }) { range in
+                         },
+                         splittable: splittable, split: split,
+                         binders: steps?.binders ?? [], tapBinder: tapBinder,
+                         choosingFor: $choosingFor, introduce: introduce) { range in
                 editing = EditingStep(range: range, text: sourceText(server.source.scalarLines, range))
             }
         } else if server.openFile == nil {

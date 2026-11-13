@@ -1,18 +1,21 @@
 import SwiftUI
 
 /// The steps you can take at a `?`. Steps on the whole hole come from the
-/// server's existing actions (Refine, Induction, case split); using a
-/// lemma, and `expand` and `replace` on the part of the goal you tap, are
-/// previewed before they're applied (`deduce/previewLemmaAt`,
-/// `deduce/preview…AtSubterm`). Givens are used by tapping them in the
-/// textbook.
+/// server's existing actions (Refine); using a lemma, and `expand` and
+/// `replace` on the part of the goal you tap, are previewed before they're
+/// applied (`deduce/previewLemmaAt`, `deduce/preview…AtSubterm`). Givens
+/// and variables are used by tapping them in the textbook: a variable for
+/// "Cases on" it, one the goal binds to make it arbitrary or induct on it.
 struct HoleInspector: View {
     @EnvironmentObject var server: DeduceServer
     let hole: Textbook.Hole
     /// The steps at the hole; `nil` until they arrive.
     let steps: DeduceServer.HoleSteps?
-    /// Whether the textbook marks givens to tap at this hole.
-    let givensToTap: Bool
+    /// Whether the textbook marks givens or variables to tap at this hole.
+    let marked: Bool
+    /// Variables to split on that the textbook doesn't show where they're
+    /// introduced, offered here instead.
+    let otherSplittable: [String]
 
     @State private var subterm: [Int]?
     /// Lemmas that rewrite the selected part of the goal.
@@ -43,10 +46,15 @@ struct HoleInspector: View {
             }
             Section {
                 if let steps {
-                    ForEach(steps.actions, id: \.title) { action in
+                    // Induction, and making a goal variable arbitrary, are a tap
+                    // on the variable in the textbook.
+                    ForEach(steps.actions.filter { action in
+                        steps.binders.isEmpty || !(action.title == "Induction"
+                            || action.edits.first?.newText.hasPrefix("arbitrary ") == true)
+                    }, id: \.title) { action in
                         Button(Self.label(action)) { server.apply(action.edits) }
                     }
-                    pick("Cases on…", steps.splittable, "deduce/caseSplitAt", "variable")
+                    pick("Cases on…", otherSplittable, "deduce/caseSplitAt", "variable")
                     Button("Type a proof…") {
                         typed = ""
                         typing = true
@@ -57,8 +65,10 @@ struct HoleInspector: View {
             } header: {
                 Text("Steps")
             } footer: {
-                if givensToTap {
-                    Text("To use a given, tap it where the proof introduces it. Green ones prove the goal.")
+                if marked {
+                    Text("Tap a marked given or variable in the proof to use it. Green givens prove the goal. "
+                         + "An underlined variable in the goal can be made arbitrary or inducted on; "
+                         + "elsewhere, tap one for cases on it.")
                 }
             }
             Section {
@@ -153,7 +163,8 @@ struct HoleInspector: View {
     /// Givens that are equations (either way round), then lemmas that
     /// rewrite the selection.
     private var equations: [String] {
-        let givens = hole.givens.filter { isEquation($0.formula) }.map(\.label)
+        // A given labeled `_` (a case's unnamed equation) can't be named.
+        let givens = hole.givens.filter { $0.label != "_" && isEquation($0.formula) }.map(\.label)
         return givens + givens.map { "symmetric " + $0 }
             + lemmas.filter { $0.unify_tier == "rewrite_subterm" }.map(\.name)
     }
@@ -211,19 +222,28 @@ struct HoleInspector: View {
         }
     }
 
+    /// An `expand` or `replace`: it applies as soon as it checks (Undo
+    /// takes it back); the bar below the list shows why when it doesn't,
+    /// or what the checker warns about it.
     private func stepButton(_ title: String, _ method: String, _ params: [String: Any]) -> some View {
-        Button(title) { run(title, method, params) }
+        Button(title) { run(title, method, params, apply: true) }
     }
 
-    /// Preview a step, to show in the bar below the list.
-    private func run(_ title: String, _ method: String, _ params: [String: Any]) {
+    /// Check a step: apply it (`apply`, when it checks), or show it in the
+    /// bar below the list, with what it leaves, to apply from there.
+    private func run(_ title: String, _ method: String, _ params: [String: Any], apply: Bool = false) {
         Task {
             previewing = title
             let version = server.version
             let result = await server.preview(method, at: position, params)
             previewing = nil
             // Undo or an edit as text may have changed the file meanwhile.
-            if server.version == version { preview = (title, result) }
+            guard server.version == version else { return }
+            if apply && result.problem == nil && result.warnings.isEmpty {
+                server.apply(result.edits)
+            } else {
+                preview = (title, result)
+            }
         }
     }
 
@@ -242,6 +262,10 @@ struct HoleInspector: View {
             } else if result.goals.count == 1, display(result.goals[0]) == display(hole.goal) {
                 Text("Leaves the goal as it is.")
             } else {
+                ForEach(result.warnings, id: \.self) { warning in
+                    Text(withoutLocations(warning).trimmingCharacters(in: .whitespacesAndNewlines))
+                        .font(.system(.footnote, design: .monospaced)).foregroundStyle(.orange)
+                }
                 if result.goals.isEmpty {
                     Text("Proves the goal.")
                 } else {
@@ -262,11 +286,8 @@ struct HoleInspector: View {
     private static func label(_ action: (title: String, edits: [TextEdit])) -> String {
         guard action.title == "Refine hole", let text = action.edits.first?.newText else { return action.title }
         var step = String(text.prefix { $0 != "\n" })
-        if step.hasPrefix("(") { step.removeFirst() }  // parenthesized as part of a larger step
-        if step.hasPrefix("arbitrary "), let colon = step.firstIndex(of: ":") {
-            return letArbitrary([(String(step.dropFirst("arbitrary ".count)[..<colon]),
-                                  String(step[step.index(after: colon)...]))])
-        }
+        if step.hasPrefix("{ ") { step.removeFirst(2) }  // braced as part of a larger step
+        // (`arbitrary` isn't offered here: it's a tap on the goal's variable.)
         if step.hasPrefix("assume "), let colon = step.firstIndex(of: ":") {
             var premise = step[step.index(after: colon)...].trimmingCharacters(in: .whitespaces)
             if premise.hasPrefix("("), closingParen(of: premise) == premise.index(before: premise.endIndex) {

@@ -32,6 +32,7 @@ from abstract_syntax import (
     ConceptMember, ConceptMemberProof, ConceptRef, Env,
     Formula, IfThen, ModelBinding, ModelDecl, Proof, ResolvedVar, Term, Type,
     FunctionType, TypeInst, TypeType, VarRef, WhereClause, WhereMember, base_name, concept_closure,
+    where_body,
 )
 from checker_types import check_formula, check_type, type_check_term
 from error import user_error
@@ -139,7 +140,7 @@ def check_where_all(frm: All, env: Env,
   assert frm.where is not None
   where = check_where(frm.where, body_env)
   body_env = declare_where_operations(where, body_env, loc)
-  body = check_body(frm.body, body_env)
+  body = check_body(where_body(frm), body_env)
   lookup = _binder_lookup(body_env, where, loc)
   premise = _premise(body_env, where, lookup, loc)
   if premise is not None:

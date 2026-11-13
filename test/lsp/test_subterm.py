@@ -103,6 +103,38 @@ def test_step_that_proves_the_goal_ends_with_a_period():
     assert check_file("t.pf", content=_apply(source, preview.edit), prelude=()).ok
 
 
+TWO_DEFINITIONS = PRELUDE + """\
+recursive tw(N) -> N {
+  tw(z) = z
+  tw(s(n)) = s(tw(n))
+}
+theorem t: all a:N. if R(s(s(dbl(a))), s(tw(a))) then R(dbl(s(a)), tw(s(a)))
+proof
+  arbitrary a:N
+  assume H
+  expand dbl
+  ?
+end
+"""
+
+
+def test_an_expand_right_after_another_joins_it():
+    preview = preview_expand_at_subterm("t.pf", TWO_DEFINITIONS, Position(17, 3), [], ["tw"])
+    assert preview is not None and preview.outcome == "ok"
+    assert preview.edit.range.start == Position(16, 3)
+    assert preview.edit.new_text == "expand dbl | tw\n  ?"
+    assert str(preview.goal) == "R(s(s(dbl(a))), s(tw(a)))"
+    assert _finish(TWO_DEFINITIONS, preview.edit, "H")
+
+
+def test_an_expand_after_another_step_is_its_own():
+    source = TWO_DEFINITIONS.replace("  expand dbl\n", "")
+    preview = preview_expand_at_subterm("t.pf", source, Position(16, 3), [], ["tw"])
+    assert preview is not None and preview.outcome == "ok"
+    assert preview.edit.range.start == Position(16, 3)
+    assert preview.edit.new_text == "expand tw\n  ?"
+
+
 def test_invalid_paths_and_failing_steps():
     def outcome(path, equation="dbl_s"):
         p = preview_replace_at_subterm("t.pf", TWO_OCCURRENCES, HOLE, path, equation)

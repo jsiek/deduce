@@ -57,7 +57,7 @@ if TYPE_CHECKING:
     # annotations and never execute.
     from abstract_syntax import (
         AST, All, And, Auto, Env, Formula, IfThen, Import, Or,
-        ProofBinding, ResolvedVar, Some, Statement, Term, Type,
+        ProofBinding, ResolvedVar, Some, Statement, Term, Type, WhereClause,
     )
     from abstract_syntax import Union as UnionDecl
     from error import WarningRecord
@@ -95,6 +95,7 @@ __all__ = [
     "SubtermPreview",
     "LemmaPreview",
     "InstantiationVar",
+    "GoalBinder",
     # Query functions
     "check",
     "goal_at",
@@ -105,6 +106,9 @@ __all__ = [
     "case_split_at",
     "splittable_vars_at",
     "induction_skeleton_at",
+    "goal_binders_at",
+    "arbitrary_at",
+    "induction_at",
     "eliminate_at",
     "eliminable_vars_at",
     "instantiation_vars_at",
@@ -2214,9 +2218,8 @@ def _refine_template(formula: "Formula", env: Optional["Env"]) -> Optional[str]:
         case IfThen(_, _, prem, _conc):
             label = _fresh_assume_label(env)
             return f"assume {label}: {prem}\n?"
-        case All(_, _, var, _, _body):
-            x, ty = var
-            return f"arbitrary {base_name(x)}:{ty}\n?"
+        case All(_, _, (x, ty), _, _body):
+            return _arbitrary_steps([(f"{base_name(x)}:{ty}", formula.where)]) + "?"
         case Some(_, _, vars, _body):
             choices = ", ".join("?" for _ in vars)
             return f"choose {choices}\n?"
@@ -2626,6 +2629,145 @@ def induction_skeleton_at(
         path=path, range=hole_range,
         new_text=_hole_text(content, hole_range, template),
     )
+
+
+@dataclass(frozen=True)
+class GoalBinder:
+    """A variable the goal at a hole binds up front (see
+    :func:`goal_binders_at`): its name and type, and whether
+    :func:`induction_at` can induct on it."""
+
+    name: str
+    type: str
+    induction: bool
+
+
+def goal_binders_at(
+    path: str, content: str, pos: Position, prelude: Sequence[str] = ()
+) -> tuple[GoalBinder, ...]:
+    """The variables the goal at the hole at ``pos`` binds in its leading
+    ``all``s, outermost first. Each can be made arbitrary
+    (:func:`arbitrary_at`); one whose type is a union of two or more
+    alternatives can be inducted on (:func:`induction_at`). Empty off a
+    hole."""
+    from abstract_syntax import base_name
+
+    at = _hole_goal(path, content, pos, prelude)
+    if at is None:
+        return ()
+    _, formula, env = at
+    return tuple(
+        GoalBinder(base_name(node.var[0]), str(node.var[1]), _induction_template(node, env) is not None)
+        for node in _leading_alls(formula)
+    )
+
+
+def arbitrary_at(
+    path: str, content: str, pos: Position, variable: str,
+    prelude: Sequence[str] = (),
+) -> Optional[WorkspaceEdit]:
+    """``arbitrary`` for the variables the goal at the hole at ``pos``
+    binds up front, up to and including ``variable``, then a ``?`` for
+    what's left. ``None`` off a hole or when the goal doesn't bind
+    ``variable`` up front."""
+    from abstract_syntax import base_name
+
+    found = _up_to(path, content, pos, variable, prelude)
+    if found is None:
+        return None
+    hole_range, before, node, _ = found
+    x, ty = node.var
+    step = _arbitrary_steps(before + [(f"{base_name(x)}:{ty}", node.where)]) + "?"
+    return WorkspaceEdit(path=path, range=hole_range, new_text=_hole_text(content, hole_range, step))
+
+
+def induction_at(
+    path: str, content: str, pos: Position, variable: str,
+    prelude: Sequence[str] = (),
+) -> Optional[WorkspaceEdit]:
+    """``induction`` on ``variable``, one of the variables the goal at the
+    hole at ``pos`` binds up front, after ``arbitrary`` for the ones bound
+    before it: in ``all U:type, xs:List<U>. P``, inducting on ``xs``
+    writes ``arbitrary U:type`` then the ``induction List<U>`` skeleton
+    (:func:`induction_skeleton_at`). ``None`` off a hole, or when the goal
+    doesn't bind ``variable`` up front or it can't be inducted on."""
+    found = _up_to(path, content, pos, variable, prelude)
+    if found is None:
+        return None
+    hole_range, before, node, env = found
+    template = _induction_template(node, env)
+    if template is None:
+        return None
+    return WorkspaceEdit(path=path, range=hole_range,
+                         new_text=_hole_text(content, hole_range, _arbitrary_steps(before) + template))
+
+
+def _arbitrary_steps(binders: list[tuple[str, Optional["WhereClause"]]]) -> str:
+    """``arbitrary`` steps, each line ending in a newline, for ``binders``
+    (``x:T`` with the where clause on it, if any): a where clause ends its
+    step, since it comes after the last variable it constrains."""
+    steps, group = "", []
+    for binder, where in binders:
+        group.append(binder)
+        if where is not None:
+            steps += f"arbitrary {', '.join(group)} {where}\n"
+            group = []
+    return steps + (f"arbitrary {', '.join(group)}\n" if group else "")
+
+
+def _up_to(
+    path: str, content: str, pos: Position, variable: str, prelude: Sequence[str]
+) -> Optional[tuple[Range, list[tuple[str, Optional["WhereClause"]]], "All", "Env"]]:
+    """The hole at ``pos``, the variables its goal binds up front before
+    ``variable`` (as ``x:T``, with the where clause on each), the goal's
+    ``all`` for ``variable`` (as it is once those are arbitrary) and the
+    env; ``None`` off a hole or when the goal doesn't bind ``variable`` up
+    front."""
+    from abstract_syntax import base_name
+
+    at = _hole_goal(path, content, pos, prelude)
+    if at is None:
+        return None
+    hole_range, formula, env = at
+    before: list[tuple[str, Optional["WhereClause"]]] = []
+    for node in _leading_alls(formula):
+        x, ty = node.var
+        if base_name(x) == variable:
+            return hole_range, before, node, env
+        before.append((f"{base_name(x)}:{ty}", node.where))
+    return None
+
+
+def _hole_goal(
+    path: str, content: str, pos: Position, prelude: Sequence[str]
+) -> Optional[tuple[Range, "Formula", "Env"]]:
+    """The hole at ``pos``, with its goal and env, if there is one."""
+    from abstract_syntax import remove_mark
+
+    hole_range = _find_hole_at(content, pos)
+    if hole_range is None:
+        return None
+    exc = _check_at_hole(path, content, hole_range, prelude)
+    formula = getattr(exc, "formula", None)
+    env = getattr(exc, "env", None)
+    if formula is None or env is None:
+        return None
+    return hole_range, remove_mark(formula), env
+
+
+def _leading_alls(formula: "Formula") -> Iterator["All"]:
+    """The ``all`` nodes ``formula`` starts with, one per variable, outermost
+    first: ``all x, y. all z. P`` gives those of ``x``, ``y`` and ``z``.
+    Each is the goal left after ``arbitrary`` for the ones before it: like
+    the checker, re-head a block (``update_all_head``) when its first
+    variable goes, so it still prints as ``all y. …``."""
+    from abstract_syntax import All, where_body
+    from proof_checker import update_all_head
+
+    while isinstance(formula, All):
+        yield formula
+        s, _ = formula.pos
+        formula = update_all_head(formula.body) if s != 0 else where_body(formula)
 
 
 def _induction_template(formula: "Formula", env: "Env") -> Optional[str]:
@@ -6530,8 +6672,21 @@ def _subterm_step(
             plain if not isinstance(plain, str) and plain[1] == marked[1] else marked
         )
     else:
-        # The whole goal: marking all of it would change nothing.
-        whole = _try_step(path, content, hole, tactic, prelude)
+        # The whole goal: marking all of it would change nothing. An
+        # `expand` right after another joins it (`expand A | B`), so a
+        # run of expansions stays one step.
+        joined: Union[str, tuple[str, TermTree, tuple[str, ...]], None] = None
+        before = _expand_before(content, hole) if tactic.startswith("expand ") else None
+        if before is not None:
+            span, names = before
+            indent = " " * (span.start.column - 1)
+            joined = _try_text(path, content, span,
+                               f"{tactic.replace('expand ', f'expand {names} | ', 1)}\n{indent}?", prelude)
+        whole: Union[str, tuple[str, TermTree, tuple[str, ...]]]
+        if isinstance(joined, tuple):
+            hole, whole = span, joined
+        else:
+            whole = _try_step(path, content, hole, tactic, prelude)
         if isinstance(whole, str):
             return SubtermPreview("error", message=whole)
         text, goal, warnings = whole
@@ -6630,19 +6785,27 @@ def _try_step(
     replacement text, the new goal and the warnings about the step, or
     the checker's message when the step fails. (A step that already
     proves the goal leaves ``true``.)"""
+    return _try_text(path, content, hole, _hole_text(content, hole, step + "\n?"), prelude)
+
+
+def _try_text(
+    path: str, content: str, span: Range, text: str, prelude: Sequence[str]
+) -> Union[str, tuple[str, TermTree, tuple[str, ...]]]:
+    """Replace ``span`` with ``text``, which ends in a ``?``, and check:
+    ``text``, the goal at that ``?`` and the warnings about ``text``, or
+    the checker's message."""
     from error import IncompleteProof
 
-    start = _line_col_to_offset(content, hole.start)
-    end = _line_col_to_offset(content, hole.end)
+    start = _line_col_to_offset(content, span.start)
+    end = _line_col_to_offset(content, span.end)
     assert start is not None and end is not None
-    text = _hole_text(content, hole, step + "\n?")
     new_content = content[:start] + text + content[end:]
     line, col = _offset_to_line_col(new_content, start + text.rindex("?"))
     result = _check_at_target(path, new_content, (line, col), prelude, remember=False)
     exc = None if result.ok else result.exception
 
     def in_step(loc: Optional[Meta]) -> bool:
-        return loc is not None and (hole.start.line, hole.start.column) \
+        return loc is not None and (span.start.line, span.start.column) \
             <= (loc.line, loc.column) <= (line, col)
 
     loc = getattr(exc, "location", None)
@@ -6653,6 +6816,24 @@ def _try_step(
     if exc is None:
         return "the step did not reach the hole"
     return getattr(exc, "message_body", None) or str(exc)
+
+
+def _expand_before(content: str, hole: Range) -> Optional[tuple[Range, str]]:
+    """When the ``?`` at ``hole`` is alone on its line and the line before
+    it is ``expand <names>`` at the same indentation, the span from that
+    ``expand`` to the ``?`` and the names: a second ``expand`` there can
+    join it (``expand A | B``)."""
+    lines = content.split("\n")
+    row = hole.start.line - 1
+    if row < 1 or lines[row].strip() != "?":
+        return None
+    previous = lines[row - 1]
+    indent = len(lines[row]) - len(lines[row].lstrip())
+    match = re.fullmatch(r"( *)expand ([^.{}]+?)\s*", previous)
+    if match is None or len(match.group(1)) != indent:
+        return None
+    span = Range(Position(row, indent + 1), hole.end)
+    return span, match.group(2)
 
 
 def _subterm_at(

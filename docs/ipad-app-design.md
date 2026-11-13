@@ -169,7 +169,7 @@ Rules:
 
 1. **Input-only syntax is hidden:** `#…#` marks, `arbitrary` for type
    parameters, `by { … }` braces.
-2. **Each reason has three levels:** full source, a summary chip
+2. **Each reason has three levels:** full source, a summary tag
    generated from the lemmas, definitions and givens the step uses, or
    hidden. Tap to cycle. A document-wide default lives in settings, and
    an assignment can force reasons to show (students should still learn
@@ -193,7 +193,7 @@ reasons moved into a right-hand column.
 The starting set ports the Emacs and VS Code actions (full table in
 #1222):
 
-- **Holes** are tappable chips. Tapping one offers refine (a
+- **Holes** are tappable `?` markers. Tapping one offers refine (a
   goal-directed introduction), induction, case split, or eliminating a
   given.
 - **Givens** that match the hole glow. Drag one onto the hole to use

@@ -46,6 +46,8 @@ struct Textbook {
         var subproof: [Block] = []
         /// The labels of the givens it introduces (`assume H1`, `have H2`).
         var introduces: [String] = []
+        /// The variables it introduces (`arbitrary x:T`), named in its prose.
+        var variables: [String] = []
     }
 
     struct Link {
@@ -65,6 +67,8 @@ struct Textbook {
         /// The labels of the givens it introduces: its hypotheses, or the
         /// label in a `cases` arm's title.
         let introduces: [String]
+        /// The variables its pattern introduces (`t1`, `l2` in `node(t1, l2)`).
+        let variables: [String]
         let blocks: [Block]
     }
 
@@ -134,7 +138,7 @@ struct Textbook {
                 range: theorem.range,
                 name: theorem.name,
                 lemma: theorem.lemma,
-                statement: withoutTypeParameters(display(theorem.formula)),
+                statement: display(theorem.formula),
                 blocks: builder.blocks(roots),
                 status: roots.map(\.status).max() ?? .ok)
         }
@@ -160,15 +164,16 @@ struct Textbook {
         self.unplaced = unplaced
     }
 
-    /// Where each given in scope at `hole` is introduced: the line or case
-    /// arm that assumes it, by label (an inner one hides an outer one).
-    func givens(at hole: Outline.Range) -> [String: Outline.Range] {
+    /// Where each given and variable in scope at `hole` is introduced: the
+    /// line or case arm that assumes or declares it, by name (an inner one
+    /// hides an outer one).
+    func introduced(at hole: Outline.Range) -> [String: Outline.Range] {
         theorems.first { $0.range.contains(hole) }.flatMap { Self.scope($0.blocks, hole, [:]) } ?? [:]
     }
 
-    /// The givens in scope at `hole`, if it's in `blocks`: those of
-    /// `outer`, then those introduced before it. Each line's givens are in
-    /// scope in the lines after it, an arm's in the arm.
+    /// The givens and variables in scope at `hole`, if it's in `blocks`:
+    /// those of `outer`, then those introduced before it. Each line's are
+    /// in scope in the lines after it, an arm's in the arm.
     private static func scope(_ blocks: [Block], _ hole: Outline.Range,
                               _ outer: [String: Outline.Range]) -> [String: Outline.Range]? {
         var scope = outer
@@ -177,13 +182,13 @@ struct Textbook {
             case .line(let line):
                 if line.range == hole { return scope }
                 if line.range.contains(hole) { return Self.scope(line.subproof, hole, scope) ?? scope }
-                for label in line.introduces { scope[label] = line.range }
+                for name in line.introduces + line.variables { scope[name] = line.range }
             case .chain(let range, _, _):
                 if range.contains(hole) { return scope }
             case .cases(let range, _, let arms):
                 guard range.contains(hole) else { continue }
                 guard let arm = arms.first(where: { $0.range.contains(hole) }) else { return scope }
-                for label in arm.introduces { scope[label] = arm.range }
+                for name in arm.introduces + arm.variables { scope[name] = arm.range }
                 return Self.scope(arm.blocks, hole, scope) ?? scope
             }
         }
@@ -307,12 +312,9 @@ struct Textbook {
                 let detail = step.detail
                 switch step.kind {
                 case "AllIntro":
-                    // Type parameters are input-only: the statement already
-                    // shows them, and textbooks don't introduce them.
-                    let vars = (detail.vars ?? []).filter { $0.type.kind != "TypeType" }
-                    if !vars.isEmpty {
-                        blocks.append(line(node, letArbitrary(vars.map { ($0.name, display($0.type)) }) + ".", nil))
-                    }
+                    let vars = detail.vars ?? []
+                    blocks.append(line(node, letArbitrary(vars.map { ($0.name, display($0.type)) }) + ".", nil,
+                                       variables: vars.map(\.name)))
                 case "ImpIntro":
                     let label = detail.label ?? ""
                     blocks.append(line(node, "Assume \(label)" + (detail.premise == nil ? "." : ":"),
@@ -357,13 +359,13 @@ struct Textbook {
         /// A line for `node`. With `reason`, its reason is either nested as a
         /// sub-proof (when it has steps of its own) or summarized.
         private func line(_ node: Node, _ prose: String, _ formula: String?, reason: Bool = false,
-                          introduces: [String] = []) -> Block {
+                          introduces: [String] = [], variables: [String] = []) -> Block {
             let nested = reason && node.children.contains { $0.startsLine && Node.subproof.contains($0.step.kind) }
             return .line(Line(range: node.step.range, prose: prose, formula: formula,
                               reason: reason && !nested ? self.reason(node.step) : nil,
                               status: node.status,
                               subproof: nested ? blocks(node.children) : [],
-                              introduces: introduces))
+                              introduces: introduces, variables: variables))
         }
 
         /// `apply rule to args`: "By rule, using H2 and H3." Arguments that
@@ -443,8 +445,21 @@ struct Textbook {
                 let assumes = arm.hypotheses ?? []
                 return Arm(range: arm.range, title: "Case \(header).", assumes: assumes,
                            introduces: arm.pattern == nil ? [arm.label].compactMap { $0 } : assumes,
+                           variables: arm.pattern.map(Self.patternVariables) ?? [],
                            blocks: blocks(members.filter { arm.range.contains($0.step.range) }))
             })
+        }
+
+        /// The variables a constructor pattern binds: `t1`, `l2` in
+        /// `node(t1, l2)`, which the outline keeps as text after the
+        /// constructor.
+        private static func patternVariables(_ pattern: Outline.Tree) -> [String] {
+            guard pattern.kind == "PatternCons" else { return [] }
+            return pattern.parts
+                .compactMap { if case .text(let text) = $0 { text } else { nil } }
+                .joined()
+                .split(whereSeparator: { "(), ".contains($0) })
+                .map(String.init)
         }
 
         /// `equations`: its links follow it as siblings, each starting where
@@ -570,17 +585,6 @@ func letArbitrary(_ vars: [(name: String, type: String)]) -> String {
 func withoutLocations(_ message: String) -> String {
     message.replacingOccurrences(of: #"\S+\.pf:\d+\.\d+-\d+\.\d+: "#, with: "",
                                  options: .regularExpression)
-}
-
-/// Drop `T:type` binders from a statement's leading `all`, as the proof
-/// drops `arbitrary T:type`: "all U:type, xs:List<U>. P" reads
-/// "all xs:List<U>. P", and "all T:type. P" reads "P".
-func withoutTypeParameters(_ statement: String) -> String {
-    statement
-        .replacingOccurrences(of: #"^all ([A-Za-z_][A-Za-z0-9_]*:type, )+"#, with: "all ",
-                              options: .regularExpression)
-        .replacingOccurrences(of: #"^all [A-Za-z_][A-Za-z0-9_]*:type\.\s"#, with: "",
-                              options: .regularExpression)
 }
 
 /// The index of the parenthesis that closes the one at `text`'s start.

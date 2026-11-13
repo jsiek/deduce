@@ -36,7 +36,7 @@ from abstract_syntax import (
     callable_name, formula_match,
     get_predicate_decl, get_type_name, is_constructor, is_equation, is_true,
     mkEqual, reduce_lets, remove_mark, set_dont_reduce_opaque, set_reduce_all,
-    get_reduce_only, set_reduce_only, split_equation, type_match,
+    get_reduce_only, set_reduce_only, split_equation, type_match, where_body,
 )
 from checker_common import *
 from checker_logic import (
@@ -1226,8 +1226,10 @@ def proof_advice(formula: CheckedFormula, env: Env) -> str:
 
         while isinstance(cur, All) and cur.pos[0] >= 0 and cur.pos[0] < prev_s:
           pf += f"{base_name(cur.var[0])}:{cur.var[1]}{', ' if cur.pos[0] > 0 else ''}"
+          if cur.where is not None:
+            pf += f" {cur.where}"
           prev_s = cur.pos[0]
-          cur = cur.body
+          cur = where_body(cur)
 
         arb_advice = prefix \
             + '\tProve this "all" formula with:\n' \

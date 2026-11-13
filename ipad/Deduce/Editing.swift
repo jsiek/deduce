@@ -65,6 +65,9 @@ extension DeduceServer {
         let edits: [TextEdit]
         /// Why the step can't be taken, when it can't.
         let problem: String?
+        /// What the checker warns about the step (an `expand` with nothing
+        /// left to unfold, say).
+        let warnings: [String]
     }
 
     struct Lemma: Identifiable, Decodable {
@@ -84,6 +87,14 @@ extension DeduceServer {
         ["line": p.line, "character": p.character]
     }
 
+    /// A variable the goal at a hole binds up front.
+    struct GoalBinder: Decodable {
+        let name: String
+        let type: String
+        /// Whether it can be inducted on (`deduce/inductionAt`).
+        let induction: Bool
+    }
+
     /// The steps the server offers at a hole.
     struct HoleSteps {
         /// Its code actions (Refine, Induction), by title.
@@ -94,6 +105,8 @@ extension DeduceServer {
         let eliminable: [String]
         /// Givens that prove the goal (`fillFromGivenAt`).
         let matching: [String]
+        /// The variables the goal binds up front, outermost first.
+        let binders: [GoalBinder]
     }
 
     /// The steps at `hole`, asked for together so they're answered from
@@ -103,7 +116,9 @@ extension DeduceServer {
         async let splittable = names("deduce/splittableVarsAt", at: hole)
         async let eliminable = names("deduce/eliminableVarsAt", at: hole)
         async let matching = names("deduce/matchingGivensAt", at: hole)
-        return await HoleSteps(actions: actions, splittable: splittable, eliminable: eliminable, matching: matching)
+        async let binders = request("deduce/goalBindersAt", ["position": position(hole)])
+        return await HoleSteps(actions: actions, splittable: splittable, eliminable: eliminable, matching: matching,
+                               binders: decode([GoalBinder].self, binders) ?? [])
     }
 
     /// A variable of an `all` given, to give a value for.
@@ -166,7 +181,7 @@ extension DeduceServer {
         var all = params
         all["position"] = position(hole)
         guard let uri = openURI, let result = await request(method, all) as? [String: Any] else {
-            return Preview(goals: [], edits: [], problem: "The server didn't answer.")
+            return Preview(goals: [], edits: [], problem: "The server didn't answer.", warnings: [])
         }
         let edits = TextEdit.edits(in: result["edit"], for: uri)
         let problem = result["outcome"] as? String == "ok" ? nil
@@ -175,7 +190,8 @@ extension DeduceServer {
         // goal); a lemma preview lists them.
         let goals = decode([Outline.Tree].self, result["goals"])
             ?? decode(Outline.Tree.self, result["goal"]).map { $0.text == "true" ? [] : [$0] } ?? []
-        return Preview(goals: goals, edits: edits, problem: problem)
+        return Preview(goals: goals, edits: edits, problem: problem,
+                       warnings: result["warnings"] as? [String] ?? [])
     }
 
     /// Lemmas ranked against the subterm at `path`, best first.
