@@ -140,3 +140,38 @@ proof
   replace zero_zero
   .
 end
+
+// Inference finds a type variable nested in a constraint's type
+// argument: `Pointed<Box<T>>` against the model `Pointed<Box<bool>>`.
+union Box<T> {
+  box(T)
+}
+
+concept Pointed<T> {
+  fun pt : T
+  fun ok : fn T -> bool
+  theorem pt_ok: ok(pt)
+}
+
+fun unbox(b:Box<bool>) {
+  switch b {
+    case box(x) { x }
+  }
+}
+
+model Pointed<Box<bool>> {
+  fun pt = box(true)
+  fun ok = unbox
+  theorem pt_ok = { expand unbox. }
+}
+
+theorem boxed_ok: all T:type where { Pointed<Box<T>> }. ok((pt:Box<T>))
+proof
+  arbitrary T:type where { Pointed<Box<T>> }
+  pt_ok
+end
+
+theorem unbox_box_true: unbox(box(true))
+proof
+  boxed_ok
+end

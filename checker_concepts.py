@@ -30,7 +30,7 @@ from typing import Callable, cast
 from abstract_syntax import (
     All, AllElimTypes, And, BoolType, ConceptBinding, ConceptDecl, ConceptRef, Env,
     Formula, IfThen, ModelBinding, ModelDecl, Proof, ResolvedVar, Term, Type,
-    TypeType, VarRef, WhereClause, WhereMember, base_name, concept_closure,
+    FunctionType, TypeInst, TypeType, VarRef, WhereClause, WhereMember, base_name, concept_closure,
 )
 from checker_types import check_formula, check_type, type_check_term
 from error import user_error
@@ -215,6 +215,31 @@ def find_model(env: Env, inst: ConceptRef, models: list[str],
   return found[0]
 
 
+def _match_type(pattern: Type, ty: Type, tyvars: list[str],
+                sub: dict[str, Type]) -> bool:
+  """Match ``pattern`` against ``ty``, binding the type variables
+  ``tyvars`` wherever they occur in ``pattern`` (say, ``T`` in
+  ``List<T>`` against ``List<bool>``)."""
+  if isinstance(pattern, VarRef) and pattern.get_name() in tyvars:
+    x = pattern.get_name()
+    if x in sub:
+      return bool(sub[x] == ty)
+    sub[x] = ty
+    return True
+  if isinstance(pattern, TypeInst) and isinstance(ty, TypeInst):
+    return len(pattern.arg_types) == len(ty.arg_types) \
+      and _match_type(pattern.typ, ty.typ, tyvars, sub) \
+      and all(_match_type(p, t, tyvars, sub)
+              for (p, t) in zip(pattern.arg_types, ty.arg_types))
+  if isinstance(pattern, FunctionType) and isinstance(ty, FunctionType):
+    return not pattern.type_params and not ty.type_params \
+      and len(pattern.param_types) == len(ty.param_types) \
+      and all(_match_type(p, t, tyvars, sub)
+              for (p, t) in zip(pattern.param_types, ty.param_types)) \
+      and _match_type(pattern.return_type, ty.return_type, tyvars, sub)
+  return bool(pattern == ty)
+
+
 def where_instances(loc: Meta, frm: Formula, base: Proof, models: list[str],
                     env: Env) -> list[Proof] | None:
   """For a where formula used without its types, ``base`` instantiated at
@@ -230,20 +255,21 @@ def where_instances(loc: Meta, frm: Formula, base: Proof, models: list[str],
     frm = frm.body
   if not isinstance(frm, All) or frm.where is None:
     return None
-  options: list[list[Type]] = []
-  for x in tyvars:
-    types: list[Type] = []
-    for name in models:
-      b = env.dict.get(name)
-      if not isinstance(b, ModelBinding):
+  options: list[list[Type]] = [[] for _ in tyvars]
+  for name in models:
+    b = env.dict.get(name)
+    if not isinstance(b, ModelBinding):
+      continue
+    for c in frm.where.constraints:
+      if c.concept != b.model.concept.concept:
         continue
-      for c in frm.where.constraints:
-        if c.concept != b.model.concept.concept:
-          continue
-        for (arg, ty) in zip(c.type_args, b.model.concept.type_args):
-          if isinstance(arg, VarRef) and arg.get_name() == x and ty not in types:
-            types.append(ty)
-    options.append(types)
+      sub: dict[str, Type] = {}
+      if not all(_match_type(arg, ty, tyvars, sub)
+                 for (arg, ty) in zip(c.type_args, b.model.concept.type_args)):
+        continue
+      for (x, types) in zip(tyvars, options):
+        if x in sub and sub[x] not in types:
+          types.append(sub[x])
   instances: list[Proof] = []
   for choice in itertools.product(*options):
     proof = base
