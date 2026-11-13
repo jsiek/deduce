@@ -1,6 +1,6 @@
 import contextlib
 from dataclasses import dataclass
-from typing import Iterator, List, NoReturn, Optional, TYPE_CHECKING
+from typing import Callable, Iterator, List, NoReturn, Optional, TYPE_CHECKING
 
 from lark.tree import Meta
 
@@ -371,17 +371,30 @@ def static_error(location: Meta, msg: str) -> NoReturn:
   raise exc
 
 class MatchFailed(Exception):
-  # Stashed the same way as ``Diagnostic`` subclasses (see base-class
-  # comment) so the LSP/MCP query API can read e.location /
-  # e.message_body uniformly across exception types.
-  location: Meta
-  message_body: str
+  # Carries ``location`` / ``message_body`` like the ``Diagnostic``
+  # subclasses (see base-class comment) so the LSP/MCP query API can read
+  # them uniformly across exception types. The message is rendered only
+  # when read: matchers such as lemma ranking and ``replace`` try many
+  # candidates and discard almost every failure, so pretty-printing two
+  # formulas per failure dominated their cost (#1256).
+  def __init__(self, location: Meta, render: Callable[[], str]) -> None:
+    super().__init__()
+    self.location = location
+    self._render: Callable[[], str] | None = render
+    self._body = ''
 
-def match_failed(location: Meta, msg: str) -> NoReturn:
-  exc = MatchFailed(error_header(location) + msg)
-  exc.location = location
-  exc.message_body = msg
-  raise exc
+  @property
+  def message_body(self) -> str:
+    if self._render is not None:
+      self._body = self._render()
+      self._render = None
+    return self._body
+
+  def __str__(self) -> str:
+    return error_header(self.location) + self.message_body
+
+def match_failed(location: Meta, render: Callable[[], str]) -> NoReturn:
+  raise MatchFailed(location, render)
 
 MAX_ERR_DEPTH = 2
 

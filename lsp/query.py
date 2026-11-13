@@ -4357,51 +4357,23 @@ def _collect_lemma_candidates(
     the theorem currently being proved out of the picker at one of
     its own holes.
     """
-    from abstract_syntax import (
-        Import as _ImportNode,
-        Postulate,
-        Theorem,
-        get_uniquified_modules,
-    )
+    from abstract_syntax import Import as _ImportNode, Postulate, Theorem
 
-    out = []
+    out: list[tuple[LemmaInfo, "Formula", str]] = []
     seen_names: set[str] = set()
-    user_module = _module_for_path(path)
-    prelude_set = set(prelude)
     seen_modules: set[str] = set()
-
-    def _collect_from_module(
-        module_ast: Optional[Sequence["Statement"]], module_name: str,
-        importer: Optional["Import"],
-    ) -> None:
-        if module_ast is None:
-            return
-        for stmt in module_ast:
-            if importer is not None and not importer._filter_admits(stmt):
-                continue
-            if isinstance(stmt, (Theorem, Postulate)):
-                info = _lemma_info_for(stmt, public_only=True)
-                if info is not None and info.name not in seen_names:
-                    seen_names.add(info.name)
-                    out.append((info, stmt.what, module_name))
-            elif isinstance(stmt, _ImportNode) and stmt.visibility == "public":
-                if stmt.name in seen_modules or stmt.name == user_module:
-                    continue
-                if stmt.name in prelude_set:
-                    # Prelude is walked separately below.
-                    continue
-                seen_modules.add(stmt.name)
-                _collect_from_module(stmt.ast, stmt.name, stmt)
+    user_module = _module_for_path(path)
+    # Prelude modules are collected separately, below.
+    skip = set(prelude) | {user_module}
 
     if ast_nodes is not None:
         for stmt in ast_nodes:
             if isinstance(stmt, _ImportNode):
-                if stmt.name in prelude_set or stmt.name == user_module:
-                    continue
-                if stmt.name in seen_modules:
+                if stmt.name in skip or stmt.name in seen_modules:
                     continue
                 seen_modules.add(stmt.name)
-                _collect_from_module(stmt.ast, stmt.name, stmt)
+                _collect_module_lemmas(out, seen_names, seen_modules, skip,
+                                       stmt.ast, stmt.name, stmt)
                 continue
             if not isinstance(stmt, (Theorem, Postulate)):
                 continue
@@ -4416,17 +4388,99 @@ def _collect_lemma_candidates(
             out.append((info, stmt.what, user_module))
 
     if prelude:
-        modules = get_uniquified_modules()
-        for module_name in prelude:
-            if module_name in seen_modules:
-                continue
-            module_ast = modules.get(module_name)
-            if module_ast is None:
-                continue
-            seen_modules.add(module_name)
-            _collect_from_module(module_ast, module_name, None)
-
+        out.extend(c for c in _prelude_lemma_candidates(prelude, user_module)
+                   if c[0].name not in seen_names)
     return tuple(out)
+
+
+def _collect_module_lemmas(
+    out: list[tuple[LemmaInfo, "Formula", str]],
+    seen_names: set[str],
+    seen_modules: set[str],
+    skip: set[str],
+    module_ast: Optional[Sequence["Statement"]],
+    module_name: str,
+    importer: Optional["Import"],
+) -> None:
+    """Append the public theorems and postulates of ``module_ast`` to
+    ``out``, following its public imports except those named in
+    ``skip``, for :func:`_collect_lemma_candidates`."""
+    from abstract_syntax import Import as _ImportNode, Postulate, Theorem
+
+    if module_ast is None:
+        return
+    for stmt in module_ast:
+        if importer is not None and not importer._filter_admits(stmt):
+            continue
+        if isinstance(stmt, (Theorem, Postulate)):
+            info = _lemma_info_for(stmt, public_only=True)
+            if info is not None and info.name not in seen_names:
+                seen_names.add(info.name)
+                out.append((info, stmt.what, module_name))
+        elif isinstance(stmt, _ImportNode) and stmt.visibility == "public":
+            if stmt.name in seen_modules or stmt.name in skip:
+                continue
+            seen_modules.add(stmt.name)
+            _collect_module_lemmas(out, seen_names, seen_modules, skip,
+                                   stmt.ast, stmt.name, stmt)
+
+
+# The prelude's lemma candidates and each one's ``_formula_symbols``,
+# which every lemma query used to rebuild (#1256): a single entry,
+# ``(key, module ASTs, candidates, {id(formula): (formula, symbols)})``.
+# It is reused while the uniquified prelude modules are the same
+# objects, so restoring or reloading the post-prelude state rebuilds it.
+_prelude_lemmas: Optional[tuple[
+    tuple[object, ...],
+    tuple[object, ...],
+    tuple[tuple[LemmaInfo, "Formula", str], ...],
+    dict[int, tuple["Formula", frozenset[str]]],
+]] = None
+
+
+def _prelude_lemma_candidates(
+    prelude: Sequence[str], user_module: str,
+) -> tuple[tuple[LemmaInfo, "Formula", str], ...]:
+    """The public theorems and postulates of the ``prelude`` modules
+    (matching ``print_theorems``' visibility filter), cached."""
+    global _prelude_lemmas
+    from abstract_syntax import get_uniquified_modules
+    from flags import get_unique_names, get_verbose
+
+    # The signatures are rendered text, so the display flags are part
+    # of the key.
+    key = (tuple(prelude), user_module, get_unique_names(), get_verbose())
+    modules = get_uniquified_modules()
+    asts = tuple(modules.get(m) for m in prelude)
+    cached = _prelude_lemmas
+    if cached is not None and cached[0] == key \
+       and all(a is b for a, b in zip(cached[1], asts)):
+        return cached[2]
+
+    out: list[tuple[LemmaInfo, "Formula", str]] = []
+    seen_names: set[str] = set()
+    seen_modules: set[str] = set()
+    skip = set(prelude) | {user_module}
+    for module_name, module_ast in zip(prelude, asts):
+        if module_name in seen_modules or module_ast is None:
+            continue
+        seen_modules.add(module_name)
+        _collect_module_lemmas(out, seen_names, seen_modules, skip,
+                               module_ast, module_name, None)
+    candidates = tuple(out)
+    symbols = {id(f): (f, _formula_symbols(f)) for _, f, _ in candidates}
+    _prelude_lemmas = (key, asts, candidates, symbols)
+    return candidates
+
+
+def _cached_formula_symbols(formula: "Formula") -> frozenset[str]:
+    """:func:`_formula_symbols`, from the prelude cache when ``formula``
+    is a prelude lemma's."""
+    if _prelude_lemmas is not None:
+        hit = _prelude_lemmas[3].get(id(formula))
+        if hit is not None and hit[0] is formula:
+            return hit[1]
+    return _formula_symbols(formula)
 
 
 # Operator-like rator names whose appearance in a goal we can extract
@@ -5142,7 +5196,7 @@ def _equation_subterm_match(
     ``rewrite_subterm`` match). ``None`` when ``conc`` isn't an equation
     or no side matches. Wrapped broadly: a ranking heuristic must never
     crash the caller."""
-    from abstract_syntax import Call, Env, VarRef, formula_match
+    from abstract_syntax import Call, Env, Type, VarRef, formula_match
     from error import MatchFailed
 
     if not (
@@ -5166,7 +5220,16 @@ def _equation_subterm_match(
             # rewrite to surface (issue #896).
             if isinstance(side, VarRef) and side in vars:
                 continue
+            # Matching a call against a name or a type falls through to
+            # ``formula_match``'s last case, which compares the two after
+            # reducing them in an empty ``Env``, where a name or type
+            # reduces to itself. Reduce the side once here instead of
+            # once per subterm (#1256).
+            side_red = side.reduce(Env()) if isinstance(side, Call) else None
             for sub in subterms:
+                if side_red is not None and isinstance(sub, (VarRef, Type)) \
+                   and side_red != sub:
+                    continue
                 sub_matching: dict[str, "Term"] = {}
                 try:
                     formula_match(
@@ -5323,7 +5386,7 @@ def _rank_lemmas(
             head_score = 0.0
 
         if goal_syms:
-            symbols = _formula_symbols(formula)
+            symbols = _cached_formula_symbols(formula)
             shared = goal_syms & symbols
             overlap = len(shared) / len(goal_syms)
             # Jaccard breaks ties between lemmas with the same overlap
