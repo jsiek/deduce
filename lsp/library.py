@@ -560,10 +560,11 @@ _TRACKED_CONTAINERS: tuple[_TrackedAttr, ...] = (
     (_proof_checker, "checked_modules"),
     (_proof_checker, "modules"),
     (_proof_checker, "dirty_files"),
-    # Filled in by declarations (`Rat`'s constructors, a `view`'s alias)
-    # rather than by import, so a user file's declarations must not
-    # outlive its check, and the prelude's must survive a disk snapshot.
-    (_abstract_syntax, "rat_constructors"),
+    # Filled in by declarations (the stdlib's `UInt` and `Rat`
+    # representations, a `view`'s alias) rather than by import, so a
+    # user file's declarations must not outlive its check, and the
+    # prelude's must survive a disk snapshot.
+    (_abstract_syntax, "library_names"),
     (_flags, "view_source_aliases"),
 )
 

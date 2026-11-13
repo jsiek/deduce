@@ -157,6 +157,32 @@ def isUInt(t: Term) -> bool:
     case _:
       return False
 
+# Unique names of the stdlib declarations that the checker builds or
+# recognizes directly, keyed by (module, base name). Each is recorded
+# when its module declares it (``register_library_name``), so a
+# same-named declaration in another module is never mistaken for it:
+#   UInt: the private ``Binary`` representation, its constructors and
+#         the helper ``dub`` (lib/UIntDefs.pf);
+#   Rat:  the constructors of ``Rat`` and of the private ``Pos``
+#         (lib/RatDefs.pf, lib/RatPos.pf), which ``ratToStr`` renders.
+_LIBRARY_DECLS = {
+  'UInt': ('Binary', 'bzero', 'dub_inc', 'inc_dub', 'dub'),
+  'Rat': ('rzero', 'rpos', 'rneg', 'pint', 'pfrac'),
+}
+library_names: dict[tuple[str, str], str] = {}
+
+def register_library_name(module: str, name: str) -> None:
+  if base_name(name) in _LIBRARY_DECLS.get(module, ()):
+    library_names[(module, base_name(name))] = name
+
+def _is_library_name(module: str, name: str) -> bool:
+  return library_names.get((module, base_name(name))) == name
+
+def _uint_name(name: str, env: Env) -> str | None:
+  # The unique name of UInt's ``name``, if it is in scope in ``env``.
+  unique = library_names.get(('UInt', name))
+  return unique if unique is not None and unique in env else None
+
 def isBZero(t: Term) -> bool:
   match t:
     case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'bzero':
@@ -226,7 +252,7 @@ def _array_index_predecessor(pos: Term, env: Env) -> Term | None:
     if isSuc(pos):
       return get_arg(pos)
     if isDubInc(pos):
-      inc_dub_name = env.base_to_unique('inc_dub')
+      inc_dub_name = _uint_name('inc_dub', env)
       if inc_dub_name is None:
         return None
       return mkIncDub(loc, get_arg(pos), cname=inc_dub_name)
@@ -259,14 +285,14 @@ def _uint_double(loc: Meta, x: Term, env: Env) -> Term | None:
     is reachable in `env`.  Returns None if neither path works.
     """
     if isBZero(x):
-      bzero_name = env.base_to_unique('bzero')
+      bzero_name = _uint_name('bzero', env)
       if bzero_name is None:
         return None
       return mkBZero(loc, zname=bzero_name)
     if isDubInc(x):
       # 2 * dub_inc(k) = dub_inc(inc_dub(k))
-      dub_inc_name = env.base_to_unique('dub_inc')
-      inc_dub_name = env.base_to_unique('inc_dub')
+      dub_inc_name = _uint_name('dub_inc', env)
+      inc_dub_name = _uint_name('inc_dub', env)
       if dub_inc_name is None or inc_dub_name is None:
         return None
       return mkDubInc(loc, mkIncDub(loc, get_arg(x), cname=inc_dub_name),
@@ -276,11 +302,11 @@ def _uint_double(loc: Meta, x: Term, env: Env) -> Term | None:
       inner = _uint_double(loc, get_arg(x), env)
       if inner is None:
         return None
-      dub_inc_name = env.base_to_unique('dub_inc')
+      dub_inc_name = _uint_name('dub_inc', env)
       if dub_inc_name is None:
         return None
       return mkDubInc(loc, inner, cname=dub_inc_name)
-    dub_name = env.base_to_unique('dub')
+    dub_name = _uint_name('dub', env)
     if dub_name is None:
       return None
     return Call(loc, None, ResolvedVar(loc, None, dub_name), [x])
@@ -536,18 +562,14 @@ def try_fast_lit_nat_arith(loc: Meta, rator: Term, args: list[Term],
                    sname=suc_name or 'suc')
   return Call(loc, ty, _resolved_or_var(loc, None, lit_name), [inner])
 
-def _uint_binary_name(env: Env) -> str | None:
-  # Unique name of the UInt library's private ``Binary`` representation
-  # type. It is ``private`` to the UInt module, so a user file cannot
-  # name it: a call whose result type is this ``Binary`` is therefore a
-  # library UInt operation, which is what lets the fast path tell the
-  # built-in UInt conversion/arithmetic apart from a same-named user
-  # overload (e.g. ``fun fromNat(n:Nat) -> Nat``).
-  return env.base_to_unique('Binary')
-
 def _is_uint_binary_type(ty: Type | VarRef | None, env: Env) -> bool:
-  # A named type such as ``Binary`` is represented as a ``VarRef`` node.
-  binary_name = _uint_binary_name(env)
+  # Whether ``ty`` is the UInt library's ``Binary`` representation type
+  # (a named type is a ``VarRef``). ``Binary`` is ``private`` to the UInt
+  # module, so a user file cannot name it: a call whose result type is
+  # this ``Binary`` is therefore a library UInt operation, which is what
+  # lets the fast path tell the built-in UInt conversion/arithmetic apart
+  # from a same-named user overload (e.g. ``fun fromNat(n:Nat) -> Nat``).
+  binary_name = _uint_name('Binary', env)
   return binary_name is not None \
       and isinstance(ty, VarRef) \
       and ty.get_name() == binary_name
@@ -556,9 +578,9 @@ def _mk_uint_from_int(loc: Meta, n: int, ty: Type | None, env: Env) -> Term | No
   # Build the compact ``Binary`` value for ``n`` using the environment's
   # uniquified constructor names, so the result is structurally identical
   # to what the opaque recursive reduction would produce.
-  bz = env.base_to_unique('bzero')
-  di = env.base_to_unique('dub_inc')
-  idd = env.base_to_unique('inc_dub')
+  bz = _uint_name('bzero', env)
+  di = _uint_name('dub_inc', env)
+  idd = _uint_name('inc_dub', env)
   if bz is None or di is None or idd is None:
     return None
   return intToUInt(loc, n, bzero=bz, dubinc=di, incdub=idd, uint_ty=ty)
@@ -722,22 +744,13 @@ def deduceIntToInt(t: Term) -> str:
     case _:
       internal_error(t.location, 'deduceIntToInt: expected an int, not ' + str(t))
 
-# Unique names of the constructors of the stdlib's `Rat` and `Pos`
-# (lib/RatDefs.pf, lib/RatPos.pf), recorded when module Rat declares
-# them, so that `ratToStr` never renders a same-named user constructor.
-rat_constructors: set[str] = set()
-
-def register_rat_constructors(module: str, union_name: str,
-                              constrs: list[str]) -> None:
-  if module == 'Rat' and base_name(union_name) in ('Rat', 'Pos'):
-    rat_constructors.update(constrs)
-
 def _con_name(t: Term) -> str | None:
   match t:
-    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if n in rat_constructors:
+    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) \
+      if _is_library_name('Rat', n):
       return base_name(n)
     case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), _) \
-      if n in rat_constructors:
+      if _is_library_name('Rat', n):
       return base_name(n)
     case _:
       return None

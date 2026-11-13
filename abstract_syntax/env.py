@@ -126,15 +126,6 @@ class Env:
     else:
       self.dict = {}
 
-  # A lookup by base name, which can't tell modules apart. Left only for
-  # the UInt literal hooks in ``literals.py``, which find the stdlib's
-  # binary representation by name (#1250).
-  def base_to_unique(self, name: str) -> str | None:
-    for k in self.dict.keys():
-      if base_name(k) == name:
-        return k
-    return None
-
   def __str__(self) -> str:
     return ',\n'.join(['\t' + name2str(k) + ': ' + str(v) \
                        for (k,v) in reversed(self.dict.items())])
