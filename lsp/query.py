@@ -2732,8 +2732,8 @@ def _render_induction(
 #
 # - ``H: true''         -> None ("the `true' fact is useless")
 # - ``H: false''        -> ``H'' (discharges any goal)
-# - ``H: P and Q''      -> ``have h1: P by conjunct 1 of H\nhave
-#                            h2: Q by conjunct 2 of H\n?''
+# - ``H: P and Q''      -> ``have h1: P by conjunct 0 of H\nhave
+#                            h2: Q by conjunct 1 of H\n?''
 # - ``H: P or Q''       -> ``cases H\n  case h1: P { ? }\n
 #                            case h2: Q { ? }''
 # - ``H: if P then Q''  -> ``have h: Q by apply H to ?\n?''
@@ -2948,11 +2948,11 @@ def _fresh_h_labels(env: "Env", count: int) -> list[str]:
 
 
 def _eliminate_and(label: str, formula: "And", env: "Env") -> str:
-    """``have h1: P by conjunct 1 of H\\nhave h2: Q by conjunct 2
-    of H\\n?''"""
+    """``have h1: P by conjunct 0 of H\\nhave h2: Q by conjunct 1
+    of H\\n?'' (``conjunct`` counts from 0)."""
     labels = _fresh_h_labels(env, len(formula.args))
     lines = [
-        f"have {h}: {arg} by conjunct {i + 1} of {label}"
+        f"have {h}: {arg} by conjunct {i} of {label}"
         for i, (h, arg) in enumerate(zip(labels, formula.args))
     ]
     lines.append("?")
