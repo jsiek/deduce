@@ -1,18 +1,21 @@
 import SwiftUI
 
 /// The steps you can take at a `?`. Steps on the whole hole come from the
-/// server's existing actions (Refine, Induction, case split); using a
-/// lemma, and `expand` and `replace` on the part of the goal you tap, are
-/// previewed before they're applied (`deduce/previewLemmaAt`,
-/// `deduce/preview…AtSubterm`). Givens are used by tapping them in the
-/// textbook.
+/// server's existing actions (Refine); using a lemma, and `expand` and
+/// `replace` on the part of the goal you tap, are previewed before they're
+/// applied (`deduce/previewLemmaAt`, `deduce/preview…AtSubterm`). Givens
+/// and variables are used by tapping them in the textbook: a variable for
+/// "Cases on" it, the goal's for induction.
 struct HoleInspector: View {
     @EnvironmentObject var server: DeduceServer
     let hole: Textbook.Hole
     /// The steps at the hole; `nil` until they arrive.
     let steps: DeduceServer.HoleSteps?
-    /// Whether the textbook marks givens to tap at this hole.
-    let givensToTap: Bool
+    /// Whether the textbook marks givens or variables to tap at this hole.
+    let marked: Bool
+    /// Variables to split on that the textbook doesn't show where they're
+    /// introduced, offered here instead.
+    let otherSplittable: [String]
 
     @State private var subterm: [Int]?
     /// Lemmas that rewrite the selected part of the goal.
@@ -43,10 +46,12 @@ struct HoleInspector: View {
             }
             Section {
                 if let steps {
-                    ForEach(steps.actions, id: \.title) { action in
+                    // Induction is a tap on the goal's variable, in the textbook.
+                    ForEach(steps.actions.filter { $0.title != inductionAction || firstBound(hole.goal) == nil },
+                            id: \.title) { action in
                         Button(Self.label(action)) { server.apply(action.edits) }
                     }
-                    pick("Cases on…", steps.splittable, "deduce/caseSplitAt", "variable")
+                    pick("Cases on…", otherSplittable, "deduce/caseSplitAt", "variable")
                     Button("Type a proof…") {
                         typed = ""
                         typing = true
@@ -57,8 +62,9 @@ struct HoleInspector: View {
             } header: {
                 Text("Steps")
             } footer: {
-                if givensToTap {
-                    Text("To use a given, tap it where the proof introduces it. Green ones prove the goal.")
+                if marked {
+                    Text("Tap a marked given or variable in the proof to use it. Green givens prove the goal; "
+                         + "tap an underlined variable for cases on it, or the goal's for induction.")
                 }
             }
             Section {
@@ -153,7 +159,8 @@ struct HoleInspector: View {
     /// Givens that are equations (either way round), then lemmas that
     /// rewrite the selection.
     private var equations: [String] {
-        let givens = hole.givens.filter { isEquation($0.formula) }.map(\.label)
+        // A given labeled `_` (a case's unnamed equation) can't be named.
+        let givens = hole.givens.filter { $0.label != "_" && isEquation($0.formula) }.map(\.label)
         return givens + givens.map { "symmetric " + $0 }
             + lemmas.filter { $0.unify_tier == "rewrite_subterm" }.map(\.name)
     }

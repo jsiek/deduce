@@ -20,6 +20,8 @@ enum ReasonLevel: String, CaseIterable, Identifiable {
 /// source pane highlights it); tapping a reason cycles how much of it shows.
 /// At a selected hole, the givens it can use are marked where they're
 /// introduced (green when one proves the goal), and tapping one uses it.
+/// So are the variables it can split on (tap for "Cases on x"), and in its
+/// goal, the variable it can induct on (tap for induction).
 struct TextbookView: View {
     let book: Textbook
     let defaultLevel: ReasonLevel
@@ -38,6 +40,15 @@ struct TextbookView: View {
     @Binding var instantiating: String?
     /// The popover's content for a given's label.
     let instantiator: (String) -> AnyView
+    /// The variables the selected hole can split on, by name, with the
+    /// line or arm that introduces each.
+    let splittable: [String: Outline.Range]
+    /// Called with a variable's name to split on it at the selected hole.
+    let split: (String) -> Void
+    /// The variable of the selected hole's goal it can induct on.
+    let inductionVariable: String?
+    /// Called to induct on `inductionVariable`.
+    let induct: () -> Void
     /// Called with a step's range to edit it as text.
     let editAsText: (Outline.Range) -> Void
 
@@ -52,6 +63,7 @@ struct TextbookView: View {
                 .padding(24)
                 .frame(maxWidth: 820, alignment: .leading)
             }
+            .environment(\.openURL, openVariable)
             .onChange(of: scrollTarget) { _, target in
                 guard let target else { return }
                 if let theorem = book.theorems.first(where: { $0.range.contains(target) }) {
@@ -100,14 +112,18 @@ struct TextbookView: View {
         return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 if isHole {
-                    // A hole is a chip: tap it to see the steps you can take.
+                    // A hole is marked `?`: tap it to see the steps you can take.
                     Text("?").font(Self.formulaFont).bold()
                         .padding(.horizontal, 8)
                         .background(Capsule().fill(Color.orange.opacity(0.2)))
                 }
-                Text(line.prose).font(Self.proseFont)
+                variablesText(line.prose, line.variables.filter { splittable[$0] == line.range })
+                    .font(Self.proseFont)
                 if let formula = line.formula {
-                    Text(formula).font(Self.formulaFont)
+                    // The selected hole's goal marks the variable it can induct on.
+                    variablesText(formula, isHole && selection == line.range ? inductionVariable.map { [$0] } ?? [] : [],
+                                  induction: true)
+                        .font(Self.formulaFont)
                 }
                 statusMark(line.status)
                 Spacer(minLength: 16)
@@ -192,7 +208,8 @@ struct TextbookView: View {
     private func armTitle(_ arm: Textbook.Arm) -> some View {
         let usable = { (label: String) in self.uses[label].flatMap { $0.range == arm.range ? label : nil } }
         return HStack(alignment: .firstTextBaseline, spacing: 6) {
-            givenText(Text(arm.title), arm.assumes.isEmpty ? arm.introduces.first.flatMap(usable) : nil)
+            givenText(variablesText(arm.title, arm.variables.filter { splittable[$0] == arm.range }),
+                      arm.assumes.isEmpty ? arm.introduces.first.flatMap(usable) : nil)
             if !arm.assumes.isEmpty {
                 Text("Assume")
                 ForEach(arm.assumes.indices, id: \.self) { i in
@@ -215,6 +232,48 @@ struct TextbookView: View {
             text
         }
     }
+
+    /// `text` with the first occurrence of each of `names`, in order, marked
+    /// with a dotted underline; tapping one splits on it (or, with
+    /// `induction`, inducts on it).
+    private func variablesText(_ text: String, _ names: [String], induction: Bool = false) -> Text {
+        guard !names.isEmpty else { return Text(text) }
+        var result = AttributedString()
+        var rest = Substring(text)
+        for name in names {
+            let word = "(?<![\\w'′])" + NSRegularExpression.escapedPattern(for: name) + "(?![\\w'′])"
+            guard let range = rest.range(of: word, options: .regularExpression),
+                  let encoded = name.addingPercentEncoding(withAllowedCharacters: .alphanumerics) else { continue }
+            result += AttributedString(rest[..<range.lowerBound])
+            var marked = AttributedString(rest[range])
+            marked.link = URL(string: "\(induction ? Self.inductScheme : Self.splitScheme):\(encoded)")
+            marked.underlineStyle = Text.LineStyle(pattern: .dot, color: .accentColor)
+            result += marked
+            rest = rest[range.upperBound...]
+        }
+        result += AttributedString(rest)
+        return Text(result)
+    }
+
+    /// Handles a tap on a variable `variablesText` marked.
+    private var openVariable: OpenURLAction {
+        OpenURLAction { url in
+            switch url.scheme {
+            case Self.inductScheme:
+                induct()
+            case Self.splitScheme:
+                guard let name = url.absoluteString.dropFirst(Self.splitScheme.count + 1).removingPercentEncoding
+                else { return .discarded }
+                split(name)
+            default:
+                return .systemAction
+            }
+            return .handled
+        }
+    }
+
+    private static let splitScheme = "deduce-split"
+    private static let inductScheme = "deduce-induct"
 
     /// Whether the given `label` is asking for values.
     private func asking(_ label: String?) -> Binding<Bool> {

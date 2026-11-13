@@ -45,7 +45,7 @@ struct ContentView: View {
         let quantified = hole.givens.filter { $0.formula.kind == "All" }
         let overTypes = Set(quantified.filter { FormulaView.subtrees($0.formula).first?.kind == "TypeType" }.map(\.label))
         let overTerms = Set(quantified.map(\.label)).subtracting(overTypes)
-        return book.givens(at: hole.range).reduce(into: [:]) { uses, given in
+        return book.introduced(at: hole.range).reduce(into: [:]) { uses, given in
             let (label, range) = given
             let proves = steps.matching.contains(label)
             if proves || (steps.eliminable.contains(label) && !overTypes.contains(label)) {
@@ -65,6 +65,36 @@ struct ContentView: View {
         }
         let method = use.proves ? "deduce/fillFromGivenAt" : "deduce/eliminateAt"
         Task { server.apply(await server.edits(method, at: hole.range.start, ["label": label])) }
+    }
+
+    /// The variables the selected hole can split on that the proof shows
+    /// where they're introduced, with the line or arm that does. (A given
+    /// of an `or` the server can split on too, but it's used by tapping it
+    /// as a given.)
+    private var splittable: [String: Outline.Range] {
+        guard let hole, let steps, let book = server.textbook else { return [:] }
+        return book.introduced(at: hole.range).filter { name, _ in
+            steps.splittable.contains(name) && !steps.eliminable.contains(name) && !steps.matching.contains(name)
+        }
+    }
+
+    /// The variable of the selected hole's goal that induction inducts on,
+    /// when the server offers induction there.
+    private var inductionVariable: String? {
+        guard let hole, steps?.actions.contains(where: { $0.title == inductionAction }) == true else { return nil }
+        return firstBound(hole.goal)
+    }
+
+    /// Split on the variable `name` at the selected hole ("Cases on x").
+    private func split(_ name: String) {
+        guard let hole else { return }
+        Task { server.apply(await server.edits("deduce/caseSplitAt", at: hole.range.start, ["variable": name])) }
+    }
+
+    /// Induct on the selected hole's goal variable.
+    private func induct() {
+        guard let action = steps?.actions.first(where: { $0.title == inductionAction }) else { return }
+        server.apply(action.edits)
     }
 
     var body: some View {
@@ -93,7 +123,12 @@ struct ContentView: View {
                     textbook
                     if let hole {
                         Divider()
-                        HoleInspector(hole: hole, steps: steps, givensToTap: !uses.isEmpty).frame(maxWidth: 440)
+                        HoleInspector(hole: hole, steps: steps,
+                                      marked: !uses.isEmpty || !splittable.isEmpty || inductionVariable != nil,
+                                      otherSplittable: (steps?.splittable ?? []).filter {
+                                          splittable[$0] == nil && !(steps?.eliminable.contains($0) ?? false)
+                                      })
+                            .frame(maxWidth: 440)
                     } else if showSource {
                         Divider()
                         SourceView(source: server.source, highlight: selection)
@@ -181,7 +216,9 @@ struct ContentView: View {
                                  InstantiateView(label: label, hole: hole.range.start) { instantiating = nil }
                                      .environmentObject(server)
                              })
-                         }) { range in
+                         },
+                         splittable: splittable, split: split,
+                         inductionVariable: inductionVariable, induct: induct) { range in
                 editing = EditingStep(range: range, text: sourceText(server.source.scalarLines, range))
             }
         } else if server.openFile == nil {
