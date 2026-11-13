@@ -188,6 +188,12 @@ def _overloaded_base(proof: Proof) -> PVar | None:
     proof = proof.univ
   return proof if isinstance(proof, PVar) and proof.overloads else None
 
+def _proof_candidates(base: PVar, env: Env) -> list[str]:
+  """The overloads of ``base`` that are proofs: an outer name it adds to
+  may also name, say, a function."""
+  return [name for name in base.overloads
+          if isinstance(env.dict.get(name), ProofBinding)]
+
 def _with_base(proof: Proof, name: str) -> Proof:
   """``proof`` with its overloaded base name replaced by ``name``."""
   if isinstance(proof, (AllElim, AllElimTypes)):
@@ -200,7 +206,8 @@ def _check_overloaded_instantiation(proof: Proof, base: PVar,
   candidate is tried with the whole argument list, so `add_commute[zero, a]`
   resolves by `a` even though `zero` alone is ambiguous."""
   found: list[CheckedFormula] = []
-  for name in base.overloads:
+  candidates = _proof_candidates(base, env)
+  for name in candidates:
     try:
       with speculative_probe():
         found.append(check_proof(_with_base(proof, name), env))
@@ -208,7 +215,7 @@ def _check_overloaded_instantiation(proof: Proof, base: PVar,
       pass
   if not found:
     # Report why the first candidate does not fit.
-    return check_proof(_with_base(proof, base.overloads[0]), env)
+    return check_proof(_with_base(proof, candidates[0]), env)
   if any(f != found[0] for f in found[1:]):
     shown = list(dict.fromkeys(map(str, found)))
     user_error(proof.location, 'ambiguous use of ' + base_name(base.name)
@@ -229,7 +236,8 @@ def _resolve_rewrite_overloads(loc: Meta, proofs: list[Proof],
   resolved = []
   for p in proofs:
     base = _overloaded_base(p)
-    options = [_with_base(p, name) for name in base.overloads] if base else [p]
+    options = [_with_base(p, name) for name in _proof_candidates(base, env)] \
+        if base else [p]
     for option in options:
       try:
         with speculative_probe():
@@ -248,7 +256,8 @@ def _check_proof_var(proof: PVar, env: Env) -> CheckedFormula:
   if proof.overloads:
     # Every candidate is a given, so the name stands for all of them.
     return And(loc, BoolType(loc),
-               [_check_proof_var(PVar(loc, name), env) for name in proof.overloads])
+               [_check_proof_var(PVar(loc, name), env)
+                for name in _proof_candidates(proof, env)])
   try:
     formula = env.get_formula_of_proof_var(proof)
     if formula:
@@ -2225,15 +2234,16 @@ def check_proof_of(proof: Proof, formula: CheckedFormula, env: Env) -> None:
     print('\t' + str(proof))
   record_step(proof, env, goal=formula)
   if (base := _overloaded_base(proof)) is not None:
-    # Any candidate that proves the goal will do.
-    for name in base.overloads:
+    # Any candidate that proves the goal will do; the first is used.
+    candidates = _proof_candidates(base, env)
+    for name in candidates:
       try:
         with speculative_probe():
           check_proof_of(_with_base(proof, name), formula, env)
         return None
       except UserError:
         pass
-    return check_proof_of(_with_base(proof, base.overloads[0]), formula, env)
+    return check_proof_of(_with_base(proof, candidates[0]), formula, env)
   handler = _CHECK_PROOF_OF_HANDLERS.get(type(proof))
   if handler is not None:
     return handler(proof, formula, env)

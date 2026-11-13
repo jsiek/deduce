@@ -126,11 +126,14 @@ class WhereClause(AST):
         binder = generate_name(m, ctx)
         labels.setdefault(base_name(m), []).append(binder)
         members.append(WhereMember(inst, m, binder, True))
-    # A theorem name is overloaded when several instances have it (say,
-    # `where { Monoid<T>, Monoid<U> }`); it shadows any outer name.
+    # A theorem name adds to the overloads of the name: other instances'
+    # theorems (say, `where { Monoid<T>, Monoid<U> }`) and any outer
+    # theorem with that name. The where clause's come first.
+    overloaded = set()
     for (name, binders) in labels.items():
-      env[name] = binders
-    overloaded = {n for (n, bs) in labels.items() if len(bs) > 1}
+      env[name] = binders + [n for n in env.get(name, []) if n not in binders]
+      if len(env[name]) > 1:
+        overloaded.add(name)
     if overloaded:
       env[OVERLOADED_PROOFS_KEY] = env.get(OVERLOADED_PROOFS_KEY, set()) | overloaded
     return WhereClause(self.location, constraints, members)
