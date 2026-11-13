@@ -50,6 +50,9 @@ final class DeduceServer: ObservableObject {
     /// Checks the server hasn't answered yet, by document URI. The server
     /// checks one document at a time, so opening a file mid-check queues it.
     private var checkStarted: [String: Date] = [:]
+    /// How long the open file's check took, once its diagnostics are in,
+    /// until its outline arrives too.
+    private var finishedCheck: Double?
     private var nextRequest = 2
     private var waiting: [Int: CheckedContinuation<Any?, Never>] = [:]
 
@@ -111,6 +114,7 @@ final class DeduceServer: ObservableObject {
         lastEdit = nil
         textbook = nil
         diagnostics = []
+        finishedCheck = nil
         version = 1
         check = .running
         checkStarted[uri] = Date()
@@ -248,7 +252,10 @@ final class DeduceServer: ObservableObject {
             results.forEach { print("deduce-diagnostic: line \($0.line): \($0.message)") }
             if uri == openURI {
                 diagnostics = results
-                check = .finished(seconds: seconds)
+                // Finished once the outline that follows has arrived: until
+                // then the textbook, and the hole the inspector asks about,
+                // are still the previous version's.
+                finishedCheck = seconds
             }
         case "deduce/proofOutline":
             guard params["uri"] as? String == openURI,
@@ -259,6 +266,10 @@ final class DeduceServer: ObservableObject {
                 print("deduce-outline: \(textbook!.theorems.count) theorems")
             } catch {
                 record("could not read the proof outline: \(error)")
+            }
+            if let seconds = finishedCheck {
+                finishedCheck = nil
+                check = .finished(seconds: seconds)
             }
         case "window/logMessage":
             let text = params["message"] as? String ?? ""
