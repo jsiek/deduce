@@ -11,10 +11,12 @@ import abstract_syntax as ast
 @pytest.fixture
 def rzero() -> Iterator[str]:
     # Register a stdlib Rat constructor, as declaring module Rat does.
+    saved = dict(ast.library_names)
     name = "rzero.test"
-    ast.rat_constructors.add(name)
+    ast.register_library_name("Rat", name)
     yield name
-    ast.rat_constructors.discard(name)
+    ast.library_names.clear()
+    ast.library_names.update(saved)
 
 
 def test_rzero_value_prints_as_rat_zero(rzero: str) -> None:

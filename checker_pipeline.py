@@ -38,7 +38,7 @@ from abstract_syntax import (
     Trace, Type, TypeAlias, TypeInst, TypeType, Union, Var, VarRef, VerboseLevel,
     ViewDecl, ViewRecFun, alpha_equiv, base_name, callable_name,
     check_post_typecheck_invariants, find_file, first_non_value, full_reduce, is_function_value, mkEqual,
-    print_theorems, register_rat_constructors, type_match, type_names,
+    print_theorems, register_library_name, type_match, type_names,
 )
 from checker_cache import (
     _collect_defined_names, _collect_referenced_names, _hash_ast,
@@ -987,8 +987,7 @@ def process_declaration_visibility(decl: Declaration, env: Env,
         checked_params = [source_ty] + [check_type(t, body_env)
                                        for t in params[1:]]
       fun_type = FunctionType(loc, typarams, checked_params, checked_returns)
-      # print('process declaration:')
-      # print(decl.pretty_print(4))
+      register_library_name(env.get_current_module(), name)
       return decl, env.declare_term_var(loc, name, fun_type,
                                         visibility=decl.visibility)
 
@@ -1122,8 +1121,8 @@ def process_declaration_visibility(decl: Declaration, env: Env,
         new_alts.append(new_constr)
       checked_union = Union(loc, name, typarams, new_alts,
                             visibility=decl.visibility)
-      register_rat_constructors(env.get_current_module(), name,
-                                [c.name for c in new_alts])
+      for n in [name] + [c.name for c in new_alts]:
+        register_library_name(env.get_current_module(), n)
       if decl.param_polarities is not None:
         checked_union.param_polarities = decl.param_polarities
       env = env.define_type(loc, name, checked_union, decl.visibility)

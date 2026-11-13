@@ -15,6 +15,9 @@ lookup in ``env`` -- has no other coverage.
 
 from __future__ import annotations
 
+from typing import Iterator
+
+import pytest
 from lark.tree import Meta
 
 import abstract_syntax as ast
@@ -33,21 +36,25 @@ def _array_ty() -> ast.ArrayType:
 
 
 def _term_binding() -> ast.TermBinding:
-    # The bindings themselves are only looked up by name
-    # (`base_to_unique`); their `typ` / `defn` content is unused by
-    # the index-shift rule, so a placeholder type is fine.
+    # The rule only checks that the bindings are in scope; their `typ` /
+    # `defn` content is unused, so a placeholder type is fine.
     return ast.TermBinding(_meta(), module='UInt', typ=_int_ty())
 
 
-def _make_env_with_uint_helpers() -> ast.Env:
-    """Build a minimal `Env` with uniquified UInt constructor and
-    helper names registered.  The rule looks these up via
-    `base_to_unique`; their bindings only need to be present.
+@pytest.fixture
+def uint_env() -> Iterator[ast.Env]:
+    """A minimal `Env` with uniquified UInt constructor and helper
+    names in scope, registered as module UInt's, as declaring them
+    does.
     """
+    saved = dict(ast.library_names)
     env = ast.Env()
     for unique_name in ('bzero.0', 'dub_inc.0', 'inc_dub.0', 'dub.0'):
+        ast.register_library_name('UInt', unique_name)
         env.dict[unique_name] = _term_binding()
-    return env
+    yield env
+    ast.library_names.clear()
+    ast.library_names.update(saved)
 
 
 def _node_ctor() -> ast.TermInst:
@@ -103,14 +110,14 @@ def _assert_peeled_to(reduced: ast.Term, expected_index_base: str,
         f'expected position arg Var({expected_index_arg_name!r}), got {arg}'
 
 
-def test_inc_dub_symbolic_falls_back_to_dub_call():
+def test_inc_dub_symbolic_falls_back_to_dub_call(uint_env: ast.Env) -> None:
     """`array(node(x, xs))[inc_dub(i')]` reduces to
     `array(xs)[dub(i')]` when `i'` is symbolic.  The rule's
     `_uint_double` helper has no structural shape to peel and so
     falls back to building a `Call` to the library `dub` helper
     that it finds in `env`.
     """
-    env = _make_env_with_uint_helpers()
+    env = uint_env
     iprime = ast.Var(_meta(), None, "iprime")
     inc_dub_iprime = _call_resolved('inc_dub.0', [iprime])
     reduced = _build_array_get(inc_dub_iprime).reduce(env)
@@ -119,11 +126,11 @@ def test_inc_dub_symbolic_falls_back_to_dub_call():
                       expected_index_arg_name='iprime')
 
 
-def test_dub_inc_symbolic_peels_structurally():
+def test_dub_inc_symbolic_peels_structurally(uint_env: ast.Env) -> None:
     """`array(node(x, xs))[dub_inc(i')]` reduces structurally to
     `array(xs)[inc_dub(i')]` without needing the `dub` fallback.
     """
-    env = _make_env_with_uint_helpers()
+    env = uint_env
     iprime = ast.Var(_meta(), None, "iprime")
     dub_inc_iprime = _call_resolved('dub_inc.0', [iprime])
     reduced = _build_array_get(dub_inc_iprime).reduce(env)
@@ -132,13 +139,13 @@ def test_dub_inc_symbolic_peels_structurally():
                       expected_index_arg_name='iprime')
 
 
-def test_inc_dub_symbolic_without_dub_in_env_does_not_reduce():
+def test_inc_dub_symbolic_without_dub_in_env_does_not_reduce(uint_env: ast.Env) -> None:
     """When the lib `dub` helper is not in env, the rule has nothing
     to fall back to and must leave the access unreduced -- the proof
     checker's existing equality and rewriting machinery has to take
     over from there.
     """
-    env = _make_env_with_uint_helpers()
+    env = uint_env
     del env.dict['dub.0']
     iprime = ast.Var(_meta(), None, "iprime")
     inc_dub_iprime = _call_resolved('inc_dub.0', [iprime])
