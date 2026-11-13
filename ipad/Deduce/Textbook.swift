@@ -243,6 +243,17 @@ struct Textbook {
         /// its own, shown nested under the step.
         static let subproof = structural.subtracting(["RewriteGoal", "ApplyDefsGoal", "SimplifyGoal"])
 
+        /// Kinds whose children are parts proved separately: a
+        /// conjunction's (`p1, p2`), and an `apply`'s rule and arguments.
+        static let hasParts: Set<String> = ["PTuple", "ModusPonens"]
+
+        /// Kinds that lead into the step after them, which proves what's
+        /// left: in `have h: P by …` / `?`, the `?` finishes the part.
+        static let leading: Set<String> = [
+            "AllIntro", "ImpIntro", "PLet", "PTLetNew", "SomeElim", "Suffices",
+            "RewriteGoal", "ApplyDefsGoal", "SimplifyGoal",
+        ]
+
         /// An `equations` block, whose links follow it as siblings. A
         /// written-out `transitive (…) (…)` term is the same kind but is a
         /// reason; only the source tells them apart.
@@ -261,12 +272,13 @@ struct Textbook {
         /// A reason's last part can fall just outside its step's range: in
         /// `= rhs by expand length.` the `.` is its own step after the
         /// `expand`. A non-structural step that starts on the line where
-        /// the previous sibling ends joins that sibling's reason.
-        private static func absorbContinuations(_ nodes: [Node]) -> [Node] {
+        /// the previous sibling ends joins that sibling's reason, except
+        /// among the parts of a `p1, p2` or an `apply … to`.
+        private static func absorbContinuations(_ nodes: [Node], separate: Bool = false) -> [Node] {
             var kept: [Node] = []
             for node in nodes {
-                node.children = absorbContinuations(node.children)
-                if let previous = kept.last, !node.startsLine,
+                node.children = absorbContinuations(node.children, separate: Node.hasParts.contains(node.step.kind))
+                if !separate, let previous = kept.last, !node.startsLine,
                    node.step.range.start.line == previous.step.range.end.line {
                     previous.children.append(node)
                 } else {
@@ -326,6 +338,10 @@ struct Textbook {
                 case "SomeIntro":
                     let witnesses = (detail.witnesses ?? []).map(display).joined(separator: ", ")
                     blocks.append(line(node, "Choose \(witnesses).", nil))
+                case "PTuple":
+                    blocks.append(withParts(node, "We prove each part:", parts(node.children)))
+                case "ModusPonens":
+                    blocks.append(modusPonens(node))
                 default:
                     // A proof term that finishes the goal, e.g. `p2` or `.`.
                     blocks.append(line(node, step.uses.isEmpty ? "This is immediate." : "This follows.",
@@ -345,6 +361,63 @@ struct Textbook {
                               status: node.status,
                               subproof: nested ? blocks(node.children) : [],
                               introduces: introduces))
+        }
+
+        /// `apply rule to args`: "By rule, using H2 and H3." Arguments that
+        /// are just a given's name are named there; the others (holes,
+        /// proofs of their own) are parts listed under it.
+        private func modusPonens(_ node: Node) -> Block {
+            // The rule's name, without its instantiation (`less_trans[a, b, d]`).
+            let rule = node.children.first.map { slice($0.step.range) } ?? ""
+            let name = rule.prefix { $0 != "[" && $0 != "<" }.trimmingCharacters(in: .whitespaces)
+            let args = node.children.dropFirst().flatMap { $0.step.kind == "PTuple" ? $0.children : [$0] }
+            let groups = parts(args)
+            let isName = { (part: [Node]) in part.count == 1 && part[0].step.kind == "PVar" }
+            let named = groups.filter(isName).map { slice($0[0].step.range) }
+            let others = groups.filter { !isName($0) }
+            let using = named.isEmpty ? "" : ", using " + listed(named)
+            let end = others.isEmpty ? "." : named.isEmpty ? ", using:" : " and:"
+            return withParts(node, "By \(name)\(using)\(end)", others)
+        }
+
+        /// A line of `prose` with `parts` under it, each a line of its own.
+        private func withParts(_ node: Node, _ prose: String, _ parts: [[Node]]) -> Block {
+            .line(Line(range: node.step.range, prose: prose, formula: nil, reason: nil,
+                       status: node.status, subproof: parts.map(part)))
+        }
+
+        /// `nodes` split into parts: each a run of steps that lead into the
+        /// next (`have`, `assume`, …), ended by the one that proves the part.
+        private func parts(_ nodes: [Node]) -> [[Node]] {
+            var parts: [[Node]] = []
+            var current: [Node] = []
+            for node in nodes {
+                current.append(node)
+                if !Node.leading.contains(node.step.kind) {
+                    parts.append(current)
+                    current = []
+                }
+            }
+            return current.isEmpty ? parts : parts + [current]
+        }
+
+        /// One part: the formula it proves, with its reason, or with its
+        /// steps under it. A hole is its own "Still to prove" line.
+        private func part(_ steps: [Node]) -> Block {
+            let first = steps[0]
+            let goal = first.step.goal.map(display)
+            if steps.count == 1, !Node.hasParts.contains(first.step.kind) {
+                return ["PHole", "PSorry"].contains(first.step.kind)
+                    ? blocks(steps)[0] : line(first, "", goal, reason: true)
+            }
+            let range = Outline.Range(start: first.step.range.start, end: steps.last!.step.range.end)
+            return .line(Line(range: range, prose: "", formula: goal, reason: nil,
+                              status: steps.map(\.status).max() ?? .ok, subproof: blocks(steps)))
+        }
+
+        /// "H2", "H2 and H3", "H2, H3 and H4".
+        private func listed(_ names: [String]) -> String {
+            names.count < 2 ? names.joined() : names.dropLast().joined(separator: ", ") + " and " + names.last!
         }
 
         /// `induction` / `switch` / `cases`: the steps of each arm are those
