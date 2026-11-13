@@ -1703,7 +1703,8 @@ class Print(Statement):
 
 
 def find_file(loc: Meta, name: str) -> str:
-  for dir in get_import_directories():
+  folder = get_workspace_folder()
+  for dir in ([folder] if folder else []) + list(get_import_directories()):
     filename = os.path.join(dir, name + ".pf")
     if os.path.isfile(filename):
       return filename

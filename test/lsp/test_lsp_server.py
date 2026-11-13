@@ -389,7 +389,7 @@ def workspace(server: FakeServer, tmp_path: Path, monkeypatch):
     monkeypatch.chdir(elsewhere)
     yield folder, uri
     lsp_server._worker.submit(
-        lsp_server._update_workspace_dirs, [], [str(folder)]
+        lsp_server._update_workspace_folders, [], [str(folder)]
     ).result(timeout=60)
 
 
@@ -440,6 +440,45 @@ def test_adding_a_workspace_folder_rechecks_open_documents(server, workspace):
         )))
     [diag] = server.published[uri]
     assert "could not find a file for import: B" in diag.message
+
+
+def test_each_workspace_imports_its_own_modules(server, tmp_path, monkeypatch):
+    """Two workspace folders with a same-named module: each file imports
+    its own folder's, and never a module only the other folder has."""
+    monkeypatch.chdir(tmp_path)
+    uris, folders = {}, []
+    for name in ("one", "two"):
+        folder = tmp_path / name
+        folder.mkdir()
+        folders.append(folder)
+        (folder / "B.pf").write_text(f"theorem b_{name}: true\nproof\n  .\nend\n")
+        src = f"import B\ntheorem a: true\nproof\n  b_{name}\nend\n"
+        (folder / "A.pf").write_text(src)
+        uris[name] = _file_uri(folder / "A.pf")
+        server.workspace.add_document(uris[name], src)
+    (folders[1] / "C.pf").write_text("theorem c: true\nproof\n  .\nend\n")
+    only_in_two = "import C\ntheorem d: true\nproof\n  c\nend\n"
+    (folders[0] / "D.pf").write_text(only_in_two)
+    uris["d"] = _file_uri(folders[0] / "D.pf")
+    server.workspace.add_document(uris["d"], only_in_two)
+    try:
+        asyncio.run(lsp_server.on_initialize(server, lsp_types.InitializeParams(
+            capabilities=lsp_types.ClientCapabilities(),
+            workspace_folders=[
+                lsp_types.WorkspaceFolder(uri=_file_uri(f), name=f.name) for f in folders
+            ],
+        )))
+        for _ in range(3):  # the folders are a set: try more than one order
+            for name in ("one", "two"):
+                _open(server, uris[name])
+                assert server.published[uris[name]] == [], name
+        _open(server, uris["d"])
+        [diag] = server.published[uris["d"]]
+        assert "could not find a file for import: C" in diag.message
+    finally:
+        lsp_server._worker.submit(
+            lsp_server._update_workspace_folders, [], [str(f) for f in folders]
+        ).result(timeout=60)
 
 
 def test_did_close_clears_diagnostics(server, open_doc):
