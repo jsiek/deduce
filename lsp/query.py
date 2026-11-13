@@ -6444,9 +6444,13 @@ def _check_at_target(
     ``remember=False`` for a one-off text (a step spliced in to preview
     it), so it doesn't push the document's own checks out. The warnings
     the check emits are in the result's ``warnings``, not printed."""
+    from lsp.library import _check_file_lock
+
     holes = _hole_checks_for(path, content, prelude) if remember else {}
     if target not in holes:
-        with _target_hole(target):
+        # Hold the check lock while the target is set, so a concurrent
+        # check neither sees it nor resets it.
+        with _check_file_lock, _target_hole(target):
             holes[target] = _check_file(path, content, prelude)
     return holes[target]
 
@@ -6457,14 +6461,17 @@ def _check_file(path: str, content: str, prelude: Sequence[str]) -> "CheckResult
     printed: the LSP and MCP servers speak their protocols on stdout
     (#1242)."""
     from error import WarningRecord, set_active_warning_sink
-    from lsp.library import check_file
+    from lsp.library import _check_file_lock, check_file
 
     warnings: list[WarningRecord] = []
-    previous = set_active_warning_sink(warnings)
-    try:
-        result = check_file(path, content=content, prelude=prelude)
-    finally:
-        set_active_warning_sink(previous)
+    # Hold the check lock while the sink is installed, so a concurrent
+    # check can neither write into it nor reset it.
+    with _check_file_lock:
+        previous = set_active_warning_sink(warnings)
+        try:
+            result = check_file(path, content=content, prelude=prelude)
+        finally:
+            set_active_warning_sink(previous)
     result.warnings = warnings
     return result
 
