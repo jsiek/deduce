@@ -97,3 +97,38 @@ theorem bor_false_false_again: all n:bool. bor(false, false) = false
 proof
   zero_zero_second<bool, bool>
 end
+
+// Two instances of one concept: `add_zero` names both instances' theorem,
+// and each use resolves to the one that fits.
+theorem zero_zero_both: all T:type, U:type where { Monoid<T>, Monoid<U> }.
+  all x:T, y:U. x + zero = x and y + zero = y
+proof
+  arbitrary T:type, U:type where { Monoid<T>, Monoid<U> }
+  arbitrary x:T, y:U
+  have hx: x + zero = x by add_zero[x]
+  have hy: y + zero = y by {
+    replace add_zero
+    .
+  }
+  hx, hy
+end
+
+theorem bor_zero_both: all a:bool, b:bool. bor(a, false) = a and bor(b, false) = b
+proof
+  zero_zero_both<bool, bool>
+end
+
+// A where clause's theorem names add to the overloads of an outer
+// theorem with the same name, rather than hiding it.
+theorem zero_add: all b:bool. bor(false, b) = b
+proof
+  false_bor
+end
+
+theorem zero_add_both: all T:type where { Monoid<T> }.
+  all x:T. zero + x = x and bor(false, true) = true
+proof
+  arbitrary T:type where { Monoid<T> }
+  arbitrary x:T
+  zero_add[x], zero_add[true]
+end

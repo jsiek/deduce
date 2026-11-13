@@ -115,6 +115,7 @@ class WhereClause(AST):
     theorems shadow theirs."""
     constraints = [c.uniquify(env, ctx) for c in self.constraints]
     members = []
+    labels: dict[str, list[str]] = {}
     for inst in concept_closure(constraints):
       decl = concept_decls[inst.concept]
       for (m, _) in decl.funs:
@@ -123,8 +124,18 @@ class WhereClause(AST):
         members.append(WhereMember(inst, m, binder, False))
       for (m, _) in decl.theorems:
         binder = generate_name(m, ctx)
-        overwrite(env, base_name(m), binder, self.location, warn=False)
+        labels.setdefault(base_name(m), []).append(binder)
         members.append(WhereMember(inst, m, binder, True))
+    # A theorem name adds to the overloads of the name: other instances'
+    # theorems (say, `where { Monoid<T>, Monoid<U> }`) and any outer
+    # theorem with that name. The where clause's come first.
+    overloaded = set()
+    for (name, binders) in labels.items():
+      env[name] = binders + [n for n in env.get(name, []) if n not in binders]
+      if len(env[name]) > 1:
+        overloaded.add(name)
+    if overloaded:
+      env[OVERLOADED_PROOFS_KEY] = env.get(OVERLOADED_PROOFS_KEY, set()) | overloaded
     return WhereClause(self.location, constraints, members)
 
   def substitute(self, sub: Mapping[str, Term | Type | RecFun | GenRecFun]) -> WhereClause:
