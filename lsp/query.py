@@ -2793,6 +2793,12 @@ def eliminate_at(
     template = _eliminate_template(label, env)
     if template is None:
         return None
+    if template == f"replace {label}\n?":
+        # When the rewrite proves the goal, end it with `.`: the checker
+        # never reaches a `?` after a step that leaves `true`.
+        tried = _try_step(path, content, hole_range, f"replace {label}", prelude)
+        if isinstance(tried, tuple) and str(tried[1]) == "true":
+            template = f"replace {label}."
 
     return WorkspaceEdit(
         path=path, range=hole_range,

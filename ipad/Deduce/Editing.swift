@@ -106,6 +106,32 @@ extension DeduceServer {
         return await HoleSteps(actions: actions, splittable: splittable, eliminable: eliminable, matching: matching)
     }
 
+    /// A variable of an `all` given, to give a value for.
+    struct InstantiationVar: Decodable {
+        let name: String
+        let type: String
+        /// Values worth offering: the goal's subterms of its type, then
+        /// variables of its type.
+        let suggestions: [String]
+    }
+
+    /// The variables to give values for, to use the `all` given `label`
+    /// at `hole` (`deduce/instantiationVarsAt`).
+    func instantiationVars(at hole: Outline.Position, label: String) async -> [InstantiationVar] {
+        decode([InstantiationVar].self, await request("deduce/instantiationVarsAt",
+                                                      ["position": position(hole), "label": label])) ?? []
+    }
+
+    /// The edit using the `all` given `label` at `hole` with `values`
+    /// (`deduce/instantiateAt`), or why the values don't check.
+    func instantiate(at hole: Outline.Position, label: String,
+                     values: [String]) async -> (edits: [TextEdit], problem: String?) {
+        let result = await request("deduce/instantiateAt",
+                                   ["position": position(hole), "label": label, "values": values]) as? [String: Any]
+        guard let uri = openURI, let result else { return ([], "The server didn't answer.") }
+        return (TextEdit.edits(in: result["edit"], for: uri), result["message"] as? String)
+    }
+
     /// The server's code actions at `hole` (Refine, Induction), by title.
     private func codeActions(at hole: Outline.Position) async -> [(title: String, edits: [TextEdit])] {
         let range = ["start": position(hole), "end": position(hole)]

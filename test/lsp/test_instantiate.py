@@ -52,6 +52,19 @@ def test_instantiating_states_the_formula_and_keeps_the_hole(tmp_path: Path) -> 
     )
 
 
+def test_replacing_with_the_instance_finishes_with_a_period(tmp_path: Path) -> None:
+    # After `replace H1` the goal is `true`; a `?` there is never reached.
+    path = _write(tmp_path)
+    edit = query.instantiate_at(path, SOURCE, HOLE, "IH1", ["ys"], prelude=PRELUDE)
+    assert isinstance(edit, WorkspaceEdit)
+    lines = SOURCE.splitlines()
+    lines[HOLE.line - 1] = "    " + edit.new_text
+    text = "\n".join(lines) + "\n"
+    (tmp_path / "t.pf").write_text(text)
+    used = query.eliminate_at(path, text, Position(line=10, column=5), "H1", prelude=PRELUDE)
+    assert used is not None and used.new_text == "replace H1."
+
+
 def test_a_value_that_does_not_check_gives_the_message(tmp_path: Path) -> None:
     path = _write(tmp_path)
     message = query.instantiate_at(path, SOURCE, HOLE, "IH1", ["t1"], prelude=PRELUDE)

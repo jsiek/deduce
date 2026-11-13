@@ -10,6 +10,8 @@ struct ContentView: View {
     @State private var editing: EditingStep?
     /// The steps at a hole, for the file's version they were asked about.
     @State private var loaded: (hole: Outline.Range, version: Int, steps: DeduceServer.HoleSteps)?
+    /// The `all` given being given values, in a popover beside it.
+    @State private var instantiating: String?
 
     /// A step being edited as text.
     struct EditingStep: Identifiable {
@@ -36,25 +38,31 @@ struct ContentView: View {
     }
 
     /// The givens at the selected hole that the proof shows where they're
-    /// introduced, and can be tapped there to use. An `all` given counts
-    /// only when it proves the goal: `eliminateAt` would replace the hole
-    /// with `H[?]`, a finished proof that rarely fits.
+    /// introduced, and can be tapped there to use. An `all` over a type
+    /// (`all T:type`) counts only when it proves the goal.
     private var uses: [String: Textbook.GivenUse] {
         guard let hole, let steps, let book = server.textbook else { return [:] }
-        let quantified = Set(hole.givens.filter { $0.formula.kind == "All" }.map(\.label))
+        let quantified = hole.givens.filter { $0.formula.kind == "All" }
+        let overTypes = Set(quantified.filter { FormulaView.subtrees($0.formula).first?.kind == "TypeType" }.map(\.label))
+        let overTerms = Set(quantified.map(\.label)).subtracting(overTypes)
         return book.givens(at: hole.range).reduce(into: [:]) { uses, given in
             let (label, range) = given
             let proves = steps.matching.contains(label)
-            if proves || (steps.eliminable.contains(label) && !quantified.contains(label)) {
-                uses[label] = Textbook.GivenUse(range: range, proves: proves)
+            if proves || (steps.eliminable.contains(label) && !overTypes.contains(label)) {
+                uses[label] = Textbook.GivenUse(range: range, proves: proves, quantified: overTerms.contains(label))
             }
         }
     }
 
     /// Use the given `label` at the selected hole: prove the goal with it
-    /// if it can, or else take the step its shape calls for.
+    /// if it can, ask for values for an `all` given's variables, or else
+    /// take the step its shape calls for.
     private func useGiven(_ label: String) {
         guard let hole, let use = uses[label] else { return }
+        if use.quantified && !use.proves {
+            instantiating = label
+            return
+        }
         let method = use.proves ? "deduce/fillFromGivenAt" : "deduce/eliminateAt"
         Task { server.apply(await server.edits(method, at: hole.range.start, ["label": label])) }
     }
@@ -134,6 +142,7 @@ struct ContentView: View {
                 // A load superseded meanwhile must not write over the current one's.
                 if !Task.isCancelled { loaded = (range, version, steps) }
             }
+            .onChange(of: selection) { instantiating = nil }
             .onChange(of: reasonLevel) { levels = [:] }
             .onChange(of: server.openFile) {
                 levels = [:]
@@ -166,7 +175,13 @@ struct ContentView: View {
         if let book = server.textbook {
             TextbookView(book: book, defaultLevel: reasonLevel, editable: server.editable,
                          selection: $selection, levels: $levels, scrollTarget: $scrollTarget,
-                         uses: uses, useGiven: useGiven) { range in
+                         uses: uses, useGiven: useGiven, instantiating: $instantiating,
+                         instantiator: { label in
+                             AnyView(hole.map { hole in
+                                 InstantiateView(label: label, hole: hole.range.start) { instantiating = nil }
+                                     .environmentObject(server)
+                             })
+                         }) { range in
                 editing = EditingStep(range: range, text: sourceText(server.source.scalarLines, range))
             }
         } else if server.openFile == nil {

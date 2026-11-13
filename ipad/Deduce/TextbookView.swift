@@ -34,6 +34,10 @@ struct TextbookView: View {
     let uses: [String: Textbook.GivenUse]
     /// Called with a given's label to use it at the selected hole.
     let useGiven: (String) -> Void
+    /// The `all` given asking for values, shown in a popover beside it.
+    @Binding var instantiating: String?
+    /// The popover's content for a given's label.
+    let instantiator: (String) -> AnyView
     /// Called with a step's range to edit it as text.
     let editAsText: (Outline.Range) -> Void
 
@@ -121,6 +125,7 @@ struct TextbookView: View {
             .background { given.map { usable($0) } ?? AnyView(selected(line.range)) }
             .contentShape(Rectangle())
             .onTapGesture { if let given { useGiven(given) } else { selection = line.range } }
+            .popover(isPresented: asking(given)) { given.map(instantiator) }
             .contextMenu { editMenu(line.range) }
             notes(line.range)
             if !line.subproof.isEmpty && level != .hidden {
@@ -203,10 +208,18 @@ struct TextbookView: View {
     @ViewBuilder
     private func givenText(_ text: Text, _ label: String?) -> some View {
         if let label {
-            text.background { usable(label) }.onTapGesture { useGiven(label) }
+            text.background { usable(label) }
+                .onTapGesture { useGiven(label) }
+                .popover(isPresented: asking(label)) { instantiator(label) }
         } else {
             text
         }
+    }
+
+    /// Whether the given `label` is asking for values.
+    private func asking(_ label: String?) -> Binding<Bool> {
+        Binding(get: { label != nil && instantiating == label },
+                set: { if !$0 { instantiating = nil } })
     }
 
     /// The mark on a given the selected hole can use: green when it proves

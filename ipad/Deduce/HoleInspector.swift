@@ -281,3 +281,83 @@ struct HoleInspector: View {
         return action.title
     }
 }
+
+/// Values for an `all` given's variables, to use it at a hole: a field per
+/// variable, with the server's suggestions to tap. Using it states what
+/// the given says for those values (`have H: … by IH1[ys]`).
+struct InstantiateView: View {
+    @EnvironmentObject var server: DeduceServer
+    let label: String
+    let hole: Outline.Position
+    let done: () -> Void
+
+    @State private var vars: [DeduceServer.InstantiationVar]?
+    @State private var values: [String] = []
+    @State private var problem: String?
+    @State private var working = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Use \(label) with").font(.headline)
+            if let vars {
+                ForEach(vars.indices, id: \.self) { i in
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(alignment: .firstTextBaseline) {
+                            Text("\(vars[i].name) =").font(TextbookView.formulaFont)
+                            TextField(vars[i].type, text: $values[i])
+                                .textFieldStyle(.roundedBorder)
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.never)
+                        }
+                        if !vars[i].suggestions.isEmpty {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack {
+                                    ForEach(vars[i].suggestions, id: \.self) { value in
+                                        Button(value) { values[i] = value }
+                                            .buttonStyle(.bordered)
+                                            .font(TextbookView.formulaFont)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if let problem {
+                    Text(withoutLocations(problem))
+                        .font(.system(.footnote, design: .monospaced))
+                        .foregroundStyle(.red)
+                }
+                HStack {
+                    Spacer()
+                    if working { ProgressView() }
+                    Button("Use") { use() }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(working || values.contains { $0.trimmingCharacters(in: .whitespaces).isEmpty })
+                }
+            } else {
+                ProgressView()
+            }
+        }
+        .padding()
+        .frame(width: 380)
+        .task {
+            let loaded = await server.instantiationVars(at: hole, label: label)
+            values = loaded.map { _ in "" }
+            vars = loaded
+        }
+    }
+
+    private func use() {
+        Task {
+            working = true
+            let result = await server.instantiate(at: hole, label: label, values: values)
+            working = false
+            if let message = result.problem {
+                problem = message
+            } else {
+                server.apply(result.edits)
+                done()
+            }
+        }
+    }
+}

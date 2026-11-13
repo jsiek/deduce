@@ -75,6 +75,9 @@ struct Textbook {
         /// It proves the goal (`fillFromGivenAt`), rather than giving a
         /// step to take (`eliminateAt`).
         let proves: Bool
+        /// It's an `all` formula: to use it otherwise, its variables need
+        /// values (`instantiateAt`).
+        let quantified: Bool
     }
 
     enum Block: Identifiable {
