@@ -59,7 +59,7 @@ struct ContentView: View {
                             .frame(maxWidth: 460)
                     }
                 }
-                if !server.diagnostics.isEmpty {
+                if !otherDiagnostics.isEmpty {
                     Divider()
                     diagnostics
                 }
@@ -160,13 +160,19 @@ struct ContentView: View {
         }
     }
 
+    /// Diagnostics the textbook doesn't show on a step: those outside any
+    /// theorem, or all of them until there is a textbook.
+    private var otherDiagnostics: [Diagnostic] {
+        server.textbook?.unplaced ?? server.diagnostics
+    }
+
     private var diagnostics: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
-                ForEach(server.diagnostics) { diagnostic in
+                ForEach(otherDiagnostics) { diagnostic in
                     VStack(alignment: .leading) {
                         Text("Line \(diagnostic.line)").font(.caption).foregroundStyle(.secondary)
-                        Text(diagnostic.message).font(.system(.footnote, design: .monospaced))
+                        Text(withoutLocations(diagnostic.message)).font(.system(.footnote, design: .monospaced))
                     }
                 }
             }

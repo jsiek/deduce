@@ -4,12 +4,6 @@ import Foundation
 /// `lsp/lsp_server.py`) and a minimal JSON-RPC client for it.
 @MainActor
 final class DeduceServer: ObservableObject {
-    struct Diagnostic: Identifiable {
-        let id = UUID()
-        let line: Int
-        let message: String
-    }
-
     enum CheckState {
         case running
         case finished(seconds: Double)
@@ -247,10 +241,10 @@ final class DeduceServer: ObservableObject {
             guard let started = checkStarted.removeValue(forKey: uri) else { return }
             let seconds = Date().timeIntervalSince(started)
             let items = params["diagnostics"] as? [[String: Any]] ?? []
-            let results = items.map { item in
-                let range = item["range"] as? [String: Any]
-                let start = range?["start"] as? [String: Any]
-                return Diagnostic(line: (start?["line"] as? Int ?? 0) + 1,
+            let results = items.compactMap { item -> Diagnostic? in
+                guard let range = decode(Outline.Range.self, item["range"]) else { return nil }
+                // LSP severities: 1 error, 2 warning, 3 information, 4 hint.
+                return Diagnostic(range: range, warning: (item["severity"] as? Int ?? 1) > 1,
                                   message: item["message"] as? String ?? "")
             }
             print(String(format: "deduce-timing: check %@ %.3f s, %d diagnostics",
@@ -268,7 +262,9 @@ final class DeduceServer: ObservableObject {
                   let data = try? JSONSerialization.data(withJSONObject: params)
             else { return }
             do {
-                textbook = Textbook(outline: try JSONDecoder().decode(Outline.self, from: data), source: source)
+                // The check's diagnostics arrived just before its outline.
+                textbook = Textbook(outline: try JSONDecoder().decode(Outline.self, from: data),
+                                    source: source, diagnostics: diagnostics)
                 print("deduce-outline: \(textbook!.theorems.count) theorems")
             } catch {
                 record("could not read the proof outline: \(error)")

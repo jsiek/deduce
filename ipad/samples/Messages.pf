@@ -1,0 +1,36 @@
+// Errors and warnings appear on the step they are about.
+
+// A warning: `+` is never unfolded, since the goal is already proved.
+theorem unused_clause: all xs:List<Nat>. length([] ++ xs) = length([] : List<Nat>) + length(xs)
+proof
+  arbitrary xs:List<Nat>
+  expand length | operator++ | operator+.
+end
+
+// An error with a long message: the step proves something else.
+theorem wrong_step: all x:Nat, y:Nat. if x < y then x ≤ y
+proof
+  arbitrary x:Nat, y:Nat
+  assume x_y: x < y
+  conclude y ≤ x by less_equal_refl
+end
+
+// Errors in two adjacent links of a chain of equations.
+theorem wrong_link: all x:UInt. (x + 0) + 0 = x
+proof
+  arbitrary x:UInt
+  equations
+    (x + 0) + 0 = x + 0  by .
+            ... = x + 1  by .
+            ... = x      by .
+end
+
+// An error in the statement itself.
+theorem bad_statement: all xs:List<Nat>. length(xs) = true
+proof
+  arbitrary xs:List<Nat>
+  .
+end
+
+// An error outside any theorem.
+define two : Nat = true

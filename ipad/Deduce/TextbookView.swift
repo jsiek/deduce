@@ -61,6 +61,7 @@ struct TextbookView: View {
                 statusMark(theorem.status)
             }
             Text(theorem.statement).font(Self.formulaFont).textSelection(.enabled)
+            notes(theorem.range)
             Text("Proof.").italic().font(Self.proseFont).padding(.top, 4)
             blocksView(theorem.blocks)
             HStack {
@@ -114,6 +115,7 @@ struct TextbookView: View {
             .contentShape(Rectangle())
             .onTapGesture { selection = line.range }
             .contextMenu { editMenu(line.range) }
+            notes(line.range)
             if !line.subproof.isEmpty && level != .hidden {
                 blocksView(line.subproof)
                     .padding(.leading, 12)
@@ -149,6 +151,12 @@ struct TextbookView: View {
                 .contentShape(Rectangle())
                 .onTapGesture { selection = link.range }
                 .contextMenu { editMenu(link.range) }
+                if book.notes[link.range] != nil {
+                    GridRow {
+                        Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
+                        notes(link.range).gridCellColumns(2)
+                    }
+                }
             }
         }
         .padding(.leading, 16)
@@ -162,6 +170,16 @@ struct TextbookView: View {
                     Text(arm.title).font(Self.proseFont).bold()
                     blocksView(arm.blocks).padding(.leading, 20)
                 }
+            }
+        }
+    }
+
+    /// The errors and warnings shown at the line, link or theorem `range`.
+    @ViewBuilder
+    private func notes(_ range: Outline.Range) -> some View {
+        if let notes = book.notes[range] {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(notes) { NoteCard(diagnostic: $0) }
             }
         }
     }
@@ -214,6 +232,48 @@ struct TextbookView: View {
 
     static let proseFont = Font.system(.body, design: .serif)
     static let formulaFont = Font.system(.body, design: .serif).weight(.medium)
+}
+
+/// An error (red) or warning (orange) on the step it's about. Long
+/// messages show their first lines until tapped.
+struct NoteCard: View {
+    let diagnostic: Diagnostic
+    @State private var expanded = false
+
+    private static let shortLines = 4
+
+    var body: some View {
+        // The card's label already says "Error" / "Warning".
+        let message = withoutLocations(diagnostic.message)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: #"^(error,|warning:)\s*"#, with: "", options: .regularExpression)
+        let long = message.count > 240
+            || message.split(separator: "\n", omittingEmptySubsequences: false).count > Self.shortLines
+        let tint = diagnostic.warning ? Color.orange : Color.red
+        VStack(alignment: .leading, spacing: 4) {
+            Label(diagnostic.warning ? "Warning" : "Error",
+                  systemImage: diagnostic.warning ? "exclamationmark.circle" : "exclamationmark.triangle")
+                .font(.caption.bold())
+                .foregroundStyle(tint)
+            Text(message)
+                .font(.system(.footnote, design: .monospaced))
+                .lineLimit(expanded ? nil : Self.shortLines)
+                .textSelection(.enabled)
+            if long {
+                Text(expanded ? "Show less" : "Show all")
+                    .font(.caption)
+                    .foregroundStyle(Color.accentColor)
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 8).fill(tint.opacity(0.08)))
+        .overlay(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 2).fill(tint).frame(width: 3)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { if long { expanded.toggle() } }
+    }
 }
 
 /// The `.pf` source, with the selected step's lines highlighted.

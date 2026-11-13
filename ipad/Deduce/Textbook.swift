@@ -1,5 +1,19 @@
 import Foundation
 
+/// An error or warning from a check of the open file.
+struct Diagnostic: Identifiable {
+    let id = UUID()
+    let range: Outline.Range
+    let warning: Bool
+    let message: String
+
+    /// The 1-based line it's on.
+    var line: Int { range.start.line + 1 }
+
+    /// An incomplete proof: a `?`, which the textbook already shows.
+    var isHole: Bool { message.hasPrefix("incomplete proof") }
+}
+
 /// A textbook rendering of a checked file, built from its proof outline:
 /// each theorem as "Theorem. … Proof. … ∎", each proof step as prose and
 /// the formula it establishes, with the reason kept to one side.
@@ -80,8 +94,13 @@ struct Textbook {
     let theorems: [Theorem]
     /// The file's holes in source order.
     let holes: [Hole]
+    /// Errors and warnings by where they're shown: the range of the
+    /// innermost line or chain link they're in, or else of their theorem.
+    let notes: [Outline.Range: [Diagnostic]]
+    /// Those that are in no theorem (a definition, an import, a parse error).
+    let unplaced: [Diagnostic]
 
-    init(outline: Outline, source: String) {
+    init(outline: Outline, source: String, diagnostics: [Diagnostic]) {
         holes = outline.steps
             .filter { $0.kind == "PHole" }
             .compactMap { step in step.goal.map { Hole(range: step.range, goal: $0, givens: step.givens) } }
@@ -97,6 +116,37 @@ struct Textbook {
                 statement: withoutTypeParameters(display(theorem.formula)),
                 blocks: builder.blocks(roots),
                 status: roots.map(\.status).max() ?? .ok)
+        }
+        var notes: [Outline.Range: [Diagnostic]] = [:]
+        var unplaced: [Diagnostic] = []
+        let lines = theorems.flatMap { Self.lineRanges($0.blocks) }
+        for diagnostic in diagnostics where !diagnostic.isHole {
+            let at = diagnostic.range.start
+            // Ranges are end-exclusive, so adjacent links don't both claim it.
+            let around = { (range: Outline.Range) in
+                range.start <= at && (at < range.end || at == range.start)
+            }
+            // The innermost: the one inside all the others that contain it.
+            if let range = lines.filter(around).reduce(nil, { (best: Outline.Range?, range) in
+                best.map { $0.contains(range) ? range : $0 } ?? range
+            }) ?? theorems.first(where: { around($0.range) })?.range {
+                notes[range, default: []].append(diagnostic)
+            } else {
+                unplaced.append(diagnostic)
+            }
+        }
+        self.notes = notes
+        self.unplaced = unplaced
+    }
+
+    /// The ranges of the lines and chain links in `blocks`, nested ones too.
+    private static func lineRanges(_ blocks: [Block]) -> [Outline.Range] {
+        blocks.flatMap { block -> [Outline.Range] in
+            switch block {
+            case .line(let line): [line.range] + lineRanges(line.subproof)
+            case .chain(_, _, let links): links.map(\.range)
+            case .cases(_, _, let arms): arms.flatMap { lineRanges($0.blocks) }
+            }
         }
     }
 
@@ -365,6 +415,13 @@ private func shown(_ tree: Outline.Tree) -> String {
         case .tree(let child): shown(child)
         }
     }.joined()
+}
+
+/// A checker message without the `/path/to/File.pf:13.86-13.119: `
+/// locations it puts in front of nested errors.
+func withoutLocations(_ message: String) -> String {
+    message.replacingOccurrences(of: #"\S+\.pf:\d+\.\d+-\d+\.\d+: "#, with: "",
+                                 options: .regularExpression)
 }
 
 /// Drop `T:type` binders from a statement's leading `all`, as the proof
