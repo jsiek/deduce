@@ -53,7 +53,7 @@ struct HoleInspector: View {
                     ProgressView()
                 } else {
                     ForEach(actions, id: \.title) { action in
-                        Button(action.title) { server.apply(action.edits) }
+                        Button(Self.label(action)) { server.apply(action.edits) }
                     }
                     pick("Cases on…", splittable, "deduce/caseSplitAt", "variable")
                     pick("Use a given…", eliminable, "deduce/eliminateAt", "label")
@@ -257,6 +257,31 @@ struct HoleInspector: View {
 
     /// Ask for every list of steps, then show them together, so the rows
     /// don't move under a finger while they arrive.
+    /// What a code action does, in words. The server titles its refine
+    /// action "Refine hole" whatever step it inserts, so name the step
+    /// from the start of its edit (`refine_at` in `lsp/query.py`).
+    private static func label(_ action: (title: String, edits: [TextEdit])) -> String {
+        guard action.title == "Refine hole", let text = action.edits.first?.newText else { return action.title }
+        var step = String(text.prefix { $0 != "\n" })
+        if step.hasPrefix("(") { step.removeFirst() }  // parenthesized as part of a larger step
+        if step.hasPrefix("arbitrary "), let colon = step.firstIndex(of: ":") {
+            return letArbitrary([(String(step.dropFirst("arbitrary ".count)[..<colon]),
+                                  String(step[step.index(after: colon)...]))])
+        }
+        if step.hasPrefix("assume "), let colon = step.firstIndex(of: ":") {
+            var premise = step[step.index(after: colon)...].trimmingCharacters(in: .whitespaces)
+            if premise.hasPrefix("("), closingParen(of: premise) == premise.index(before: premise.endIndex) {
+                premise = String(premise.dropFirst().dropLast())
+            }
+            return "Assume \(step.dropFirst("assume ".count)[..<colon]): \(premise)"
+        }
+        if step.hasPrefix("choose ") { return "Choose a witness" }
+        if step.hasPrefix("?,") { return "Prove each part" }
+        if step == "reflexive" { return "Finish: both sides are equal" }
+        if step == "." { return "Finish: this is immediate" }
+        return action.title
+    }
+
     private func load() async {
         subterm = nil
         preview = nil

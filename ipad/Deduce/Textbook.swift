@@ -248,8 +248,7 @@ struct Textbook {
                     // shows them, and textbooks don't introduce them.
                     let vars = (detail.vars ?? []).filter { $0.type.kind != "TypeType" }
                     if !vars.isEmpty {
-                        let list = vars.map { "\($0.name) : \(display($0.type))" }
-                        blocks.append(line(node, "Let \(list.joined(separator: ", ")) be arbitrary.", nil))
+                        blocks.append(line(node, letArbitrary(vars.map { ($0.name, display($0.type)) }) + ".", nil))
                     }
                 case "ImpIntro":
                     let label = detail.label ?? ""
@@ -392,9 +391,10 @@ extension String {
 
 /// A formula for display: without input-only syntax (`#…#` expansion
 /// marks, explicit type arguments such as `@[]<U>`) or a pair of
-/// parentheses around the whole formula. Primes are typeset as ′.
+/// parentheses around the whole formula. Primes are typeset as ′. The
+/// quantifiers it starts with each end a line (see `leadingBreak`).
 func display(_ formula: Outline.Tree) -> String {
-    var text = shown(formula)
+    var text = shown(formula, leading: true)
     if text.hasPrefix("(") && text.hasSuffix(")") && closingParen(of: text) == text.index(before: text.endIndex) {
         text = String(text.dropFirst().dropLast())
     }
@@ -402,19 +402,40 @@ func display(_ formula: Outline.Tree) -> String {
 }
 
 /// `tree`'s text, keeping only the subject of a `Mark` (`#…#`) or of a
-/// `TermInst` (`@f<T>`): the first subtree of either.
-private func shown(_ tree: Outline.Tree) -> String {
+/// `TermInst` (`@f<T>`): the first subtree of either. `leading`: `tree`
+/// starts the formula, so a quantifier there ends its line.
+private func shown(_ tree: Outline.Tree, leading: Bool = false) -> String {
     if tree.kind == "Mark" || tree.kind == "TermInst" {
         for case .tree(let subject) in tree.parts {
-            return shown(subject)
+            return shown(subject, leading: leading)
         }
     }
+    let leading = leading && isQuantifier(tree)
     return tree.parts.map { part in
         switch part {
-        case .text(let text): text
-        case .tree(let child): shown(child)
+        case .text(let text): leading ? leadingBreak(text) : text
+        case .tree(let child): shown(child, leading: leading)
         }
     }.joined()
+}
+
+/// Whether `tree` is an `all` or `some` formula.
+func isQuantifier(_ tree: Outline.Tree) -> Bool {
+    tree.kind == "All" || tree.kind == "Some"
+}
+
+/// A text part of a quantifier that starts a formula: the `. ` after its
+/// binders ends the line, so "all x:Nat. P" shows P on a line of its own.
+func leadingBreak(_ text: String) -> String {
+    text.hasSuffix(". ") ? String(text.dropLast()) + "\n" : text
+}
+
+/// `arbitrary a:Nat, xs:List<Nat>` in words: "Let a be an arbitrary Nat
+/// and xs an arbitrary List<Nat>".
+func letArbitrary(_ vars: [(name: String, type: String)]) -> String {
+    let clauses = vars.enumerated().map { i, v in "\(v.name)\(i == 0 ? " be" : "") an arbitrary \(v.type)" }
+    let last = clauses.count > 1 ? " and " + clauses.last! : ""
+    return "Let " + clauses.dropLast(last.isEmpty ? 0 : 1).joined(separator: ", ") + last
 }
 
 /// A checker message without the `/path/to/File.pf:13.86-13.119: `
@@ -431,12 +452,12 @@ func withoutTypeParameters(_ statement: String) -> String {
     statement
         .replacingOccurrences(of: #"^all ([A-Za-z_][A-Za-z0-9_]*:type, )+"#, with: "all ",
                               options: .regularExpression)
-        .replacingOccurrences(of: #"^all [A-Za-z_][A-Za-z0-9_]*:type\. "#, with: "",
+        .replacingOccurrences(of: #"^all [A-Za-z_][A-Za-z0-9_]*:type\.\s"#, with: "",
                               options: .regularExpression)
 }
 
 /// The index of the parenthesis that closes the one at `text`'s start.
-private func closingParen(of text: String) -> String.Index? {
+func closingParen(of text: String) -> String.Index? {
     var depth = 0
     for index in text.indices {
         if text[index] == "(" { depth += 1 }
