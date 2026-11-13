@@ -334,6 +334,34 @@ def test_did_change_clears_diagnostics_when_proof_completes(
     assert server.published[uri] == []
 
 
+def test_check_finished_before_close_is_not_published(server, open_doc):
+    """A check that finishes just before the document is closed (or
+    edited again) mustn't publish once the coroutine awaiting it resumes:
+    its diagnostics are no longer current."""
+    src = "theorem t: true\nproof\n  ?\nend\n"
+    _, uri = open_doc("race.pf", src)
+    open_params = lsp_types.DidOpenTextDocumentParams(
+        text_document=lsp_types.TextDocumentItem(
+            uri=uri, language_id="deduce", version=1, text=src,
+        )
+    )
+    close_params = lsp_types.DidCloseTextDocumentParams(
+        text_document=lsp_types.TextDocumentIdentifier(uri=uri),
+    )
+
+    async def race() -> None:
+        task = asyncio.create_task(lsp_server.on_did_open(server, open_params))
+        await asyncio.sleep(0)  # the check is submitted
+        # Block the loop until the check is done, so the open handler
+        # can't resume before the close.
+        lsp_server._checks[uri][1].result(timeout=60)
+        lsp_server.on_did_close(server, close_params)
+        await task
+
+    asyncio.run(race())
+    assert server.published[uri] == []
+
+
 def test_did_close_clears_diagnostics(server, open_doc):
     _, uri = open_doc("close.pf", "theorem t: true\nproof\n  .\nend\n")
     # Pretend a previous run had stored some diagnostics.

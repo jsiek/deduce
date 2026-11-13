@@ -385,8 +385,13 @@ async def _publish_diagnostics(ls: LanguageServer, uri: str) -> None:
             type=lsp_types.MessageType.Info, message="check cancelled: " + uri))
         return
     finally:
-        if _checks.get(uri, (None, None))[1] is future:
+        # A newer version or a didClose may have replaced this check
+        # after it finished but before this coroutine resumed.
+        current_check = _checks.get(uri, (None, None))[1] is future
+        if current_check:
             del _checks[uri]
+    if not current_check:
+        return
     # pygls 2.x exposes the publish-diagnostics notification as
     # ``text_document_publish_diagnostics(params)``. The pre-2.x
     # ``publish_diagnostics(uri, list)`` shape was removed; calling
