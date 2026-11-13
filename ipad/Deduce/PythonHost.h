@@ -7,8 +7,8 @@
 /// in `cache_path` (#1217). Returns nonzero on failure.
 int deduce_python_serve(const char *resource_path, const char *cache_path, int read_fd, int write_fd);
 
-/// Cancel the check in progress, if any. Safe to call from any thread
-/// once the server is running. Returns 1 if a check was interrupted.
+/// Cancel the check or request in progress, if any. Safe to call from any
+/// thread once the server is running. Returns 1 if one was interrupted.
 int deduce_python_interrupt(void);
 
 #endif

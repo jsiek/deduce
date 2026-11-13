@@ -101,17 +101,19 @@ freeze the app. Both a student's own expensive `print` or proof and
 untrusted LLM output (see "LLM assistance") can cause one. So every
 check must be interruptible:
 
-- **A worker thread for checks.** Checks run on a dedicated worker
-  thread (the large-stack thread), separate from the thread running
-  pygls's I/O loop. The server stays responsive while a check runs.
+- **A worker thread for checks.** Checks and requests run, in order,
+  on a dedicated worker thread with a large stack (`lsp/worker.py`,
+  #1218), separate from the thread running pygls's I/O loop. The
+  server keeps reading messages while a check runs.
 - **Interrupting a check.** To cancel a check (because a newer edit
-  arrived, a deadline passed, or the user tapped Stop), the host calls
-  CPython's `PyThreadState_SetAsyncExc` on the worker thread. That
-  raises a `CheckCancelled` exception at the worker's next bytecode
-  boundary, and the checker is pure Python, so this happens promptly.
-  The request then returns a cancelled result. This interrupts
-  *inside* a statement, which the between-statements cancellation in
-  #1218 cannot do.
+  arrived, a deadline passed, or the user tapped Stop), the server
+  calls CPython's `PyThreadState_SetAsyncExc` on the worker thread.
+  That raises a `CheckCancelled` exception at the worker's next
+  bytecode boundary, and the checker is pure Python, so this happens
+  promptly, even inside a statement. A newer version of a document
+  supersedes its check this way, `$/cancelRequest` cancels a request
+  this way, and the Stop button interrupts whichever is running. A
+  cancelled request returns a `RequestCancelled` error.
 - **No stale state after cancelling.** `lsp/library.py` restores the
   post-prelude snapshot before every check. The statement cache
   records a verdict only after a statement passes. So an interrupted

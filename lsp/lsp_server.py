@@ -26,15 +26,32 @@ coordinate, performed at the boundary in the helpers below.
 The LSP boundary stays protocol-specific: the only consumer of
 ``pygls`` and ``lsprotocol`` lives here. The query API itself is
 unchanged.
+
+Threads
+-------
+
+Every check and request runs on one ``lsp.worker.Worker`` thread, in the
+order they arrive, so pygls's I/O loop keeps reading messages while one
+runs (#1218). A new version of a document supersedes its check: a queued
+check is dropped and a running one interrupted, so a burst of edits ends
+in one completed check, of the final text. ``$/cancelRequest`` drops a
+queued request or interrupts a running one. Results are sent from the
+I/O loop. See ``docs/knowledge-base/lsp-concurrency.md`` for the rules
+this relies on.
 """
 
 from __future__ import annotations
 
+import asyncio
 import os
 import sys
 from collections.abc import Mapping
+from concurrent.futures import CancelledError, Future
 from pathlib import Path
-from typing import Optional, cast
+from typing import Callable, Optional, TypeVar, cast
+
+T = TypeVar("T")
+F = TypeVar("F", bound=Callable[..., object])
 
 
 # ---------------------------------------------------------------------------
@@ -120,7 +137,11 @@ def _prelude_for(path: str) -> tuple[str, ...]:
 from lsprotocol import types as lsp_types  # noqa: E402
 from pygls.lsp.server import LanguageServer  # noqa: E402
 
+from pygls.exceptions import JsonRpcRequestCancelled  # noqa: E402
+
 from lsp import query as _query  # noqa: E402
+from lsp.library import reset_scoped_state  # noqa: E402
+from lsp.worker import CheckCancelled, CheckSuperseded, Worker  # noqa: E402
 
 
 SERVER_NAME = "deduce-lsp"
@@ -202,6 +223,42 @@ server = LanguageServer(
     SERVER_VERSION,
     text_document_sync_kind=lsp_types.TextDocumentSyncKind.Full,
 )
+
+# Resetting the scoped pipeline state before each job means a job that
+# was interrupted in the middle of restoring it can't leak it (#1218).
+_worker = Worker(prepare=reset_scoped_state)
+
+
+def interrupt() -> bool:
+    """Interrupt the check or request in progress, if any (the iPad app's
+    Stop button). Returns whether there was one."""
+    return _worker.interrupt()
+
+
+async def _on_worker(fn: Callable[..., T], *args: object,
+                     key: Optional[object] = None) -> T:
+    """``fn(*args)`` on the worker. Cancelling the awaiting task (as pygls
+    does on ``$/cancelRequest``) drops or interrupts the job."""
+    future: Future[T] = _worker.submit(fn, *args, key=key)
+    try:
+        return await asyncio.wrap_future(future)
+    except asyncio.CancelledError:
+        _worker.cancel(future)
+        raise
+
+
+def _feature(method: str, options: object = None) -> Callable[[F], F]:
+    """Register a request handler with pygls to run on the worker. The
+    handler itself stays a plain function, which the tests call."""
+    def decorator(fn: F) -> F:
+        async def handler(ls: LanguageServer, params: object) -> object:
+            try:
+                return await _on_worker(fn, ls, params)
+            except CheckCancelled:
+                raise JsonRpcRequestCancelled("interrupted") from None
+        server.feature(method, options)(handler)
+        return fn
+    return decorator
 
 
 # --- Position / Range translation (LSP <-> query) -------------------------
@@ -291,17 +348,54 @@ def _document_content(ls: LanguageServer, uri: str) -> Optional[str]:
     return source if isinstance(source, str) else None
 
 
-def _publish_diagnostics(ls: LanguageServer, uri: str) -> None:
+def _check_document(
+    path: str, content: str,
+) -> tuple[list[_query.Diagnostic], Optional[_query.ProofOutline]]:
+    """The diagnostics (and, when pushed, the outline) of one version of
+    a document. Runs on the worker."""
+    if _push_proof_outline:
+        outline = _query.proof_outline(path, content, prelude=_prelude_for(path))
+        return list(outline.diagnostics), outline
+    return _query.check(path, content, prelude=_prelude_for(path)), None
+
+
+# The newest check of each open document: its text and its job.
+_checks: dict[str, tuple[str, Future[object]]] = {}
+
+
+async def _publish_diagnostics(ls: LanguageServer, uri: str) -> None:
+    """Check the document's current text on the worker and publish the
+    result, unless a newer version supersedes the check first."""
     content = _document_content(ls, uri)
     if content is None:
         return
+    current = _checks.get(uri)
+    if current is not None and current[0] == content and not current[1].done():
+        return  # already being checked, e.g. a save after the last edit
     path = _path_from_uri(uri)
-    outline: Optional[_query.ProofOutline] = None
-    if _push_proof_outline:
-        outline = _query.proof_outline(path, content, prelude=_prelude_for(path))
-        diags = list(outline.diagnostics)
-    else:
-        diags = _query.check(path, content, prelude=_prelude_for(path))
+    future = _worker.submit(_check_document, path, content, key=uri)
+    _checks[uri] = (content, future)
+    try:
+        diags, outline = await asyncio.wrap_future(future)
+    except CancelledError:
+        return  # dropped from the queue for a newer version
+    except CheckSuperseded:
+        ls.window_log_message(lsp_types.LogMessageParams(
+            type=lsp_types.MessageType.Info, message="check superseded: " + uri))
+        return
+    except CheckCancelled:
+        # The iPad app watches for this message.
+        ls.window_log_message(lsp_types.LogMessageParams(
+            type=lsp_types.MessageType.Info, message="check cancelled: " + uri))
+        return
+    finally:
+        # A newer version or a didClose may have replaced this check
+        # after it finished but before this coroutine resumed.
+        current_check = _checks.get(uri, (None, None))[1] is future
+        if current_check:
+            del _checks[uri]
+    if not current_check:
+        return
     # pygls 2.x exposes the publish-diagnostics notification as
     # ``text_document_publish_diagnostics(params)``. The pre-2.x
     # ``publish_diagnostics(uri, list)`` shape was removed; calling
@@ -392,23 +486,23 @@ def on_initialize(
 
 
 @server.feature(lsp_types.TEXT_DOCUMENT_DID_OPEN)
-def on_did_open(
+async def on_did_open(
     ls: LanguageServer, params: lsp_types.DidOpenTextDocumentParams
 ) -> None:
     """Run diagnostics when a file is opened."""
-    _publish_diagnostics(ls, params.text_document.uri)
+    await _publish_diagnostics(ls, params.text_document.uri)
 
 
 @server.feature(lsp_types.TEXT_DOCUMENT_DID_SAVE)
-def on_did_save(
+async def on_did_save(
     ls: LanguageServer, params: lsp_types.DidSaveTextDocumentParams
 ) -> None:
     """Re-run diagnostics on save."""
-    _publish_diagnostics(ls, params.text_document.uri)
+    await _publish_diagnostics(ls, params.text_document.uri)
 
 
 @server.feature(lsp_types.TEXT_DOCUMENT_DID_CHANGE)
-def on_did_change(
+async def on_did_change(
     ls: LanguageServer, params: lsp_types.DidChangeTextDocumentParams
 ) -> None:
     """Re-publish diagnostics so the underline tracks the buffer.
@@ -420,23 +514,22 @@ def on_did_change(
     otherwise the underline stays pinned to the pre-edit `?` position
     and the user can't tell at a glance which hole still needs work.
 
-    Trade-off: this fires on every didChange, including ones from
-    ordinary typing.  Eglot debounces typing-driven didChanges via
-    ``eglot-send-changes-idle-time`` (default 0.5s), so the cost is
-    one ``check`` per pause-while-typing rather than per-keystroke.
-    For typical proof files that's tolerable.  Step 12 of
-    ``docs/lsp-plan.md`` (per-statement caching) is the proper
-    long-term answer if this turns out to be too slow.
+    Each didChange supersedes the document's previous check (see
+    "Threads" above), so a burst of edits costs one completed check.
     """
-    _publish_diagnostics(ls, params.text_document.uri)
+    await _publish_diagnostics(ls, params.text_document.uri)
 
 
 @server.feature(lsp_types.TEXT_DOCUMENT_DID_CLOSE)
 def on_did_close(
     ls: LanguageServer, params: lsp_types.DidCloseTextDocumentParams
 ) -> None:
-    """Clear diagnostics (and the outline) when the editor closes the buffer."""
+    """Clear diagnostics (and the outline) when the editor closes the
+    buffer, and drop its check."""
     uri = params.text_document.uri
+    current = _checks.pop(uri, None)
+    if current is not None:
+        _worker.cancel(current[1])
     ls.text_document_publish_diagnostics(
         lsp_types.PublishDiagnosticsParams(uri=uri, diagnostics=[])
     )
@@ -447,7 +540,7 @@ def on_did_close(
 # --- Query features ------------------------------------------------------
 
 
-@server.feature(lsp_types.TEXT_DOCUMENT_DEFINITION)
+@_feature(lsp_types.TEXT_DOCUMENT_DEFINITION)
 def on_definition(
     ls: LanguageServer, params: lsp_types.DefinitionParams
 ) -> Optional[lsp_types.Location]:
@@ -478,7 +571,7 @@ def on_definition(
     )
 
 
-@server.feature(lsp_types.TEXT_DOCUMENT_DOCUMENT_SYMBOL)
+@_feature(lsp_types.TEXT_DOCUMENT_DOCUMENT_SYMBOL)
 def on_document_symbol(
     ls: LanguageServer, params: lsp_types.DocumentSymbolParams
 ) -> list[lsp_types.DocumentSymbol]:
@@ -525,7 +618,7 @@ _COMPLETION_KIND_MAP = {
 }
 
 
-@server.feature(
+@_feature(
     lsp_types.TEXT_DOCUMENT_COMPLETION,
     lsp_types.CompletionOptions(),
 )
@@ -643,7 +736,7 @@ def _workspace_edit_payload(
     }
 
 
-@server.feature(
+@_feature(
     lsp_types.TEXT_DOCUMENT_CODE_ACTION,
     lsp_types.CodeActionOptions(
         code_action_kinds=[lsp_types.CodeActionKind.RefactorRewrite],
@@ -711,7 +804,7 @@ def _code_action_from_edit(
     )
 
 
-@server.feature(GOAL_AT_REQUEST)
+@_feature(GOAL_AT_REQUEST)
 def on_goal_at(
     ls: LanguageServer, params: object
 ) -> Optional[dict[str, object]]:
@@ -746,7 +839,7 @@ def on_goal_at(
     }
 
 
-@server.feature(PROOF_OUTLINE)
+@_feature(PROOF_OUTLINE)
 def on_proof_outline(
     ls: LanguageServer, params: object
 ) -> Optional[dict[str, object]]:
@@ -771,7 +864,7 @@ def on_proof_outline(
     return _proof_outline_payload(uri, outline)
 
 
-@server.feature(HOLE_CONTEXT_AT_REQUEST)
+@_feature(HOLE_CONTEXT_AT_REQUEST)
 def on_hole_context_at(
     ls: LanguageServer, params: object
 ) -> Optional[dict[str, object]]:
@@ -829,7 +922,7 @@ def on_hole_context_at(
     }
 
 
-@server.feature(VALIDATE_PROOF_REQUEST)
+@_feature(VALIDATE_PROOF_REQUEST)
 def on_validate_proof(
     ls: LanguageServer, params: object
 ) -> dict[str, object]:
@@ -883,7 +976,7 @@ def on_validate_proof(
     return {"ok": result.ok, "error": result.error}
 
 
-@server.feature(SPLITTABLE_VARS_REQUEST)
+@_feature(SPLITTABLE_VARS_REQUEST)
 def on_splittable_vars_at(ls: LanguageServer, params: object) -> list[str]:
     """Custom request: return variables at the cursor's hole that
     case-split can target.
@@ -913,7 +1006,7 @@ def on_splittable_vars_at(ls: LanguageServer, params: object) -> list[str]:
     )
 
 
-@server.feature(CASE_SPLIT_REQUEST)
+@_feature(CASE_SPLIT_REQUEST)
 def on_case_split_at(
     ls: LanguageServer, params: object
 ) -> Optional[dict[str, object]]:
@@ -954,7 +1047,7 @@ def on_case_split_at(
     return _workspace_edit_payload(uri, edit)
 
 
-@server.feature(ELIMINABLE_VARS_REQUEST)
+@_feature(ELIMINABLE_VARS_REQUEST)
 def on_eliminable_vars_at(ls: LanguageServer, params: object) -> list[str]:
     """Custom request: return labels of in-scope hypotheses that
     ``eliminate`` can target.
@@ -984,7 +1077,7 @@ def on_eliminable_vars_at(ls: LanguageServer, params: object) -> list[str]:
     )
 
 
-@server.feature(ELIMINATE_REQUEST)
+@_feature(ELIMINATE_REQUEST)
 def on_eliminate_at(
     ls: LanguageServer, params: object
 ) -> Optional[dict[str, object]]:
@@ -1022,7 +1115,7 @@ def on_eliminate_at(
     return _workspace_edit_payload(uri, edit)
 
 
-@server.feature(MATCHING_GIVENS_REQUEST)
+@_feature(MATCHING_GIVENS_REQUEST)
 def on_matching_givens_at(ls: LanguageServer, params: object) -> list[str]:
     """Custom request: return labels of in-scope local proof
     bindings whose formula equals the goal at the cursor's hole.
@@ -1051,7 +1144,7 @@ def on_matching_givens_at(ls: LanguageServer, params: object) -> list[str]:
     )
 
 
-@server.feature(FILL_FROM_GIVEN_REQUEST)
+@_feature(FILL_FROM_GIVEN_REQUEST)
 def on_fill_from_given_at(
     ls: LanguageServer, params: object
 ) -> Optional[dict[str, object]]:
@@ -1111,7 +1204,7 @@ def _lemma_match_payload(m: _query.LemmaMatch) -> dict[str, object]:
     }
 
 
-@server.feature(AVAILABLE_LEMMAS_REQUEST)
+@_feature(AVAILABLE_LEMMAS_REQUEST)
 def on_available_lemmas_at(
     ls: LanguageServer, params: object
 ) -> list[dict[str, object]]:
@@ -1189,7 +1282,7 @@ def _subterm_preview_payload(
     }
 
 
-@server.feature(PREVIEW_REPLACE_AT_SUBTERM_REQUEST)
+@_feature(PREVIEW_REPLACE_AT_SUBTERM_REQUEST)
 def on_preview_replace_at_subterm(
     ls: LanguageServer, params: object
 ) -> Optional[dict[str, object]]:
@@ -1213,7 +1306,7 @@ def on_preview_replace_at_subterm(
     ))
 
 
-@server.feature(PREVIEW_EXPAND_AT_SUBTERM_REQUEST)
+@_feature(PREVIEW_EXPAND_AT_SUBTERM_REQUEST)
 def on_preview_expand_at_subterm(
     ls: LanguageServer, params: object
 ) -> Optional[dict[str, object]]:
@@ -1234,7 +1327,7 @@ def on_preview_expand_at_subterm(
     ))
 
 
-@server.feature(LEMMAS_FOR_SUBTERM_REQUEST)
+@_feature(LEMMAS_FOR_SUBTERM_REQUEST)
 def on_lemmas_for_subterm(
     ls: LanguageServer, params: object
 ) -> list[dict[str, object]]:
@@ -1270,7 +1363,7 @@ def _at_position(
     return _path_from_uri(uri), content, pos
 
 
-@server.feature(PREVIEW_CONCLUDE_AT_REQUEST)
+@_feature(PREVIEW_CONCLUDE_AT_REQUEST)
 def on_preview_conclude_at(ls: LanguageServer, params: object) -> object:
     """Custom request: would ``conclude <goal> by <label>`` prove the
     goal at the hole, modulo ``auto`` rules?
@@ -1291,7 +1384,7 @@ def on_preview_conclude_at(ls: LanguageServer, params: object) -> object:
     ))
 
 
-@server.feature(APPLY_AT_REQUEST)
+@_feature(APPLY_AT_REQUEST)
 def on_apply_at(ls: LanguageServer, params: object) -> object:
     """Custom request: preview ``apply <theorem>[<args>] to ?`` at the
     hole.
@@ -1316,7 +1409,7 @@ def on_apply_at(ls: LanguageServer, params: object) -> object:
     ))
 
 
-@server.feature(AUTO_RULES_AT_REQUEST)
+@_feature(AUTO_RULES_AT_REQUEST)
 def on_auto_rules_at(ls: LanguageServer, params: object) -> list[object]:
     """Custom request: the ``auto`` rewrite rules in scope at a position.
 
@@ -1339,7 +1432,7 @@ def on_auto_rules_at(ls: LanguageServer, params: object) -> list[object]:
     ]
 
 
-@server.feature(INSERT_LEMMA_REQUEST)
+@_feature(INSERT_LEMMA_REQUEST)
 def on_insert_lemma(
     ls: LanguageServer, params: object
 ) -> Optional[dict[str, object]]:
@@ -1378,7 +1471,7 @@ def on_insert_lemma(
     return _workspace_edit_payload(uri, edit)
 
 
-@server.feature(PREVIEW_LEMMA_REQUEST)
+@_feature(PREVIEW_LEMMA_REQUEST)
 def on_preview_lemma_at(
     ls: LanguageServer, params: object
 ) -> Optional[dict[str, object]]:
