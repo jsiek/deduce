@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "deduce": {
-      "command": "python3.13",
-      "args": ["-m", "lsp.mcp_server"]
+      "command": "sh",
+      "args": ["lsp/mcp_server.sh"]
     }
   }
 }
