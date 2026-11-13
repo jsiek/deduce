@@ -1,0 +1,3 @@
+./test/should-error/concepts_ambiguous_member.pf:13.40-13.51: ambiguous use of pt_both: it is a theorem of 2 concept instances in the where clause, and these arguments fit each of them, giving
+	(((pt = pt) or pt ≠ pt) and (pt = pt))
+at different types. Give the type of an argument, as in `(x:T)`.

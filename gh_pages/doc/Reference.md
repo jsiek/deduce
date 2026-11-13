@@ -3513,6 +3513,16 @@ proof, the operations of the concepts (and of the concepts they
 refine) can be used at `T`, and their theorems are givens, under the
 names the concepts use (`add_zero` above).
 
+A where clause may name a concept more than once, as in
+`where { Monoid<T>, Monoid<U> }`. Then the member names are
+overloaded: `+` and `zero` are resolved by type, as overloaded
+functions are, and a theorem name such as `add_zero` stands for each
+instance's theorem. A use of the theorem picks the one that fits: by
+the types of its arguments (`add_zero[x]` with `x:T`), by the goal it
+proves, or, in `replace`, by the one that rewrites. If several fit,
+Deduce reports the ambiguity; give an argument's type, as in
+`add_zero[(zero:T)]`.
+
 **Using.** Instantiate the type with `<` and `>`. Deduce finds the
 model of each concept at that type, passes the model's operations,
 and uses the model's theorems for the concept's. The operations of a

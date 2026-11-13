@@ -39,6 +39,9 @@ if TYPE_CHECKING:
 @dataclass
 class PVar(Proof):
   name: str
+  # For a theorem name that a where clause overloads: every candidate
+  # label (``name`` is the first). The checker picks among them.
+  overloads: List[str] = field(default_factory=list, kw_only=True)
 
   def __eq__(self, other: object) -> bool:
     if not isinstance(other, PVar):
@@ -72,7 +75,10 @@ class PVar(Proof):
                  "undefined proof variable " + self.name + hint + env_str)
     if not isinstance(env[self.name], list):
       user_error(self.location, "proof variable not bound to list " + self.name)
-    return PVar(self.location, env[self.name][0])
+    candidates = env[self.name]
+    overloads = candidates \
+        if self.name in env.get(OVERLOADED_PROOFS_KEY, ()) else []
+    return PVar(self.location, candidates[0], overloads=list(overloads))
     
 @dataclass
 class PLet(Proof):

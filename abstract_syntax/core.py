@@ -104,6 +104,11 @@ UniquifyEnv = dict[str, Any]
 # import doesn't leak them. Not an identifier, so it can't clash.
 MODELS_KEY = ' models'
 
+# The uniquify-environment key for the proof names that a where clause
+# binds to several labels, one per concept instance with a theorem of
+# that name (#1264). A use of such a name is resolved by the checker.
+OVERLOADED_PROOFS_KEY = ' overloaded proofs'
+
 ############ AST Base Classes ###########
 
 @dataclass

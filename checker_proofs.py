@@ -12,6 +12,7 @@ File charter:
   lowering or custom induction generation.
 """
 
+import dataclasses
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional, TypeAlias, cast
 
@@ -179,8 +180,75 @@ def _check_proof_recall(proof: PRecall, env: Env) -> CheckedFormula:
       return results[0]
   user_error(loc, 'expected some facts after `recall`')
 
+def _overloaded_base(proof: Proof) -> PVar | None:
+  """The theorem name at the base of ``proof`` (a name, or a name
+  instantiated with ``[...]`` and ``<...>``) if a where clause overloads
+  it (#1264)."""
+  while isinstance(proof, (AllElim, AllElimTypes)):
+    proof = proof.univ
+  return proof if isinstance(proof, PVar) and proof.overloads else None
+
+def _with_base(proof: Proof, name: str) -> Proof:
+  """``proof`` with its overloaded base name replaced by ``name``."""
+  if isinstance(proof, (AllElim, AllElimTypes)):
+    return dataclasses.replace(proof, univ=_with_base(proof.univ, name))
+  return PVar(proof.location, name)
+
+def _check_overloaded_instantiation(proof: Proof, base: PVar,
+                                    env: Env) -> CheckedFormula:
+  """Instantiate the candidate whose parameters fit the arguments: each
+  candidate is tried with the whole argument list, so `add_commute[zero, a]`
+  resolves by `a` even though `zero` alone is ambiguous."""
+  found: list[CheckedFormula] = []
+  for name in base.overloads:
+    try:
+      with speculative_probe():
+        found.append(check_proof(_with_base(proof, name), env))
+    except UserError:
+      pass
+  if not found:
+    # Report why the first candidate does not fit.
+    return check_proof(_with_base(proof, base.overloads[0]), env)
+  if any(f != found[0] for f in found[1:]):
+    shown = list(dict.fromkeys(map(str, found)))
+    user_error(proof.location, 'ambiguous use of ' + base_name(base.name)
+               + ': it is a theorem of ' + str(len(found))
+               + ' concept instances in the where clause, and these arguments'
+               + ' fit each of them, giving\n\t' + '\n\t'.join(shown)
+               + '\nat different types. Give the type of an argument,'
+               + ' as in `(x:T)`.')
+  return found[0]
+
+def _resolve_rewrite_overloads(loc: Meta, proofs: list[Proof],
+                               formula: Formula, env: Env) -> list[Proof]:
+  """For each overloaded theorem name among ``replace``'s equations, the
+  candidate that rewrites the formula (the equations apply in order)."""
+  if not any(_overloaded_base(p) for p in proofs):
+    return proofs
+  current = formula.reduce(env)
+  resolved = []
+  for p in proofs:
+    base = _overloaded_base(p)
+    options = [_with_base(p, name) for name in base.overloads] if base else [p]
+    for option in options:
+      try:
+        with speculative_probe():
+          rewritten = apply_rewrites(loc, current, [check_proof(option, env)], env)
+        resolved.append(option)
+        current = rewritten
+        break
+      except UserError:
+        continue
+    else:
+      resolved.append(options[0])   # replace itself reports the error
+  return resolved
+
 def _check_proof_var(proof: PVar, env: Env) -> CheckedFormula:
   loc = proof.location
+  if proof.overloads:
+    # Every candidate is a given, so the name stands for all of them.
+    return And(loc, BoolType(loc),
+               [_check_proof_var(PVar(loc, name), env) for name in proof.overloads])
   try:
     formula = env.get_formula_of_proof_var(proof)
     if formula:
@@ -247,7 +315,8 @@ def _drop_auto_handled_equations(
 def _check_proof_rewrite_fact(proof: RewriteFact, env: Env) -> CheckedFormula:
   formula = check_proof(proof.subject, env)
   eqns = [check_proof(equation_proof, env)
-          for equation_proof in proof.equations]
+          for equation_proof in _resolve_rewrite_overloads(
+              proof.location, proof.equations, formula, env)]
   red_formula = formula.reduce(env)
   return apply_rewrites(proof.location, red_formula, eqns, env,
                         display_formula=formula)
@@ -541,6 +610,9 @@ def check_proof(proof: Proof, env: Env) -> CheckedFormula:
     print('\t' + str(proof))
   # Record before dispatch so a node whose handler raises is still a step.
   record_step(proof, env)
+  if isinstance(proof, (AllElim, AllElimTypes)) \
+     and (base := _overloaded_base(proof)) is not None:
+    return _check_overloaded_instantiation(proof, base, env)
   handler = _CHECK_PROOF_HANDLERS.get(type(proof))
   if handler is not None:
     formula = cast(CheckedFormula, handler(proof, env))
@@ -1455,10 +1527,11 @@ def _missing_period_after_tactic(tactic_loc: Meta, body: Proof,
 
 def _check_proof_of_rewrite_goal(proof: RewriteGoal, formula: CheckedFormula, env: Env) -> None:
   loc = proof.location
-  equations = [check_proof(p, env) for p in proof.equations]
+  equation_proofs = _resolve_rewrite_overloads(loc, proof.equations, formula, env)
+  equations = [check_proof(p, env) for p in equation_proofs]
   reduced = [equation.reduce(env) for equation in equations]
   eqns, display_eqns = _drop_auto_handled_equations(
-      proof.equations, equations, reduced, "replace")
+      equation_proofs, equations, reduced, "replace")
   new_formula = formula.reduce(env)
   new_formula = apply_rewrites(loc, new_formula, eqns, env,
                                display_formula=formula,
@@ -2151,6 +2224,16 @@ def check_proof_of(proof: Proof, formula: CheckedFormula, env: Env) -> None:
     print('check_proof_of: ' + str(formula) + '?')
     print('\t' + str(proof))
   record_step(proof, env, goal=formula)
+  if (base := _overloaded_base(proof)) is not None:
+    # Any candidate that proves the goal will do.
+    for name in base.overloads:
+      try:
+        with speculative_probe():
+          check_proof_of(_with_base(proof, name), formula, env)
+        return None
+      except UserError:
+        pass
+    return check_proof_of(_with_base(proof, base.overloads[0]), formula, env)
   handler = _CHECK_PROOF_OF_HANDLERS.get(type(proof))
   if handler is not None:
     return handler(proof, formula, env)

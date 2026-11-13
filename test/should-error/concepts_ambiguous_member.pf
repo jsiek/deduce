@@ -1,0 +1,15 @@
+// With two instances of one concept, a theorem name is overloaded
+// (#1264). Here nothing tells which `zero_both` is meant: `zero` could be
+// either instance's, and `conjunct` has no goal to guide the choice.
+
+concept Pointed<T> {
+  fun pt : T
+  theorem pt_both: all x:T. (x = pt or not (x = pt)) and pt = pt
+}
+
+theorem amb: all T:type, U:type where { Pointed<T>, Pointed<U> }. true
+proof
+  arbitrary T:type, U:type where { Pointed<T>, Pointed<U> }
+  have p: (pt:T) = pt by conjunct 1 of pt_both[pt]
+  .
+end
