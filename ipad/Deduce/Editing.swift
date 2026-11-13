@@ -65,6 +65,9 @@ extension DeduceServer {
         let edits: [TextEdit]
         /// Why the step can't be taken, when it can't.
         let problem: String?
+        /// What the checker warns about the step (an `expand` with nothing
+        /// left to unfold, say).
+        let warnings: [String]
     }
 
     struct Lemma: Identifiable, Decodable {
@@ -178,7 +181,7 @@ extension DeduceServer {
         var all = params
         all["position"] = position(hole)
         guard let uri = openURI, let result = await request(method, all) as? [String: Any] else {
-            return Preview(goals: [], edits: [], problem: "The server didn't answer.")
+            return Preview(goals: [], edits: [], problem: "The server didn't answer.", warnings: [])
         }
         let edits = TextEdit.edits(in: result["edit"], for: uri)
         let problem = result["outcome"] as? String == "ok" ? nil
@@ -187,7 +190,8 @@ extension DeduceServer {
         // goal); a lemma preview lists them.
         let goals = decode([Outline.Tree].self, result["goals"])
             ?? decode(Outline.Tree.self, result["goal"]).map { $0.text == "true" ? [] : [$0] } ?? []
-        return Preview(goals: goals, edits: edits, problem: problem)
+        return Preview(goals: goals, edits: edits, problem: problem,
+                       warnings: result["warnings"] as? [String] ?? [])
     }
 
     /// Lemmas ranked against the subterm at `path`, best first.

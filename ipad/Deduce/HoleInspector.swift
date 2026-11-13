@@ -223,7 +223,8 @@ struct HoleInspector: View {
     }
 
     /// An `expand` or `replace`: it applies as soon as it checks (Undo
-    /// takes it back); the bar below the list shows why when it doesn't.
+    /// takes it back); the bar below the list shows why when it doesn't,
+    /// or what the checker warns about it.
     private func stepButton(_ title: String, _ method: String, _ params: [String: Any]) -> some View {
         Button(title) { run(title, method, params, apply: true) }
     }
@@ -238,7 +239,7 @@ struct HoleInspector: View {
             previewing = nil
             // Undo or an edit as text may have changed the file meanwhile.
             guard server.version == version else { return }
-            if apply && result.problem == nil {
+            if apply && result.problem == nil && result.warnings.isEmpty {
                 server.apply(result.edits)
             } else {
                 preview = (title, result)
@@ -261,6 +262,10 @@ struct HoleInspector: View {
             } else if result.goals.count == 1, display(result.goals[0]) == display(hole.goal) {
                 Text("Leaves the goal as it is.")
             } else {
+                ForEach(result.warnings, id: \.self) { warning in
+                    Text(withoutLocations(warning).trimmingCharacters(in: .whitespacesAndNewlines))
+                        .font(.system(.footnote, design: .monospaced)).foregroundStyle(.orange)
+                }
                 if result.goals.isEmpty {
                     Text("Proves the goal.")
                 } else {
