@@ -8,6 +8,10 @@ struct ContentView: View {
     @State private var scrollTarget: Outline.Range?
     @State private var showSource = false
     @State private var editing: EditingStep?
+    /// The steps at a hole, for the file's version they were asked about.
+    @State private var loaded: (hole: Outline.Range, version: Int, steps: DeduceServer.HoleSteps)?
+    /// The `all` given being given values, in a popover beside it.
+    @State private var instantiating: String?
 
     /// A step being edited as text.
     struct EditingStep: Identifiable {
@@ -24,6 +28,43 @@ struct ContentView: View {
     private var hole: Textbook.Hole? {
         guard server.editable, let selection else { return nil }
         return server.textbook?.holes.first { $0.range == selection }
+    }
+
+    /// The selected hole's steps, once they've arrived for this version.
+    private var steps: DeduceServer.HoleSteps? {
+        guard let hole, let loaded, loaded.hole == hole.range, loaded.version == server.version,
+              !server.checking else { return nil }
+        return loaded.steps
+    }
+
+    /// The givens at the selected hole that the proof shows where they're
+    /// introduced, and can be tapped there to use. An `all` over a type
+    /// (`all T:type`) counts only when it proves the goal.
+    private var uses: [String: Textbook.GivenUse] {
+        guard let hole, let steps, let book = server.textbook else { return [:] }
+        let quantified = hole.givens.filter { $0.formula.kind == "All" }
+        let overTypes = Set(quantified.filter { FormulaView.subtrees($0.formula).first?.kind == "TypeType" }.map(\.label))
+        let overTerms = Set(quantified.map(\.label)).subtracting(overTypes)
+        return book.givens(at: hole.range).reduce(into: [:]) { uses, given in
+            let (label, range) = given
+            let proves = steps.matching.contains(label)
+            if proves || (steps.eliminable.contains(label) && !overTypes.contains(label)) {
+                uses[label] = Textbook.GivenUse(range: range, proves: proves, quantified: overTerms.contains(label))
+            }
+        }
+    }
+
+    /// Use the given `label` at the selected hole: prove the goal with it
+    /// if it can, ask for values for an `all` given's variables, or else
+    /// take the step its shape calls for.
+    private func useGiven(_ label: String) {
+        guard let hole, let use = uses[label] else { return }
+        if use.quantified && !use.proves {
+            instantiating = label
+            return
+        }
+        let method = use.proves ? "deduce/fillFromGivenAt" : "deduce/eliminateAt"
+        Task { server.apply(await server.edits(method, at: hole.range.start, ["label": label])) }
     }
 
     var body: some View {
@@ -52,7 +93,7 @@ struct ContentView: View {
                     textbook
                     if let hole {
                         Divider()
-                        HoleInspector(hole: hole).frame(maxWidth: 440)
+                        HoleInspector(hole: hole, steps: steps, givensToTap: !uses.isEmpty).frame(maxWidth: 440)
                     } else if showSource {
                         Divider()
                         SourceView(source: server.source, highlight: selection)
@@ -92,6 +133,16 @@ struct ContentView: View {
             .sheet(item: $editing) { step in
                 editSheet(step)
             }
+            // Ask again when each edit's check is done: an edit can leave a
+            // hole at the same range, and until the check it may be stale.
+            .task(id: "\(String(describing: hole?.range)) v\(server.version) \(server.checking)") {
+                guard let hole, !server.checking else { return }
+                let (range, version) = (hole.range, server.version)
+                let steps = await server.steps(at: range.start)
+                // A load superseded meanwhile must not write over the current one's.
+                if !Task.isCancelled { loaded = (range, version, steps) }
+            }
+            .onChange(of: selection) { instantiating = nil }
             .onChange(of: reasonLevel) { levels = [:] }
             .onChange(of: server.openFile) {
                 levels = [:]
@@ -123,7 +174,14 @@ struct ContentView: View {
     private var textbook: some View {
         if let book = server.textbook {
             TextbookView(book: book, defaultLevel: reasonLevel, editable: server.editable,
-                         selection: $selection, levels: $levels, scrollTarget: $scrollTarget) { range in
+                         selection: $selection, levels: $levels, scrollTarget: $scrollTarget,
+                         uses: uses, useGiven: useGiven, instantiating: $instantiating,
+                         instantiator: { label in
+                             AnyView(hole.map { hole in
+                                 InstantiateView(label: label, hole: hole.range.start) { instantiating = nil }
+                                     .environmentObject(server)
+                             })
+                         }) { range in
                 editing = EditingStep(range: range, text: sourceText(server.source.scalarLines, range))
             }
         } else if server.openFile == nil {

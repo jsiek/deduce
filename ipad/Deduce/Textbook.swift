@@ -44,6 +44,8 @@ struct Textbook {
         /// The steps proving this line, when its reason is a proof of
         /// several steps rather than a single justification.
         var subproof: [Block] = []
+        /// The labels of the givens it introduces (`assume H1`, `have H2`).
+        var introduces: [String] = []
     }
 
     struct Link {
@@ -55,8 +57,27 @@ struct Textbook {
 
     struct Arm {
         let range: Outline.Range
+        /// "Case node(t1, l2)." or, for `cases`, "Case h1: P."
         let title: String
+        /// The hypotheses shown after the title ("Assume IH1."): those of
+        /// an `induction` or `switch` arm.
+        let assumes: [String]
+        /// The labels of the givens it introduces: its hypotheses, or the
+        /// label in a `cases` arm's title.
+        let introduces: [String]
         let blocks: [Block]
+    }
+
+    /// How a given can be used at the selected hole, and the line or arm
+    /// that introduces it.
+    struct GivenUse {
+        let range: Outline.Range
+        /// It proves the goal (`fillFromGivenAt`), rather than giving a
+        /// step to take (`eliminateAt`).
+        let proves: Bool
+        /// It's an `all` formula: to use it otherwise, its variables need
+        /// values (`instantiateAt`).
+        let quantified: Bool
     }
 
     enum Block: Identifiable {
@@ -139,6 +160,36 @@ struct Textbook {
         self.unplaced = unplaced
     }
 
+    /// Where each given in scope at `hole` is introduced: the line or case
+    /// arm that assumes it, by label (an inner one hides an outer one).
+    func givens(at hole: Outline.Range) -> [String: Outline.Range] {
+        theorems.first { $0.range.contains(hole) }.flatMap { Self.scope($0.blocks, hole, [:]) } ?? [:]
+    }
+
+    /// The givens in scope at `hole`, if it's in `blocks`: those of
+    /// `outer`, then those introduced before it. Each line's givens are in
+    /// scope in the lines after it, an arm's in the arm.
+    private static func scope(_ blocks: [Block], _ hole: Outline.Range,
+                              _ outer: [String: Outline.Range]) -> [String: Outline.Range]? {
+        var scope = outer
+        for block in blocks {
+            switch block {
+            case .line(let line):
+                if line.range == hole { return scope }
+                if line.range.contains(hole) { return Self.scope(line.subproof, hole, scope) ?? scope }
+                for label in line.introduces { scope[label] = line.range }
+            case .chain(let range, _, _):
+                if range.contains(hole) { return scope }
+            case .cases(let range, _, let arms):
+                guard range.contains(hole) else { continue }
+                guard let arm = arms.first(where: { $0.range.contains(hole) }) else { return scope }
+                for label in arm.introduces { scope[label] = arm.range }
+                return Self.scope(arm.blocks, hole, scope) ?? scope
+            }
+        }
+        return nil
+    }
+
     /// The ranges of the lines and chain links in `blocks`, nested ones too.
     private static func lineRanges(_ blocks: [Block]) -> [Outline.Range] {
         blocks.flatMap { block -> [Outline.Range] in
@@ -195,6 +246,17 @@ struct Textbook {
         /// its own, shown nested under the step.
         static let subproof = structural.subtracting(["RewriteGoal", "ApplyDefsGoal", "SimplifyGoal"])
 
+        /// Kinds whose children are parts proved separately: a
+        /// conjunction's (`p1, p2`), and an `apply`'s rule and arguments.
+        static let hasParts: Set<String> = ["PTuple", "ModusPonens"]
+
+        /// Kinds that lead into the step after them, which proves what's
+        /// left: in `have h: P by …` / `?`, the `?` finishes the part.
+        static let leading: Set<String> = [
+            "AllIntro", "ImpIntro", "PLet", "PTLetNew", "SomeElim", "Suffices",
+            "RewriteGoal", "ApplyDefsGoal", "SimplifyGoal",
+        ]
+
         /// An `equations` block, whose links follow it as siblings. A
         /// written-out `transitive (…) (…)` term is the same kind but is a
         /// reason; only the source tells them apart.
@@ -213,12 +275,13 @@ struct Textbook {
         /// A reason's last part can fall just outside its step's range: in
         /// `= rhs by expand length.` the `.` is its own step after the
         /// `expand`. A non-structural step that starts on the line where
-        /// the previous sibling ends joins that sibling's reason.
-        private static func absorbContinuations(_ nodes: [Node]) -> [Node] {
+        /// the previous sibling ends joins that sibling's reason, except
+        /// among the parts of a `p1, p2` or an `apply … to`.
+        private static func absorbContinuations(_ nodes: [Node], separate: Bool = false) -> [Node] {
             var kept: [Node] = []
             for node in nodes {
-                node.children = absorbContinuations(node.children)
-                if let previous = kept.last, !node.startsLine,
+                node.children = absorbContinuations(node.children, separate: Node.hasParts.contains(node.step.kind))
+                if !separate, let previous = kept.last, !node.startsLine,
                    node.step.range.start.line == previous.step.range.end.line {
                     previous.children.append(node)
                 } else {
@@ -253,13 +316,14 @@ struct Textbook {
                 case "ImpIntro":
                     let label = detail.label ?? ""
                     blocks.append(line(node, "Assume \(label)" + (detail.premise == nil ? "." : ":"),
-                                       detail.premise.map(display)))
+                                       detail.premise.map(display), introduces: [label]))
                 case "Induction", "SwitchProof", "Cases":
                     blocks.append(cases(node, rest: &rest))
                 case "PTransitive" where node.isChain:
                     blocks.append(chain(node, rest: &rest))
                 case "PLet":
-                    blocks.append(line(node, "\(detail.label ?? "") :", step.formula.map(display), reason: true))
+                    blocks.append(line(node, "\(detail.label ?? "") :", step.formula.map(display), reason: true,
+                                       introduces: detail.label.map { [$0] } ?? []))
                 case "PAnnot":
                     blocks.append(line(node, "Hence", step.formula.map(display), reason: true))
                 case "Suffices":
@@ -277,6 +341,10 @@ struct Textbook {
                 case "SomeIntro":
                     let witnesses = (detail.witnesses ?? []).map(display).joined(separator: ", ")
                     blocks.append(line(node, "Choose \(witnesses).", nil))
+                case "PTuple":
+                    blocks.append(withParts(node, "We prove each part:", parts(node.children)))
+                case "ModusPonens":
+                    blocks.append(modusPonens(node))
                 default:
                     // A proof term that finishes the goal, e.g. `p2` or `.`.
                     blocks.append(line(node, step.uses.isEmpty ? "This is immediate." : "This follows.",
@@ -288,12 +356,71 @@ struct Textbook {
 
         /// A line for `node`. With `reason`, its reason is either nested as a
         /// sub-proof (when it has steps of its own) or summarized.
-        private func line(_ node: Node, _ prose: String, _ formula: String?, reason: Bool = false) -> Block {
+        private func line(_ node: Node, _ prose: String, _ formula: String?, reason: Bool = false,
+                          introduces: [String] = []) -> Block {
             let nested = reason && node.children.contains { $0.startsLine && Node.subproof.contains($0.step.kind) }
             return .line(Line(range: node.step.range, prose: prose, formula: formula,
                               reason: reason && !nested ? self.reason(node.step) : nil,
                               status: node.status,
-                              subproof: nested ? blocks(node.children) : []))
+                              subproof: nested ? blocks(node.children) : [],
+                              introduces: introduces))
+        }
+
+        /// `apply rule to args`: "By rule, using H2 and H3." Arguments that
+        /// are just a given's name are named there; the others (holes,
+        /// proofs of their own) are parts listed under it.
+        private func modusPonens(_ node: Node) -> Block {
+            // The rule's name, without its instantiation (`less_trans[a, b, d]`).
+            let rule = node.children.first.map { slice($0.step.range) } ?? ""
+            let name = rule.prefix { $0 != "[" && $0 != "<" }.trimmingCharacters(in: .whitespaces)
+            let args = node.children.dropFirst().flatMap { $0.step.kind == "PTuple" ? $0.children : [$0] }
+            let groups = parts(args)
+            let isName = { (part: [Node]) in part.count == 1 && part[0].step.kind == "PVar" }
+            let named = groups.filter(isName).map { slice($0[0].step.range) }
+            let others = groups.filter { !isName($0) }
+            let using = named.isEmpty ? "" : ", using " + listed(named)
+            let end = others.isEmpty ? "." : named.isEmpty ? ", using:" : " and:"
+            return withParts(node, "By \(name)\(using)\(end)", others)
+        }
+
+        /// A line of `prose` with `parts` under it, each a line of its own.
+        private func withParts(_ node: Node, _ prose: String, _ parts: [[Node]]) -> Block {
+            .line(Line(range: node.step.range, prose: prose, formula: nil, reason: nil,
+                       status: node.status, subproof: parts.map(part)))
+        }
+
+        /// `nodes` split into parts: each a run of steps that lead into the
+        /// next (`have`, `assume`, …), ended by the one that proves the part.
+        private func parts(_ nodes: [Node]) -> [[Node]] {
+            var parts: [[Node]] = []
+            var current: [Node] = []
+            for node in nodes {
+                current.append(node)
+                if !Node.leading.contains(node.step.kind) {
+                    parts.append(current)
+                    current = []
+                }
+            }
+            return current.isEmpty ? parts : parts + [current]
+        }
+
+        /// One part: the formula it proves, with its reason, or with its
+        /// steps under it. A hole is its own "Still to prove" line.
+        private func part(_ steps: [Node]) -> Block {
+            let first = steps[0]
+            let goal = first.step.goal.map(display)
+            if steps.count == 1, !Node.hasParts.contains(first.step.kind) {
+                return ["PHole", "PSorry"].contains(first.step.kind)
+                    ? blocks(steps)[0] : line(first, "", goal, reason: true)
+            }
+            let range = Outline.Range(start: first.step.range.start, end: steps.last!.step.range.end)
+            return .line(Line(range: range, prose: "", formula: goal, reason: nil,
+                              status: steps.map(\.status).max() ?? .ok, subproof: blocks(steps)))
+        }
+
+        /// "H2", "H2 and H3", "H2, H3 and H4".
+        private func listed(_ names: [String]) -> String {
+            names.count < 2 ? names.joined() : names.dropLast().joined(separator: ", ") + " and " + names.last!
         }
 
         /// `induction` / `switch` / `cases`: the steps of each arm are those
@@ -313,9 +440,9 @@ struct Textbook {
             return .cases(range: step.range, intro: intro, arms: arms.map { arm in
                 let header = arm.pattern.map(display) ?? [arm.label, arm.formula.map(display)]
                     .compactMap { $0 }.joined(separator: ": ")
-                let assume = (arm.hypotheses ?? []).isEmpty
-                    ? "" : " Assume \(arm.hypotheses!.joined(separator: ", "))."
-                return Arm(range: arm.range, title: "Case \(header).\(assume)",
+                let assumes = arm.hypotheses ?? []
+                return Arm(range: arm.range, title: "Case \(header).", assumes: assumes,
+                           introduces: arm.pattern == nil ? [arm.label].compactMap { $0 } : assumes,
                            blocks: blocks(members.filter { arm.range.contains($0.step.range) }))
             })
         }

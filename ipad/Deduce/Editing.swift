@@ -84,8 +84,56 @@ extension DeduceServer {
         ["line": p.line, "character": p.character]
     }
 
+    /// The steps the server offers at a hole.
+    struct HoleSteps {
+        /// Its code actions (Refine, Induction), by title.
+        let actions: [(title: String, edits: [TextEdit])]
+        /// Variables a case split can be on.
+        let splittable: [String]
+        /// Givens a step can be taken with (`eliminateAt`).
+        let eliminable: [String]
+        /// Givens that prove the goal (`fillFromGivenAt`).
+        let matching: [String]
+    }
+
+    /// The steps at `hole`, asked for together so they're answered from
+    /// the outline's check, before the slower lemma ranking.
+    func steps(at hole: Outline.Position) async -> HoleSteps {
+        async let actions = codeActions(at: hole)
+        async let splittable = names("deduce/splittableVarsAt", at: hole)
+        async let eliminable = names("deduce/eliminableVarsAt", at: hole)
+        async let matching = names("deduce/matchingGivensAt", at: hole)
+        return await HoleSteps(actions: actions, splittable: splittable, eliminable: eliminable, matching: matching)
+    }
+
+    /// A variable of an `all` given, to give a value for.
+    struct InstantiationVar: Decodable {
+        let name: String
+        let type: String
+        /// Values worth offering: the goal's subterms of its type, then
+        /// variables of its type.
+        let suggestions: [String]
+    }
+
+    /// The variables to give values for, to use the `all` given `label`
+    /// at `hole` (`deduce/instantiationVarsAt`).
+    func instantiationVars(at hole: Outline.Position, label: String) async -> [InstantiationVar] {
+        decode([InstantiationVar].self, await request("deduce/instantiationVarsAt",
+                                                      ["position": position(hole), "label": label])) ?? []
+    }
+
+    /// The edit using the `all` given `label` at `hole` with `values`
+    /// (`deduce/instantiateAt`), or why the values don't check.
+    func instantiate(at hole: Outline.Position, label: String,
+                     values: [String]) async -> (edits: [TextEdit], problem: String?) {
+        let result = await request("deduce/instantiateAt",
+                                   ["position": position(hole), "label": label, "values": values]) as? [String: Any]
+        guard let uri = openURI, let result else { return ([], "The server didn't answer.") }
+        return (TextEdit.edits(in: result["edit"], for: uri), result["message"] as? String)
+    }
+
     /// The server's code actions at `hole` (Refine, Induction), by title.
-    func codeActions(at hole: Outline.Position) async -> [(title: String, edits: [TextEdit])] {
+    private func codeActions(at hole: Outline.Position) async -> [(title: String, edits: [TextEdit])] {
         let range = ["start": position(hole), "end": position(hole)]
         let result = await request("textDocument/codeAction",
                                    ["range": range, "context": ["diagnostics": [Any]()]])
@@ -98,7 +146,7 @@ extension DeduceServer {
     }
 
     /// The names a `deduce/…VarsAt` / `deduce/matchingGivensAt` request offers.
-    func names(_ method: String, at hole: Outline.Position) async -> [String] {
+    private func names(_ method: String, at hole: Outline.Position) async -> [String] {
         await request(method, ["position": position(hole)]) as? [String] ?? []
     }
 

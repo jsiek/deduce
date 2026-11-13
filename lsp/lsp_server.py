@@ -167,6 +167,12 @@ SPLITTABLE_VARS_REQUEST = "deduce/splittableVarsAt"
 ELIMINATE_REQUEST = "deduce/eliminateAt"
 ELIMINABLE_VARS_REQUEST = "deduce/eliminableVarsAt"
 
+# Using an `all` given with values for its variables: the editor asks
+# for the variables (with suggested values) via
+# ``deduce/instantiationVarsAt``, then issues ``deduce/instantiateAt``.
+INSTANTIATION_VARS_REQUEST = "deduce/instantiationVarsAt"
+INSTANTIATE_REQUEST = "deduce/instantiateAt"
+
 # Custom requests for issue #353 (fill hole with a given).  Same shape
 # as the eliminate pair: the editor fetches matching-given labels via
 # ``deduce/matchingGivensAt`` for completion, then issues
@@ -1144,6 +1150,55 @@ def on_eliminate_at(
     if edit is None:
         return None
     return _workspace_edit_payload(uri, edit)
+
+
+@_feature(INSTANTIATION_VARS_REQUEST)
+def on_instantiation_vars_at(ls: LanguageServer, params: object) -> list[dict[str, object]]:
+    """Custom request: the variables to give values for, to use the
+    ``all`` given ``label`` at the hole.
+
+    Params: ``{"textDocument", "position" (on a ``?``), "label": str}``.
+    Result: ``[{"name": str, "type": str, "suggestions": [str]}]``, empty
+    off a hole or when ``label`` isn't a local ``all`` given. See
+    :func:`lsp.query.instantiation_vars_at`.
+    """
+    at = _at_position(ls, params)
+    label = _field_as_str(params, "label")
+    if at is None or not label:
+        return []
+    path, content, pos = at
+    return [
+        {"name": v.name, "type": v.type, "suggestions": list(v.suggestions)}
+        for v in _query.instantiation_vars_at(path, content, pos, label, prelude=_prelude_for(path))
+    ]
+
+
+@_feature(INSTANTIATE_REQUEST)
+def on_instantiate_at(ls: LanguageServer, params: object) -> Optional[dict[str, object]]:
+    """Custom request: use the ``all`` given ``label`` at the hole with
+    ``values`` for its variables.
+
+    Params: ``{"textDocument", "position" (on a ``?``), "label": str,
+    "values": [str]}``. Result: ``{"edit": WorkspaceEdit}`` putting
+    ``have H: <formula> by label[values]`` before the ``?``, or
+    ``{"message": str}`` when the values don't check; ``null`` off a hole
+    or when ``label`` isn't a local given. See
+    :func:`lsp.query.instantiate_at`.
+    """
+    uri = _field_as_str(_get_field(params, "textDocument"), "uri")
+    at = _at_position(ls, params)
+    label = _field_as_str(params, "label")
+    values = _get_field(params, "values")
+    if not uri or at is None or not label or not isinstance(values, list) \
+            or not all(isinstance(v, str) for v in values):
+        return None
+    path, content, pos = at
+    result = _query.instantiate_at(path, content, pos, label, values, prelude=_prelude_for(path))
+    if result is None:
+        return None
+    if isinstance(result, str):
+        return {"message": result}
+    return {"edit": _workspace_edit_payload(uri, result)}
 
 
 @_feature(MATCHING_GIVENS_REQUEST)

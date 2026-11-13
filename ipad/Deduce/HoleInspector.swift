@@ -1,19 +1,20 @@
 import SwiftUI
 
 /// The steps you can take at a `?`. Steps on the whole hole come from the
-/// server's existing actions (Refine, Induction, case split, using a given);
-/// using a lemma, and `expand` and `replace` on the part of the goal you
-/// tap, are previewed before they're applied (`deduce/previewLemmaAt`,
-/// `deduce/preview…AtSubterm`).
+/// server's existing actions (Refine, Induction, case split); using a
+/// lemma, and `expand` and `replace` on the part of the goal you tap, are
+/// previewed before they're applied (`deduce/previewLemmaAt`,
+/// `deduce/preview…AtSubterm`). Givens are used by tapping them in the
+/// textbook.
 struct HoleInspector: View {
     @EnvironmentObject var server: DeduceServer
     let hole: Textbook.Hole
+    /// The steps at the hole; `nil` until they arrive.
+    let steps: DeduceServer.HoleSteps?
+    /// Whether the textbook marks givens to tap at this hole.
+    let givensToTap: Bool
 
     @State private var subterm: [Int]?
-    @State private var actions: [(title: String, edits: [TextEdit])] = []
-    @State private var splittable: [String] = []
-    @State private var eliminable: [String] = []
-    @State private var matching: [String] = []
     /// Lemmas that rewrite the selected part of the goal.
     @State private var lemmas: [DeduceServer.Lemma] = []
     /// Lemmas for the whole hole: those that fit it, or those found by `search`.
@@ -24,10 +25,10 @@ struct HoleInspector: View {
     @State private var preview: (title: String, result: DeduceServer.Preview)?
     /// The step being previewed, while the server checks it.
     @State private var previewing: String?
-    @State private var loading = true
     @State private var typing = false
     @State private var typed = ""
 
+    private var loading: Bool { steps == nil }
     private var position: Outline.Position { hole.range.start }
     private var selected: Outline.Tree { subterm.flatMap { FormulaView.subtree(hole.goal, at: $0) } ?? hole.goal }
 
@@ -40,28 +41,24 @@ struct HoleInspector: View {
             } footer: {
                 Text(subterm == nil ? "Tap part of the goal to work on just that part." : "Tap it again to select more.")
             }
-            if !hole.givens.isEmpty {
-                Section("Givens") {
-                    ForEach(hole.givens, id: \.label) { given in
-                        (Text(given.label + ": ").bold() + Text(display(given.formula)))
-                            .font(TextbookView.proseFont)
-                    }
-                }
-            }
-            Section("Steps") {
-                if loading {
-                    ProgressView()
-                } else {
-                    ForEach(actions, id: \.title) { action in
+            Section {
+                if let steps {
+                    ForEach(steps.actions, id: \.title) { action in
                         Button(Self.label(action)) { server.apply(action.edits) }
                     }
-                    pick("Cases on…", splittable, "deduce/caseSplitAt", "variable")
-                    pick("Use a given…", eliminable, "deduce/eliminateAt", "label")
-                    pick("Prove it with a given…", matching, "deduce/fillFromGivenAt", "label")
+                    pick("Cases on…", steps.splittable, "deduce/caseSplitAt", "variable")
                     Button("Type a proof…") {
                         typed = ""
                         typing = true
                     }
+                } else {
+                    ProgressView()
+                }
+            } header: {
+                Text("Steps")
+            } footer: {
+                if givensToTap {
+                    Text("To use a given, tap it where the proof introduces it. Green ones prove the goal.")
                 }
             }
             Section {
@@ -118,9 +115,13 @@ struct HoleInspector: View {
                 .disabled(server.checking)
             }
         }
-        // Reload when each edit's check is done: an edit can leave a hole
-        // at the same range, and until the check the hole may be stale.
-        .task(id: "\(hole.range) v\(server.version) \(server.checking)") { await load() }
+        // Start afresh at each hole, and after each edit.
+        .task(id: "\(hole.range) v\(server.version)") {
+            subterm = nil
+            preview = nil
+            search = ""
+            findingLemmas = true
+        }
         // Lemma ranking is the slowest query, so it waits for the steps.
         .task(id: "\(hole.range) v\(server.version) \(loading) \(subterm ?? [])") {
             preview = nil
@@ -255,8 +256,6 @@ struct HoleInspector: View {
         .padding(.vertical, 4)
     }
 
-    /// Ask for every list of steps, then show them together, so the rows
-    /// don't move under a finger while they arrive.
     /// What a code action does, in words. The server titles its refine
     /// action "Refine hole" whatever step it inserts, so name the step
     /// from the start of its edit (`refine_at` in `lsp/query.py`).
@@ -281,30 +280,84 @@ struct HoleInspector: View {
         if step == "." { return "Finish: this is immediate" }
         return action.title
     }
+}
 
-    private func load() async {
-        subterm = nil
-        preview = nil
-        search = ""
-        loading = true
-        findingLemmas = true
-        // The steps come once the check is done (this runs again then),
-        // for a hole the new outline has: this view can see the server's
-        // new state a moment before its parent hands it the new hole.
-        guard !server.checking,
-              server.textbook?.holes.contains(where: { $0.range == hole.range }) == true
-        else { return }
-        // Sent together, so they're answered (from the outline's check)
-        // before the slower lemma ranking, which waits for them.
-        async let newActions = server.codeActions(at: position)
-        async let newSplittable = server.names("deduce/splittableVarsAt", at: position)
-        async let newEliminable = server.names("deduce/eliminableVarsAt", at: position)
-        async let newMatching = server.names("deduce/matchingGivensAt", at: position)
-        let steps = await (newActions, newSplittable, newEliminable, newMatching)
-        // A load superseded meanwhile (another hole, or another version)
-        // must not write its answers over the current one's.
-        guard !Task.isCancelled else { return }
-        (actions, splittable, eliminable, matching) = steps
-        loading = false
+/// Values for an `all` given's variables, to use it at a hole: a field per
+/// variable, with the server's suggestions to tap. Using it states what
+/// the given says for those values (`have H: … by IH1[ys]`).
+struct InstantiateView: View {
+    @EnvironmentObject var server: DeduceServer
+    let label: String
+    let hole: Outline.Position
+    let done: () -> Void
+
+    @State private var vars: [DeduceServer.InstantiationVar]?
+    @State private var values: [String] = []
+    @State private var problem: String?
+    @State private var working = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Use \(label) with").font(.headline)
+            if let vars {
+                ForEach(vars.indices, id: \.self) { i in
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(alignment: .firstTextBaseline) {
+                            Text("\(vars[i].name) =").font(TextbookView.formulaFont)
+                            TextField(vars[i].type, text: $values[i])
+                                .textFieldStyle(.roundedBorder)
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.never)
+                        }
+                        if !vars[i].suggestions.isEmpty {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack {
+                                    ForEach(vars[i].suggestions, id: \.self) { value in
+                                        Button(value) { values[i] = value }
+                                            .buttonStyle(.bordered)
+                                            .font(TextbookView.formulaFont)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if let problem {
+                    Text(withoutLocations(problem))
+                        .font(.system(.footnote, design: .monospaced))
+                        .foregroundStyle(.red)
+                }
+                HStack {
+                    Spacer()
+                    if working { ProgressView() }
+                    Button("Use") { use() }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(working || values.contains { $0.trimmingCharacters(in: .whitespaces).isEmpty })
+                }
+            } else {
+                ProgressView()
+            }
+        }
+        .padding()
+        .frame(width: 380)
+        .task {
+            let loaded = await server.instantiationVars(at: hole, label: label)
+            values = loaded.map { _ in "" }
+            vars = loaded
+        }
+    }
+
+    private func use() {
+        Task {
+            working = true
+            let result = await server.instantiate(at: hole, label: label, values: values)
+            working = false
+            if let message = result.problem {
+                problem = message
+            } else {
+                server.apply(result.edits)
+                done()
+            }
+        }
     }
 }

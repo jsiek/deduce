@@ -151,6 +151,13 @@ class AST:
         setattr(new_obj, k, v)
     return new_obj
 
+  def _children(self) -> Iterator[AST]:
+    # The AST-typed values in the structural fields, as `_map_children`
+    # walks them.
+    for fld in dc_fields(self):
+      if fld.name not in self._NON_STRUCTURAL_FIELDS:
+        yield from _ast_values(getattr(self, fld.name))
+
   def copy(self) -> Self:
     return self._map_children(lambda x: x.copy())
 
@@ -177,6 +184,16 @@ def _ast_map(value: object, f: Callable[[AST], AST]) -> object:
   if isinstance(value, tuple):
     return tuple(_ast_map(v, f) for v in value)
   return value
+
+
+def _ast_values(value: object) -> Iterator[AST]:
+  # The AST-typed values inside a field value, looking inside lists and
+  # tuples (as `_ast_map` does).
+  if isinstance(value, AST):
+    yield value
+  elif isinstance(value, (list, tuple)):
+    for v in value:
+      yield from _ast_values(v)
 
 
 def eq_fields(self: AST, other: object, *fields: str) -> bool:
@@ -222,6 +239,12 @@ class Term(AST):
   typeof: Optional[Type]
 
   _NON_STRUCTURAL_FIELDS = frozenset({'location', 'typeof'})
+
+  def free_vars(self) -> Set[str]:
+    # The free variables of the terms and types inside it. A term that
+    # binds variables subtracts them.
+    return set().union(*(c.free_vars() for c in self._children()
+                         if isinstance(c, (Term, Type))))
 
   def subst_typeof(self, sub: Mapping[str, Term | Type | RecFun | GenRecFun]) -> Optional[Type]:
     # Apply `sub` to the cached `typeof` annotation. Kept as a named

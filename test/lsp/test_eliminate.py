@@ -204,10 +204,8 @@ CASES = [
         ),
         cursor=Position(line=5, column=3),
         label="H",
-        expected_text=(
-            "replace H\n"
-            "  ?"
-        ),
+        # The rewrite leaves `true`, so it ends with `.`.
+        expected_text="replace H.",
         expected_range=Range(
             start=Position(line=5, column=3),
             end=Position(line=5, column=4),
