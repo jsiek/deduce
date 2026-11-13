@@ -1,0 +1,3 @@
+./test/should-error/concepts_infer_no_model.pf:9.3-9.22: cannot infer the types of the where clause in
+	monoid_zero_zero[b]
+because no model in scope fits it. Import a model, or give the types, as in `thm<Rat>`.

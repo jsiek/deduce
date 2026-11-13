@@ -3539,6 +3539,21 @@ proof
 end
 ```
 
+The types can also be left out: then Deduce tries the theorem at each
+type that the models in scope allow, and uses the one that fits. It
+fits by the goal it proves, by the types of its arguments, or, in
+`replace`, by what it rewrites:
+
+```
+theorem bor_false_false: bor(false, false) = false
+proof
+  zero_zero
+end
+```
+
+If more than one type fits the arguments with different results,
+Deduce reports the ambiguity; give the types, as in `zero_zero<bool>`.
+
 A where formula means `all T:type. all ops. if axioms then P`, where
 `ops` are the concepts' operations and `axioms` their theorems, so it
 adds nothing to the logic. A theorem with a where clause is checked

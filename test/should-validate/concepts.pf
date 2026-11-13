@@ -132,3 +132,11 @@ proof
   arbitrary x:T
   zero_add[x], zero_add[true]
 end
+
+// A where theorem used without its type: `replace` infers it from the
+// models in scope (here only Monoid<bool>) by what it can rewrite.
+theorem bor_replace_inferred: bor(bor(false, false), true) = bor(false, true)
+proof
+  replace zero_zero
+  .
+end
