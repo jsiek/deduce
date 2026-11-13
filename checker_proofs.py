@@ -429,10 +429,13 @@ def _check_proof_modus_ponens(proof: ModusPonens, env: Env) -> CheckedFormula:
                   type_match(loc, type_vars, new_var_type, trm.typeof, matching)
           for x in vars:
             if x.name not in matching.keys():
-              match_failed(loc, "could not deduce an instantiation for variable "\
-                           + str(x) + '\n' \
-                           + 'for application of\n\t' + str(ifthen) + '\n'\
-                           + 'to\n\t' + str(proof.arg) + ': ' + str(arg_frm))
+              # Bind ``x`` now: the message renders after the loop moves on.
+              def msg(x: Term = x) -> str:
+                return "could not deduce an instantiation for variable " \
+                  + str(x) + '\n' \
+                  + 'for application of\n\t' + str(ifthen) + '\n' \
+                  + 'to\n\t' + str(proof.arg) + ': ' + str(arg_frm)
+              match_failed(loc, msg)
           rets.append(conc.substitute(matching).reduce(env))
         except MatchFailed as e:
           reasons.append(e)

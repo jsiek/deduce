@@ -510,7 +510,8 @@ def try_rewrite(
               print('\tpremise did not normalize to true: ' + str(instantiated))
           match_failed(
             loc,
-            'conditional rewrite premise did not normalize to true: ' + str(instantiated),
+            lambda: 'conditional rewrite premise did not normalize to true: '
+                    + str(instantiated),
           )
       if rewrite_debug and get_verbose():
           print('\tpremise normalized to true: ' + str(instantiated))
@@ -582,7 +583,7 @@ def formula_match(
                       numeric_literals, outer_env=outer_env)
       else:
         if not isinstance(frm, Term):
-          match_failed(loc, "formula: " + str(frm) + "\n" \
+          match_failed(loc, lambda: "formula: " + str(frm) + "\n"
                        + "does not match expected term: " + str(pattern_frm))
         if get_verbose():
             print("formula_match, " + base_name(tyvar_name) + ' := ' + str(frm))
@@ -624,7 +625,7 @@ def formula_match(
                         numeric_literals, outer_env=outer_env)
           
       else:
-        match_failed(loc, "formula: " + str(frm) + "\n" \
+        match_failed(loc, lambda: "formula: " + str(frm) + "\n"
                      + "does not match expected formula: " + str(pattern_frm))
         
     case (And(_, _, goal_args),
@@ -655,7 +656,7 @@ def formula_match(
       else:
         matched = red_pattern == red_frm
       if not matched:
-          match_failed(loc, "formula: " + str(red_frm) + "\n" \
+          match_failed(loc, lambda: "formula: " + str(red_frm) + "\n"
                        + "does not match expected formula: " + str(red_pattern))
 
 def call_arity(call: Term) -> int:

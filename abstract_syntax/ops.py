@@ -79,18 +79,18 @@ def type_match(
       type_match(loc, tyvars, rt1, rt2, matching)
     case (TypeInst(_, n1, args1), TypeInst(_, n2, args2)):
       if n1 != n2 or len(args1) != len(args2):
-        match_failed(loc, str(arg_ty) + " does not match " + str(param_ty))
+        match_failed(loc, lambda: str(arg_ty) + " does not match " + str(param_ty))
       for (arg1, arg2) in zip(args1, args2):
         type_match(loc, tyvars, arg1, arg2, matching)
     # How to handle GenericUnknownInst?
     case (TypeInst(_, n1, args1), GenericUnknownInst(_, n2)):
       if n1 != n2:
-        match_failed(loc, str(arg_ty) + " does not match " + str(param_ty))
+        match_failed(loc, lambda: str(arg_ty) + " does not match " + str(param_ty))
     case (MutableArrayType(_, elt1), MutableArrayType(_, elt2)):
       type_match(loc, tyvars, elt1, elt2, matching)
     case _:
       if param_ty != arg_ty:
-        match_failed(loc, str(arg_ty) + " does not match " + str(param_ty))
+        match_failed(loc, lambda: str(arg_ty) + " does not match " + str(param_ty))
 
 
 def bijective_view_for_source_type(
