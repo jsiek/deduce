@@ -1,4 +1,4 @@
-test/should-error/where_goal_advice.pf:11.3-11.4: incomplete proof
+./test/should-error/where_goal_advice.pf:11.3-11.4: incomplete proof
 Goal:
 	(all T:type, U:type where { Monoid<U> }. (all x:U. x + zero = x))
 Advice:
