@@ -18,6 +18,8 @@ struct HoleInspector: View {
     @State private var lemmas: [DeduceServer.Lemma] = []
     /// Lemmas for the whole hole: those that fit it, or those found by `search`.
     @State private var found: [DeduceServer.Lemma] = []
+    /// Whether `found` is being fetched (it may be another hole's until then).
+    @State private var findingLemmas = true
     @State private var search = ""
     @State private var preview: (title: String, result: DeduceServer.Preview)?
     /// The step being previewed, while the server checks it.
@@ -66,15 +68,19 @@ struct HoleInspector: View {
                 TextField("Search by name or statement", text: $search)
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
-                ForEach(shownLemmas) { lemma in
-                    lemmaRow(lemma)
+                if findingLemmas {
+                    ProgressView()
+                } else {
+                    ForEach(shownLemmas) { lemma in
+                        lemmaRow(lemma)
+                    }
                 }
             } header: {
                 Text("Lemmas")
             } footer: {
                 Text(search.isEmpty
                      ? "Lemmas whose conclusion fits the goal. Search for others by name or by a pattern, like _ + 0 = _."
-                     : shownLemmas.isEmpty ? "No lemma matches." : "")
+                     : shownLemmas.isEmpty && !findingLemmas ? "No lemma matches." : "")
             }
             Section(subterm == nil ? "The whole goal" : "The selected part: \(display(selected))") {
                 // One definition at a time: `expand A | B` fails unless
@@ -115,16 +121,22 @@ struct HoleInspector: View {
         // Reload when each edit's check is done: an edit can leave a hole
         // at the same range, and until the check the hole may be stale.
         .task(id: "\(hole.range) v\(server.version) \(server.checking)") { await load() }
-        .task(id: "\(hole.range) v\(server.version) \(server.checking) \(subterm ?? [])") {
+        // Lemma ranking is the slowest query, so it waits for the steps.
+        .task(id: "\(hole.range) v\(server.version) \(loading) \(subterm ?? [])") {
             preview = nil
-            guard !server.checking else { return }
-            lemmas = await server.lemmas(at: position, subterm: subterm ?? [])
+            guard !loading else { return }
+            let ranked = await server.lemmas(at: position, subterm: subterm ?? [])
+            if !Task.isCancelled { lemmas = ranked }
         }
-        .task(id: "\(hole.range) v\(server.version) \(server.checking) \(search)") {
+        .task(id: "\(hole.range) v\(server.version) \(loading) \(search)") {
             // Search once typing pauses.
             if !search.isEmpty { try? await Task.sleep(for: .milliseconds(300)) }
-            guard !Task.isCancelled, !server.checking else { return }
-            found = await server.lemmas(at: position, matching: search)
+            guard !Task.isCancelled, !loading else { return }
+            findingLemmas = true
+            let matches = await server.lemmas(at: position, matching: search)
+            guard !Task.isCancelled else { return }
+            found = matches
+            findingLemmas = false
         }
         .alert("Type a proof", isPresented: $typing) {
             TextField("e.g. conclude … by …", text: $typed)
@@ -257,13 +269,24 @@ struct HoleInspector: View {
         preview = nil
         search = ""
         loading = true
-        // The steps come once the check is done (this runs again then).
-        guard !server.checking else { return }
-        let newActions = await server.codeActions(at: position)
-        let newSplittable = await server.names("deduce/splittableVarsAt", at: position)
-        let newEliminable = await server.names("deduce/eliminableVarsAt", at: position)
-        let newMatching = await server.names("deduce/matchingGivensAt", at: position)
-        (actions, splittable, eliminable, matching) = (newActions, newSplittable, newEliminable, newMatching)
+        findingLemmas = true
+        // The steps come once the check is done (this runs again then),
+        // for a hole the new outline has: this view can see the server's
+        // new state a moment before its parent hands it the new hole.
+        guard !server.checking,
+              server.textbook?.holes.contains(where: { $0.range == hole.range }) == true
+        else { return }
+        // Sent together, so they're answered (from the outline's check)
+        // before the slower lemma ranking, which waits for them.
+        async let newActions = server.codeActions(at: position)
+        async let newSplittable = server.names("deduce/splittableVarsAt", at: position)
+        async let newEliminable = server.names("deduce/eliminableVarsAt", at: position)
+        async let newMatching = server.names("deduce/matchingGivensAt", at: position)
+        let steps = await (newActions, newSplittable, newEliminable, newMatching)
+        // A load superseded meanwhile (another hole, or another version)
+        // must not write its answers over the current one's.
+        guard !Task.isCancelled else { return }
+        (actions, splittable, eliminable, matching) = steps
         loading = false
     }
 }
