@@ -1,0 +1,10 @@
+// A where theorem used without its type is instantiated at the types the
+// models in scope allow (#1264); here there is no model of Monoid at all.
+
+import ConceptMonoidLemmas
+
+theorem nope: all b:bool. b = b
+proof
+  arbitrary b:bool
+  monoid_zero_zero[b]
+end

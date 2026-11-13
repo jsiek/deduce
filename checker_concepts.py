@@ -24,14 +24,13 @@ leaves them folded.
 
 from __future__ import annotations
 
+import itertools
 from typing import Callable, cast
 
 from abstract_syntax import (
-    All, And, BoolType, ConceptBinding, ConceptDecl, ConceptRef, Env,
+    All, AllElimTypes, And, BoolType, ConceptBinding, ConceptDecl, ConceptRef, Env,
     Formula, IfThen, ModelBinding, ModelDecl, Proof, ResolvedVar, Term, Type,
-    TypeType, WhereClause, WhereMember, base_name, concept_closure,
-    get_dont_reduce_opaque, get_reduce_only, set_dont_reduce_opaque,
-    set_reduce_only,
+    FunctionType, TypeInst, TypeType, VarRef, WhereClause, WhereMember, base_name, concept_closure,
 )
 from checker_types import check_formula, check_type, type_check_term
 from error import user_error
@@ -216,6 +215,70 @@ def find_model(env: Env, inst: ConceptRef, models: list[str],
   return found[0]
 
 
+def _match_type(pattern: Type, ty: Type, tyvars: list[str],
+                sub: dict[str, Type]) -> bool:
+  """Match ``pattern`` against ``ty``, binding the type variables
+  ``tyvars`` wherever they occur in ``pattern`` (say, ``T`` in
+  ``List<T>`` against ``List<bool>``)."""
+  if isinstance(pattern, VarRef) and pattern.get_name() in tyvars:
+    x = pattern.get_name()
+    if x in sub:
+      return bool(sub[x] == ty)
+    sub[x] = ty
+    return True
+  if isinstance(pattern, TypeInst) and isinstance(ty, TypeInst):
+    return len(pattern.arg_types) == len(ty.arg_types) \
+      and _match_type(pattern.typ, ty.typ, tyvars, sub) \
+      and all(_match_type(p, t, tyvars, sub)
+              for (p, t) in zip(pattern.arg_types, ty.arg_types))
+  if isinstance(pattern, FunctionType) and isinstance(ty, FunctionType):
+    return not pattern.type_params and not ty.type_params \
+      and len(pattern.param_types) == len(ty.param_types) \
+      and all(_match_type(p, t, tyvars, sub)
+              for (p, t) in zip(pattern.param_types, ty.param_types)) \
+      and _match_type(pattern.return_type, ty.return_type, tyvars, sub)
+  return bool(pattern == ty)
+
+
+def where_instances(loc: Meta, frm: Formula, base: Proof, models: list[str],
+                    env: Env) -> list[Proof] | None:
+  """For a where formula used without its types, ``base`` instantiated at
+  each combination of types that the models in scope ``models`` allow
+  (``None`` if ``frm`` is not a where formula). The type variables are
+  those bound before the where clause; each ranges over the type
+  arguments of the models of the constraints it appears in."""
+  tyvars: list[str] = []
+  while isinstance(frm, All) and isinstance(frm.var[1], TypeType):
+    tyvars.append(frm.var[0])
+    if frm.where is not None:
+      break
+    frm = frm.body
+  if not isinstance(frm, All) or frm.where is None:
+    return None
+  options: list[list[Type]] = [[] for _ in tyvars]
+  for name in models:
+    b = env.dict.get(name)
+    if not isinstance(b, ModelBinding):
+      continue
+    for c in frm.where.constraints:
+      if c.concept != b.model.concept.concept:
+        continue
+      sub: dict[str, Type] = {}
+      if not all(_match_type(arg, ty, tyvars, sub)
+                 for (arg, ty) in zip(c.type_args, b.model.concept.type_args)):
+        continue
+      for (x, types) in zip(tyvars, options):
+        if x in sub and sub[x] not in types:
+          types.append(sub[x])
+  instances: list[Proof] = []
+  for choice in itertools.product(*options):
+    proof = base
+    for i, ty in enumerate(choice):
+      proof = AllElimTypes(loc, proof, ty, (i, len(choice)), models=models)
+    instances.append(proof)
+  return instances
+
+
 def _model_lookup(env: Env, models: Models,
                   use_bodies: bool, loc: Meta) -> MemberLookup:
   """The model's operations: its hidden definitions, or (inside the
@@ -253,22 +316,22 @@ def instantiate_where(loc: Meta, allfrm: All, type_arg: Type,
   lookup = _model_lookup(env, models, False, loc)
   frm = _strip_operations(loc, allfrm.body.substitute(sub), where, lookup)
   frm = _discharge(loc, frm, _premise(env, where, lookup, loc))
-  defines = [ResolvedVar(loc, None, define)
-             for (_, m) in models for (_, define, _) in m.model.funs]
-  return _unfold(frm, defines, env)
+  return _unfold(frm, [m for (_, m) in models], env)
 
 
-def _unfold(frm: Formula, names: list[ResolvedVar], env: Env) -> Formula:
-  """Reduce the model operations ``names`` that this module can see: an
-  opaque model's stay folded (F^G's dictionary projection, reduced)."""
-  old_only, old_opaque = get_reduce_only(), get_dont_reduce_opaque()
-  set_reduce_only(old_only + names)
-  set_dont_reduce_opaque(True)
-  try:
-    return frm.reduce(env)
-  finally:
-    set_reduce_only(old_only)
-    set_dont_reduce_opaque(old_opaque)
+def _unfold(frm: Formula, models: list[ModelBinding], env: Env) -> Formula:
+  """Replace the operations of ``models`` that this module can see by
+  their definitions; an opaque model's stay folded (F^G's dictionary
+  projection, reduced). Only these names change: the formula is not
+  otherwise reduced, so auto rules don't collapse it."""
+  current = env.get_current_module()
+  sub: dict[str, Term] = {}
+  for m in models:
+    if m.visibility == 'opaque' and m.module != current:
+      continue
+    for (_, define, body) in m.model.funs:
+      sub[define] = body
+  return frm.substitute(sub)
 
 
 ################ Declarations ################
