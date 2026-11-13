@@ -36,7 +36,8 @@ runs (#1218). A new version of a document supersedes its check: a queued
 check is dropped and a running one interrupted, so a burst of edits ends
 in one completed check, of the final text. ``$/cancelRequest`` drops a
 queued request or interrupts a running one. Results are sent from the
-I/O loop.
+I/O loop. See ``docs/knowledge-base/lsp-concurrency.md`` for the rules
+this relies on.
 """
 
 from __future__ import annotations
@@ -139,6 +140,7 @@ from pygls.lsp.server import LanguageServer  # noqa: E402
 from pygls.exceptions import JsonRpcRequestCancelled  # noqa: E402
 
 from lsp import query as _query  # noqa: E402
+from lsp.library import reset_scoped_state  # noqa: E402
 from lsp.worker import CheckCancelled, CheckSuperseded, Worker  # noqa: E402
 
 
@@ -222,7 +224,9 @@ server = LanguageServer(
     text_document_sync_kind=lsp_types.TextDocumentSyncKind.Full,
 )
 
-_worker = Worker()
+# Resetting the scoped pipeline state before each job means a job that
+# was interrupted in the middle of restoring it can't leak it (#1218).
+_worker = Worker(prepare=reset_scoped_state)
 
 
 def interrupt() -> bool:

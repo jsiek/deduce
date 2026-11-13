@@ -100,6 +100,10 @@ Steps 3–6 all run inside `proof_checker.check_deduce`. The four-phase comment 
 
 `flags.py` holds all global compiler state (verbosity, unique-name display, parser choice, import directories, quiet mode). `error.py` defines the exception types (`Exception` for normal errors, `IncompleteProof`, `StaticError`, `MatchFailed`, `ParseError`) and the location-prefixed message format.
 
+### The LSP server's threads
+
+In `lsp/lsp_server.py`, pygls's I/O loop reads messages and talks to the client, and one worker thread (`lsp/worker.py`) runs every check and request, interrupting stale ones with `PyThreadState_SetAsyncExc`. Before changing either file, or adding module-level state that the checker sets and restores, read `docs/knowledge-base/lsp-concurrency.md`: it lists the ownership rules (only the worker runs the pipeline, only the I/O loop talks to the client, re-check after every `await`) and where new state must be registered (`_SCOPED_STATE` / `_TRACKED_*` in `lsp/library.py`).
+
 ### Imports and the prelude
 
 `init_import_directories` seeds `.` plus anything in `~/.config/deduce/libraries`. `--dir <path>` adds another. The stdlib at `lib/` is auto-added unless the file being checked already lives in `lib/` (handled by `check_in_prelude`) or `--no-stdlib` is passed; when included, every `.pf` file in `lib/` is prepended as a private `Import` statement (the prelude) before checking. `lib/*.thm` and `test/**/*.thm` are generated artifacts — they are gitignored and `make clean` removes them.

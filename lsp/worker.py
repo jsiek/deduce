@@ -10,9 +10,10 @@ A job is interrupted inside a statement, not just between statements:
 ``PyThreadState_SetAsyncExc`` raises ``CheckCancelled`` in the worker at
 its next bytecode boundary, and the checker is pure Python. Nothing is
 left half done, because ``lsp/library.py`` restores the post-prelude
-state before each check and the statement cache records a verdict only
-after a statement passes (see "Cancellation and limits" in
-``docs/ipad-app-design.md``).
+state before each check, the statement cache records a verdict only
+after a statement passes, and the worker resets the scoped pipeline
+state before every job. ``docs/knowledge-base/lsp-concurrency.md``
+describes the design and the rules that keep it correct.
 """
 
 from __future__ import annotations
@@ -46,9 +47,12 @@ class _Job:
 
 class Worker:
     """Runs submitted jobs in order on one thread with a large stack (the
-    checker recurses deeply; see ``RECURSION_LIMIT``)."""
+    checker recurses deeply; see ``RECURSION_LIMIT``). ``prepare`` runs
+    on that thread before each job, as part of it."""
 
-    def __init__(self, stack_size: int = 256 << 20) -> None:
+    def __init__(self, prepare: Optional[Callable[[], None]] = None,
+                 stack_size: int = 256 << 20) -> None:
+        self._prepare = prepare
         self._stack_size = stack_size
         self._lock = threading.Condition()
         self._queue: deque[_Job] = deque()
@@ -120,6 +124,8 @@ class Worker:
             # as the job's outcome, never outside this ``try``.
             try:
                 try:
+                    if self._prepare is not None:
+                        self._prepare()
                     result = job.fn(*job.args)
                 finally:
                     with self._lock:

@@ -77,6 +77,7 @@ _check_file_lock = threading.RLock()
 from lark.tree import Meta
 
 import abstract_syntax as _abstract_syntax
+import error as _error
 import flags as _flags
 import parser as _lark_parser
 import proof_checker as _proof_checker
@@ -579,6 +580,46 @@ _TRACKED_CONTAINERS: tuple[_TrackedAttr, ...] = (
 _TRACKED_SCALARS: tuple[_TrackedAttr, ...] = (
     (_proof_checker, "name_id"),
 )
+
+# Pipeline state that the checker sets for part of its work and then
+# restores, often in a ``finally``: ``_target_hole``'s hole, the
+# ``reduce_all`` / ``eval_all`` evaluation modes, the error sinks and
+# their speculative depth, and so on. Configuration (import directories,
+# the parser) and the fresh-name counters are not in this list. An
+# interrupted job in the LSP worker (``lsp/worker.py``) can skip a
+# restore, so the worker calls ``reset_scoped_state`` before every job
+# rather than trusting cleanup code to have run (#1218).
+_SCOPED_STATE: tuple[_TrackedAttr, ...] = (
+    (_flags, "verbose"),
+    (_flags, "target_hole_location"),
+    (_flags, "debugger"),
+    (_flags, "proof_outline"),
+    (_flags, "_suppress_view_alias_depth"),
+    (_flags, "implicit_uses"),
+    (_flags, "postulate_report"),
+    (_flags, "expect_fail_flag"),
+    (_flags, "expect_static_fail_flag"),
+    (_abstract_syntax.core, "current_module"),
+    (_abstract_syntax.terms, "reduce_all"),
+    (_abstract_syntax.terms, "eval_all"),
+    (_abstract_syntax.terms, "dont_reduce_opaque"),
+    (_abstract_syntax.terms, "recursion_depth"),
+    (_abstract_syntax.rewrite, "default_mark_LHS"),
+    (_error, "_active_sink"),
+    (_error, "_active_warning_sink"),
+    (_error, "_speculative_depth"),
+)
+
+# Their values when no check is running: the module defaults, read
+# before anything has run.
+_IDLE_STATE: tuple[object, ...] = tuple(
+    getattr(module, attr) for module, attr in _SCOPED_STATE)
+
+
+def reset_scoped_state() -> None:
+    """Put the state in ``_SCOPED_STATE`` back to its idle values."""
+    for (module, attr), value in zip(_SCOPED_STATE, _IDLE_STATE):
+        setattr(module, attr, value)
 
 # The cache key (prelude tuple, prewarm tuple) the snapshot below was
 # captured for. ``None`` until the first ``check_file`` call. The
