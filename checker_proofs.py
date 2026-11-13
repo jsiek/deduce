@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Callable, Optional, TypeAlias, cast
 from lark.tree import Meta
 
 from abstract_syntax import (
-    All, AllElim, AllElimTypes, AllIntro, And, ApplyDefsFact,
+    All, AllElim, AllElimTypes, AllIntro, And, ApplyDefsFact, ConceptMemberProof,
     ApplyDefsGoal, Bool, BoolType, Call, Cases,
     Constructor, Env, EvaluateFact, EvaluateGoal, Formula,
     FunctionType, Hole, IfThen, ImpIntro, IndCase, Induction,
@@ -44,7 +44,9 @@ from checker_logic import (
     expand_definitions, expand_residual_hint, ground_goal_evaluate_hint,
     instantiate, isolate_difference, pattern_to_term, rewrite,
 )
-from checker_concepts import instantiate_where, intro_where, where_instances
+from checker_concepts import (
+    concept_member_formula, instantiate_where, intro_where, where_instances,
+)
 from checker_types import (
     check_formula, check_pattern, check_type, type_check_term,
     lookup_union, type_first_letter, type_synth_term,
@@ -655,6 +657,7 @@ def _check_proof_transitive(proof: PTransitive, env: Env) -> CheckedFormula:
 _CHECK_PROOF_HANDLERS = {
   PRecall: _check_proof_recall,
   PVar: _check_proof_var,
+  ConceptMemberProof: lambda proof, env: concept_member_formula(proof, env),
   PTrue: _check_proof_true,
   PAndElim: _check_proof_and_elim,
   EvaluateFact: _check_proof_evaluate_fact,

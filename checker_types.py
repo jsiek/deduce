@@ -23,6 +23,7 @@ from abstract_syntax.ops import _walk_ast_descendants
 from abstract_syntax import (
     All,
     And,
+    ConceptMember,
     Array,
     ArrayGet,
     ArrayLength,
@@ -1026,6 +1027,10 @@ def type_synth_term(
       ty = BoolType(loc)
       ret = IfThen(loc, ty, new_prem, new_conc)
       
+    case ConceptMember():
+      from checker_concepts import check_concept_member
+      ret = check_concept_member(term, env)
+
     case All() if term.where is not None:
       from checker_concepts import check_where_all
       ret = check_where_all(

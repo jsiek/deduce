@@ -28,7 +28,7 @@ from abstract_syntax import (
     RuleInversion, SepConj, SimplifyFact, SimplifyGoal, Some, SomeElim, SomeIntro,
     Statement, Suffices, Switch, SwitchCase, SwitchProof, SwitchProofCase,
     TAnnote, TLet, Term, TermInst,
-    Theorem, Trace, Type, TypeAlias, TypeInst, TypeType, Union, Var, ViewDecl, ConceptDecl, ConceptRef, ModelDecl, WhereClause,
+    Theorem, Trace, Type, TypeAlias, TypeInst, TypeType, Union, Var, ViewDecl, ConceptDecl, ConceptMember, ConceptMemberProof, ConceptRef, ModelDecl, WhereClause,
     build_equations_proof, list_of_and, list_of_or, extract_tuple,
     listToNodeList, mkIntLit, mkLitNat, mkUIntLit, remove_mark,
 )
@@ -531,6 +531,15 @@ def parse_postfix_chain(term: Term, start_token: Token) -> Term:
         consume_token('RSQB', 'closing bracket "]"')
         term = ArrayGet(meta_from_tokens(bracket_token, previous_token()),
                         None, term, index)
+    elif tt == 'FIELDACCESS' and isinstance(term, TermInst) \
+         and isinstance(term.subject, Var):
+      # `@C<τ>.m`: a member of a concept instance (#1264).
+      member = current_token().value[1:]
+      advance()
+      term = ConceptMember(meta_from_tokens(start_token, previous_token()), None,
+                           ConceptRef(term.location, term.subject.name,
+                                      term.type_args),
+                           member)
     elif tt == 'FIELDACCESS':
       # Field access `subject.field` (#854 Phase 1h). The FIELDACCESS token
       # carries its leading `.`; the field name drops it.
@@ -911,6 +920,18 @@ def parse_proof_hi() -> Proof:
     eq2 = parse_proof()
     meta = meta_from_tokens(token, token)
     return PTransitive(meta, eq1, eq2)
+
+  elif token.type == 'AT':
+    # `@C<τ>.thm`: a theorem of a concept instance (#1264).
+    advance()
+    concept = parse_concept_ref()
+    if current_token().type != 'FIELDACCESS':
+      raise ParseError(meta_from_tokens(current_token(), current_token()),
+                       'expected `.` and a theorem name after ' + str(concept))
+    member = current_token().value[1:]
+    advance()
+    return ConceptMemberProof(meta_from_tokens(token, previous_token()),
+                              concept, member)
 
   elif token.type == 'EVALUATE':
     advance()

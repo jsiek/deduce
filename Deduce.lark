@@ -307,6 +307,7 @@ identifier: IDENT              -> identifier
     | atomic_proof "<" type_list ">"                         -> all_elim_types
     | "sorry"                                            -> sorry_proof
     | "{" proof "}"
+    | "@" IDENT "<" type_list ">" FIELDACCESS          -> concept_member_proof
 
 ?optional_proof_list:                                    -> empty
     | "with" proof_list

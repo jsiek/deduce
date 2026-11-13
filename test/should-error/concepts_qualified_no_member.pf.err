@@ -1,0 +1,1 @@
+./test/should-error/concepts_qualified_no_member.pf:6.15-6.32: Monoid has no operation one

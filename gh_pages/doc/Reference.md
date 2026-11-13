@@ -3556,6 +3556,32 @@ end
 If more than one type fits the arguments with different results,
 Deduce reports the ambiguity; give the types, as in `zero_zero<bool>`.
 
+**Qualified members.** `@C<T>.m` names the member `m` of the concept
+instance `C<T>`, in a term (an operation) or a proof (a theorem):
+
+```deduce-grammar
+atomic_term ::= "@" atomic_term "<" type_list ">"
+atomic_proof ::= "@" IDENT "<" type_list ">" FIELDACCESS
+```
+
+Inside a where clause that names `C<T>`, it is the clause's member, which
+picks one instance when the clause names a concept more than once:
+
+```
+theorem qualified_in_where: all T:type, U:type where { Monoid<T>, Monoid<U> }.
+  @Monoid<U>.zero + @Monoid<U>.zero = @Monoid<U>.zero
+proof
+  arbitrary T:type, U:type where { Monoid<T>, Monoid<U> }
+  @Monoid<U>.add_zero[@Monoid<U>.zero]
+end
+```
+
+Elsewhere it is the member of the model of `C<T>` in scope: an
+operation unfolds to the model's definition (unless the model is
+opaque), and a theorem is the concept's theorem at the model's
+operations, e.g. `@Monoid<bool>.add_zero` proves
+`all x:bool. bor(x, false) = x`.
+
 A where formula means `all T:type. all ops. if axioms then P`, where
 `ops` are the concepts' operations and `axioms` their theorems, so it
 adds nothing to the logic. A theorem with a where clause is checked

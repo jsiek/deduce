@@ -175,3 +175,34 @@ theorem unbox_box_true: unbox(box(true))
 proof
   boxed_ok
 end
+
+// Qualified access `@C<τ>.m` names one instance's member.
+
+// Inside a where clause: the clause's member for that instance.
+theorem qualified_in_where: all T:type, U:type where { Monoid<T>, Monoid<U> }.
+  @Monoid<U>.zero + @Monoid<U>.zero = @Monoid<U>.zero
+proof
+  arbitrary T:type, U:type where { Monoid<T>, Monoid<U> }
+  @Monoid<U>.add_zero[@Monoid<U>.zero]
+end
+
+// Outside: the model's member, unfolded since the model is visible.
+theorem qualified_model_zero: @Monoid<bool>.zero = false
+proof
+  .
+end
+
+theorem qualified_model_theorem: all x:bool. bor(x, false) = x
+proof
+  @Monoid<bool>.add_zero
+end
+
+// Nested where clauses binding the same instance: `@C<τ>.m` names the
+// innermost clause's member.
+theorem nested_qualified: all T:type where { Pointed<T> }.
+  all U:type where { Pointed<T> }. @Pointed<T>.ok(@Pointed<T>.pt)
+proof
+  arbitrary T:type where { Pointed<T> }
+  arbitrary U:type where { Pointed<T> }
+  @Pointed<T>.pt_ok
+end
