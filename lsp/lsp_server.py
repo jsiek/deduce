@@ -1365,6 +1365,7 @@ def _subterm_preview_payload(
         "edit": None if preview.edit is None
         else _workspace_edit_payload(uri, preview.edit),
         "message": preview.message,
+        "warnings": list(preview.warnings),
     }
 
 
@@ -1379,8 +1380,9 @@ def on_preview_replace_at_subterm(
     "equation": str (as written after ``replace``)}``.
 
     Result: ``{"outcome": "ok" | "invalid_path" | "error", "goal":
-    Tree | null, "edit": WorkspaceEdit | null, "message": str | null}``
-    or ``null`` off a hole. See :class:`lsp.query.SubtermPreview`.
+    Tree | null, "edit": WorkspaceEdit | null, "message": str | null,
+    "warnings": [str]}`` or ``null`` off a hole. See
+    :class:`lsp.query.SubtermPreview`.
     """
     parsed = _subterm_params(ls, params)
     equation = _field_as_str(params, "equation")
@@ -1568,7 +1570,8 @@ def on_preview_lemma_at(
 
     Result: ``{"outcome": "ok" | "error", "goals": [Tree] (what the
     step leaves to prove; empty when it proves the goal), "edit":
-    WorkspaceEdit (the step), "message": str | null}``, or ``null`` off
+    WorkspaceEdit (the step), "message": str | null, "warnings": [str]
+    (the checker's warnings about the step)}``, or ``null`` off
     a hole or when ``name`` isn't in scope. See
     :class:`lsp.query.LemmaPreview`.
     """
@@ -1588,6 +1591,7 @@ def on_preview_lemma_at(
         "goals": [_json(g) for g in preview.goals],
         "edit": _workspace_edit_payload(uri, preview.edit),
         "message": preview.message,
+        "warnings": list(preview.warnings),
     }
 
 

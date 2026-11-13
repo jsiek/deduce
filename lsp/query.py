@@ -1283,9 +1283,8 @@ def definition_of(
 
     ``prelude`` matches the meaning in :func:`check`.
     """
-    from lsp.library import check_file
 
-    result = check_file(path, content=content, prelude=prelude)
+    result = _check_file(path, content, prelude)
     if result.ast is None:
         return None
 
@@ -1321,11 +1320,10 @@ def list_symbols(
     come from prelude imports are *not* included in the result --
     only declarations in ``content`` itself.
     """
-    from lsp.library import check_file
 
     from abstract_syntax import Import as _ImportNode
 
-    result = check_file(path, content=content, prelude=prelude)
+    result = _check_file(path, content, prelude)
     if result.ast is None:
         return []
 
@@ -1407,8 +1405,7 @@ def completions_at(
     # ``seen_labels``, so any name already surfaced as a constructor /
     # theorem / function / ... isn't re-emitted as a generic
     # ``variable`` -- the AST walk's kind is more specific.
-    from lsp.library import check_file
-    result = check_file(path, content=content, prelude=prelude)
+    result = _check_file(path, content, prelude)
     if result.ast is not None:
         for cand in _collect_completion_names_from_ast(result.ast):
             _add(cand)
@@ -4090,7 +4087,6 @@ def _available_lemmas(
 ) -> tuple[LemmaMatch, ...]:
     """:func:`available_lemmas_at`; with ``subterm``, ranked against
     that subterm of the hole's goal (see :func:`lemmas_for_subterm`)."""
-    from lsp.library import check_file
 
     hole_range = _find_hole_at(content, pos)
     goal_text: Optional[str] = None
@@ -4115,7 +4111,7 @@ def _available_lemmas(
     else:
         if subterm is not None:
             return ()
-        result = check_file(path, content=content, prelude=prelude)
+        result = _check_file(path, content, prelude)
         ast_nodes = result.ast
 
     # A proof can't cite the theorem it's proving -- circularity --
@@ -4190,7 +4186,6 @@ def insert_lemma_at(
     Returns ``None`` when ``name`` is not in scope as a theorem, lemma,
     or postulate at ``pos``.
     """
-    from lsp.library import check_file
 
     hole_range = _find_hole_at(content, pos)
     goal_text: Optional[str] = None
@@ -4209,7 +4204,7 @@ def insert_lemma_at(
             env = getattr(exc, "env", None)
         ast_nodes = result.ast
     else:
-        result = check_file(path, content=content, prelude=prelude)
+        result = _check_file(path, content, prelude)
         ast_nodes = result.ast
 
     candidates = _collect_lemma_candidates(path, ast_nodes, prelude)
@@ -4255,12 +4250,14 @@ class LemmaPreview:
     ``outcome`` is ``"ok"``, with ``goals`` the goals of the ``?``s the
     step leaves, in source order (none when it proves the goal), or
     ``"error"``, with the checker's ``message``. ``edit`` is the step
-    either way."""
+    either way. ``warnings`` are the checker's warnings about the step,
+    which making it would leave in the file (#1242)."""
 
     outcome: str
     edit: WorkspaceEdit
     goals: tuple[TermTree, ...] = ()
     message: Optional[str] = None
+    warnings: tuple[str, ...] = ()
 
 
 def preview_lemma_at(
@@ -4342,7 +4339,11 @@ def preview_lemma_at(
         text = f"{text[:-1]}{hole_line})" if wrapped else text + hole_line
         edit = WorkspaceEdit(path, edit.range, text)
         goals.append(_term_tree(unfinished))
-    return LemmaPreview("ok", edit, tuple(goals))
+    warnings = tuple(
+        w.message_body for w in result.warnings
+        if first <= (w.location.line, w.location.column) < last
+    )
+    return LemmaPreview("ok", edit, tuple(goals), warnings=warnings)
 
 
 def _insert_lemma_template(
@@ -5696,9 +5697,8 @@ def validate_proof_at(
 
     spliced = content[:start_off] + proof_text + content[end_off:]
 
-    from lsp.library import check_file
 
-    result = check_file(path, content=spliced, prelude=prelude)
+    result = _check_file(path, spliced, prelude)
     if result.ok:
         return ValidationResult(ok=True, error=None)
     return ValidationResult(ok=False, error=result.error_message)
@@ -6000,13 +6000,12 @@ def auto_rules_at(
         Theorem,
         get_uniquified_modules,
     )
-    from lsp.library import check_file
     from pathlib import Path as _Path
 
     # Run the pipeline once. We don't bail on errors -- partial
     # results are still useful (and the prelude state is loaded by
     # ``_prepare_state`` before the user file is even parsed).
-    result = check_file(path, content=content, prelude=prelude)
+    result = _check_file(path, content, prelude)
 
     user_module = _Path(path).stem
     cached_modules = get_uniquified_modules()
@@ -6473,12 +6472,17 @@ class SubtermPreview:
     - ``"invalid_path"``: the path names no subterm of the goal, or
       names a call's callee or operator; ``message`` says which.
     - ``"error"``: the step does not check; ``message`` is the checker's.
+
+    ``warnings`` are the checker's warnings about the step (an ``expand``
+    clause with nothing left to unfold, say), which applying ``edit``
+    would leave in the file (#1242).
     """
 
     outcome: str
     goal: Optional[TermTree] = None
     edit: Optional[WorkspaceEdit] = None
     message: Optional[str] = None
+    warnings: tuple[str, ...] = ()
 
 
 def _subterm_step(
@@ -6522,29 +6526,32 @@ def _subterm_step(
         if isinstance(marked, str):
             return SubtermPreview("error", message=marked)
         plain = _try_step(path, content, hole, tactic, prelude)
-        text, goal = plain if not isinstance(plain, str) and plain[1] == marked[1] else marked
+        text, goal, warnings = (
+            plain if not isinstance(plain, str) and plain[1] == marked[1] else marked
+        )
     else:
         # The whole goal: marking all of it would change nothing.
         whole = _try_step(path, content, hole, tactic, prelude)
         if isinstance(whole, str):
             return SubtermPreview("error", message=whole)
-        text, goal = whole
+        text, goal, warnings = whole
     if isinstance(goal.ast, Bool) and goal.ast.value:
         # The step proves the goal: end it with `.` rather than a `?`
         # (the last one, which may be inside the step's parentheses).
         i = text.rindex("?")
         text = text[:i].rstrip() + "." + text[i + 1:]
-    return SubtermPreview("ok", goal=goal, edit=WorkspaceEdit(path, hole, text))
+    return SubtermPreview(
+        "ok", goal=goal, edit=WorkspaceEdit(path, hole, text), warnings=warnings
+    )
 
 
 def _check_at_hole(
     path: str, content: str, hole: Range, prelude: Sequence[str],
-    remember: bool = True,
 ) -> Optional[BaseException]:
     """Check ``content`` stopping at the hole at ``hole`` (other holes
     count as proved); the exception, or ``None`` if the check passed."""
     result = _check_at_target(
-        path, content, (hole.start.line, hole.start.column), prelude, remember
+        path, content, (hole.start.line, hole.start.column), prelude
     )
     return None if result.ok else result.exception
 
@@ -6582,22 +6589,47 @@ def _check_at_target(
     """``check_file`` stopping at the hole at ``target`` (other holes
     count as proved), shared through ``_hole_checks``. Pass
     ``remember=False`` for a one-off text (a step spliced in to preview
-    it), so it doesn't push the document's own checks out."""
-    from lsp.library import check_file
+    it), so it doesn't push the document's own checks out. The warnings
+    the check emits are in the result's ``warnings``, not printed."""
+    from lsp.library import _check_file_lock
 
     holes = _hole_checks_for(path, content, prelude) if remember else {}
     if target not in holes:
-        with _target_hole(target):
-            holes[target] = check_file(path, content=content, prelude=prelude)
+        # Hold the check lock while the target is set, so a concurrent
+        # check neither sees it nor resets it.
+        with _check_file_lock, _target_hole(target):
+            holes[target] = _check_file(path, content, prelude)
     return holes[target]
+
+
+def _check_file(path: str, content: str, prelude: Sequence[str]) -> "CheckResult":
+    """``check_file`` of ``content`` stopping at the first error, with
+    the warnings it emits in the result's ``warnings`` instead of
+    printed: the LSP and MCP servers speak their protocols on stdout
+    (#1242)."""
+    from error import WarningRecord, set_active_warning_sink
+    from lsp.library import _check_file_lock, check_file
+
+    warnings: list[WarningRecord] = []
+    # Hold the check lock while the sink is installed, so a concurrent
+    # check can neither write into it nor reset it.
+    with _check_file_lock:
+        previous = set_active_warning_sink(warnings)
+        try:
+            result = check_file(path, content=content, prelude=prelude)
+        finally:
+            set_active_warning_sink(previous)
+    result.warnings = warnings
+    return result
 
 
 def _try_step(
     path: str, content: str, hole: Range, step: str, prelude: Sequence[str]
-) -> Union[str, tuple[str, TermTree]]:
+) -> Union[str, tuple[str, TermTree, tuple[str, ...]]]:
     """Replace the hole with ``step`` and a new ``?`` and check: the
-    replacement text and the new goal, or the checker's message when the
-    step fails. (A step that already proves the goal leaves ``true``.)"""
+    replacement text, the new goal and the warnings about the step, or
+    the checker's message when the step fails. (A step that already
+    proves the goal leaves ``true``.)"""
     from error import IncompleteProof
 
     start = _line_col_to_offset(content, hole.start)
@@ -6606,19 +6638,18 @@ def _try_step(
     text = _hole_text(content, hole, step + "\n?")
     new_content = content[:start] + text + content[end:]
     line, col = _offset_to_line_col(new_content, start + text.rindex("?"))
-    exc = _check_at_hole(
-        path, new_content, Range(Position(line, col), Position(line, col + 1)),
-        prelude, remember=False,
-    )
+    result = _check_at_target(path, new_content, (line, col), prelude, remember=False)
+    exc = None if result.ok else result.exception
+
+    def in_step(loc: Optional[Meta]) -> bool:
+        return loc is not None and (hole.start.line, hole.start.column) \
+            <= (loc.line, loc.column) <= (line, col)
+
     loc = getattr(exc, "location", None)
     formula = getattr(exc, "formula", None)
-    if (
-        isinstance(exc, IncompleteProof)
-        and formula is not None
-        and loc is not None
-        and (hole.start.line, hole.start.column) <= (loc.line, loc.column) <= (line, col)
-    ):
-        return text, _term_tree(formula)
+    if isinstance(exc, IncompleteProof) and formula is not None and in_step(loc):
+        warnings = tuple(w.message_body for w in result.warnings if in_step(w.location))
+        return text, _term_tree(formula), warnings
     if exc is None:
         return "the step did not reach the hole"
     return getattr(exc, "message_body", None) or str(exc)

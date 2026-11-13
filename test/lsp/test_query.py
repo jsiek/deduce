@@ -333,3 +333,46 @@ def test_prelude_param_has_default():
 # tests live in test_check.py (Step 3), test_goal_at.py (Step 4), and
 # test_symbols.py (Step 5). The Phase 4 / Step 15 ``refine_at``
 # acceptance tests live in test_refine.py.
+
+
+def test_queries_never_print_warnings(capsys) -> None:
+    """The LSP and MCP servers speak their protocols on stdout, so a
+    query mustn't print the checker's warnings there (#1242). The `have`
+    with a `?` warns, and the hole keeps the statement out of the proof
+    cache, so every check of the file emits the warning again."""
+    src = "theorem t: true\nproof\n  have h: ? by .\n  ?\nend\n"
+    hole = query.Position(4, 3)
+    query.list_symbols("h.pf", src, prelude=())
+    query.completions_at("h.pf", src, hole, prelude=())
+    query.definition_of("h.pf", src, query.Position(1, 9), prelude=())
+    query.goal_at("h.pf", src, hole, prelude=())
+    query.validate_proof_at("h.pf", src, query.Range(hole, query.Position(4, 4)), ".", prelude=())
+    assert capsys.readouterr().out == ""
+
+
+def test_queries_set_the_checker_state_under_the_check_lock(monkeypatch) -> None:
+    """A query sets the warning sink and the target hole, which are
+    global, before it checks. Unless it holds the check lock while it
+    does, a concurrent check (overlapping MCP requests, a DAP program
+    thread) could write warnings into the wrong sink or reset it."""
+    import error
+    import flags
+    from lsp.library import _check_file_lock
+
+    unlocked: list[str] = []
+
+    def spy(name: str, module: object) -> None:
+        original = getattr(module, name)
+
+        def wrapper(value: object) -> object:
+            if value is not None and not _check_file_lock._is_owned():
+                unlocked.append(name)
+            return original(value)
+        monkeypatch.setattr(module, name, wrapper)
+
+    spy("set_active_warning_sink", error)
+    spy("set_target_hole_location", flags)
+    src = "theorem t: true\nproof\n  have h: ? by .\n  ?\nend\n"
+    query.list_symbols("h.pf", src, prelude=())
+    query.goal_at("h.pf", src, query.Position(4, 3), prelude=())
+    assert unlocked == []
