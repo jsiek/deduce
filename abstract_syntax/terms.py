@@ -34,6 +34,7 @@ from typing import TYPE_CHECKING
 from .core import *
 
 if TYPE_CHECKING:
+    from .concepts import WhereClause, where_body
     from .declarations import FunCase, GenRecFun, RecFun, Union, overwrite
     from .env import Env, TermBinding
     from .literals import (
@@ -2020,6 +2021,9 @@ class All(Formula):
   #  e : The number of vars in the block
   pos: Tuple[int, int]
   body: Formula
+  # On the last variable of a binding list: the where clause, whose
+  # members are bound by ``body`` (see ``abstract_syntax/concepts.py``).
+  where: Optional[WhereClause] = field(default=None, kw_only=True)
 
   def __str__(self) -> str:
     v, t = self.var
@@ -2031,12 +2035,14 @@ class All(Formula):
     if s + 1 == e:
       result += "(all "
     result += f"{v}:{str(t)}"
+    if self.where is not None:
+      result += ' ' + str(self.where)
     if s == 0:
       result += ". "
     else:
       result += ", "
 
-    result += f"{str(self.body)}"
+    result += f"{str(where_body(self))}"
 
     if s + 1 == e: 
       result += ")"
@@ -2056,7 +2062,7 @@ class All(Formula):
                    self.typeof,
                    (x, ty.reduce(env)),
                    self.pos,
-                   new_body)
+                   new_body, where=self.where)
 
   def __eq__(self, other: object) -> bool:
     if not isinstance(other, All):
@@ -2069,9 +2075,10 @@ class All(Formula):
     new_t = ty.uniquify(body_env, ctx)
     new_x = generate_name(x, ctx)
     overwrite(body_env, x, new_x, self.location)
+    new_where = self.where.bind(body_env, ctx) if self.where else None
     new_body = self.body.uniquify(body_env, ctx)
     return All(self.location, self.typeof, (new_x, new_t),
-               self.pos, new_body)
+               self.pos, new_body, where=new_where)
 
 @dataclass
 class Some(Formula):

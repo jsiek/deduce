@@ -44,6 +44,7 @@ forms are parser/AST only today and most require
 - [Choose (Proof)](#choose-proof)
 - [Comma (Logical And Introduction)](#comma-logical-and-introduction)
 - [Compose (Functions)](#compose-functions)
+- [Concept (Statement)](#concept-statement)
 - [Conclude (Proof)](#conclude-proof)
 - [Conclusion (Proof)](#conclusion-proof)
 - [Conjunct](#conjunct)
@@ -94,6 +95,7 @@ forms are parser/AST only today and most require
 - [List (Term)](#list-term)
 - [List (Type)](#list-type)
 - [Mark](#mark)
+- [Model (Statement)](#model-statement)
 - [Modulo](#modulo)
 - [Modus Ponens](#modus-ponens)
 - [Multiply](#multiply)
@@ -158,6 +160,7 @@ forms are parser/AST only today and most require
 - [Variable List](#variable-list)
 - [View (Statement)](#view-statement)
 - [Visibility](#visibility)
+- [Where Clause](#where-clause)
 
 ## Add
 
@@ -207,7 +210,11 @@ assert cnt(X)(7) = 0
 
 ```deduce-grammar
 atomic_term ::= "all" type_annotation_list "." term
+atomic_term ::= "all" type_annotation_list "where" "{" concept_ref_list "}" "." term
 ```
+
+The second form quantifies over types that model some concepts; see
+[Where Clause](#where-clause).
 
 A formula of the form `all x1:T1,...,xn:Tn. P` is true
 when `P` is true for all possible choices of `x1`...`xn`.
@@ -354,7 +361,11 @@ end
 
 ```deduce-grammar
 proof_stmt ::= "arbitrary" type_annotation_list
+proof_stmt ::= "arbitrary" type_annotation_list "where" "{" concept_ref_list "}"
 ```
+
+The second form proves an `all` formula with a where clause; see
+[Where Clause](#where-clause).
 
 A proof of the form
 
@@ -631,6 +642,46 @@ fun add1(x : UInt) { 1 + x }
 
 assert (add1 ∘ add1)(3) = 5
 ```
+
+## Concept (Statement)
+
+```deduce-grammar
+statement ::= visibility "concept" IDENT "<" identifier_list ">" "{" concept_member_list "}"
+concept_member_list ::= ε
+concept_member_list ::= concept_member concept_member_list
+concept_member ::= "refines" concept_ref
+concept_member ::= "fun" identifier ":" type
+concept_member ::= "theorem" IDENT ":" term
+concept_ref ::= IDENT "<" type_list ">"
+```
+
+A concept describes an interface that types can satisfy: some
+operations (`fun`), the theorems they must obey (`theorem`), and
+other concepts it includes (`refines`). A type satisfies a concept
+when there is a [model](#model-statement) of the concept at that type.
+Theorems can then be proved once for every type that satisfies a
+concept, using a [where clause](#where-clause).
+
+```
+concept Monoid<T> {
+  fun operator+ : fn (T, T) -> T
+  fun zero : T
+  theorem add_zero: all x:T. x + zero = x
+  theorem zero_add: all x:T. zero + x = x
+}
+
+concept CommMonoid<T> {
+  refines Monoid<T>
+  theorem add_commute: all x:T, y:T. x + y = y + x
+}
+```
+
+The theorems of a concept may use the operations of the concepts it
+refines, as `add_commute` uses `+`.
+
+Concepts, models, and where clauses follow System F<sup>G</sup>
+(Siek and Lumsdaine, *Essential Language Support for Generic
+Programming*, PLDI 2005), with theorems as concept members.
 
 ## Conclude (Proof)
 
@@ -1768,6 +1819,50 @@ proof
             ... = 3           by .
 end
 ```
+
+## Model (Statement)
+
+```deduce-grammar
+statement ::= visibility "model" concept_ref "{" model_member_list "}"
+model_member_list ::= ε
+model_member_list ::= model_member model_member_list
+model_member ::= "fun" identifier "=" term
+model_member ::= "theorem" IDENT "=" proof
+```
+
+A model says that a type satisfies a [concept](#concept-statement), by
+giving the concept's operations at that type and proving its theorems
+about them.
+
+```
+fun bor(a:bool, b:bool) { a or b }
+
+model Monoid<bool> {
+  fun operator+ = bor
+  fun zero = false
+  theorem add_zero = bor_false
+  theorem zero_add = false_bor
+}
+
+model CommMonoid<bool> {
+  theorem add_commute = bor_commute
+}
+```
+
+* An operation that the model leaves out is the function of the same
+  name in scope, at the concept's type. For example, a model of
+  `Monoid<Rat>` could leave out `operator+` to use `Rat`'s `+`.
+* Each theorem must prove the concept's theorem with the model's
+  operations in place of the concept's, e.g. `bor_false` proves
+  `all x:bool. bor(x, false) = x`.
+* A model of a concept needs models of the concepts it refines to be in
+  scope already, as `Monoid<bool>` is above.
+
+A model has no name. Deduce finds it by its concept and types when a
+where formula is used at those types, and reports an error if no model
+or more than one model is in scope. A `private` model is visible only
+in its own module. An `opaque` model can be used in other modules, but
+its operations stay folded there: other modules see only its theorems.
 
 ## Modulo
 
@@ -3394,6 +3489,51 @@ used outside of the current module.
 * A `private` name cannot be mentioned outside of the current module.
 * An `opaque` name can be mentioned in other modules but it cannot be expanded (via the `expand` or `evaluate` statements). The constructors of an `opaque` union are always private.
 
+
+## Where Clause
+
+```deduce-grammar
+concept_ref_list ::= concept_ref
+concept_ref_list ::= concept_ref "," concept_ref_list
+```
+
+A where clause on an `all` formula over types restricts the types to
+those that satisfy some [concepts](#concept-statement):
+
+```
+theorem zero_zero: all T:type where { Monoid<T> }. (zero:T) + zero = zero
+proof
+  arbitrary T:type where { Monoid<T> }
+  add_zero[zero]
+end
+```
+
+**Proving.** `arbitrary` repeats the where clause. In the rest of the
+proof, the operations of the concepts (and of the concepts they
+refine) can be used at `T`, and their theorems are givens, under the
+names the concepts use (`add_zero` above).
+
+**Using.** Instantiate the type with `<` and `>`. Deduce finds the
+model of each concept at that type, passes the model's operations,
+and uses the model's theorems for the concept's. The operations of a
+non-opaque model then unfold, so the result is about the type's own
+functions:
+
+```
+theorem bor_false_false: bor(false, false) = false
+proof
+  zero_zero<bool>
+end
+```
+
+A where formula means `all T:type. all ops. if axioms then P`, where
+`ops` are the concepts' operations and `axioms` their theorems, so it
+adds nothing to the logic. A theorem with a where clause is checked
+once, in its own module; using it needs only the models in scope where
+it is used.
+
+When a type satisfies a concept through two paths of refinement, both
+paths must reach the same model; otherwise instantiating is an error.
 
 <!--
 ```{.deduce^file=Reference.pf} 

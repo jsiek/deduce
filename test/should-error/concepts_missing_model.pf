@@ -1,0 +1,8 @@
+// Instantiating a where formula needs a model in scope (#1264).
+
+import ConceptMonoidLemmas
+
+theorem nope: (true:bool) = true
+proof
+  monoid_zero_zero<bool>
+end

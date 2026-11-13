@@ -1,0 +1,12 @@
+// Separate compilation (#1264): the concept, the generic theorem, the
+// model, and this client are four modules. The theorem is checked once,
+// in its own module; here it is instantiated by passing the model, whose
+// public operations unfold to `bor` and `false`.
+
+import ConceptMonoidLemmas
+import ConceptBoolModel
+
+theorem bor_false_false: bor(false, false) = false
+proof
+  monoid_zero_zero<bool>
+end

@@ -23,6 +23,8 @@ A deduce file contains a list of statements. Each statement can be one of:
 8. [Import](./Reference.md#import-statement)
 9. [Assert](./Reference.md#assert-statement)
 10. [Print](./Reference.md#print-statement)
+11. [Concept](./Reference.md#concept-statement)
+12. [Model](./Reference.md#model-statement)
 
 Deduce also has an experimental imperative surface — `proc`,
 `observer`, `object`, `resource`, mutable arrays `[T]!`, imperative

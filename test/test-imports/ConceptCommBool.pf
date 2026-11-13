@@ -1,0 +1,58 @@
+module ConceptCommBool
+
+// A model of CommMonoid<bool> built on a private model of Monoid<bool>
+// (#1264). The model it refines is fixed here, where it is declared.
+
+public import ConceptMonoid
+
+concept CommMonoid<T> {
+  refines Monoid<T>
+  theorem add_commute: all x:T, y:T. x + y = y + x
+}
+
+theorem commute_zero: all T:type where { CommMonoid<T> }. all a:T. zero + a = a + zero
+proof
+  arbitrary T:type where { CommMonoid<T> }
+  arbitrary a:T
+  add_commute[zero, a]
+end
+
+fun bor(a:bool, b:bool) { a or b }
+
+theorem bor_false: all x:bool. bor(x, false) = x
+proof
+  arbitrary x:bool
+  switch x {
+    case true { evaluate }
+    case false { evaluate }
+  }
+end
+
+theorem false_bor: all x:bool. bor(false, x) = x
+proof
+  arbitrary x:bool
+  switch x {
+    case true { evaluate }
+    case false { evaluate }
+  }
+end
+
+theorem bor_commute: all x:bool, y:bool. bor(x, y) = bor(y, x)
+proof
+  arbitrary x:bool, y:bool
+  switch x {
+    case true { switch y { case true { evaluate } case false { evaluate } } }
+    case false { switch y { case true { evaluate } case false { evaluate } } }
+  }
+end
+
+private model Monoid<bool> {
+  fun operator+ = bor
+  fun zero = false
+  theorem add_zero = bor_false
+  theorem zero_add = false_bor
+}
+
+model CommMonoid<bool> {
+  theorem add_commute = bor_commute
+}

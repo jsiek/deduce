@@ -1,0 +1,1 @@
+./test/should-error/concepts_ambiguous_model.pf:36.3-36.25: more than one model of Monoid<bool> in scope

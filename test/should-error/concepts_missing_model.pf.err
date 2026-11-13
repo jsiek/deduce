@@ -1,0 +1,1 @@
+./test/should-error/concepts_missing_model.pf:7.3-7.25: no model of Monoid<bool> in scope

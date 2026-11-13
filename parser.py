@@ -1,5 +1,5 @@
 from abstract_syntax import (
-    All, AllElim, AllElimTypes, AllIntro, And, ApplyDefsFact,
+    All, AllElim, ConceptDecl, ConceptRef, ModelDecl, WhereClause, AllElimTypes, AllIntro, And, ApplyDefsFact,
     ApplyDefsGoal, ArrayGet, ArrayType, Assert, Associative, Auto,
     Bool, BoolType, Call, Cases, Conditional, Constructor,
     Define, Emp, EvaluateFact, EvaluateGoal, Export, FieldAccess, FunCase,
@@ -327,6 +327,14 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
         result = body
         for i, var in enumerate(reversed(vars)):
             result = All(e.meta, None, var, (i, len(vars)), result)
+        return result
+    elif e.data == 'all_where_formula':
+        vars = parse_tree_to_list(e.children[0], e)
+        where = WhereClause(e.meta, parse_tree_to_list(e.children[1], e))
+        result = parse_tree_to_ast(e.children[2], e)
+        for i, var in enumerate(reversed(vars)):
+            result = All(e.meta, None, var, (i, len(vars)), result,
+                         where=where if i == 0 else None)
         return result
     elif e.data == 'alltype_formula':
         vars = parse_tree_to_list(e.children[0], e)
@@ -852,6 +860,14 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
         for i, var in enumerate(reversed(vars)):
             result = AllIntro(e.meta, var, (i, len(vars)), result)
         return result
+    elif e.data == 'all_intro_where':
+        vars = parse_tree_to_list(e.children[0], e)
+        where = WhereClause(e.meta, parse_tree_to_list(e.children[1], e))
+        result = None
+        for i, var in enumerate(reversed(vars)):
+            result = AllIntro(e.meta, var, (i, len(vars)), result,
+                              where=where if i == 0 else None)
+        return result
     elif e.data == 'all_elim':
         univ = parse_tree_to_ast(e.children[0], e)
         args = parse_tree_to_list(e.children[1], e)
@@ -1205,6 +1221,32 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
                              parse_tree_to_ast(e.children[6], e),
                              parse_tree_to_ast(e.children[7], e),
                              parse_tree_to_optional_identifier(e.children[8]))
+        set_visibility(statement, visibility)
+        return statement
+
+    elif e.data == 'concept_ref':
+        return ConceptRef(e.meta, _token_text(e, 0),
+                          parse_tree_to_list(e.children[1], e))
+    elif e.data in ('concept_refines', 'concept_fun', 'concept_theorem',
+                    'model_fun', 'model_theorem'):
+        return (e.data,) + tuple(parse_tree_to_ast(c, e) for c in e.children)
+    elif e.data == 'concept_declaration':
+        visibility = parse_tree_to_ast(e.children[0], e)
+        members = parse_tree_to_list(e.children[3], e)
+        statement = ConceptDecl(
+            e.meta, _token_text(e, 1), parse_tree_to_list(e.children[2], e),
+            WhereClause(e.meta, [m[1] for m in members if m[0] == 'concept_refines']),
+            [(m[1], m[2]) for m in members if m[0] == 'concept_fun'],
+            [(str(m[1]), m[2]) for m in members if m[0] == 'concept_theorem'])
+        set_visibility(statement, visibility)
+        return statement
+    elif e.data == 'model_declaration':
+        visibility = parse_tree_to_ast(e.children[0], e)
+        members = parse_tree_to_list(e.children[2], e)
+        statement = ModelDecl(
+            e.meta, 'model', parse_tree_to_ast(e.children[1], e),
+            [(m[1], '', m[2]) for m in members if m[0] == 'model_fun'],
+            [(str(m[1]), m[2]) for m in members if m[0] == 'model_theorem'])
         set_visibility(statement, visibility)
         return statement
 

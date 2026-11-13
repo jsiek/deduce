@@ -1,0 +1,33 @@
+module ConceptBoolModel
+
+// A model in a module of its own (#1264). It knows the concept, but not
+// the generic theorems that clients will use it with.
+
+import ConceptMonoid
+
+fun bor(a:bool, b:bool) { a or b }
+
+theorem bor_false: all x:bool. bor(x, false) = x
+proof
+  arbitrary x:bool
+  switch x {
+    case true { evaluate }
+    case false { evaluate }
+  }
+end
+
+theorem false_bor: all x:bool. bor(false, x) = x
+proof
+  arbitrary x:bool
+  switch x {
+    case true { evaluate }
+    case false { evaluate }
+  }
+end
+
+model Monoid<bool> {
+  fun operator+ = bor
+  fun zero = false
+  theorem add_zero = bor_false
+  theorem zero_add = false_bor
+}

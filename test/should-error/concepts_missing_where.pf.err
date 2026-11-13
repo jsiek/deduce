@@ -1,0 +1,2 @@
+./test/should-error/concepts_missing_where.pf:8.3-8.19: arbitrary T needs the where clause
+	where { Monoid<T> }

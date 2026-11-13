@@ -1,0 +1,38 @@
+// Coherence (#1264): the model of CommMonoid<bool> was declared on a
+// private model of Monoid<bool> (with `bor`), but here a different model
+// of Monoid<bool> (with `band`) is in scope. Instantiating would mix the
+// two, so it is an error.
+
+import ConceptCommBool
+
+fun band(a:bool, b:bool) { a and b }
+
+theorem band_true: all x:bool. band(x, true) = x
+proof
+  arbitrary x:bool
+  switch x {
+    case true { evaluate }
+    case false { evaluate }
+  }
+end
+
+theorem true_band: all x:bool. band(true, x) = x
+proof
+  arbitrary x:bool
+  switch x {
+    case true { evaluate }
+    case false { evaluate }
+  }
+end
+
+model Monoid<bool> {
+  fun operator+ = band
+  fun zero = true
+  theorem add_zero = band_true
+  theorem zero_add = true_band
+}
+
+theorem mixed: all b:bool. band(true, b) = band(b, true)
+proof
+  commute_zero<bool>
+end

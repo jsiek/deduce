@@ -43,6 +43,7 @@ from checker_logic import (
     expand_definitions, expand_residual_hint, ground_goal_evaluate_hint,
     instantiate, isolate_difference, pattern_to_term, rewrite,
 )
+from checker_concepts import instantiate_where, intro_where
 from checker_types import (
     check_formula, check_pattern, check_type, type_check_term,
     lookup_union, type_first_letter, type_synth_term,
@@ -375,6 +376,8 @@ def _check_proof_all_elim_types(proof: AllElimTypes, env: Env) -> CheckedFormula
       sub[var] = type_arg
     case _:
       user_error(loc, 'expected all formula to instantiate, not ' + str(allfrm))
+  if allfrm.where is not None:
+    return instantiate_where(loc, allfrm, type_arg, env)
   return instantiate(loc, allfrm, type_arg)
 
 def _check_proof_modus_ponens(proof: ModusPonens, env: Env) -> CheckedFormula:
@@ -1525,6 +1528,17 @@ def _check_proof_of_all_intro(proof: AllIntro, formula: CheckedFormula, env: Env
         add_diagnostic(loc, "arbitrary expects " + base_name(x)
               + " to have type\n\t" + str(ty2)
               + "\nbut got type\n\t" + str(ty))
+        return
+      if (formula.where is None) != (proof.where is None):
+        add_diagnostic(loc, "arbitrary " + base_name(x)
+              + (" needs the where clause\n\t" + str(formula.where)
+                 if formula.where is not None
+                 else " has a where clause, but the goal has none:\n\t"
+                      + str(formula)))
+        return
+      if formula.where is not None and proof.where is not None:
+        frm2, body_env = intro_where(loc, formula, x, proof.where, env)
+        _try_check_proof_of(body, frm2, body_env)
         return
       sub = {}
       sub[ var2[0] ] = OverloadedVar(loc, checked_ty, [ var[0] ])

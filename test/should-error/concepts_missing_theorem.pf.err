@@ -1,0 +1,1 @@
+./test/should-error/concepts_missing_theorem.pf:16.1-20.2: model Monoid<bool> is missing theorem zero_add

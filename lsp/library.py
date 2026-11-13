@@ -554,6 +554,8 @@ def _content_matches_file(filename: str, content: str) -> bool:
 _TRACKED_CONTAINERS: tuple[_TrackedAttr, ...] = (
     (_abstract_syntax, "uniquified_modules"),
     (_abstract_syntax, "_predicate_decls_by_unique_name"),
+    # Concepts by unique name, read by where clauses and models (#1264).
+    (_abstract_syntax, "concept_decls"),
     (_abstract_syntax, "collected_imports"),
     (_abstract_syntax, "reduce_only"),
     (_abstract_syntax, "reduced_defs"),

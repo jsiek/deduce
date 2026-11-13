@@ -1,0 +1,9 @@
+./test/should-error/concepts_opaque_model.pf:9.3-9.24: error, the proved formula:
+	zero + zero = zero
+does not match the goal:
+	bxor(b0, b0) = b0
+because
+	operator +
+	≠ bxor
+
+Did you mean `replace monoid_zero_zero<Bit>`?

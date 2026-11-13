@@ -1,0 +1,10 @@
+// `arbitrary` on a where formula must state its where clause, which
+// binds the concept's members in the proof (#1264).
+
+import ConceptMonoid
+
+theorem zero_zero: all T:type where { Monoid<T> }. (zero:T) + zero = zero
+proof
+  arbitrary T:type
+  ?
+end

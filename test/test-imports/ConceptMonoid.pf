@@ -1,0 +1,11 @@
+module ConceptMonoid
+
+// A concept on its own module (#1264): models and generic theorems
+// elsewhere don't need to know about each other.
+
+concept Monoid<T> {
+  fun operator+ : fn (T, T) -> T
+  fun zero : T
+  theorem add_zero: all x:T. x + zero = x
+  theorem zero_add: all x:T. zero + x = x
+}
