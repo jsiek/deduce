@@ -2447,14 +2447,13 @@ def _case_split_template(name: str, env: "Env") -> Optional[str]:
     non-disjunctive proof, etc.).
     """
     from abstract_syntax import (
-        Or, ProofBinding, TermBinding, TypeBinding, Union, VarRef, base_name,
+        Or, ProofBinding, TermBinding, TypeBinding, Union, VarRef,
         get_type_name,
     )
 
-    matches = [k for k in env.dict if base_name(k) == name]
-    if not matches:
+    binding = _lookup(name, env)
+    if binding is None:
         return None
-    binding = env.dict[matches[0]]
 
     if isinstance(binding, ProofBinding):
         if isinstance(binding.formula, Or):
@@ -2875,12 +2874,9 @@ def _eliminate_template(label: str, env: "Env") -> Optional[str]:
     Returns ``None'' when the label isn't bound, isn't a proof
     binding, or its formula's shape isn't in the supported table.
     """
-    from abstract_syntax import ProofBinding, base_name
+    from abstract_syntax import ProofBinding
 
-    matches = [k for k in env.dict if base_name(k) == label]
-    if not matches:
-        return None
-    binding = env.dict[matches[0]]
+    binding = _lookup(label, env)
     if not isinstance(binding, ProofBinding):
         return None
     return _eliminate_template_for_formula(
@@ -3136,14 +3132,22 @@ def instantiate_at(
     )
 
 
+def _lookup(name: str, env: "Env", kind: type = object) -> Any:
+    """The binding (of ``kind``) that ``name`` refers to in ``env``: the
+    newest with that base name, since a binding hides the ones declared
+    before it (``env.dict`` is in declaration order). ``None`` if none."""
+    from abstract_syntax import base_name
+
+    return next((b for k, b in reversed(env.dict.items())
+                 if base_name(k) == name and isinstance(b, kind)), None)
+
+
 def _local_proof_binding(label: str, env: "Env") -> Optional["ProofBinding"]:
     """The local given ``label`` in ``env``, if any."""
-    from abstract_syntax import ProofBinding, base_name
+    from abstract_syntax import ProofBinding
 
-    for unique, binding in env.dict.items():
-        if base_name(unique) == label and isinstance(binding, ProofBinding) and binding.local:
-            return binding
-    return None
+    binding = _lookup(label, env)
+    return binding if isinstance(binding, ProofBinding) and binding.local else None
 
 
 def _block_vars(formula: "Formula") -> list[tuple[str, "Type"]]:
@@ -3386,15 +3390,8 @@ def _fill_from_given_template(label: str, goal: "Formula", env: "Env") -> Option
     ...`` runs at proof-check time -- so any accepted label produces a
     template the proof checker will validate.
     """
-    from abstract_syntax import ProofBinding, base_name
-
-    matches = [k for k in env.dict if base_name(k) == label]
-    if not matches:
-        return None
-    binding = env.dict[matches[0]]
-    if not isinstance(binding, ProofBinding):
-        return None
-    if not binding.local:
+    binding = _local_proof_binding(label, env)
+    if binding is None:
         return None
     if binding.formula == goal:
         return label
@@ -3467,7 +3464,7 @@ def preview_conclude_at(
        directly, not via ``conclude ... by ...`` -- matching the
        filter already in :func:`fill_from_given_at`.
     """
-    from abstract_syntax import ProofBinding, base_name
+    from abstract_syntax import ProofBinding
 
     hole_range = _find_hole_at(content, pos)
     if hole_range is None:
@@ -3481,10 +3478,7 @@ def preview_conclude_at(
     if env is None or goal is None:
         return None
 
-    matches = [k for k in env.dict if base_name(k) == label]
-    if not matches:
-        return {"outcome": "unbound", "label": label}
-    binding = env.dict[matches[0]]
+    binding = _lookup(label, env)
     if not isinstance(binding, ProofBinding):
         return {"outcome": "unbound", "label": label}
     if not binding.local:
@@ -3643,11 +3637,11 @@ def apply_at(
     else:
         goal_for_display = goal
 
-    from abstract_syntax import ProofBinding, TermBinding, base_name
-    matches = [k for k in env.dict if base_name(k) == theorem]
-    if not matches or not isinstance(env.dict[matches[0]], ProofBinding):
+    from abstract_syntax import ProofBinding, TermBinding
+    found = _lookup(theorem, env)
+    if not isinstance(found, ProofBinding):
         return {"outcome": "unbound", "theorem": theorem}
-    formula = env.dict[matches[0]].formula
+    formula = found.formula
 
     # Resolve and apply each user-supplied arg by instantiating the
     # outermost ``All``-quantifier on the theorem formula.
@@ -3656,15 +3650,14 @@ def apply_at(
         from abstract_syntax import All
         for i, raw_arg in enumerate(args):
             arg_key = _APPLY_AT_ARG_PREFIX + str(i)
-            arg_matches = [k for k in env.dict if base_name(k) == arg_key]
-            if not arg_matches:
+            binding = _lookup(arg_key, env)
+            if binding is None:
                 return {
                     "outcome": "unifies_against",
                     "goal": _term_tree(goal_for_display),
                     "reason": "could not parse arg #" + str(i + 1)
                               + ": " + raw_arg,
                 }
-            binding = env.dict[arg_matches[0]]
             if not isinstance(binding, TermBinding) or binding.defn is None:
                 return {
                     "outcome": "unifies_against",
@@ -5793,16 +5786,10 @@ def _preview_replace(
     failure). ``loc`` is the hole's source location, used for the
     diagnostic-shaped exceptions raised by ``apply_rewrites``."""
     from abstract_syntax import (
-        ProofBinding, base_name, is_equation, mkEqual, split_equation,
+        ProofBinding, is_equation, mkEqual, split_equation,
     )
 
-    matches = [k for k in env.dict if base_name(k) == name]
-    binding = None
-    for k in matches:
-        cand = env.dict[k]
-        if isinstance(cand, ProofBinding):
-            binding = cand
-            break
+    binding = _lookup(name, env, ProofBinding)
     if binding is None:
         return RewritePreview(outcome="unbound", name=original_input)
 

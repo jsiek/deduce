@@ -71,6 +71,29 @@ def test_a_value_that_does_not_check_gives_the_message(tmp_path: Path) -> None:
     assert isinstance(message, str) and "List<U>" in message
 
 
+SHADOWED = """\
+theorem t: all a:UInt. if (all x:UInt. x + 0 = x) then a + 0 = a
+proof
+  arbitrary a:UInt
+  assume H: all x:UInt. x + 0 = x
+  have H: all xs:List<Nat>. length(xs) = length(xs) by arbitrary xs:List<Nat> .
+  ?
+end
+"""
+
+
+def test_a_label_names_its_innermost_given(tmp_path: Path) -> None:
+    # The inner `H` hides the outer one: its variable is `xs`, not `x`.
+    path = tmp_path / "t.pf"
+    path.write_text(SHADOWED)
+    hole = Position(line=6, column=3)
+    found = query.instantiation_vars_at(str(path), SHADOWED, hole, "H", prelude=PRELUDE)
+    assert [(v.name, v.type) for v in found] == [("xs", "List<Nat>")]
+    edit = query.instantiate_at(str(path), SHADOWED, hole, "H", ["[]"], prelude=PRELUDE)
+    assert isinstance(edit, WorkspaceEdit)
+    assert edit.new_text.startswith("have H1: length(") and " by H[[]]" in edit.new_text
+
+
 def test_not_a_local_given(tmp_path: Path) -> None:
     path = _write(tmp_path)
     assert query.instantiation_vars_at(path, SOURCE, HOLE, "nope", prelude=PRELUDE) == ()
