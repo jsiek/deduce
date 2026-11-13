@@ -1,0 +1,7 @@
+// A private declaration that follows a `public import` in an imported
+// module is not exported (the import used to reset the current module
+// to the importer's, so later private declarations leaked).
+
+import PrivateAfterPublicImport
+
+define y = hidden_after_import(true)

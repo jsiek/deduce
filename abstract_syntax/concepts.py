@@ -230,6 +230,10 @@ class ModelDecl(Declaration):
   # from the enclosing scope (as in G).
   funs: List[Tuple[str, str, Term]]
   theorems: List[Tuple[str, Proof]]
+  # The models in scope where this model is declared, recorded by
+  # uniquify: the models of the refined concepts come from here (F^G's
+  # MDL rule).
+  models: List[str] = field(default_factory=list, kw_only=True)
 
   def __str__(self) -> str:
     lines = [self.visibility_prefix() + 'model ' + str(self.concept) + ' {']
@@ -279,13 +283,19 @@ class ModelDecl(Declaration):
         static_error(self.location, 'model ' + str(self.concept)
                      + ' is missing theorem ' + base_name(m))
       theorems.append((m, pf.uniquify(env, ctx)))
-    return ModelDecl(self.location, generate_name('model', ctx), concept,
-                     funs, theorems, visibility=self.visibility)
+    models = list(env.get(MODELS_KEY, []))
+    new_name = generate_name('model', ctx)
+    # A new list, not an append: environments are copied shallowly.
+    env[MODELS_KEY] = models + [new_name]
+    return ModelDecl(self.location, new_name, concept, funs, theorems,
+                     visibility=self.visibility, models=models)
 
   def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
-    # A model has no name to export; the checker finds it by its concept
-    # and type arguments.
-    pass
+    # A model has no name; it is exported into the scope of models,
+    # where the checker finds it by its concept and type arguments.
+    in_scope = export_env.get(MODELS_KEY, [])
+    if not self._skip_export(importing_module) and self.name not in in_scope:
+      export_env[MODELS_KEY] = in_scope + [self.name]
 
 
 @dataclass

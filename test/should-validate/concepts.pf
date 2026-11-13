@@ -82,3 +82,18 @@ theorem bor_swap: all b:bool. bor(false, b) = bor(b, false)
 proof
   swap_zero<bool>
 end
+
+// A where clause after several type variables stays with them when the
+// earlier ones are introduced or instantiated.
+theorem zero_zero_second: all T:type, U:type where { Monoid<U> }.
+  all x:T. (zero:U) + zero = zero
+proof
+  arbitrary T:type, U:type where { Monoid<U> }
+  arbitrary x:T
+  add_zero[zero]
+end
+
+theorem bor_false_false_again: all n:bool. bor(false, false) = false
+proof
+  zero_zero_second<bool, bool>
+end

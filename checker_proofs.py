@@ -377,7 +377,7 @@ def _check_proof_all_elim_types(proof: AllElimTypes, env: Env) -> CheckedFormula
     case _:
       user_error(loc, 'expected all formula to instantiate, not ' + str(allfrm))
   if allfrm.where is not None:
-    return instantiate_where(loc, allfrm, type_arg, env)
+    return instantiate_where(loc, allfrm, type_arg, env, proof.models)
   return instantiate(loc, allfrm, type_arg)
 
 def _check_proof_modus_ponens(proof: ModusPonens, env: Env) -> CheckedFormula:
@@ -712,9 +712,10 @@ def update_all_head(r: Formula) -> Formula:
     match r:
       case All(loc2, tyof, var, (s, e), frm):
         if s == 0:  
-          return All(loc2, tyof, var, (s, e-1), frm)
+          return All(loc2, tyof, var, (s, e-1), frm, where=r.where)
         else:
-          return All(loc2, tyof, var, (s, e-1), update_all_head(frm))
+          return All(loc2, tyof, var, (s, e-1), update_all_head(frm),
+                     where=r.where)
       case _:
         return r
 

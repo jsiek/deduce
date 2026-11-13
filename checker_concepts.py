@@ -132,6 +132,9 @@ def check_where_all(frm: All, env: Env,
   loc = frm.location
   x, ty = frm.var
   new_ty = check_type(ty, env)
+  if not isinstance(new_ty, TypeType):
+    user_error(loc, 'a where clause must follow a type variable, not '
+               + base_name(x) + ':' + str(new_ty))
   body_env = env.declare_term_vars(loc, [(x, new_ty)])
   assert frm.where is not None
   where = check_where(frm.where, body_env)
@@ -199,11 +202,13 @@ def intro_where(loc: Meta, goal: All, x: str, where: WhereClause,
   return frm, body_env
 
 
-def find_model(env: Env, inst: ConceptRef, loc: Meta) -> ModelBinding:
-  current = env.get_current_module()
-  found = [b for b in env.dict.values()
-           if isinstance(b, ModelBinding) and b.model.concept == inst
-           and (b.visibility != 'private' or b.module == current)]
+def find_model(env: Env, inst: ConceptRef, models: list[str],
+               loc: Meta) -> ModelBinding:
+  """The model of ``inst`` among ``models``, the models in lexical scope
+  (recorded by uniquify)."""
+  found = [b for name in models
+           if isinstance(b := env.dict.get(name), ModelBinding)
+           and b.model.concept == inst]
   if not found:
     user_error(loc, 'no model of ' + str(inst) + ' in scope')
   if len(found) > 1:
@@ -227,14 +232,14 @@ def _model_lookup(env: Env, models: Models,
 
 
 def instantiate_where(loc: Meta, allfrm: All, type_arg: Type,
-                      env: Env) -> Formula:
+                      env: Env, in_scope: list[str]) -> Formula:
   """``thm<τ>`` for a where formula: pass the models of the clause's
   concepts at ``τ`` (F^G's TApp)."""
   assert allfrm.where is not None
   sub = {allfrm.var[0]: type_arg}
   where = allfrm.where.substitute(sub)
   instances = concept_closure(where.constraints)
-  models = [(inst, find_model(env, inst, loc)) for inst in instances]
+  models = [(inst, find_model(env, inst, in_scope, loc)) for inst in instances]
   # Coherence: every refinement path to an instance reaches one model.
   for (_, model) in models:
     concept = concept_of(env, model.model.concept.concept, loc)
@@ -288,7 +293,7 @@ def process_model(model: ModelDecl, env: Env) -> tuple[ModelDecl, Env]:
   concept_ref = check_where(WhereClause(loc, [model.concept]), env).constraints[0]
   decl = concept_of(env, concept_ref.concept, loc)
   psub = _param_sub(decl, concept_ref)
-  refined = [find_model(env, ref.substitute(psub), loc).model.name
+  refined = [find_model(env, ref.substitute(psub), model.models, loc).model.name
              for ref in decl.refines.constraints]
   funs = []
   for (m, define, body) in model.funs:
@@ -296,7 +301,7 @@ def process_model(model: ModelDecl, env: Env) -> tuple[ModelDecl, Env]:
     funs.append((m, define, type_check_term(body, ty, env, None, [])))
     env = env.declare_term_var(loc, define, ty, visibility=model.visibility)
   new_model = ModelDecl(loc, model.name, concept_ref, funs, model.theorems,
-                        visibility=model.visibility)
+                        visibility=model.visibility, models=model.models)
   return new_model, env._with_binding(
       model.name, ModelBinding(loc, new_model, refined,
                                module=env.get_current_module(),
@@ -317,7 +322,7 @@ def model_obligations(model: ModelDecl, env: Env) -> list[tuple[Proof, Formula]]
   for the refined concepts)."""
   loc = model.location
   binding = cast(ModelBinding, env.dict[model.name])
-  models = [(inst, find_model(env, inst, loc))
+  models = [(inst, find_model(env, inst, model.models, loc))
             for inst in concept_closure([model.concept])[:-1]]
   models.append((model.concept, binding))
   lookup = _model_lookup(env, models, True, loc)

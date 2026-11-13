@@ -341,6 +341,14 @@ class AllElimTypes(Proof):
   #  e : The number of vars in the block
   #  s : The variable's index in the list, starting from the first var
   pos: Tuple[int, int]
+  # The models in scope here, recorded by uniquify: instantiating a where
+  # formula passes models from this lexical scope (#1264).
+  models: List[str] = field(default_factory=list, kw_only=True)
+
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> AllElimTypes:
+    return AllElimTypes(self.location, self.univ.uniquify(env, ctx),
+                        self.arg.uniquify(env, ctx), self.pos,
+                        models=list(env.get(MODELS_KEY, [])))
 
   def __str__(self) -> str:
     s, e = self.pos

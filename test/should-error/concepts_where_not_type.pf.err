@@ -1,0 +1,1 @@
+./test/should-error/concepts_where_not_type.pf:5.15-5.55: a where clause must follow a type variable, not x:bool

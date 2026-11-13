@@ -1,0 +1,1 @@
+./test/should-error/concepts_private_import.pf:9.3-9.25: no model of Monoid<bool> in scope

@@ -97,6 +97,12 @@ def set_current_module(name: str) -> None:
 # uniquify spans parsed names, overload lists, and module sentinels.
 UniquifyEnv = dict[str, Any]
 
+# The uniquify-environment key under which the models in scope are
+# recorded (#1264). Models have no name of their own; importing a module
+# brings its exported models into scope under this key, so a private
+# import doesn't leak them. Not an identifier, so it can't clash.
+MODELS_KEY = ' models'
+
 ############ AST Base Classes ###########
 
 @dataclass
