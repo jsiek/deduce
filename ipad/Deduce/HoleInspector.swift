@@ -183,13 +183,6 @@ struct HoleInspector: View {
         }
     }
 
-    /// `message` without the `/path/to/File.pf:13.86-13.119: ` locations
-    /// the checker puts in front of nested errors.
-    static func withoutLocations(_ message: String) -> String {
-        message.replacingOccurrences(of: #"\S+\.pf:\d+\.\d+-\d+\.\d+: "#, with: "",
-                                     options: .regularExpression)
-    }
-
     /// How a lemma fits the goal, by the server's `unify_tier`.
     private static let fits = [
         "full": "proves it",
@@ -240,7 +233,7 @@ struct HoleInspector: View {
             if let problem = result.problem {
                 // The checker's messages can be long; keep the list in sight.
                 ScrollView {
-                    Text(Self.withoutLocations(problem))
+                    Text(withoutLocations(problem))
                         .font(.system(.footnote, design: .monospaced)).foregroundStyle(.red)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
