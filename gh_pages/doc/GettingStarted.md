@@ -282,8 +282,12 @@ This pulls in the `mcp` Python package. Note which interpreter
 **same** interpreter, or Claude Code will start a Python that doesn't
 have `mcp` installed.
 
-**2. Register the Deduce MCP server with your assistant.** For Claude
-Code, create (or edit) `.mcp.json` in your Deduce checkout:
+**2. Register the Deduce MCP server with your assistant.** The Deduce
+checkout already has a `.mcp.json` that runs `lsp/mcp_server.sh`, which
+starts the server with the checkout's `.venv` Python if there is one
+and `python3` otherwise. So if you installed into a `.venv` in the
+checkout, or into the `python3` on your `PATH`, you can skip to step 3.
+Otherwise, for Claude Code, create (or edit) `.mcp.json`:
 
 ```json
 {

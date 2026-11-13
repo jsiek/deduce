@@ -1,4 +1,7 @@
-PYTHON = $(shell command -v python3.13)
+# The checkout's .venv Python if there is one (from a git worktree, the
+# main checkout's), else python3. Override with `make PYTHON=...`.
+MAIN_CHECKOUT := $(dir $(shell git rev-parse --path-format=absolute --git-common-dir 2>/dev/null))
+PYTHON ?= $(firstword $(wildcard .venv/bin/python $(MAIN_CHECKOUT).venv/bin/python) python3)
 
 LIB_DIR = ./lib
 TEST_PASS_DIR = ./test/should-validate
