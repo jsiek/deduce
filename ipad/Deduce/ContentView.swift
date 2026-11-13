@@ -10,8 +10,10 @@ struct ContentView: View {
     @State private var editing: EditingStep?
     /// The steps at a hole, for the file's version they were asked about.
     @State private var loaded: (hole: Outline.Range, version: Int, steps: DeduceServer.HoleSteps)?
-    /// The `all` given being given values, in a popover beside it.
+    /// The `all` given being given values, in a box beside it.
     @State private var instantiating: String?
+    /// The goal variable being asked about: make it arbitrary, or induct.
+    @State private var choosingFor: String?
 
     /// A step being edited as text.
     struct EditingStep: Identifiable {
@@ -78,23 +80,30 @@ struct ContentView: View {
         }
     }
 
-    /// The variable of the selected hole's goal that induction inducts on,
-    /// when the server offers induction there.
-    private var inductionVariable: String? {
-        guard let hole, steps?.actions.contains(where: { $0.title == inductionAction }) == true else { return nil }
-        return firstBound(hole.goal)
-    }
-
     /// Split on the variable `name` at the selected hole ("Cases on x").
     private func split(_ name: String) {
         guard let hole else { return }
         Task { server.apply(await server.edits("deduce/caseSplitAt", at: hole.range.start, ["variable": name])) }
     }
 
-    /// Induct on the selected hole's goal variable.
-    private func induct() {
-        guard let action = steps?.actions.first(where: { $0.title == inductionAction }) else { return }
-        server.apply(action.edits)
+    /// A variable the selected hole's goal binds up front was tapped: make
+    /// it arbitrary, or, when it can also be inducted on, ask which.
+    private func tapBinder(_ name: String) {
+        guard let binder = steps?.binders.first(where: { $0.name == name }) else { return }
+        if binder.induction {
+            choosingFor = name
+        } else {
+            introduce(name, induction: false)
+        }
+    }
+
+    /// Make the goal variable `name` arbitrary, or induct on it, after
+    /// making the ones before it arbitrary.
+    private func introduce(_ name: String, induction: Bool) {
+        guard let hole else { return }
+        choosingFor = nil
+        let method = induction ? "deduce/inductionAt" : "deduce/arbitraryAt"
+        Task { server.apply(await server.edits(method, at: hole.range.start, ["variable": name])) }
     }
 
     var body: some View {
@@ -124,7 +133,7 @@ struct ContentView: View {
                     if let hole {
                         Divider()
                         HoleInspector(hole: hole, steps: steps,
-                                      marked: !uses.isEmpty || !splittable.isEmpty || inductionVariable != nil,
+                                      marked: !uses.isEmpty || !splittable.isEmpty || !(steps?.binders.isEmpty ?? true),
                                       otherSplittable: (steps?.splittable ?? []).filter {
                                           splittable[$0] == nil && !(steps?.eliminable.contains($0) ?? false)
                                       })
@@ -177,7 +186,10 @@ struct ContentView: View {
                 // A load superseded meanwhile must not write over the current one's.
                 if !Task.isCancelled { loaded = (range, version, steps) }
             }
-            .onChange(of: selection) { instantiating = nil }
+            .onChange(of: selection) {
+                instantiating = nil
+                choosingFor = nil
+            }
             .onChange(of: reasonLevel) { levels = [:] }
             .onChange(of: server.openFile) {
                 levels = [:]
@@ -218,7 +230,8 @@ struct ContentView: View {
                              })
                          },
                          splittable: splittable, split: split,
-                         inductionVariable: inductionVariable, induct: induct) { range in
+                         binders: steps?.binders ?? [], tapBinder: tapBinder,
+                         choosingFor: $choosingFor, introduce: introduce) { range in
                 editing = EditingStep(range: range, text: sourceText(server.source.scalarLines, range))
             }
         } else if server.openFile == nil {

@@ -84,6 +84,14 @@ extension DeduceServer {
         ["line": p.line, "character": p.character]
     }
 
+    /// A variable the goal at a hole binds up front.
+    struct GoalBinder: Decodable {
+        let name: String
+        let type: String
+        /// Whether it can be inducted on (`deduce/inductionAt`).
+        let induction: Bool
+    }
+
     /// The steps the server offers at a hole.
     struct HoleSteps {
         /// Its code actions (Refine, Induction), by title.
@@ -94,6 +102,8 @@ extension DeduceServer {
         let eliminable: [String]
         /// Givens that prove the goal (`fillFromGivenAt`).
         let matching: [String]
+        /// The variables the goal binds up front, outermost first.
+        let binders: [GoalBinder]
     }
 
     /// The steps at `hole`, asked for together so they're answered from
@@ -103,7 +113,9 @@ extension DeduceServer {
         async let splittable = names("deduce/splittableVarsAt", at: hole)
         async let eliminable = names("deduce/eliminableVarsAt", at: hole)
         async let matching = names("deduce/matchingGivensAt", at: hole)
-        return await HoleSteps(actions: actions, splittable: splittable, eliminable: eliminable, matching: matching)
+        async let binders = request("deduce/goalBindersAt", ["position": position(hole)])
+        return await HoleSteps(actions: actions, splittable: splittable, eliminable: eliminable, matching: matching,
+                               binders: decode([GoalBinder].self, binders) ?? [])
     }
 
     /// A variable of an `all` given, to give a value for.

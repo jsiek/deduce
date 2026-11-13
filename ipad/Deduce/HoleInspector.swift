@@ -5,7 +5,7 @@ import SwiftUI
 /// `replace` on the part of the goal you tap, are previewed before they're
 /// applied (`deduce/previewLemmaAt`, `deduce/preview…AtSubterm`). Givens
 /// and variables are used by tapping them in the textbook: a variable for
-/// "Cases on" it, the goal's for induction.
+/// "Cases on" it, one the goal binds to make it arbitrary or induct on it.
 struct HoleInspector: View {
     @EnvironmentObject var server: DeduceServer
     let hole: Textbook.Hole
@@ -46,9 +46,12 @@ struct HoleInspector: View {
             }
             Section {
                 if let steps {
-                    // Induction is a tap on the goal's variable, in the textbook.
-                    ForEach(steps.actions.filter { $0.title != inductionAction || firstBound(hole.goal) == nil },
-                            id: \.title) { action in
+                    // Induction, and making a goal variable arbitrary, are a tap
+                    // on the variable in the textbook.
+                    ForEach(steps.actions.filter { action in
+                        steps.binders.isEmpty || !(action.title == "Induction"
+                            || action.edits.first?.newText.hasPrefix("arbitrary ") == true)
+                    }, id: \.title) { action in
                         Button(Self.label(action)) { server.apply(action.edits) }
                     }
                     pick("Cases on…", otherSplittable, "deduce/caseSplitAt", "variable")
@@ -63,8 +66,9 @@ struct HoleInspector: View {
                 Text("Steps")
             } footer: {
                 if marked {
-                    Text("Tap a marked given or variable in the proof to use it. Green givens prove the goal; "
-                         + "tap an underlined variable for cases on it, or the goal's for induction.")
+                    Text("Tap a marked given or variable in the proof to use it. Green givens prove the goal. "
+                         + "An underlined variable in the goal can be made arbitrary or inducted on; "
+                         + "elsewhere, tap one for cases on it.")
                 }
             }
             Section {
@@ -269,11 +273,8 @@ struct HoleInspector: View {
     private static func label(_ action: (title: String, edits: [TextEdit])) -> String {
         guard action.title == "Refine hole", let text = action.edits.first?.newText else { return action.title }
         var step = String(text.prefix { $0 != "\n" })
-        if step.hasPrefix("(") { step.removeFirst() }  // parenthesized as part of a larger step
-        if step.hasPrefix("arbitrary "), let colon = step.firstIndex(of: ":") {
-            return letArbitrary([(String(step.dropFirst("arbitrary ".count)[..<colon]),
-                                  String(step[step.index(after: colon)...]))])
-        }
+        if step.hasPrefix("{ ") { step.removeFirst(2) }  // braced as part of a larger step
+        // (`arbitrary` isn't offered here: it's a tap on the goal's variable.)
         if step.hasPrefix("assume "), let colon = step.firstIndex(of: ":") {
             var premise = step[step.index(after: colon)...].trimmingCharacters(in: .whitespaces)
             if premise.hasPrefix("("), closingParen(of: premise) == premise.index(before: premise.endIndex) {

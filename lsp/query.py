@@ -95,6 +95,7 @@ __all__ = [
     "SubtermPreview",
     "LemmaPreview",
     "InstantiationVar",
+    "GoalBinder",
     # Query functions
     "check",
     "goal_at",
@@ -105,6 +106,9 @@ __all__ = [
     "case_split_at",
     "splittable_vars_at",
     "induction_skeleton_at",
+    "goal_binders_at",
+    "arbitrary_at",
+    "induction_at",
     "eliminate_at",
     "eliminable_vars_at",
     "instantiation_vars_at",
@@ -2626,6 +2630,132 @@ def induction_skeleton_at(
         path=path, range=hole_range,
         new_text=_hole_text(content, hole_range, template),
     )
+
+
+@dataclass(frozen=True)
+class GoalBinder:
+    """A variable the goal at a hole binds up front (see
+    :func:`goal_binders_at`): its name and type, and whether
+    :func:`induction_at` can induct on it."""
+
+    name: str
+    type: str
+    induction: bool
+
+
+def goal_binders_at(
+    path: str, content: str, pos: Position, prelude: Sequence[str] = ()
+) -> tuple[GoalBinder, ...]:
+    """The variables the goal at the hole at ``pos`` binds in its leading
+    ``all``s, outermost first. Each can be made arbitrary
+    (:func:`arbitrary_at`); one whose type is a union of two or more
+    alternatives can be inducted on (:func:`induction_at`). Empty off a
+    hole."""
+    from abstract_syntax import base_name
+
+    at = _hole_goal(path, content, pos, prelude)
+    if at is None:
+        return ()
+    _, formula, env = at
+    return tuple(
+        GoalBinder(base_name(node.var[0]), str(node.var[1]), _induction_template(node, env) is not None)
+        for node in _leading_alls(formula)
+    )
+
+
+def arbitrary_at(
+    path: str, content: str, pos: Position, variable: str,
+    prelude: Sequence[str] = (),
+) -> Optional[WorkspaceEdit]:
+    """``arbitrary`` for the variables the goal at the hole at ``pos``
+    binds up front, up to and including ``variable``, then a ``?`` for
+    what's left. ``None`` off a hole or when the goal doesn't bind
+    ``variable`` up front."""
+    from abstract_syntax import base_name
+
+    found = _up_to(path, content, pos, variable, prelude)
+    if found is None:
+        return None
+    hole_range, before, node, _ = found
+    x, ty = node.var
+    step = f"arbitrary {', '.join(before + [f'{base_name(x)}:{ty}'])}\n?"
+    return WorkspaceEdit(path=path, range=hole_range, new_text=_hole_text(content, hole_range, step))
+
+
+def induction_at(
+    path: str, content: str, pos: Position, variable: str,
+    prelude: Sequence[str] = (),
+) -> Optional[WorkspaceEdit]:
+    """``induction`` on ``variable``, one of the variables the goal at the
+    hole at ``pos`` binds up front, after ``arbitrary`` for the ones bound
+    before it: in ``all U:type, xs:List<U>. P``, inducting on ``xs``
+    writes ``arbitrary U:type`` then the ``induction List<U>`` skeleton
+    (:func:`induction_skeleton_at`). ``None`` off a hole, or when the goal
+    doesn't bind ``variable`` up front or it can't be inducted on."""
+    found = _up_to(path, content, pos, variable, prelude)
+    if found is None:
+        return None
+    hole_range, before, node, env = found
+    template = _induction_template(node, env)
+    if template is None:
+        return None
+    prefix = f"arbitrary {', '.join(before)}\n" if before else ""
+    return WorkspaceEdit(path=path, range=hole_range,
+                         new_text=_hole_text(content, hole_range, prefix + template))
+
+
+def _up_to(
+    path: str, content: str, pos: Position, variable: str, prelude: Sequence[str]
+) -> Optional[tuple[Range, list[str], "All", "Env"]]:
+    """The hole at ``pos``, the variables its goal binds up front before
+    ``variable`` (as ``x:T``), the goal's ``all`` for ``variable`` (as it
+    is once those are arbitrary) and the env; ``None`` off a hole or when
+    the goal doesn't bind ``variable`` up front."""
+    from abstract_syntax import base_name
+
+    at = _hole_goal(path, content, pos, prelude)
+    if at is None:
+        return None
+    hole_range, formula, env = at
+    before: list[str] = []
+    for node in _leading_alls(formula):
+        x, ty = node.var
+        if base_name(x) == variable:
+            return hole_range, before, node, env
+        before.append(f"{base_name(x)}:{ty}")
+    return None
+
+
+def _hole_goal(
+    path: str, content: str, pos: Position, prelude: Sequence[str]
+) -> Optional[tuple[Range, "Formula", "Env"]]:
+    """The hole at ``pos``, with its goal and env, if there is one."""
+    from abstract_syntax import remove_mark
+
+    hole_range = _find_hole_at(content, pos)
+    if hole_range is None:
+        return None
+    exc = _check_at_hole(path, content, hole_range, prelude)
+    formula = getattr(exc, "formula", None)
+    env = getattr(exc, "env", None)
+    if formula is None or env is None:
+        return None
+    return hole_range, remove_mark(formula), env
+
+
+def _leading_alls(formula: "Formula") -> Iterator["All"]:
+    """The ``all`` nodes ``formula`` starts with, one per variable, outermost
+    first: ``all x, y. all z. P`` gives those of ``x``, ``y`` and ``z``.
+    Each is the goal left after ``arbitrary`` for the ones before it: like
+    the checker, re-head a block (``update_all_head``) when its first
+    variable goes, so it still prints as ``all y. …``."""
+    from abstract_syntax import All
+    from proof_checker import update_all_head
+
+    while isinstance(formula, All):
+        yield formula
+        s, _ = formula.pos
+        formula = update_all_head(formula.body) if s != 0 else formula.body
 
 
 def _induction_template(formula: "Formula", env: "Env") -> Optional[str]:

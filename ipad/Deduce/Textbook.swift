@@ -138,7 +138,7 @@ struct Textbook {
                 range: theorem.range,
                 name: theorem.name,
                 lemma: theorem.lemma,
-                statement: withoutTypeParameters(display(theorem.formula)),
+                statement: display(theorem.formula),
                 blocks: builder.blocks(roots),
                 status: roots.map(\.status).max() ?? .ok)
         }
@@ -312,13 +312,9 @@ struct Textbook {
                 let detail = step.detail
                 switch step.kind {
                 case "AllIntro":
-                    // Type parameters are input-only: the statement already
-                    // shows them, and textbooks don't introduce them.
-                    let vars = (detail.vars ?? []).filter { $0.type.kind != "TypeType" }
-                    if !vars.isEmpty {
-                        blocks.append(line(node, letArbitrary(vars.map { ($0.name, display($0.type)) }) + ".", nil,
-                                           variables: vars.map(\.name)))
-                    }
+                    let vars = detail.vars ?? []
+                    blocks.append(line(node, letArbitrary(vars.map { ($0.name, display($0.type)) }) + ".", nil,
+                                       variables: vars.map(\.name)))
                 case "ImpIntro":
                     let label = detail.label ?? ""
                     blocks.append(line(node, "Assume \(label)" + (detail.premise == nil ? "." : ":"),
@@ -576,17 +572,6 @@ func leadingBreak(_ text: String) -> String {
     text.hasSuffix(". ") ? String(text.dropLast()) + "\n" : text
 }
 
-/// The variable an `all` formula binds first: `xs` in `all xs:List<U>. P`,
-/// which the server's induction action inducts on.
-func firstBound(_ formula: Outline.Tree) -> String? {
-    guard formula.kind == "All", case .text(let text)? = formula.parts.first,
-          let match = text.firstMatch(of: /all ([^\s:,]+):/) else { return nil }
-    return String(match.1)
-}
-
-/// The title of the server's induction code action.
-let inductionAction = "Induction"
-
 /// `arbitrary a:Nat, xs:List<Nat>` in words: "Let a be an arbitrary Nat
 /// and xs an arbitrary List<Nat>".
 func letArbitrary(_ vars: [(name: String, type: String)]) -> String {
@@ -600,17 +585,6 @@ func letArbitrary(_ vars: [(name: String, type: String)]) -> String {
 func withoutLocations(_ message: String) -> String {
     message.replacingOccurrences(of: #"\S+\.pf:\d+\.\d+-\d+\.\d+: "#, with: "",
                                  options: .regularExpression)
-}
-
-/// Drop `T:type` binders from a statement's leading `all`, as the proof
-/// drops `arbitrary T:type`: "all U:type, xs:List<U>. P" reads
-/// "all xs:List<U>. P", and "all T:type. P" reads "P".
-func withoutTypeParameters(_ statement: String) -> String {
-    statement
-        .replacingOccurrences(of: #"^all ([A-Za-z_][A-Za-z0-9_]*:type, )+"#, with: "all ",
-                              options: .regularExpression)
-        .replacingOccurrences(of: #"^all [A-Za-z_][A-Za-z0-9_]*:type\.\s"#, with: "",
-                              options: .regularExpression)
 }
 
 /// The index of the parenthesis that closes the one at `text`'s start.

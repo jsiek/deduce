@@ -21,7 +21,8 @@ enum ReasonLevel: String, CaseIterable, Identifiable {
 /// At a selected hole, the givens it can use are marked where they're
 /// introduced (green when one proves the goal), and tapping one uses it.
 /// So are the variables it can split on (tap for "Cases on x"), and in its
-/// goal, the variable it can induct on (tap for induction).
+/// goal, the variables the goal binds up front (tap to make one arbitrary,
+/// or to choose between that and induction on it).
 struct TextbookView: View {
     let book: Textbook
     let defaultLevel: ReasonLevel
@@ -45,10 +46,14 @@ struct TextbookView: View {
     let splittable: [String: Outline.Range]
     /// Called with a variable's name to split on it at the selected hole.
     let split: (String) -> Void
-    /// The variable of the selected hole's goal it can induct on.
-    let inductionVariable: String?
-    /// Called to induct on `inductionVariable`.
-    let induct: () -> Void
+    /// The variables the selected hole's goal binds up front.
+    let binders: [DeduceServer.GoalBinder]
+    /// Called with the name of one of `binders` when it's tapped.
+    let tapBinder: (String) -> Void
+    /// The binder whose choice (arbitrary or induction) is showing.
+    @Binding var choosingFor: String?
+    /// Called to make a binder arbitrary (`false`) or induct on it (`true`).
+    let introduce: (String, Bool) -> Void
     /// Called with a step's range to edit it as text.
     let editAsText: (Outline.Range) -> Void
 
@@ -120,9 +125,9 @@ struct TextbookView: View {
                 variablesText(line.prose, line.variables.filter { splittable[$0] == line.range })
                     .font(Self.proseFont)
                 if let formula = line.formula {
-                    // The selected hole's goal marks the variable it can induct on.
-                    variablesText(formula, isHole && selection == line.range ? inductionVariable.map { [$0] } ?? [] : [],
-                                  induction: true)
+                    // The selected hole's goal marks the variables it binds up front.
+                    variablesText(formula, isHole && selection == line.range ? binders.map(\.name) : [],
+                                  binder: true)
                         .font(Self.formulaFont)
                 }
                 statusMark(line.status)
@@ -142,6 +147,7 @@ struct TextbookView: View {
             .contentShape(Rectangle())
             .onTapGesture { if let given { useGiven(given) } else { selection = line.range } }
             .popover(isPresented: asking(given)) { given.map(instantiator) }
+            .popover(isPresented: choosing(isHole && selection == line.range)) { binderChoice }
             .contextMenu { editMenu(line.range) }
             notes(line.range)
             if !line.subproof.isEmpty && level != .hidden {
@@ -233,10 +239,31 @@ struct TextbookView: View {
         }
     }
 
+    /// Whether the choice for a goal binder shows, beside the selected
+    /// hole's line (`here`).
+    private func choosing(_ here: Bool) -> Binding<Bool> {
+        Binding(get: { here && choosingFor != nil }, set: { if !$0 { choosingFor = nil } })
+    }
+
+    /// For a goal variable that can be inducted on: make it arbitrary, or
+    /// induct on it.
+    @ViewBuilder
+    private var binderChoice: some View {
+        if let name = choosingFor, let binder = binders.first(where: { $0.name == name }) {
+            VStack(alignment: .leading, spacing: 4) {
+                Button(letArbitrary([(name, binder.type)])) { introduce(name, false) }
+                Divider()
+                Button("Induction on \(name)") { introduce(name, true) }
+            }
+            .font(Self.proseFont)
+            .padding()
+        }
+    }
+
     /// `text` with the first occurrence of each of `names`, in order, marked
     /// with a dotted underline; tapping one splits on it (or, with
-    /// `induction`, inducts on it).
-    private func variablesText(_ text: String, _ names: [String], induction: Bool = false) -> Text {
+    /// `binder`, is a tap on a goal binder).
+    private func variablesText(_ text: String, _ names: [String], binder: Bool = false) -> Text {
         guard !names.isEmpty else { return Text(text) }
         var result = AttributedString()
         var rest = Substring(text)
@@ -246,7 +273,7 @@ struct TextbookView: View {
                   let encoded = name.addingPercentEncoding(withAllowedCharacters: .alphanumerics) else { continue }
             result += AttributedString(rest[..<range.lowerBound])
             var marked = AttributedString(rest[range])
-            marked.link = URL(string: "\(induction ? Self.inductScheme : Self.splitScheme):\(encoded)")
+            marked.link = URL(string: "\(binder ? Self.binderScheme : Self.splitScheme):\(encoded)")
             marked.underlineStyle = Text.LineStyle(pattern: .dot, color: .accentColor)
             result += marked
             rest = rest[range.upperBound...]
@@ -258,22 +285,16 @@ struct TextbookView: View {
     /// Handles a tap on a variable `variablesText` marked.
     private var openVariable: OpenURLAction {
         OpenURLAction { url in
-            switch url.scheme {
-            case Self.inductScheme:
-                induct()
-            case Self.splitScheme:
-                guard let name = url.absoluteString.dropFirst(Self.splitScheme.count + 1).removingPercentEncoding
-                else { return .discarded }
-                split(name)
-            default:
-                return .systemAction
-            }
+            guard let scheme = url.scheme, [Self.splitScheme, Self.binderScheme].contains(scheme),
+                  let name = url.absoluteString.dropFirst(scheme.count + 1).removingPercentEncoding
+            else { return .systemAction }
+            if scheme == Self.binderScheme { tapBinder(name) } else { split(name) }
             return .handled
         }
     }
 
     private static let splitScheme = "deduce-split"
-    private static let inductScheme = "deduce-induct"
+    private static let binderScheme = "deduce-binder"
 
     /// Whether the given `label` is asking for values.
     private func asking(_ label: String?) -> Binding<Bool> {
