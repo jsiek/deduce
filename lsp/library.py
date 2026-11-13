@@ -92,7 +92,7 @@ from abstract_syntax import (
     get_recursive_descent,
     get_uniquified_modules,
 )
-from error import ErrorSink, WarningRecord, set_active_warning_sink
+from error import ErrorSink, WarningRecord, get_active_warning_sink, set_active_warning_sink
 from flags import (
     get_experimental_imperative,
     get_debugger,
@@ -447,9 +447,11 @@ def _check_file_impl(
         # Capture warnings alongside errors when the caller opted into
         # collect-errors mode. ``lsp.query.check`` uses this to surface
         # style hints (e.g. the auto-rule ``replace`` advice) as
-        # WARNING-severity diagnostics. Issue #991.
+        # WARNING-severity diagnostics. Issue #991. Otherwise keep the
+        # caller's sink: the CLI has none, so warnings print, and the
+        # query API installs one around its hole checks (#1242).
         warning_sink: Optional[list[WarningRecord]] = (
-            [] if collect_errors else None
+            [] if collect_errors else get_active_warning_sink()
         )
         prev_warning_sink = set_active_warning_sink(warning_sink)
         try:
@@ -458,7 +460,7 @@ def _check_file_impl(
             )
         finally:
             set_active_warning_sink(prev_warning_sink)
-        captured_warnings = list(warning_sink) if warning_sink is not None else []
+        captured_warnings = list(warning_sink or []) if collect_errors else []
         if sink is not None and sink.errors:
             # collect-errors mode: at least one statement failed but
             # the pipeline kept running. Surface the full list while

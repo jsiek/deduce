@@ -330,3 +330,18 @@ def test_prelude_param_has_default():
 # tests live in test_check.py (Step 3), test_goal_at.py (Step 4), and
 # test_symbols.py (Step 5). The Phase 4 / Step 15 ``refine_at``
 # acceptance tests live in test_refine.py.
+
+
+def test_queries_never_print_warnings(capsys) -> None:
+    """The LSP and MCP servers speak their protocols on stdout, so a
+    query mustn't print the checker's warnings there (#1242). The `have`
+    with a `?` warns, and the hole keeps the statement out of the proof
+    cache, so every check of the file emits the warning again."""
+    src = "theorem t: true\nproof\n  have h: ? by .\n  ?\nend\n"
+    hole = query.Position(4, 3)
+    query.list_symbols("h.pf", src, prelude=())
+    query.completions_at("h.pf", src, hole, prelude=())
+    query.definition_of("h.pf", src, query.Position(1, 9), prelude=())
+    query.goal_at("h.pf", src, hole, prelude=())
+    query.validate_proof_at("h.pf", src, query.Range(hole, query.Position(4, 4)), ".", prelude=())
+    assert capsys.readouterr().out == ""

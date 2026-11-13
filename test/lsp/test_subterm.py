@@ -169,3 +169,29 @@ def test_callee_behind_an_inferred_instantiation_is_rejected():
     preview = preview_expand_at_subterm("t.pf", source, Position(16, 3), [1, 0], ["len"])
     assert preview is not None and preview.outcome == "invalid_path"
     assert "`len` is the function of a call" in preview.message
+
+
+def test_preview_returns_the_warnings_about_its_step(capsys):
+    """An `expand` clause with nothing left to unfold is a warning, which
+    applying the step would leave in the file: the preview says so, and
+    prints nothing (#1242)."""
+    source = PRELUDE + (
+        "fun idn(n:N) { n }\n"
+        "theorem t: all a:N. dbl(s(a)) = s(s(dbl(a)))\n"
+        "proof\n"
+        "  arbitrary a:N\n"
+        "  ?\n"
+        "end\n"
+    )
+    preview = preview_expand_at_subterm(
+        "t.pf", source, Position(12, 3), [], ["dbl", "idn"]
+    )
+    assert preview is not None and preview.outcome == "ok"
+    assert preview.edit.new_text == "expand dbl | idn."
+    [warning] = preview.warnings
+    assert "unused clause 'idn' in expand" in warning
+    assert capsys.readouterr().out == ""
+
+    # Without the extra clause there is nothing to warn about.
+    preview = preview_expand_at_subterm("t.pf", source, Position(12, 3), [], ["dbl"])
+    assert preview is not None and preview.warnings == ()

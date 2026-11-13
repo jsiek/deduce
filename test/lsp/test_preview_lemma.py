@@ -138,3 +138,31 @@ def test_insert_lemma_matches_the_ranking_tier(tmp_path):
     assert tier["length_append"] == "rewrite_subterm"
     edit = query.insert_lemma_at(path, APPEND3, pos, "length_append", prelude=PRELUDE)
     assert edit is not None and edit.new_text == "replace length_append"
+
+
+AUTO = """\
+union N { z  s(N) }
+recursive dbl(N) -> N {
+  dbl(z) = z
+  dbl(s(n)) = s(s(dbl(n)))
+}
+postulate fun R : fn N, N -> bool
+postulate dbl_z: dbl(z) = z
+auto dbl_z
+theorem t: R(dbl(z), dbl(z))
+proof
+  ?
+end
+"""
+
+
+def test_preview_returns_the_warnings_about_the_step(capsys) -> None:
+    """`replace` with an auto rule draws a warning, which making the step
+    would leave in the file: the preview says so, and prints nothing
+    (#1242)."""
+    preview = query.preview_lemma_at("t.pf", AUTO, _hole(AUTO), "dbl_z", prelude=())
+    assert preview is not None and preview.outcome == "ok"
+    assert preview.edit.new_text.startswith("replace dbl_z")
+    [warning] = preview.warnings
+    assert "`dbl_z` is handled automatically by an auto rule" in warning
+    assert capsys.readouterr().out == ""
