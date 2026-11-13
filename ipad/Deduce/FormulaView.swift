@@ -22,7 +22,14 @@ struct FormulaView: View {
 
     private var attributed: AttributedString {
         var result = AttributedString()
-        for (text, path) in Self.runs(tree, path: []) {
+        var runs = Self.runs(tree, path: [], leading: true)
+        // Drop parentheses around the whole formula, as `display` does.
+        let whole = runs.map(\.0).joined()
+        if whole.hasPrefix("("), closingParen(of: whole) == whole.index(before: whole.endIndex) {
+            runs[0].0.removeFirst()
+            runs[runs.count - 1].0.removeLast()
+        }
+        for (text, path) in runs {
             var run = AttributedString(text.replacingOccurrences(of: "'", with: "′"))
             run.link = URL(string: "subterm:" + path.map(String.init).joined(separator: "."))
             if let selection, path.starts(with: selection) {
@@ -41,23 +48,25 @@ struct FormulaView: View {
 
     /// The formula's text in pieces, each with the path of the subterm a
     /// tap on it selects. `#…#` marks and `@f<T>` instantiations show only
-    /// their subject, as in the textbook view.
-    static func runs(_ tree: Outline.Tree, path: [Int]) -> [(String, [Int])] {
+    /// their subject, and the quantifiers the formula starts with end their
+    /// lines, as in the textbook view.
+    static func runs(_ tree: Outline.Tree, path: [Int], leading: Bool = false) -> [(String, [Int])] {
         let children = subtrees(tree)
         if tree.kind == "Mark" || tree.kind == "TermInst", let subject = children.first {
-            return runs(subject, path: path + [0])
+            return runs(subject, path: path + [0], leading: leading)
         }
+        let leading = leading && isQuantifier(tree)
         let function = functionIndex(tree)
         var result: [(String, [Int])] = []
         var index = 0
         for part in tree.parts {
             switch part {
             case .text(let text):
-                result.append((text, path))
+                result.append((leading ? leadingBreak(text) : text, path))
             case .tree(let child):
                 result += index == function
                     ? [(child.text, path)]  // a call's callee or operator selects the call
-                    : runs(child, path: path + [index])
+                    : runs(child, path: path + [index], leading: leading)
                 index += 1
             }
         }

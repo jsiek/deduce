@@ -392,9 +392,10 @@ extension String {
 
 /// A formula for display: without input-only syntax (`#…#` expansion
 /// marks, explicit type arguments such as `@[]<U>`) or a pair of
-/// parentheses around the whole formula. Primes are typeset as ′.
+/// parentheses around the whole formula. Primes are typeset as ′. The
+/// quantifiers it starts with each end a line (see `leadingBreak`).
 func display(_ formula: Outline.Tree) -> String {
-    var text = shown(formula)
+    var text = shown(formula, leading: true)
     if text.hasPrefix("(") && text.hasSuffix(")") && closingParen(of: text) == text.index(before: text.endIndex) {
         text = String(text.dropFirst().dropLast())
     }
@@ -402,19 +403,32 @@ func display(_ formula: Outline.Tree) -> String {
 }
 
 /// `tree`'s text, keeping only the subject of a `Mark` (`#…#`) or of a
-/// `TermInst` (`@f<T>`): the first subtree of either.
-private func shown(_ tree: Outline.Tree) -> String {
+/// `TermInst` (`@f<T>`): the first subtree of either. `leading`: `tree`
+/// starts the formula, so a quantifier there ends its line.
+private func shown(_ tree: Outline.Tree, leading: Bool = false) -> String {
     if tree.kind == "Mark" || tree.kind == "TermInst" {
         for case .tree(let subject) in tree.parts {
-            return shown(subject)
+            return shown(subject, leading: leading)
         }
     }
+    let leading = leading && isQuantifier(tree)
     return tree.parts.map { part in
         switch part {
-        case .text(let text): text
-        case .tree(let child): shown(child)
+        case .text(let text): leading ? leadingBreak(text) : text
+        case .tree(let child): shown(child, leading: leading)
         }
     }.joined()
+}
+
+/// Whether `tree` is an `all` or `some` formula.
+func isQuantifier(_ tree: Outline.Tree) -> Bool {
+    tree.kind == "All" || tree.kind == "Some"
+}
+
+/// A text part of a quantifier that starts a formula: the `. ` after its
+/// binders ends the line, so "all x:Nat. P" shows P on a line of its own.
+func leadingBreak(_ text: String) -> String {
+    text.hasSuffix(". ") ? String(text.dropLast()) + "\n" : text
 }
 
 /// A checker message without the `/path/to/File.pf:13.86-13.119: `
@@ -431,12 +445,12 @@ func withoutTypeParameters(_ statement: String) -> String {
     statement
         .replacingOccurrences(of: #"^all ([A-Za-z_][A-Za-z0-9_]*:type, )+"#, with: "all ",
                               options: .regularExpression)
-        .replacingOccurrences(of: #"^all [A-Za-z_][A-Za-z0-9_]*:type\. "#, with: "",
+        .replacingOccurrences(of: #"^all [A-Za-z_][A-Za-z0-9_]*:type\.\s"#, with: "",
                               options: .regularExpression)
 }
 
 /// The index of the parenthesis that closes the one at `text`'s start.
-private func closingParen(of text: String) -> String.Index? {
+func closingParen(of text: String) -> String.Index? {
     var depth = 0
     for index in text.indices {
         if text[index] == "(" { depth += 1 }
