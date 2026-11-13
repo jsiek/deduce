@@ -18,6 +18,8 @@ enum ReasonLevel: String, CaseIterable, Identifiable {
 
 /// The textbook view of a checked file. Tapping a step selects it (the
 /// source pane highlights it); tapping a reason cycles how much of it shows.
+/// At a selected hole, the givens it can use are marked where they're
+/// introduced (green when one proves the goal), and tapping one uses it.
 struct TextbookView: View {
     let book: Textbook
     let defaultLevel: ReasonLevel
@@ -28,6 +30,10 @@ struct TextbookView: View {
     @Binding var levels: [Outline.Range: ReasonLevel]
     /// A step to scroll to; cleared once scrolled.
     @Binding var scrollTarget: Outline.Range?
+    /// The givens the selected hole can use, by label.
+    let uses: [String: Textbook.GivenUse]
+    /// Called with a given's label to use it at the selected hole.
+    let useGiven: (String) -> Void
     /// Called with a step's range to edit it as text.
     let editAsText: (Outline.Range) -> Void
 
@@ -86,6 +92,7 @@ struct TextbookView: View {
     private func lineView(_ line: Textbook.Line) -> some View {
         let level = levels[line.range] ?? defaultLevel
         let isHole = editable && book.holes.contains { $0.range == line.range }
+        let given = line.introduces.first { uses[$0]?.range == line.range }
         return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 if isHole {
@@ -111,9 +118,9 @@ struct TextbookView: View {
                 }
             }
             .padding(.vertical, 2)
-            .background(selected(line.range))
+            .background { given.map { usable($0) } ?? AnyView(selected(line.range)) }
             .contentShape(Rectangle())
-            .onTapGesture { selection = line.range }
+            .onTapGesture { if let given { useGiven(given) } else { selection = line.range } }
             .contextMenu { editMenu(line.range) }
             notes(line.range)
             if !line.subproof.isEmpty && level != .hidden {
@@ -167,11 +174,50 @@ struct TextbookView: View {
             Text(intro).font(Self.proseFont)
             ForEach(arms, id: \.range) { arm in
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(arm.title).font(Self.proseFont).bold()
+                    armTitle(arm)
                     blocksView(arm.blocks).padding(.leading, 20)
                 }
             }
         }
+    }
+
+    /// "Case node(t1, l2). Assume IH1.", each given it introduces marked
+    /// and tappable when the selected hole can use it: the hypotheses one
+    /// by one, or a `cases` arm's whole title.
+    private func armTitle(_ arm: Textbook.Arm) -> some View {
+        let usable = { (label: String) in self.uses[label].flatMap { $0.range == arm.range ? label : nil } }
+        return HStack(alignment: .firstTextBaseline, spacing: 6) {
+            givenText(Text(arm.title), arm.assumes.isEmpty ? arm.introduces.first.flatMap(usable) : nil)
+            if !arm.assumes.isEmpty {
+                Text("Assume")
+                ForEach(arm.assumes.indices, id: \.self) { i in
+                    let label = arm.assumes[i]
+                    givenText(Text(label + (i == arm.assumes.count - 1 ? "." : ",")), usable(label))
+                }
+            }
+        }
+        .font(Self.proseFont).bold()
+    }
+
+    /// `text`, marked and tappable when it introduces the usable given `label`.
+    @ViewBuilder
+    private func givenText(_ text: Text, _ label: String?) -> some View {
+        if let label {
+            text.background { usable(label) }.onTapGesture { useGiven(label) }
+        } else {
+            text
+        }
+    }
+
+    /// The mark on a given the selected hole can use: green when it proves
+    /// the goal, outlined when it gives a step to take.
+    private func usable(_ label: String) -> AnyView {
+        let tint = uses[label]?.proves == true ? Color.green : Color.accentColor
+        let shape = RoundedRectangle(cornerRadius: 6)
+        return AnyView(shape.fill(tint.opacity(uses[label]?.proves == true ? 0.18 : 0.07))
+            .overlay(shape.strokeBorder(tint.opacity(0.7),
+                                        style: StrokeStyle(lineWidth: 1, dash: uses[label]?.proves == true ? [] : [4, 3])))
+            .padding(-4))
     }
 
     /// The errors and warnings shown at the line, link or theorem `range`.

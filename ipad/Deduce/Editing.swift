@@ -84,8 +84,30 @@ extension DeduceServer {
         ["line": p.line, "character": p.character]
     }
 
+    /// The steps the server offers at a hole.
+    struct HoleSteps {
+        /// Its code actions (Refine, Induction), by title.
+        let actions: [(title: String, edits: [TextEdit])]
+        /// Variables a case split can be on.
+        let splittable: [String]
+        /// Givens a step can be taken with (`eliminateAt`).
+        let eliminable: [String]
+        /// Givens that prove the goal (`fillFromGivenAt`).
+        let matching: [String]
+    }
+
+    /// The steps at `hole`, asked for together so they're answered from
+    /// the outline's check, before the slower lemma ranking.
+    func steps(at hole: Outline.Position) async -> HoleSteps {
+        async let actions = codeActions(at: hole)
+        async let splittable = names("deduce/splittableVarsAt", at: hole)
+        async let eliminable = names("deduce/eliminableVarsAt", at: hole)
+        async let matching = names("deduce/matchingGivensAt", at: hole)
+        return await HoleSteps(actions: actions, splittable: splittable, eliminable: eliminable, matching: matching)
+    }
+
     /// The server's code actions at `hole` (Refine, Induction), by title.
-    func codeActions(at hole: Outline.Position) async -> [(title: String, edits: [TextEdit])] {
+    private func codeActions(at hole: Outline.Position) async -> [(title: String, edits: [TextEdit])] {
         let range = ["start": position(hole), "end": position(hole)]
         let result = await request("textDocument/codeAction",
                                    ["range": range, "context": ["diagnostics": [Any]()]])
@@ -98,7 +120,7 @@ extension DeduceServer {
     }
 
     /// The names a `deduce/…VarsAt` / `deduce/matchingGivensAt` request offers.
-    func names(_ method: String, at hole: Outline.Position) async -> [String] {
+    private func names(_ method: String, at hole: Outline.Position) async -> [String] {
         await request(method, ["position": position(hole)]) as? [String] ?? []
     }
 

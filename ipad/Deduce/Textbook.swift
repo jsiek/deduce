@@ -44,6 +44,8 @@ struct Textbook {
         /// The steps proving this line, when its reason is a proof of
         /// several steps rather than a single justification.
         var subproof: [Block] = []
+        /// The labels of the givens it introduces (`assume H1`, `have H2`).
+        var introduces: [String] = []
     }
 
     struct Link {
@@ -55,8 +57,24 @@ struct Textbook {
 
     struct Arm {
         let range: Outline.Range
+        /// "Case node(t1, l2)." or, for `cases`, "Case h1: P."
         let title: String
+        /// The hypotheses shown after the title ("Assume IH1."): those of
+        /// an `induction` or `switch` arm.
+        let assumes: [String]
+        /// The labels of the givens it introduces: its hypotheses, or the
+        /// label in a `cases` arm's title.
+        let introduces: [String]
         let blocks: [Block]
+    }
+
+    /// How a given can be used at the selected hole, and the line or arm
+    /// that introduces it.
+    struct GivenUse {
+        let range: Outline.Range
+        /// It proves the goal (`fillFromGivenAt`), rather than giving a
+        /// step to take (`eliminateAt`).
+        let proves: Bool
     }
 
     enum Block: Identifiable {
@@ -137,6 +155,36 @@ struct Textbook {
         }
         self.notes = notes
         self.unplaced = unplaced
+    }
+
+    /// Where each given in scope at `hole` is introduced: the line or case
+    /// arm that assumes it, by label (an inner one hides an outer one).
+    func givens(at hole: Outline.Range) -> [String: Outline.Range] {
+        theorems.first { $0.range.contains(hole) }.flatMap { Self.scope($0.blocks, hole, [:]) } ?? [:]
+    }
+
+    /// The givens in scope at `hole`, if it's in `blocks`: those of
+    /// `outer`, then those introduced before it. Each line's givens are in
+    /// scope in the lines after it, an arm's in the arm.
+    private static func scope(_ blocks: [Block], _ hole: Outline.Range,
+                              _ outer: [String: Outline.Range]) -> [String: Outline.Range]? {
+        var scope = outer
+        for block in blocks {
+            switch block {
+            case .line(let line):
+                if line.range == hole { return scope }
+                if line.range.contains(hole) { return Self.scope(line.subproof, hole, scope) ?? scope }
+                for label in line.introduces { scope[label] = line.range }
+            case .chain(let range, _, _):
+                if range.contains(hole) { return scope }
+            case .cases(let range, _, let arms):
+                guard range.contains(hole) else { continue }
+                guard let arm = arms.first(where: { $0.range.contains(hole) }) else { return scope }
+                for label in arm.introduces { scope[label] = arm.range }
+                return Self.scope(arm.blocks, hole, scope) ?? scope
+            }
+        }
+        return nil
     }
 
     /// The ranges of the lines and chain links in `blocks`, nested ones too.
@@ -253,13 +301,14 @@ struct Textbook {
                 case "ImpIntro":
                     let label = detail.label ?? ""
                     blocks.append(line(node, "Assume \(label)" + (detail.premise == nil ? "." : ":"),
-                                       detail.premise.map(display)))
+                                       detail.premise.map(display), introduces: [label]))
                 case "Induction", "SwitchProof", "Cases":
                     blocks.append(cases(node, rest: &rest))
                 case "PTransitive" where node.isChain:
                     blocks.append(chain(node, rest: &rest))
                 case "PLet":
-                    blocks.append(line(node, "\(detail.label ?? "") :", step.formula.map(display), reason: true))
+                    blocks.append(line(node, "\(detail.label ?? "") :", step.formula.map(display), reason: true,
+                                       introduces: detail.label.map { [$0] } ?? []))
                 case "PAnnot":
                     blocks.append(line(node, "Hence", step.formula.map(display), reason: true))
                 case "Suffices":
@@ -288,12 +337,14 @@ struct Textbook {
 
         /// A line for `node`. With `reason`, its reason is either nested as a
         /// sub-proof (when it has steps of its own) or summarized.
-        private func line(_ node: Node, _ prose: String, _ formula: String?, reason: Bool = false) -> Block {
+        private func line(_ node: Node, _ prose: String, _ formula: String?, reason: Bool = false,
+                          introduces: [String] = []) -> Block {
             let nested = reason && node.children.contains { $0.startsLine && Node.subproof.contains($0.step.kind) }
             return .line(Line(range: node.step.range, prose: prose, formula: formula,
                               reason: reason && !nested ? self.reason(node.step) : nil,
                               status: node.status,
-                              subproof: nested ? blocks(node.children) : []))
+                              subproof: nested ? blocks(node.children) : [],
+                              introduces: introduces))
         }
 
         /// `induction` / `switch` / `cases`: the steps of each arm are those
@@ -313,9 +364,9 @@ struct Textbook {
             return .cases(range: step.range, intro: intro, arms: arms.map { arm in
                 let header = arm.pattern.map(display) ?? [arm.label, arm.formula.map(display)]
                     .compactMap { $0 }.joined(separator: ": ")
-                let assume = (arm.hypotheses ?? []).isEmpty
-                    ? "" : " Assume \(arm.hypotheses!.joined(separator: ", "))."
-                return Arm(range: arm.range, title: "Case \(header).\(assume)",
+                let assumes = arm.hypotheses ?? []
+                return Arm(range: arm.range, title: "Case \(header).", assumes: assumes,
+                           introduces: arm.pattern == nil ? [arm.label].compactMap { $0 } : assumes,
                            blocks: blocks(members.filter { arm.range.contains($0.step.range) }))
             })
         }

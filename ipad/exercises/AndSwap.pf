@@ -1,0 +1,8 @@
+// If P and Q are both true, so are Q and P. Tap the ? to start, then
+// tap an assumption in the proof to use it: it glows green when it
+// proves what's left.
+
+theorem and_swap: all P:bool, Q:bool. if P and Q then Q and P
+proof
+  ?
+end
