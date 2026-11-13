@@ -49,8 +49,12 @@ def interrupt() -> bool:
     return True
 
 
-def serve(read_fd: int, write_fd: int) -> None:
+def serve(read_fd: int, write_fd: int, snapshot_dir: str) -> None:
     from lsp import lsp_server
+    from lsp.library import set_snapshot_dir
 
+    # Load the post-prelude state from the app's caches instead of
+    # re-checking the stdlib on every launch (#1217).
+    set_snapshot_dir(snapshot_dir)
     setattr(lsp_server, "_publish_diagnostics", _cancellable(lsp_server._publish_diagnostics))
     lsp_server.server.start_io(os.fdopen(read_fd, "rb"), os.fdopen(write_fd, "wb"))

@@ -13,7 +13,7 @@ static int fail(const char *what, PyStatus status) {
     return 1;
 }
 
-int deduce_python_serve(const char *resource_path, int read_fd, int write_fd) {
+int deduce_python_serve(const char *resource_path, const char *cache_path, int read_fd, int write_fd) {
     char path[4096];
     PyPreConfig preconfig;
     PyConfig config;
@@ -56,7 +56,7 @@ int deduce_python_serve(const char *resource_path, int read_fd, int write_fd) {
         return 1;
     }
     python_ready = 1;
-    PyObject *result = PyObject_CallMethod(host, "serve", "ii", read_fd, write_fd);
+    PyObject *result = PyObject_CallMethod(host, "serve", "iis", read_fd, write_fd, cache_path);
     if (result == NULL) PyErr_Print();
     Py_XDECREF(result);
     Py_DECREF(host);
