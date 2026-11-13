@@ -6660,8 +6660,21 @@ def _subterm_step(
             plain if not isinstance(plain, str) and plain[1] == marked[1] else marked
         )
     else:
-        # The whole goal: marking all of it would change nothing.
-        whole = _try_step(path, content, hole, tactic, prelude)
+        # The whole goal: marking all of it would change nothing. An
+        # `expand` right after another joins it (`expand A | B`), so a
+        # run of expansions stays one step.
+        joined: Union[str, tuple[str, TermTree, tuple[str, ...]], None] = None
+        before = _expand_before(content, hole) if tactic.startswith("expand ") else None
+        if before is not None:
+            span, names = before
+            indent = " " * (span.start.column - 1)
+            joined = _try_text(path, content, span,
+                               f"{tactic.replace('expand ', f'expand {names} | ', 1)}\n{indent}?", prelude)
+        whole: Union[str, tuple[str, TermTree, tuple[str, ...]]]
+        if isinstance(joined, tuple):
+            hole, whole = span, joined
+        else:
+            whole = _try_step(path, content, hole, tactic, prelude)
         if isinstance(whole, str):
             return SubtermPreview("error", message=whole)
         text, goal, warnings = whole
@@ -6760,19 +6773,27 @@ def _try_step(
     replacement text, the new goal and the warnings about the step, or
     the checker's message when the step fails. (A step that already
     proves the goal leaves ``true``.)"""
+    return _try_text(path, content, hole, _hole_text(content, hole, step + "\n?"), prelude)
+
+
+def _try_text(
+    path: str, content: str, span: Range, text: str, prelude: Sequence[str]
+) -> Union[str, tuple[str, TermTree, tuple[str, ...]]]:
+    """Replace ``span`` with ``text``, which ends in a ``?``, and check:
+    ``text``, the goal at that ``?`` and the warnings about ``text``, or
+    the checker's message."""
     from error import IncompleteProof
 
-    start = _line_col_to_offset(content, hole.start)
-    end = _line_col_to_offset(content, hole.end)
+    start = _line_col_to_offset(content, span.start)
+    end = _line_col_to_offset(content, span.end)
     assert start is not None and end is not None
-    text = _hole_text(content, hole, step + "\n?")
     new_content = content[:start] + text + content[end:]
     line, col = _offset_to_line_col(new_content, start + text.rindex("?"))
     result = _check_at_target(path, new_content, (line, col), prelude, remember=False)
     exc = None if result.ok else result.exception
 
     def in_step(loc: Optional[Meta]) -> bool:
-        return loc is not None and (hole.start.line, hole.start.column) \
+        return loc is not None and (span.start.line, span.start.column) \
             <= (loc.line, loc.column) <= (line, col)
 
     loc = getattr(exc, "location", None)
@@ -6783,6 +6804,24 @@ def _try_step(
     if exc is None:
         return "the step did not reach the hole"
     return getattr(exc, "message_body", None) or str(exc)
+
+
+def _expand_before(content: str, hole: Range) -> Optional[tuple[Range, str]]:
+    """When the ``?`` at ``hole`` is alone on its line and the line before
+    it is ``expand <names>`` at the same indentation, the span from that
+    ``expand`` to the ``?`` and the names: a second ``expand`` there can
+    join it (``expand A | B``)."""
+    lines = content.split("\n")
+    row = hole.start.line - 1
+    if row < 1 or lines[row].strip() != "?":
+        return None
+    previous = lines[row - 1]
+    indent = len(lines[row]) - len(lines[row].lstrip())
+    match = re.fullmatch(r"( *)expand ([^.{}]+?)\s*", previous)
+    if match is None or len(match.group(1)) != indent:
+        return None
+    span = Range(Position(row, indent + 1), hole.end)
+    return span, match.group(2)
 
 
 def _subterm_at(

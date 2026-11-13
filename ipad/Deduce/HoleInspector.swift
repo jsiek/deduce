@@ -222,19 +222,27 @@ struct HoleInspector: View {
         }
     }
 
+    /// An `expand` or `replace`: it applies as soon as it checks (Undo
+    /// takes it back); the bar below the list shows why when it doesn't.
     private func stepButton(_ title: String, _ method: String, _ params: [String: Any]) -> some View {
-        Button(title) { run(title, method, params) }
+        Button(title) { run(title, method, params, apply: true) }
     }
 
-    /// Preview a step, to show in the bar below the list.
-    private func run(_ title: String, _ method: String, _ params: [String: Any]) {
+    /// Check a step: apply it (`apply`, when it checks), or show it in the
+    /// bar below the list, with what it leaves, to apply from there.
+    private func run(_ title: String, _ method: String, _ params: [String: Any], apply: Bool = false) {
         Task {
             previewing = title
             let version = server.version
             let result = await server.preview(method, at: position, params)
             previewing = nil
             // Undo or an edit as text may have changed the file meanwhile.
-            if server.version == version { preview = (title, result) }
+            guard server.version == version else { return }
+            if apply && result.problem == nil {
+                server.apply(result.edits)
+            } else {
+                preview = (title, result)
+            }
         }
     }
 
