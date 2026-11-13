@@ -31,6 +31,7 @@ from .core import *
 from .terms import *
 
 if TYPE_CHECKING:
+    from .concepts import WhereClause
     from .declarations import find_private_lemma_definers, overwrite
 
 ################ Proofs ######################################
@@ -273,6 +274,9 @@ class AllIntro(Proof):
   #  s : The variable's index in the list, starting from the last var
   pos: Tuple[int, int]
   body: Proof
+  # On the last variable of the list: the where clause, which binds the
+  # members of its concepts in ``body`` (as F^G's ``Λt where ...``).
+  where: Optional[WhereClause] = field(default=None, kw_only=True)
 
   def arbitrary_str(self) -> str:
     s, e = self.pos
@@ -281,6 +285,8 @@ class AllIntro(Proof):
     if s + 1 == e:
       res += 'arbitrary '
     res += f"{x} : {str(t)}"
+    if self.where is not None:
+      res += ' ' + str(self.where)
     if s != 0:
       res += ","
     return res
@@ -298,8 +304,10 @@ class AllIntro(Proof):
     new_t = ty.uniquify(body_env, ctx)
     new_x = generate_name(x, ctx)
     overwrite(body_env, x, new_x, self.location)
+    new_where = self.where.bind(body_env, ctx) if self.where else None
     new_body = self.body.uniquify(body_env, ctx)
-    return AllIntro(self.location, (new_x, new_t), self.pos, new_body)
+    return AllIntro(self.location, (new_x, new_t), self.pos, new_body,
+                    where=new_where)
 
   def set_body(self, new_body: Proof) -> None:
     if self.body:
@@ -333,6 +341,14 @@ class AllElimTypes(Proof):
   #  e : The number of vars in the block
   #  s : The variable's index in the list, starting from the first var
   pos: Tuple[int, int]
+  # The models in scope here, recorded by uniquify: instantiating a where
+  # formula passes models from this lexical scope (#1264).
+  models: List[str] = field(default_factory=list, kw_only=True)
+
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> AllElimTypes:
+    return AllElimTypes(self.location, self.univ.uniquify(env, ctx),
+                        self.arg.uniquify(env, ctx), self.pos,
+                        models=list(env.get(MODELS_KEY, [])))
 
   def __str__(self) -> str:
     s, e = self.pos

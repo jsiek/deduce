@@ -38,6 +38,7 @@ _MODULE_NAMES = (
     "rewrite",
     "ops",
     "theorems",
+    "concepts",
 )
 
 _MODULES: tuple[ModuleType, ...] = tuple(
@@ -53,6 +54,7 @@ _MODULES: tuple[ModuleType, ...] = tuple(
     rewrite,
     ops,
     theorems,
+    concepts,
 ) = _MODULES
 
 _DYNAMIC_NAMES = {

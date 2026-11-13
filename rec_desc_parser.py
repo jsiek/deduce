@@ -28,7 +28,7 @@ from abstract_syntax import (
     RuleInversion, SepConj, SimplifyFact, SimplifyGoal, Some, SomeElim, SomeIntro,
     Statement, Suffices, Switch, SwitchCase, SwitchProof, SwitchProofCase,
     TAnnote, TLet, Term, TermInst,
-    Theorem, Trace, Type, TypeAlias, TypeInst, TypeType, Union, Var, ViewDecl,
+    Theorem, Trace, Type, TypeAlias, TypeInst, TypeType, Union, Var, ViewDecl, ConceptDecl, ConceptRef, ModelDecl, WhereClause,
     build_equations_proof, list_of_and, list_of_or, extract_tuple,
     listToNodeList, mkIntLit, mkLitNat, mkUIntLit, remove_mark,
 )
@@ -256,6 +256,7 @@ def parse_term_hi() -> Term:
   if token.type == 'ALL':
     advance()
     vars = parse_type_annot_list()
+    where = parse_where_clause_opt()
     try:
       consume_token('DOT', '"."', context='after parameters of "all"')
     except ParseError as e:
@@ -264,7 +265,8 @@ def parse_term_hi() -> Term:
     meta = meta_from_tokens(token, previous_token())
     result = body
     for j, var in enumerate(reversed(vars)):
-      result = All(meta, None, var, (j, len(vars)), result)
+      result = All(meta, None, var, (j, len(vars)), result,
+                   where=where if j == 0 else None)
     return result
   elif token.type == 'AT':
     start_token = current_token()
@@ -1103,10 +1105,12 @@ def parse_proof_statement() -> tuple[Proof | None, bool]:
   elif token.type == 'ARBITRARY':
     advance()
     vars = parse_type_annot_list()
+    where = parse_where_clause_opt()
     meta = meta_from_tokens(token, previous_token())
     result: Proof | None = None
     for j, var in enumerate(reversed(vars)):
-        result = AllIntro(meta, var, (j, len(vars)), result)
+        result = AllIntro(meta, var, (j, len(vars)), result,
+                          where=where if j == 0 else None)
     return result, False
 
   elif token.type == 'CHOOSE':
@@ -1593,6 +1597,91 @@ def parse_gen_rec_function(visibility: str) -> Statement:
                      measure, measure_ty, body, terminates, visibility=visibility)
 
 
+def parse_concept_ref() -> ConceptRef:
+  start = current_token()
+  name = parse_identifier()
+  consume_token('LESSTHAN', '"<"', context='after concept name')
+  type_args = parse_type_list()
+  consume_token('MORETHAN', '">"', context='after type arguments of a concept')
+  return ConceptRef(meta_from_tokens(start, previous_token()), name, type_args)
+
+def parse_where_clause_opt() -> WhereClause | None:
+  if end_of_file() or current_token().type != 'WHERE':
+    return None
+  start = current_token()
+  advance()
+  consume_token('LBRACE', '"{"', context='after "where"')
+  constraints = [parse_concept_ref()]
+  while current_token().type == 'COMMA':
+    advance()
+    constraints.append(parse_concept_ref())
+  consume_token('RBRACE', '"}"', context='after the constraints of a where clause')
+  return WhereClause(meta_from_tokens(start, previous_token()), constraints)
+
+def parse_concept_decl(visibility: str) -> Statement:
+  while_parsing = 'while parsing\n' \
+      + '\tstatement ::= "concept" identifier "<" identifier_list ">" "{" concept_member* "}"\n'
+  with parse_region(while_parsing) as start_token:
+    advance()
+    name = parse_identifier()
+    consume_token('LESSTHAN', '"<"', context='after concept name')
+    type_params = parse_ident_list()
+    consume_token('MORETHAN', '">"', context='after type parameters of a concept')
+    consume_token('LBRACE', '"{"', context='after concept head')
+    refines: list[ConceptRef] = []
+    funs: list[tuple[str, Type]] = []
+    theorems: list[tuple[str, Term]] = []
+    while current_token().type != 'RBRACE':
+      if current_token().type == 'REFINES':
+        advance()
+        refines.append(parse_concept_ref())
+      elif current_token().type == 'FUN':
+        advance()
+        fun_name = parse_identifier()
+        consume_token('COLON', '":"', context='after name of a concept operation')
+        funs.append((fun_name, parse_type()))
+      elif current_token().type == 'THEOREM':
+        advance()
+        thm_name = parse_identifier()
+        consume_token('COLON', '":"', context='after name of a concept theorem')
+        theorems.append((thm_name, parse_term()))
+      else:
+        raise ParseError(meta_from_tokens(current_token(), current_token()),
+                         'expected "refines", "fun", "theorem", or "}" in concept, not '
+                         + current_token().value)
+    consume_token('RBRACE', '"}"', context='after concept members')
+    meta = meta_from_tokens(start_token, previous_token())
+    return ConceptDecl(meta, name, type_params, WhereClause(meta, refines),
+                       funs, theorems, visibility=visibility)
+
+def parse_model_decl(visibility: str) -> Statement:
+  while_parsing = 'while parsing\n' \
+      + '\tstatement ::= "model" identifier "<" type_list ">" "{" model_member* "}"\n'
+  with parse_region(while_parsing) as start_token:
+    advance()
+    concept = parse_concept_ref()
+    consume_token('LBRACE', '"{"', context='after model head')
+    funs: list[tuple[str, str, Term]] = []
+    theorems: list[tuple[str, Proof]] = []
+    while current_token().type != 'RBRACE':
+      if current_token().type == 'FUN':
+        advance()
+        fun_name = parse_identifier()
+        consume_token('EQUAL', '"="', context='after name of a model operation')
+        funs.append((fun_name, '', parse_term()))
+      elif current_token().type == 'THEOREM':
+        advance()
+        thm_name = parse_identifier()
+        consume_token('EQUAL', '"="', context='after name of a model theorem')
+        theorems.append((thm_name, parse_proof()))
+      else:
+        raise ParseError(meta_from_tokens(current_token(), current_token()),
+                         'expected "fun", "theorem", or "}" in model, not '
+                         + current_token().value)
+    consume_token('RBRACE', '"}"', context='after model members')
+    return ModelDecl(meta_from_tokens(start_token, previous_token()), 'model',
+                     concept, funs, theorems, visibility=visibility)
+
 def parse_view_decl(visibility: str) -> Statement:
   while_parsing = 'while parsing\n' \
       + '\tstatement ::= "view" identifier type_params_opt "{" "source" type "target" type "into" identifier "out" identifier "roundtrip" identifier [ "inverse" identifier ] "}"\n'
@@ -2057,6 +2146,7 @@ statement_keywords = {'assert', 'define', 'import', 'inductive', 'object',
                       'print',
                       'theorem', 'lemma', 'postulate', 'predicate', 'recursive',
                       'relation', 'fun', 'trace', 'type', 'union', 'view',
+                      'concept', 'model',
                       'proc', 'resource'}
 
 def parse_statement() -> Statement:
@@ -2113,6 +2203,12 @@ def parse_statement() -> Statement:
 
   elif token.type == 'VIEW':
     return with_visibility_location(parse_view_decl(visibility), vis_token)
+
+  elif token.type == 'CONCEPT':
+    return with_visibility_location(parse_concept_decl(visibility), vis_token)
+
+  elif token.type == 'MODEL':
+    return with_visibility_location(parse_model_decl(visibility), vis_token)
 
   elif token.type == 'PROC':
     return with_visibility_location(parse_proc_decl(visibility), vis_token)

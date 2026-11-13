@@ -1,0 +1,11 @@
+module ConceptMonoidLemmas
+
+// A generic theorem, checked once here against its where clause (#1264).
+
+public import ConceptMonoid
+
+theorem monoid_zero_zero: all T:type where { Monoid<T> }. (zero:T) + zero = zero
+proof
+  arbitrary T:type where { Monoid<T> }
+  add_zero[zero]
+end

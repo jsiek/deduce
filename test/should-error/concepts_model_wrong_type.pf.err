@@ -1,0 +1,2 @@
+./test/should-error/concepts_model_wrong_type.pf:10.14-10.18: expected a term of type bool
+but got term band of type (fn (bool, bool) -> bool)

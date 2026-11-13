@@ -221,6 +221,7 @@ by `electric-indent-mode' on RET."
   '(;; declaration / structure
          "theorem" "lemma" "postulate" "define" "recursive" "recfun"
          "view" "source" "target" "into" "out" "roundtrip"
+         "concept" "model" "refines"
     "union" "inductive" "predicate" "relation" "import" "export"
     "module" "auto" "assert" "print" "operator" "associative"
     "terminates" "measure" "trace" "generic" "fun" "λ"

@@ -4,6 +4,12 @@ This section provides links to the theorems defined in the Deduce standard libra
 
 Only the top-level module files (such as `UInt.pf`) are listed below. Each module may be split internally across several private helper files (for example, `UIntAdd.pf`, `UIntMult.pf`, ...) that are publicly imported from the main module file; users should import the module by its top-level name.
 
+- ([`Algebra.thm`](../lib/Algebra.thm), [`Algebra.pf`](../lib/Algebra.pf)): The
+  [concepts](./Reference.md#concept-statement) `AddCommGroup`,
+  `OrderedAddCommGroup`, and `OrderedQVectorSpace` (an ordered abelian
+  group with scaling by rationals), with models for `Rat` and `Real`.
+  Prove a theorem once under `where { OrderedQVectorSpace<T> }` and use
+  it at `Rat` or `Real`.
 - ([`Base.thm`](../lib/Base.thm), [`Base.pf`](../lib/Base.pf)): Base proofs about propositional and predicate logic
 - ([`BigO.thm`](../lib/BigO.thm), [`BigO.pf`](../lib/BigO.pf)): Big-O asymptotic analysis on `fn UInt -> UInt`
 - ([`Int.thm`](../lib/Int.thm), [`Int.pf`](../lib/Int.pf)): Integers

@@ -384,6 +384,41 @@ proof
   apply rat_less_equal_trans[a + b, c + b, c + d] to h1, h2
 end
 
+theorem rat_less_equal_total: all x:Rat, y:Rat. x ≤ y or y ≤ x
+proof
+  arbitrary x:Rat, y:Rat
+  cases rat_trichotomy[x, y]
+  case lt { conclude x ≤ y by apply rat_less_implies_less_equal[x, y] to lt }
+  case eq { conclude x ≤ y by replace eq  rat_less_equal_refl[y] }
+  case gt { conclude y ≤ x by apply rat_less_implies_less_equal[y, x] to gt }
+end
+
+theorem rat_add_le_right_mono: all x:Rat, y:Rat, z:Rat.
+  if x ≤ y then x + z ≤ y + z
+proof
+  arbitrary x:Rat, y:Rat, z:Rat
+  assume xy
+  apply rat_add_mono_less_equal[x, z, y, z] to xy, rat_less_equal_refl[z]
+end
+
+theorem rat_less_iff_le_not_equal: all x:Rat, y:Rat. (x < y) = (x ≤ y and not (x = y))
+proof
+  arbitrary x:Rat, y:Rat
+  have fwd: if x < y then x ≤ y and not (x = y) by {
+    assume xy
+    have le: x ≤ y by apply rat_less_implies_less_equal[x, y] to xy
+    have ne: not (x = y) by apply rat_less_implies_not_equal[x, y] to xy
+    le, ne
+  }
+  have bwd: if x ≤ y and not (x = y) then x < y by {
+    assume prem
+    cases apply rat_less_equal_iff_less_or_equal[x, y] to conjunct 0 of prem
+    case lt { lt }
+    case eq { conclude false by apply (conjunct 1 of prem) to eq }
+  }
+  apply iff_equal to (fwd, bwd)
+end
+
 theorem rat_add_mono_less: all a:Rat, b:Rat, c:Rat, d:Rat.
   if a < c and b < d then a + b < c + d
 proof

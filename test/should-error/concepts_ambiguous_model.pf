@@ -1,0 +1,37 @@
+// Two models of the same concept at the same type in scope make an
+// instantiation ambiguous (#1264).
+
+import ConceptMonoidLemmas
+import ConceptBoolModel
+
+fun band(a:bool, b:bool) { a and b }
+
+theorem band_true: all x:bool. band(x, true) = x
+proof
+  arbitrary x:bool
+  switch x {
+    case true { evaluate }
+    case false { evaluate }
+  }
+end
+
+theorem true_band: all x:bool. band(true, x) = x
+proof
+  arbitrary x:bool
+  switch x {
+    case true { evaluate }
+    case false { evaluate }
+  }
+end
+
+model Monoid<bool> {
+  fun operator+ = band
+  fun zero = true
+  theorem add_zero = band_true
+  theorem zero_add = true_band
+}
+
+theorem band_true_true: band(true, true) = true
+proof
+  monoid_zero_zero<bool>
+end

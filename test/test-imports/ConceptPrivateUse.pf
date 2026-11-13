@@ -1,0 +1,8 @@
+module ConceptPrivateUse
+
+// Uses the model of Monoid<bool> through a private import (#1264), so
+// modules that import this one don't get that model.
+
+import ConceptBoolModel
+
+fun bor_twice(x:bool) { bor(x, x) }

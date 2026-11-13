@@ -1848,12 +1848,16 @@ class Import(Declaration):
   def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
     module_name = '__module__' + self.name
     if self.visibility == 'public' and not (module_name in export_env.keys()):
+      # Restore the module whose exports are being collected, not the
+      # importer's: the declarations after this import still belong to
+      # it, so its private ones must not be exported.
+      outer_module = get_current_module()
       set_current_module(self.name)
       export_env[module_name] = None
       for stmt in cast(List[Statement], self.ast):
         if self._filter_admits(stmt):
           stmt.collect_exports(export_env, importing_module)
-      set_current_module(importing_module)
+      set_current_module(outer_module)
 
 @dataclass
 class Auto(Statement):

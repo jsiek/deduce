@@ -1,0 +1,8 @@
+// A where clause must follow a type variable (#1264).
+
+import ConceptMonoid
+
+theorem nope: all x:bool where { Monoid<bool> }. x = x
+proof
+  ?
+end

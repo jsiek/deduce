@@ -1,0 +1,48 @@
+module ConceptOpaqueModel
+
+// An opaque model (#1264): clients get its axioms, but its operations
+// stay folded outside this module.
+
+import ConceptMonoid
+
+union Bit {
+  b0
+  b1
+}
+
+fun bxor(a:Bit, b:Bit) {
+  switch a {
+    case b0 { b }
+    case b1 {
+      switch b {
+        case b0 { b1 }
+        case b1 { b0 }
+      }
+    }
+  }
+}
+
+theorem bxor_b0: all x:Bit. bxor(x, b0) = x
+proof
+  arbitrary x:Bit
+  switch x {
+    case b0 { evaluate }
+    case b1 { evaluate }
+  }
+end
+
+theorem b0_bxor: all x:Bit. bxor(b0, x) = x
+proof
+  arbitrary x:Bit
+  switch x {
+    case b0 { evaluate }
+    case b1 { evaluate }
+  }
+end
+
+opaque model Monoid<Bit> {
+  fun operator+ = bxor
+  fun zero = b0
+  theorem add_zero = bxor_b0
+  theorem zero_add = b0_bxor
+}

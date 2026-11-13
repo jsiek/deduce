@@ -1026,6 +1026,11 @@ def type_synth_term(
       ty = BoolType(loc)
       ret = IfThen(loc, ty, new_prem, new_conc)
       
+    case All() if term.where is not None:
+      from checker_concepts import check_where_all
+      ret = check_where_all(
+          term, env, lambda b, e: check_formula(b, e, recfun, subterms))
+
     case All(loc, _, var, pos, body):
       x, ty = var
       new_ty = check_type(ty, env)

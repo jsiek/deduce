@@ -1,0 +1,10 @@
+// An opaque model's operations stay folded outside its module (#1264),
+// so instantiating gives only the axioms' view, not `bxor` and `b0`.
+
+import ConceptMonoidLemmas
+import ConceptOpaqueModel
+
+theorem bxor_b0_b0: bxor(b0, b0) = b0
+proof
+  monoid_zero_zero<Bit>
+end

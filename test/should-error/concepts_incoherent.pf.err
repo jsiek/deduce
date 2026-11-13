@@ -1,0 +1,1 @@
+./test/should-error/concepts_incoherent.pf:37.3-37.21: the model of CommMonoid<bool> uses a different model of Monoid<bool> than the one in scope here

@@ -1,0 +1,10 @@
+// A model reached only through a private import is not in scope (#1264):
+// ConceptPrivateUse imports ConceptBoolModel privately.
+
+import ConceptMonoidLemmas
+import ConceptPrivateUse
+
+theorem nope: (true:bool) = true
+proof
+  monoid_zero_zero<bool>
+end

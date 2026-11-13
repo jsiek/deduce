@@ -1,0 +1,14 @@
+./test/should-error/concepts_wrong_axiom.pf:21.22-21.31: error, the proved formula:
+	band(x, true) = x
+does not match the goal:
+	band(true, x) = x
+because
+	x
+	≠ true
+
+
+While trying to prove that
+	(all x:bool. band(x, true) = x)
+implies
+	(all x:bool. band(true, x) = x)
+Did you mean `replace band_true`?

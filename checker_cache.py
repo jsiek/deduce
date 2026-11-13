@@ -14,7 +14,9 @@ from typing import cast
 
 from abstract_syntax import (
     Auto,
+    ConceptDecl,
     Import,
+    ModelDecl,
     Predicate,
     PVar,
     Statement,
@@ -228,5 +230,7 @@ def _is_global_barrier(stmt: Statement) -> bool:
     ``Auto`` registers a rewrite rule consulted by every later
     proof. Conservatively treat both as a barrier: every later
     statement implicitly depends on them, so editing or removing
-    one invalidates the cache for everything after."""
-    return isinstance(stmt, (Import, Auto))
+    one invalidates the cache for everything after. So are concepts
+    and models (#1264): a where formula names its concepts by string,
+    and a model is found by its concept and type, never by name."""
+    return isinstance(stmt, (Import, Auto, ConceptDecl, ModelDecl))

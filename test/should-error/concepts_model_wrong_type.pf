@@ -1,0 +1,13 @@
+// A model's operation must have the concept's type at the model's type
+// arguments (#1264): `zero` must be a bool.
+
+import ConceptMonoid
+
+fun band(a:bool, b:bool) { a and b }
+
+model Monoid<bool> {
+  fun operator+ = band
+  fun zero = band
+  theorem add_zero = sorry
+  theorem zero_add = sorry
+}

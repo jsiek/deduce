@@ -1,0 +1,157 @@
+module Algebra
+
+/*
+  Algebraic concepts (#1264) and their models for Rat and Real.
+
+  OrderedQVectorSpace is the interface of the linear-arithmetic tactic
+  (#1189): an ordered abelian group with scaling by rationals. Rat and
+  Real model it, and so will angle measures.
+
+  A theorem proved under `where { OrderedQVectorSpace<T> }` holds for
+  every model: use it at a type with `thm<Rat>` or `thm<Real>`.
+*/
+
+import UInt
+import Int
+import Base
+public import Rat
+public import Real
+
+concept AddCommGroup<T> {
+  fun operator+ : fn (T, T) -> T
+  fun operator- : fn T -> T
+  fun operator- : fn (T, T) -> T
+  fun zero : T
+  theorem add_commute: all x:T, y:T. x + y = y + x
+  theorem add_assoc: all x:T, y:T, z:T. (x + y) + z = x + (y + z)
+  theorem add_zero: all x:T. x + zero = x
+  theorem add_inverse: all x:T. x + - x = zero
+  theorem sub_def: all x:T, y:T. x - y = x + - y
+}
+
+concept OrderedAddCommGroup<T> {
+  refines AddCommGroup<T>
+  fun operator≤ : fn (T, T) -> bool
+  fun operator< : fn (T, T) -> bool
+  theorem less_equal_trans: all x:T, y:T, z:T. if x ≤ y and y ≤ z then x ≤ z
+  theorem less_equal_antisymmetric: all x:T, y:T. if x ≤ y and y ≤ x then x = y
+  theorem less_equal_total: all x:T, y:T. x ≤ y or y ≤ x
+  theorem add_le_right_mono: all x:T, y:T, z:T. if x ≤ y then x + z ≤ y + z
+  theorem less_def: all x:T, y:T. (x < y) = (x ≤ y and not (x = y))
+}
+
+concept OrderedQVectorSpace<T> {
+  refines OrderedAddCommGroup<T>
+  fun scale : fn (Rat, T) -> T
+  theorem scale_one: all x:T. scale(rat(+1), x) = x
+  theorem scale_assoc: all p:Rat, q:Rat, x:T. scale(p * q, x) = scale(p, scale(q, x))
+  theorem scale_add_left: all p:Rat, q:Rat, x:T.
+    scale(p + q, x) = scale(p, x) + scale(q, x)
+  theorem scale_add_right: all q:Rat, x:T, y:T.
+    scale(q, x + y) = scale(q, x) + scale(q, y)
+  theorem scale_pos: all q:Rat, x:T.
+    if rat(+0) < q and zero < x then zero < scale(q, x)
+}
+
+// Rat
+
+model AddCommGroup<Rat> {
+  fun zero = rat(+0)
+  theorem add_commute = rat_add_commute
+  theorem add_assoc = rat_add_assoc
+  theorem add_zero = rat_add_zero
+  theorem add_inverse = rat_add_inverse
+  theorem sub_def = rat_sub_def
+}
+
+model OrderedAddCommGroup<Rat> {
+  theorem less_equal_trans = rat_less_equal_trans
+  theorem less_equal_antisymmetric = rat_less_equal_antisymmetric
+  theorem less_equal_total = rat_less_equal_total
+  theorem add_le_right_mono = rat_add_le_right_mono
+  theorem less_def = rat_less_iff_le_not_equal
+}
+
+model OrderedQVectorSpace<Rat> {
+  fun scale = operator*
+  theorem scale_one = rat_one_mult
+  theorem scale_assoc = rat_mult_assoc
+  theorem scale_add_left = {
+    arbitrary p:Rat, q:Rat, x:Rat
+    rat_dist_mult_add_right[x, p, q]
+  }
+  theorem scale_add_right = rat_dist_mult_add
+  theorem scale_pos = rat_mult_pos
+}
+
+// Real
+
+model AddCommGroup<Real> {
+  fun zero = real(+0)
+  theorem add_commute = real_add_commute
+  theorem add_assoc = real_add_assoc
+  theorem add_zero = real_add_zero
+  theorem add_inverse = real_add_inverse
+  theorem sub_def = real_sub_def
+}
+
+model OrderedAddCommGroup<Real> {
+  theorem less_equal_trans = real_less_equal_trans
+  theorem less_equal_antisymmetric = real_less_equal_antisymmetric
+  theorem less_equal_total = real_less_equal_total
+  theorem add_le_right_mono = real_add_le_right_mono
+  theorem less_def = real_less_def
+}
+
+// Scaling a real by a rational.
+fun real_scale(q:Rat, x:Real) { real(q) * x }
+
+theorem real_scale_one: all x:Real. real_scale(rat(+1), x) = x
+proof
+  arbitrary x:Real
+  expand real_scale
+  real_one_mult[x]
+end
+
+theorem real_scale_assoc: all p:Rat, q:Rat, x:Real.
+  real_scale(p * q, x) = real_scale(p, real_scale(q, x))
+proof
+  arbitrary p:Rat, q:Rat, x:Real
+  expand real_scale
+  real_mult_assoc[real(p), real(q), x]
+end
+
+theorem real_scale_add_left: all p:Rat, q:Rat, x:Real.
+  real_scale(p + q, x) = real_scale(p, x) + real_scale(q, x)
+proof
+  arbitrary p:Rat, q:Rat, x:Real
+  expand real_scale
+  real_dist_mult_add_right[x, real(p), real(q)]
+end
+
+theorem real_scale_add_right: all q:Rat, x:Real, y:Real.
+  real_scale(q, x + y) = real_scale(q, x) + real_scale(q, y)
+proof
+  arbitrary q:Rat, x:Real, y:Real
+  expand real_scale
+  real_dist_mult_add[real(q), x, y]
+end
+
+theorem real_scale_pos: all q:Rat, x:Real.
+  if rat(+0) < q and real(+0) < x then real(+0) < real_scale(q, x)
+proof
+  arbitrary q:Rat, x:Real
+  assume prem
+  have q_pos: real(+0) < real(q) by conjunct 0 of prem
+  expand real_scale
+  apply real_mult_pos[real(q), x] to q_pos, conjunct 1 of prem
+end
+
+model OrderedQVectorSpace<Real> {
+  fun scale = real_scale
+  theorem scale_one = real_scale_one
+  theorem scale_assoc = real_scale_assoc
+  theorem scale_add_left = real_scale_add_left
+  theorem scale_add_right = real_scale_add_right
+  theorem scale_pos = real_scale_pos
+}

@@ -1,0 +1,20 @@
+// A model must prove every theorem of its concept (#1264).
+
+import ConceptMonoid
+
+fun band(a:bool, b:bool) { a and b }
+
+theorem band_true: all x:bool. band(x, true) = x
+proof
+  arbitrary x:bool
+  switch x {
+    case true { evaluate }
+    case false { evaluate }
+  }
+end
+
+model Monoid<bool> {
+  fun operator+ = band
+  fun zero = true
+  theorem add_zero = band_true
+}

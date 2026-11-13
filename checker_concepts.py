@@ -1,0 +1,330 @@
+"""Checking concepts, models, and where clauses (#1264).
+
+A where formula means its F^G translation (see
+``abstract_syntax/concepts.py``):
+
+    all T:type where { C<T> }. P   ==   all T:type. all ops. if axioms then P
+
+``check_where_all`` builds that expansion when the formula is type
+checked, so every other part of the checker sees an ordinary formula.
+The rest of this module gives the where clause its meaning at the two
+places it matters:
+
+* ``arbitrary T:type where { C<T> }`` introduces the operations and
+  assumes the axioms under the names the proof binds (F^G's TAbs).
+* ``thm<τ>`` looks up the models of the clause's concepts at ``τ``,
+  passes their operations, discharges the axioms with the models' own
+  (already checked) theorems, and unfolds the operations that the client
+  can see (F^G's TApp, with dictionary projections reduced).
+
+A model's operations are hidden definitions named by the model, so a
+client depends only on what the model's module exports: an opaque model
+leaves them folded.
+"""
+
+from __future__ import annotations
+
+from typing import Callable, cast
+
+from abstract_syntax import (
+    All, And, BoolType, ConceptBinding, ConceptDecl, ConceptRef, Env,
+    Formula, IfThen, ModelBinding, ModelDecl, Proof, ResolvedVar, Term, Type,
+    TypeType, WhereClause, WhereMember, base_name, concept_closure,
+    get_dont_reduce_opaque, get_reduce_only, set_dont_reduce_opaque,
+    set_reduce_only,
+)
+from checker_types import check_formula, check_type, type_check_term
+from error import user_error
+from lark.tree import Meta
+
+# The term that stands for a member of a concept instance: a where
+# clause's binder, or a model's operation.
+MemberLookup = Callable[[ConceptRef, str], Term]
+# The model chosen for each concept instance.
+Models = list[tuple[ConceptRef, ModelBinding]]
+
+
+def _model_for(models: Models, inst: ConceptRef) -> ModelBinding:
+  return next(m for (i, m) in models if i == inst)
+
+
+def concept_of(env: Env, name: str, loc: Meta) -> ConceptDecl:
+  binding = env.dict.get(name)
+  if not isinstance(binding, ConceptBinding):
+    user_error(loc, 'expected a concept, not ' + base_name(name))
+  return binding.decl
+
+
+def _param_sub(decl: ConceptDecl, inst: ConceptRef) -> dict[str, Type]:
+  return dict(zip(decl.type_params, inst.type_args))
+
+
+def member_type(env: Env, inst: ConceptRef, member: str, loc: Meta) -> Type:
+  decl = concept_of(env, inst.concept, loc)
+  return dict(decl.funs)[member].substitute(_param_sub(decl, inst))
+
+
+def _instance_sub(env: Env, inst: ConceptRef, lookup: MemberLookup,
+                  loc: Meta) -> dict[str, Term | Type]:
+  """Takes the vocabulary of ``inst``'s concept (its type parameters, its
+  operations, and the binders of the members it refines) to ``inst``'s
+  type arguments and to ``lookup``'s terms."""
+  decl = concept_of(env, inst.concept, loc)
+  psub = _param_sub(decl, inst)
+  sub: dict[str, Term | Type] = dict(psub)
+  for (m, _) in decl.funs:
+    sub[m] = lookup(inst, m)
+  for wm in decl.refines.operations():
+    sub[wm.binder] = lookup(wm.instance.substitute(psub), wm.member)
+  return sub
+
+
+def axiom(env: Env, inst: ConceptRef, theorem: str, lookup: MemberLookup,
+          loc: Meta) -> Formula:
+  decl = concept_of(env, inst.concept, loc)
+  return dict(decl.theorems)[theorem].substitute(
+      _instance_sub(env, inst, lookup, loc))
+
+
+def _premise(env: Env, where: WhereClause, lookup: MemberLookup,
+             loc: Meta) -> Formula | None:
+  axioms = [axiom(env, wm.instance, wm.member, lookup, loc)
+            for wm in where.theorems()]
+  if not axioms:
+    return None
+  return axioms[0] if len(axioms) == 1 else And(loc, BoolType(loc), axioms)
+
+
+def _binder_lookup(env: Env, where: WhereClause, loc: Meta) -> MemberLookup:
+  def lookup(inst: ConceptRef, member: str) -> Term:
+    for wm in where.operations():
+      if wm.instance == inst and wm.member == member:
+        return ResolvedVar(loc, member_type(env, inst, member, loc), wm.binder)
+    user_error(loc, 'no binder for ' + base_name(member) + ' of ' + str(inst))
+  return lookup
+
+
+def check_where(where: WhereClause, env: Env) -> WhereClause:
+  """Type check the concept applications of a where clause (including
+  its refinement closure) in ``env``."""
+  def check_ref(ref: ConceptRef) -> ConceptRef:
+    concept_of(env, ref.concept, ref.location)
+    return ConceptRef(ref.location, ref.concept,
+                      [check_type(t, env) for t in ref.type_args])
+  return WhereClause(where.location,
+                     [check_ref(c) for c in where.constraints],
+                     [WhereMember(check_ref(wm.instance), wm.member,
+                                  wm.binder, wm.is_theorem)
+                      for wm in where.members],
+                     where.expanded)
+
+
+def declare_where_operations(where: WhereClause, env: Env, loc: Meta) -> Env:
+  return env.declare_term_vars(
+      loc, [(wm.binder, member_type(env, wm.instance, wm.member, loc))
+            for wm in where.operations()])
+
+
+def check_where_all(frm: All, env: Env,
+                    check_body: Callable[[Formula, Env], Formula]) -> All:
+  """Type check ``all x:type where {...}. P``, expanding its body to
+  ``all ops. if axioms then P``."""
+  loc = frm.location
+  x, ty = frm.var
+  new_ty = check_type(ty, env)
+  if not isinstance(new_ty, TypeType):
+    user_error(loc, 'a where clause must follow a type variable, not '
+               + base_name(x) + ':' + str(new_ty))
+  body_env = env.declare_term_vars(loc, [(x, new_ty)])
+  assert frm.where is not None
+  where = check_where(frm.where, body_env)
+  body_env = declare_where_operations(where, body_env, loc)
+  body = check_body(frm.body, body_env)
+  lookup = _binder_lookup(body_env, where, loc)
+  premise = _premise(body_env, where, lookup, loc)
+  if premise is not None:
+    body = IfThen(loc, BoolType(loc), premise, body)
+  for wm in reversed(where.operations()):
+    body = All(loc, BoolType(loc),
+               (wm.binder, member_type(body_env, wm.instance, wm.member, loc)),
+               (0, 1), body)
+  where.expanded = True
+  return All(loc, BoolType(loc), (x, new_ty), frm.pos, body, where=where)
+
+
+def _strip_operations(loc: Meta, frm: Formula, where: WhereClause,
+                      lookup: MemberLookup) -> Formula:
+  """Instantiate the ``all ops`` of an expanded where formula's body with
+  ``lookup``'s terms."""
+  sub = {}
+  for wm in where.operations():
+    if not isinstance(frm, All) or frm.var[0] != wm.binder:
+      user_error(loc, 'expected the operations of the where clause, not\n\t'
+                 + str(frm))
+    sub[wm.binder] = lookup(wm.instance, wm.member)
+    frm = frm.body
+  return frm.substitute(sub)
+
+
+def _discharge(loc: Meta, frm: Formula, premise: Formula | None) -> Formula:
+  """The conclusion of ``frm``, whose premise must be exactly ``premise``,
+  the axioms of the where clause. A formula whose premise was changed
+  (say, by a proof step that strengthened it) is not a where formula any
+  more, so it can't be instantiated by passing models."""
+  if premise is None:
+    return frm
+  if not isinstance(frm, IfThen) or frm.premise != premise:
+    user_error(loc, 'the axioms of the where clause have been changed:\n\t'
+                    + str(frm))
+  return frm.conclusion
+
+
+def intro_where(loc: Meta, goal: All, x: str, where: WhereClause,
+                env: Env) -> tuple[Formula, Env]:
+  """``arbitrary x:type where {...}`` against the where formula ``goal``:
+  the body to prove and the environment that has the proof's operations
+  and axioms."""
+  assert goal.where is not None
+  goal_where = goal.where.substitute({goal.var[0]: ResolvedVar(loc, None, x)})
+  body_env = env.declare_term_vars(loc, [(x, TypeType(loc))])
+  where = check_where(where, body_env)
+  if goal_where.constraints != where.constraints:
+    user_error(loc, 'arbitrary expects the where clause\n\t' + str(goal_where)
+               + '\nbut got\n\t' + str(where))
+  body_env = declare_where_operations(where, body_env, loc)
+  lookup = _binder_lookup(body_env, where, loc)
+  frm = goal.body.substitute({goal.var[0]: ResolvedVar(loc, None, x)})
+  frm = _strip_operations(loc, frm, goal_where, lookup)
+  frm = _discharge(loc, frm, _premise(body_env, where, lookup, loc))
+  for wm in where.theorems():
+    body_env = body_env.declare_local_proof_var(
+        loc, wm.binder, axiom(body_env, wm.instance, wm.member, lookup, loc))
+  return frm, body_env
+
+
+def find_model(env: Env, inst: ConceptRef, models: list[str],
+               loc: Meta) -> ModelBinding:
+  """The model of ``inst`` among ``models``, the models in lexical scope
+  (recorded by uniquify)."""
+  found = [b for name in models
+           if isinstance(b := env.dict.get(name), ModelBinding)
+           and b.model.concept == inst]
+  if not found:
+    user_error(loc, 'no model of ' + str(inst) + ' in scope')
+  if len(found) > 1:
+    user_error(loc, 'more than one model of ' + str(inst) + ' in scope')
+  return found[0]
+
+
+def _model_lookup(env: Env, models: Models,
+                  use_bodies: bool, loc: Meta) -> MemberLookup:
+  """The model's operations: its hidden definitions, or (inside the
+  model's own module, to check its theorems) their bodies."""
+  def lookup(inst: ConceptRef, member: str) -> Term:
+    model = _model_for(models, inst).model
+    for (m, define, body) in model.funs:
+      if m == member:
+        if use_bodies:
+          return body
+        return ResolvedVar(loc, member_type(env, inst, member, loc), define)
+    user_error(loc, 'model ' + str(inst) + ' has no ' + base_name(member))
+  return lookup
+
+
+def instantiate_where(loc: Meta, allfrm: All, type_arg: Type,
+                      env: Env, in_scope: list[str]) -> Formula:
+  """``thm<τ>`` for a where formula: pass the models of the clause's
+  concepts at ``τ`` (F^G's TApp)."""
+  assert allfrm.where is not None
+  sub = {allfrm.var[0]: type_arg}
+  where = allfrm.where.substitute(sub)
+  instances = concept_closure(where.constraints)
+  models = [(inst, find_model(env, inst, in_scope, loc)) for inst in instances]
+  # Coherence: every refinement path to an instance reaches one model.
+  for (_, model) in models:
+    concept = concept_of(env, model.model.concept.concept, loc)
+    psub = _param_sub(concept, model.model.concept)
+    for ref, name in zip(concept.refines.constraints, model.refined):
+      inst = ref.substitute(psub)
+      if _model_for(models, inst).model.name != name:
+        user_error(loc, 'the model of ' + str(model.model.concept)
+                   + ' uses a different model of ' + str(inst)
+                   + ' than the one in scope here')
+  lookup = _model_lookup(env, models, False, loc)
+  frm = _strip_operations(loc, allfrm.body.substitute(sub), where, lookup)
+  frm = _discharge(loc, frm, _premise(env, where, lookup, loc))
+  defines = [ResolvedVar(loc, None, define)
+             for (_, m) in models for (_, define, _) in m.model.funs]
+  return _unfold(frm, defines, env)
+
+
+def _unfold(frm: Formula, names: list[ResolvedVar], env: Env) -> Formula:
+  """Reduce the model operations ``names`` that this module can see: an
+  opaque model's stay folded (F^G's dictionary projection, reduced)."""
+  old_only, old_opaque = get_reduce_only(), get_dont_reduce_opaque()
+  set_reduce_only(old_only + names)
+  set_dont_reduce_opaque(True)
+  try:
+    return frm.reduce(env)
+  finally:
+    set_reduce_only(old_only)
+    set_dont_reduce_opaque(old_opaque)
+
+
+################ Declarations ################
+
+def process_concept(decl: ConceptDecl, env: Env) -> tuple[ConceptDecl, Env]:
+  loc = decl.location
+  body_env = env.declare_type_vars(loc, decl.type_params)
+  refines = check_where(decl.refines, body_env)
+  body_env = declare_where_operations(refines, body_env, loc)
+  funs = [(f, check_type(t, body_env)) for (f, t) in decl.funs]
+  body_env = body_env.declare_term_vars(loc, funs)
+  theorems = [(n, check_formula(frm, body_env)) for (n, frm) in decl.theorems]
+  new_decl = ConceptDecl(loc, decl.name, decl.type_params, refines, funs,
+                         theorems, visibility=decl.visibility)
+  return new_decl, env._with_binding(
+      decl.name, ConceptBinding(loc, new_decl, module=env.get_current_module(),
+                                visibility=decl.visibility))
+
+
+def process_model(model: ModelDecl, env: Env) -> tuple[ModelDecl, Env]:
+  loc = model.location
+  concept_ref = check_where(WhereClause(loc, [model.concept]), env).constraints[0]
+  decl = concept_of(env, concept_ref.concept, loc)
+  psub = _param_sub(decl, concept_ref)
+  refined = [find_model(env, ref.substitute(psub), model.models, loc).model.name
+             for ref in decl.refines.constraints]
+  funs = []
+  for (m, define, body) in model.funs:
+    ty = check_type(dict(decl.funs)[m].substitute(psub), env)
+    funs.append((m, define, type_check_term(body, ty, env, None, [])))
+    env = env.declare_term_var(loc, define, ty, visibility=model.visibility)
+  new_model = ModelDecl(loc, model.name, concept_ref, funs, model.theorems,
+                        visibility=model.visibility, models=model.models)
+  return new_model, env._with_binding(
+      model.name, ModelBinding(loc, new_model, refined,
+                               module=env.get_current_module(),
+                               visibility=model.visibility))
+
+
+def collect_model(model: ModelDecl, env: Env) -> Env:
+  for (m, define, body) in model.funs:
+    env = env.define_term_var(model.location, define,
+                              member_type(env, model.concept, m, model.location),
+                              body, model.visibility)
+  return env
+
+
+def model_obligations(model: ModelDecl, env: Env) -> list[tuple[Proof, Formula]]:
+  """Each theorem of the model with the axiom it must prove: the
+  concept's, at the model's operations (and those of the models it uses
+  for the refined concepts)."""
+  loc = model.location
+  binding = cast(ModelBinding, env.dict[model.name])
+  models = [(inst, find_model(env, inst, model.models, loc))
+            for inst in concept_closure([model.concept])[:-1]]
+  models.append((model.concept, binding))
+  lookup = _model_lookup(env, models, True, loc)
+  return [(pf, axiom(env, model.concept, m, lookup, loc))
+          for (m, pf) in model.theorems]

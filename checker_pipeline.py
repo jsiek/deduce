@@ -23,8 +23,11 @@ from lark.tree import Meta
 if TYPE_CHECKING:
     from imperative_verifier import ImperativeObligation
 
+from checker_concepts import (
+    collect_model, model_obligations, process_concept, process_model,
+)
 from abstract_syntax import (
-    All, And, Array, ArrayGet, ArraySet, Assert, AST, Associative, Auto, Binding, Bool,
+    All, And, ConceptDecl, ModelDecl, Array, ArrayGet, ArraySet, Assert, AST, Associative, Auto, Binding, Bool,
     Call, Conditional, Constructor, Declaration, Define, Env, Export,
     Formula, FunCase, FunctionType, GenRecFun, Generic, GenericUnknownInst,
     Hole, IfThen, ImpAlloc, ImpAssert, ImpAssign, ImpAssume, ImpCallExpr,
@@ -1329,6 +1332,12 @@ def _process_declaration(stmt: Statement, env: Env,
       return new_stmt, env.declare_term_var(loc, name, checked_typ,
                                             visibility=stmt.visibility)
 
+    case ConceptDecl():
+      return process_concept(stmt, env)
+
+    case ModelDecl():
+      return process_model(stmt, env)
+
     case Declaration():
       return process_declaration_visibility(stmt, env, module_chain, downstream_needs_checking)
   
@@ -1674,7 +1683,7 @@ def _type_check_stmt(stmt: Statement, env: Env,
       new_frm = check_formula(frm, env)
       return Postulate(loc, name, new_frm, visibility=stmt.visibility)
 
-    case PostulateType() | PostulateFun():
+    case PostulateType() | PostulateFun() | ConceptDecl() | ModelDecl():
       return stmt
 
     case Predicate():
@@ -1876,8 +1885,11 @@ def collect_env(stmt: Statement, env: Env) -> Env:
     case Postulate(loc, name, frm):
       return env.declare_proof_var(loc, name, frm)
 
-    case PostulateType() | PostulateFun():
+    case PostulateType() | PostulateFun() | ConceptDecl():
       return env
+
+    case ModelDecl():
+      return collect_model(stmt, env)
 
     case Predicate():
       # Already collected inline during process_declaration.
@@ -2148,8 +2160,12 @@ def _check_proofs(stmt: Statement, env: Env) -> None:
     case Postulate(loc, name, frm):
       pass
 
-    case PostulateType() | PostulateFun():
+    case PostulateType() | PostulateFun() | ConceptDecl():
       pass
+
+    case ModelDecl():
+      for (pf, frm) in model_obligations(stmt, env):
+        _try_check_proof_of(pf, frm, env)
 
     case Predicate():
       pass

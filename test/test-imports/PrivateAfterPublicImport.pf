@@ -1,0 +1,7 @@
+module PrivateAfterPublicImport
+
+// A private declaration after a public import stays private.
+
+public import Private
+
+private fun hidden_after_import(x:bool) { x }

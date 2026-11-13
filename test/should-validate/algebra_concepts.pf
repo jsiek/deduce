@@ -1,0 +1,44 @@
+// Generic theorems over the stdlib's algebraic concepts (lib/Algebra.pf,
+// #1264), proved once and used at Rat and at Real.
+
+import Algebra
+
+theorem group_zero_add: all T:type where { AddCommGroup<T> }. all x:T. zero + x = x
+proof
+  arbitrary T:type where { AddCommGroup<T> }
+  arbitrary x:T
+  replace add_commute[zero, x]
+  add_zero[x]
+end
+
+theorem ordered_add_le_left_mono: all T:type where { OrderedAddCommGroup<T> }.
+  all x:T, y:T, z:T. if x ≤ y then z + x ≤ z + y
+proof
+  arbitrary T:type where { OrderedAddCommGroup<T> }
+  arbitrary x:T, y:T, z:T
+  assume xy
+  replace add_commute[z, x] | add_commute[z, y]
+  apply add_le_right_mono[x, y, z] to xy
+end
+
+theorem rat_zero_add_again: all x:Rat. rat(+0) + x = x
+proof
+  group_zero_add<Rat>
+end
+
+theorem real_zero_add_again: all x:Real. real(+0) + x = x
+proof
+  group_zero_add<Real>
+end
+
+theorem rat_add_le_left_mono_again: all x:Rat, y:Rat, z:Rat.
+  if x ≤ y then z + x ≤ z + y
+proof
+  ordered_add_le_left_mono<Rat>
+end
+
+theorem real_add_le_left_mono_again: all x:Real, y:Real, z:Real.
+  if x ≤ y then z + x ≤ z + y
+proof
+  ordered_add_le_left_mono<Real>
+end

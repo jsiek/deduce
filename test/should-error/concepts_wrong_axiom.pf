@@ -1,0 +1,22 @@
+// A model's theorem must prove the concept's axiom at the model's
+// operations (#1264); here `zero_add` is given a proof of `add_zero`.
+
+import ConceptMonoid
+
+fun band(a:bool, b:bool) { a and b }
+
+theorem band_true: all x:bool. band(x, true) = x
+proof
+  arbitrary x:bool
+  switch x {
+    case true { evaluate }
+    case false { evaluate }
+  }
+end
+
+model Monoid<bool> {
+  fun operator+ = band
+  fun zero = true
+  theorem add_zero = band_true
+  theorem zero_add = band_true
+}

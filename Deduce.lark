@@ -160,6 +160,7 @@ identifier: IDENT              -> identifier
     | "generic" identifier_list "{" term "}"            -> generic
     | "switch" term "{" switch_list "}"            -> switch
     | "all" type_annotation_list "." term               -> all_formula
+    | "all" type_annotation_list "where" "{" concept_ref_list "}" "." term -> all_where_formula
     | "<" identifier_list ">" term                      -> alltype_formula
     | "some" type_annotation_list "." term              -> some_formula
     | "define" IDENT "=" term ";" term             -> define_term
@@ -311,6 +312,7 @@ identifier: IDENT              -> identifier
     | "with" proof_list
 
 ?proof_stmt: "arbitrary" type_annotation_list            -> all_intro
+    | "arbitrary" type_annotation_list "where" "{" concept_ref_list "}" -> all_intro_where
     | "assume" IDENT                                -> imp_intro
     | "assume" IDENT ":" term                       -> imp_intro_explicit
     | "assume" ":" term                             -> imp_intro_anon
@@ -527,6 +529,8 @@ imp_block: "{" imp_stmt_list "}"                   -> imp_block
  | visibility "observer" identifier type_params_opt "(" proc_param_list ")" "->" type observer_reads_list observer_body_opt -> observer_decl
  | visibility "resource" identifier type_params_opt "(" proc_param_list ")" resource_body_opt -> resource_decl
  | visibility "view" IDENT type_params_opt "{" "source" type "target" type "into" identifier "out" identifier "roundtrip" identifier view_inverse_opt "}" -> view_declaration
+ | visibility "concept" IDENT "<" identifier_list ">" "{" concept_member_list "}" -> concept_declaration
+ | visibility "model" concept_ref "{" model_member_list "}" -> model_declaration
  | definition
  | "associative" identifier type_params_opt "in" type -> associative_declaration
  | "auto" atomic_proof -> auto_declaration
@@ -538,6 +542,25 @@ imp_block: "{" imp_stmt_list "}"                   -> imp_block
  | "module" identifier -> module_declaration
  | "trace" identifier -> trace
  | "inductive" type "by" atomic_proof -> inductive_decl
+
+// Concepts, models, and where clauses (#1264).
+concept_ref: IDENT "<" type_list ">"
+
+?concept_ref_list: concept_ref                          -> single
+    | concept_ref "," concept_ref_list                  -> push
+
+?concept_member_list:                                   -> empty
+    | concept_member concept_member_list                -> push
+
+concept_member: "refines" concept_ref                   -> concept_refines
+    | "fun" identifier ":" type                         -> concept_fun
+    | "theorem" IDENT ":" term                          -> concept_theorem
+
+?model_member_list:                                     -> empty
+    | model_member model_member_list                    -> push
+
+model_member: "fun" identifier "=" term                 -> model_fun
+    | "theorem" IDENT "=" proof                         -> model_theorem
 
 ?statement_list: statement                               -> single
     | statement statement_list                           -> push

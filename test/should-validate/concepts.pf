@@ -1,0 +1,99 @@
+// Concepts, models, and where clauses (#1264): a theorem proved once
+// under a where clause, used at a type through its model.
+
+concept Monoid<T> {
+  fun operator+ : fn (T, T) -> T
+  fun zero : T
+  theorem add_zero: all x:T. x + zero = x
+  theorem zero_add: all x:T. zero + x = x
+}
+
+concept CommMonoid<T> {
+  refines Monoid<T>
+  theorem add_commute: all x:T, y:T. x + y = y + x
+}
+
+fun bor(a:bool, b:bool) { a or b }
+
+theorem bor_false: all x:bool. bor(x, false) = x
+proof
+  arbitrary x:bool
+  switch x {
+    case true { evaluate }
+    case false { evaluate }
+  }
+end
+
+theorem false_bor: all x:bool. bor(false, x) = x
+proof
+  arbitrary x:bool
+  switch x {
+    case true { evaluate }
+    case false { evaluate }
+  }
+end
+
+theorem bor_commute: all x:bool, y:bool. bor(x, y) = bor(y, x)
+proof
+  arbitrary x:bool, y:bool
+  switch x {
+    case true { switch y { case true { evaluate } case false { evaluate } } }
+    case false { switch y { case true { evaluate } case false { evaluate } } }
+  }
+end
+
+// `operator+` is given; `zero` could be left out if a `zero : bool`
+// were in scope.
+model Monoid<bool> {
+  fun operator+ = bor
+  fun zero = false
+  theorem add_zero = bor_false
+  theorem zero_add = false_bor
+}
+
+// The refined concept's model is found in scope (F^G's MDL rule).
+model CommMonoid<bool> {
+  theorem add_commute = bor_commute
+}
+
+// Inside the where clause, `+`, `zero`, and the axioms are in scope.
+theorem zero_zero: all T:type where { Monoid<T> }. (zero:T) + zero = zero
+proof
+  arbitrary T:type where { Monoid<T> }
+  add_zero[zero]
+end
+
+// A refined concept's members are in scope too.
+theorem swap_zero: all U:type where { CommMonoid<U> }. all a:U. zero + a = a + zero
+proof
+  arbitrary U:type where { CommMonoid<U> }
+  arbitrary a:U
+  add_commute[zero, a]
+end
+
+// Instantiating passes the model; its operations unfold to `bor` and
+// `false`.
+theorem bor_false_false: bor(false, false) = false
+proof
+  zero_zero<bool>
+end
+
+theorem bor_swap: all b:bool. bor(false, b) = bor(b, false)
+proof
+  swap_zero<bool>
+end
+
+// A where clause after several type variables stays with them when the
+// earlier ones are introduced or instantiated.
+theorem zero_zero_second: all T:type, U:type where { Monoid<U> }.
+  all x:T. (zero:U) + zero = zero
+proof
+  arbitrary T:type, U:type where { Monoid<U> }
+  arbitrary x:T
+  add_zero[zero]
+end
+
+theorem bor_false_false_again: all n:bool. bor(false, false) = false
+proof
+  zero_zero_second<bool, bool>
+end
