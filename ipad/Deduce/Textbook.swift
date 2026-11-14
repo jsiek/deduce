@@ -356,9 +356,13 @@ struct Textbook {
                 case "ModusPonens":
                     blocks.append(modusPonens(node))
                 default:
-                    // A proof term that finishes the goal, e.g. `p2` or `.`.
-                    blocks.append(line(node, step.uses.isEmpty ? "This is immediate." : "This follows.",
-                                       nil, reason: true))
+                    // A proof term that finishes the goal, e.g. `h2` or `.`:
+                    // "Hence Q", with its reason to one side.
+                    if step.uses.isEmpty {
+                        blocks.append(line(node, "This is immediate.", nil, reason: true))
+                    } else {
+                        blocks.append(line(node, "Hence", (step.goal ?? step.formula).map(display), reason: true))
+                    }
                 }
             }
             return blocks
@@ -378,21 +382,15 @@ struct Textbook {
                               introduces: introduces, variables: variables))
         }
 
-        /// `apply rule to args`: "By rule, using H2 and H3." Arguments that
-        /// are just a given's name are named there; the others (holes,
-        /// proofs of their own) are parts listed under it.
+        /// `apply rule to args`: "Hence Q", with the rule and the givens it's
+        /// applied to as the reason. Arguments that aren't just a given's
+        /// name (holes, proofs of their own) are parts listed under it.
         private func modusPonens(_ node: Node) -> Block {
-            // The rule's name, without its instantiation (`less_trans[a, b, d]`).
-            let rule = node.children.first.map { slice($0.step.range) } ?? ""
-            let name = rule.prefix { $0 != "[" && $0 != "<" }.trimmingCharacters(in: .whitespaces)
             let args = node.children.dropFirst().flatMap { $0.step.kind == "PTuple" ? $0.children : [$0] }
-            let groups = parts(args)
-            let isName = { (part: [Node]) in part.count == 1 && part[0].step.kind == "PVar" }
-            let named = groups.filter(isName).map { slice($0[0].step.range) }
-            let others = groups.filter { !isName($0) }
-            let using = named.isEmpty ? "" : ", using " + listed(named)
-            let end = others.isEmpty ? "." : named.isEmpty ? ", using:" : " and:"
-            return withParts(node, "By \(name)\(using)\(end)", others)
+            let others = parts(args).filter { !($0.count == 1 && $0[0].step.kind == "PVar") }
+            return .line(Line(range: node.step.range, prose: "Hence",
+                              formula: (node.step.goal ?? node.step.formula).map(display),
+                              reason: reason(node.step), status: node.status, subproof: others.map(part)))
         }
 
         /// A line of `prose` with `parts` under it, each a line of its own.
@@ -428,11 +426,6 @@ struct Textbook {
             let range = Outline.Range(start: first.step.range.start, end: steps.last!.step.range.end)
             return .line(Line(range: range, prose: "", formula: goal, reason: nil,
                               status: steps.map(\.status).max() ?? .ok, subproof: blocks(steps)))
-        }
-
-        /// "H2", "H2 and H3", "H2, H3 and H4".
-        private func listed(_ names: [String]) -> String {
-            names.count < 2 ? names.joined() : names.dropLast().joined(separator: ", ") + " and " + names.last!
         }
 
         /// `induction` / `switch` / `cases`: the steps of each arm are those
