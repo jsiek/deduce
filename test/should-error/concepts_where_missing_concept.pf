@@ -1,0 +1,18 @@
+// A where clause models only its own concepts and the ones they refine:
+// here AddCommGroup<T>, not OrderedAddCommGroup<T>.
+
+import Algebra
+
+theorem ordered_add_zero: all T:type where { OrderedAddCommGroup<T> }.
+  all x:T. x + zero = x
+proof
+  arbitrary T:type where { OrderedAddCommGroup<T> }
+  add_zero
+end
+
+theorem group_add_zero: all T:type where { AddCommGroup<T> }.
+  all x:T. x + zero = x
+proof
+  arbitrary T:type where { AddCommGroup<T> }
+  ordered_add_zero<T>
+end

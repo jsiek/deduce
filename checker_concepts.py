@@ -44,6 +44,10 @@ MemberLookup = Callable[[ConceptRef, str], Term]
 # The model chosen for each concept instance.
 Models = list[tuple[ConceptRef, ModelBinding]]
 
+# The environment key of the models that the where clauses in scope
+# provide, innermost first.
+WHERE_MODELS_KEY = ' where models'
+
 
 def _model_for(models: Models, inst: ConceptRef) -> ModelBinding:
   return next(m for (i, m) in models if i == inst)
@@ -200,13 +204,44 @@ def intro_where(loc: Meta, goal: All, x: str, where: WhereClause,
   for wm in where.theorems():
     body_env = body_env.declare_local_proof_var(
         loc, wm.binder, axiom(body_env, wm.instance, wm.member, lookup, loc))
-  return frm, body_env
+  return frm, _where_models(loc, where, body_env)
+
+
+def _where_models(loc: Meta, where: WhereClause, env: Env) -> Env:
+  """Add a model for each concept instance of ``where`` (its refinement
+  closure), whose operations are the where clause's binders: in its
+  scope, a where clause models its concepts (F^G's where clauses add
+  models to the context), so a where theorem can be instantiated at the
+  clause's types."""
+  # From the constraints, not the members: a concept may have none.
+  insts = check_where(WhereClause(loc, concept_closure(where.constraints)),
+                      env).constraints
+  clause = str(loc.line) + '.' + str(loc.column)
+  names = {str(inst): '<where ' + clause + '> ' + str(inst) for inst in insts}
+  for inst in insts:
+    decl = concept_of(env, inst.concept, loc)
+    psub = _param_sub(decl, inst)
+    funs = [(wm.member, wm.binder,
+             ResolvedVar(loc, member_type(env, inst, wm.member, loc), wm.binder))
+            for wm in where.operations() if wm.instance == inst]
+    model = ModelDecl(loc, names[str(inst)], inst, cast(list[tuple[str, str, Term]], funs), [])
+    refined = [names[str(r.substitute(psub))] for r in decl.refines.constraints]
+    env = env._with_binding(model.name, ModelBinding(
+        loc, model, refined, module=env.get_current_module()))
+  return env._with_binding(
+      WHERE_MODELS_KEY,
+      list(names.values()) + cast(list[str], env.dict.get(WHERE_MODELS_KEY, [])))
 
 
 def find_model(env: Env, inst: ConceptRef, models: list[str],
                loc: Meta) -> ModelBinding:
-  """The model of ``inst`` among ``models``, the models in lexical scope
-  (recorded by uniquify)."""
+  """The model of ``inst`` that the innermost where clause in scope
+  provides, or else the one among ``models``, the models in lexical
+  scope (recorded by uniquify)."""
+  for name in cast(list[str], env.dict.get(WHERE_MODELS_KEY, [])):
+    b = env.dict[name]
+    if isinstance(b, ModelBinding) and b.model.concept == inst:
+      return b
   found = [b for name in models
            if isinstance(b := env.dict.get(name), ModelBinding)
            and b.model.concept == inst]
@@ -258,7 +293,7 @@ def where_instances(loc: Meta, frm: Formula, base: Proof, models: list[str],
   if not isinstance(frm, All) or frm.where is None:
     return None
   options: list[list[Type]] = [[] for _ in tyvars]
-  for name in models:
+  for name in cast(list[str], env.dict.get(WHERE_MODELS_KEY, [])) + models:
     b = env.dict.get(name)
     if not isinstance(b, ModelBinding):
       continue
