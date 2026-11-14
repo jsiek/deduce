@@ -26,6 +26,7 @@ forms are parser/AST only today and most require
 
 - [Add](#add)
 - [Add (Multiset)](#add-multiset)
+- [Algebra (Proof)](#algebra-proof)
 - [All (Universal Quantifier)](#all-universal-quantifier)
 - [And (logical conjunction)](#and-logical-conjunction)
 - [Append](#append)
@@ -178,6 +179,46 @@ Example:
 ```{.deduce^#add_example}
 assert 2 + 3 = 5
 ```
+
+## Algebra (Proof)
+
+```deduce-grammar
+conclusion ::= "algebra" optional_proof_list
+```
+
+The proof `algebra` proves a linear equation or inequality from the
+givens: a goal `a = b`, `a ≤ b`, `a < b`, `a ≥ b`, or `a > b`, its
+negation (such as `not (a = b)`), or `false`. It combines the givens
+that are equations and inequalities (`=`, `≤`, `<`, `≥`, `>`, also
+inside `and`) at the goal's type, multiplying each by a constant and
+adding them up, as in "add the two equations and subtract". The
+optional `with p1 | ... | pn` adds the facts proved by `p1` through
+`pn`.
+
+```
+theorem supplements_equal: all a:Rat, b:Rat, c:Rat.
+  if a + b = rat(+180) and b + c = rat(+180) then a = c
+proof
+  arbitrary a:Rat, b:Rat, c:Rat
+  assume h
+  algebra
+end
+```
+
+The sides of the goal and the givens may use `+`, `-` (subtraction
+and negation), constants (`rat(+180)`, `frac(+1, 2)`, `real(+2)`), and
+multiplication by a constant on the left (`rat(+2) * x`). Any other
+subterm, such as `x * y` or `f(x)`, is treated as an unknown of its
+own. So `algebra` does not know that `x * y = y * x`, and it does not
+use facts about `≠`, `or`, or `all`.
+
+`algebra` works at the types that model the concept `LinearArith`
+(lib/Linear.pf): `Rat` and `Real`, and any other ordered vector space
+over the rationals. Its proof is checked: the tactic finds the
+coefficients, and Deduce checks them by instantiating the theorems
+`lin_prove`, `lin_disprove`, and `lin_refute` of lib/Linear.pf at the
+goal's type. When there are no such coefficients, `algebra` lists the
+givens it used.
 
 ## Add (Multiset)
 
@@ -715,6 +756,7 @@ end
 The last statement in a proof (the `conclusion` symbol in the grammar)
 must be one of the following:
 
+* [Algebra](#algebra-proof)
 * [Cases](#cases-disjunction-elimination)
 * [Comma (Logical-And Introduction)](#comma-logical-and-introduction)
 * [Conclude](#conclude-proof)

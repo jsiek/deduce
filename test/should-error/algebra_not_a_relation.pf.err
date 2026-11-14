@@ -1,0 +1,2 @@
+./test/should-error/algebra_not_a_relation.pf:8.3-8.10: algebra proves an equation or inequality (=, ≤, <, ≥, >), its negation, or false, not
+	((x ≤ y) or (y ≤ x))

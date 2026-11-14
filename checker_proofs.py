@@ -21,7 +21,7 @@ from lark.tree import Meta
 from abstract_syntax import (
     All, AllElim, AllElimTypes, AllIntro, And, ApplyDefsFact, ConceptMemberProof,
     ApplyDefsGoal, Bool, BoolType, Call, Cases,
-    Constructor, Env, EvaluateFact, EvaluateGoal, Formula,
+    AlgebraGoal, Constructor, Env, EvaluateFact, EvaluateGoal, Formula,
     FunctionType, Hole, IfThen, ImpIntro, IndCase, Induction,
     InductiveInfo, Lambda,
     ModusPonens, Omitted, Or, OverloadedVar, OverloadType, PAndElim, PAnnot,
@@ -730,6 +730,7 @@ GOAL_ONLY_TACTIC_NAME = {
   RewriteGoal: 'replace',
   SimplifyGoal: 'simplify',
   EvaluateGoal: 'evaluate',
+  AlgebraGoal: 'algebra',
   Suffices: 'suffices',
   Induction: 'induction',
   RuleInduction: 'induction',
@@ -1912,6 +1913,10 @@ def _check_proof_of_cases(proof: Cases, formula: CheckedFormula, env: Env) -> No
       add_diagnostic(proof.location, "expected 'or', not " + str(sub_red)
             + givens_str(env))
 
+def _check_proof_of_algebra(proof: AlgebraGoal, formula: CheckedFormula, env: Env) -> None:
+  from checker_algebra import check_algebra
+  check_algebra(proof, formula, env, check_proof)
+
 def _check_proof_of_suffices(proof: Suffices, formula: CheckedFormula, env: Env) -> None:
   loc = proof.location
   claim = proof.claim
@@ -2308,6 +2313,7 @@ _CHECK_PROOF_OF_HANDLERS = {
   PTransitive: _check_proof_of_transitive,
   PExtensionality: _check_proof_of_extensionality,
   EvaluateGoal: _check_proof_of_evaluate_goal,
+  AlgebraGoal: _check_proof_of_algebra,
   RewriteGoal: _check_proof_of_rewrite_goal,
   SimplifyGoal: _check_proof_of_simplify_goal,
   ApplyDefsGoal: _check_proof_of_apply_defs_goal,

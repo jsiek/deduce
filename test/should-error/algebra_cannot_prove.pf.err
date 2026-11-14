@@ -1,0 +1,5 @@
+./test/should-error/algebra_cannot_prove.pf:9.3-9.10: algebra could not prove
+	y ≤ x
+by a linear combination of the givens:
+	x ≤ y
+	2·y < 1

@@ -1,0 +1,10 @@
+// `algebra` reports the linear problem it could not solve.
+
+import Linear
+
+theorem wrong: all x:Rat, y:Rat. if x ≤ y and rat(+2) * y < rat(+1) then y ≤ x
+proof
+  arbitrary x:Rat, y:Rat
+  assume h
+  algebra
+end

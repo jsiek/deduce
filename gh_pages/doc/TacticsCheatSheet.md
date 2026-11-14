@@ -45,6 +45,7 @@ If a name on this page is unfamiliar, follow the link in the Reference column fo
 | `replace eq in p` | Rewrite within proof `p`'s formula and return a new proof of the rewritten formula. |
 | `evaluate in p` | Given a proof `p : P`, return a proof of `P` with every (non-opaque) definition expanded. The transforming counterpart of `evaluate`. |
 | `replace eq1 \| eq2 \| ...` | Apply rewrites in sequence. |
+| `algebra` / `algebra with p1 \| p2` | **Closes the goal** when it is a linear equation or inequality (`=`, `≤`, `<`, `≥`, `>`), its negation, or `false`, that follows by adding up constant multiples of the givens (and of `p1`, `p2`). Works over `Rat` and `Real` (types that model `LinearArith`); `x * y` and other non-linear subterms are opaque unknowns. See [Algebra](./Reference.md#algebra-proof). |
 | `simplify with h` | Like `replace`, but accepts non-equation hypotheses: `h : not P` substitutes `P` with `false` in the goal; `h : P` (bare boolean) substitutes `P` with `true`. Use in the `case false` arm of a boolean `switch`, where `replace` rejects the `not P` hypothesis. |
 | `symmetric p` | If `p : a = b`, returns a proof of `b = a`; if `p : all x. a = b`, of `all x. b = a`. |
 | `transitive p1 p2` | `p1 : a = b` together with `p2 : b = c` gives a proof of `a = c`; for `all x. a = b` and `all y. b = c`, of `all x. a = c`. |

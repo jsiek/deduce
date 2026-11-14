@@ -1,0 +1,92 @@
+// The `algebra` tactic (#1189): linear equations and inequalities over
+// Rat and Real, proved from the givens.
+
+import Linear
+
+// Supplementary angles: m∠1 + m∠2 = 180 and m∠2 + m∠3 = 180, so
+// m∠1 = m∠3.
+theorem supplements_equal: all a:Rat, b:Rat, c:Rat.
+  if a + b = rat(+180) and b + c = rat(+180) then a = c
+proof
+  arbitrary a:Rat, b:Rat, c:Rat
+  assume h
+  algebra
+end
+
+theorem scaled: all x:Rat, y:Rat.
+  if rat(+2) * x ≤ y and y < rat(+4) then x < rat(+2)
+proof
+  arbitrary x:Rat, y:Rat
+  assume h
+  algebra
+end
+
+theorem half: all x:Rat. if frac(+1, 2) * x = rat(+3) then x = rat(+6)
+proof
+  arbitrary x:Rat
+  assume h
+  algebra
+end
+
+theorem flipped: all x:Rat, y:Rat. if x ≥ y and y > rat(+0) then x > rat(+0)
+proof
+  arbitrary x:Rat, y:Rat
+  assume h
+  algebra
+end
+
+theorem less_not_equal: all x:Rat, y:Rat. if x < y then not (x = y)
+proof
+  arbitrary x:Rat, y:Rat
+  assume h
+  algebra
+end
+
+theorem contradiction: all x:Rat. if x < rat(+0) and rat(+0) < x then false
+proof
+  arbitrary x:Rat
+  assume h
+  algebra
+end
+
+// `with` adds facts; `have ... by algebra` proves a step.
+theorem negate_le: all x:Rat, y:Rat. if x ≤ y then x - y ≤ rat(+0)
+proof
+  arbitrary x:Rat, y:Rat
+  assume h
+  have h2: - y ≤ - x by algebra
+  algebra with h2
+end
+
+// Products of variables are atoms.
+theorem product_atom: all x:Rat, y:Rat.
+  if x * y ≤ rat(+1) then x * y - rat(+1) ≤ rat(+0)
+proof
+  arbitrary x:Rat, y:Rat
+  assume h
+  algebra
+end
+
+// Givens about other types are ignored.
+theorem mixed_types: all n:Nat, x:Rat. if n = ℕ0 and rat(+0) < x then rat(+0) < x + x
+proof
+  arbitrary n:Nat, x:Rat
+  assume h
+  algebra
+end
+
+theorem reals: all x:Real, y:Real.
+  if real(+2) * x + y = real(+10) and x - y = real(+2) then x = real(+4)
+proof
+  arbitrary x:Real, y:Real
+  assume h
+  algebra
+end
+
+theorem real_triangle: all a:Real, b:Real, c:Real.
+  if a + b + c = real(+180) and a = b and b = c then a = real(+60)
+proof
+  arbitrary a:Real, b:Real, c:Real
+  assume h
+  algebra
+end

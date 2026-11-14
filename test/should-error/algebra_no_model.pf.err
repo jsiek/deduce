@@ -1,0 +1,1 @@
+./test/should-error/algebra_no_model.pf:9.3-9.10: algebra works at the types that model LinearArith (such as Rat and Real), not Int

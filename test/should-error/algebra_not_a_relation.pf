@@ -1,0 +1,9 @@
+// `algebra` proves equations and inequalities, not disjunctions.
+
+import Linear
+
+theorem total: all x:Rat, y:Rat. x ≤ y or y ≤ x
+proof
+  arbitrary x:Rat, y:Rat
+  algebra
+end

@@ -232,7 +232,7 @@ by `electric-indent-mode' on RET."
     ;; tactics
     "arbitrary" "assume" "suppose" "have" "show" "obtain" "from" "for"
     "induction" "rule" "inversion" "switch" "replace" "expand"
-    "evaluate" "simplify" "equations" "recall" "reflexive" "symmetric"
+    "algebra" "evaluate" "simplify" "equations" "recall" "reflexive" "symmetric"
     "transitive" "injective" "extensionality" "apply" "to" "conclude"
     "conjunct" "contradict" "suffices" "choose" "stop" "help" "by" "of"
     ;; logical / control
