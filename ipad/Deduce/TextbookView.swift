@@ -208,28 +208,35 @@ struct TextbookView: View {
         }
     }
 
-    /// "Case node(t1, l2). Assume IH1.", each given it introduces marked
-    /// and tappable when the selected hole can use it: the hypotheses one
-    /// by one, or a `cases` arm's whole title.
+    /// "Case xs = node(t1, l2)." then, a line each, its hypotheses ("Assume
+    /// IH1: …"), each given it introduces marked and tappable when the
+    /// selected hole can use it: the hypotheses one by one, or a `cases`
+    /// arm's whole title.
     private func armTitle(_ arm: Textbook.Arm) -> some View {
         let usable = { (label: String) in self.uses[label].flatMap { $0.range == arm.range ? label : nil } }
-        return HStack(alignment: .firstTextBaseline, spacing: 6) {
+        return VStack(alignment: .leading, spacing: 4) {
             givenText(variablesText(arm.title, arm.variables.filter { splittable[$0] == arm.range }),
                       arm.assumes.isEmpty ? arm.introduces.first.flatMap(usable) : nil)
-            if !arm.assumes.isEmpty {
-                Text("Assume")
-                ForEach(arm.assumes.indices, id: \.self) { i in
-                    let label = arm.assumes[i]
-                    givenText(Text(label + (i == arm.assumes.count - 1 ? "." : ",")), usable(label))
-                }
+                .font(Self.proseFont).bold()
+            ForEach(arm.assumes, id: \.self) { label in
+                givenText(hypothesis(label, arm.formulas[label]), usable(label))
+                    .padding(.leading, 20)
             }
         }
-        .font(Self.proseFont).bold()
+    }
+
+    /// "Assume IH1: formula", the formula's lines lined up, or without the
+    /// formula when it isn't known.
+    private func hypothesis(_ label: String, _ formula: String?) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(formula == nil ? "Assume \(label)." : "Assume \(label):").font(Self.proseFont)
+            if let formula { Text(formula).font(Self.formulaFont) }
+        }
     }
 
     /// `text`, marked and tappable when it introduces the usable given `label`.
     @ViewBuilder
-    private func givenText(_ text: Text, _ label: String?) -> some View {
+    private func givenText(_ text: some View, _ label: String?) -> some View {
         if let label {
             text.background { usable(label) }
                 .onTapGesture { useGiven(label) }

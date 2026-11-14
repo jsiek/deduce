@@ -59,11 +59,14 @@ struct Textbook {
 
     struct Arm {
         let range: Outline.Range
-        /// "Case node(t1, l2)." or, for `cases`, "Case h1: P."
+        /// "Case xs = node(t1, l2)." or, for `cases`, "Case h1: P."
         let title: String
-        /// The hypotheses shown after the title ("Assume IH1."): those of
-        /// an `induction` or `switch` arm.
+        /// The hypotheses shown below the title ("Assume IH1: …"): those
+        /// of an `induction` or `switch` arm.
         let assumes: [String]
+        /// What each of `assumes` says, by label, when the steps inside
+        /// the arm show it.
+        let formulas: [String: String]
         /// The labels of the givens it introduces: its hypotheses, or the
         /// label in a `cases` arm's title.
         let introduces: [String]
@@ -434,19 +437,30 @@ struct Textbook {
             while let next = rest.first, arms.contains(where: { $0.range.contains(next.step.range) }) {
                 members.append(rest.removeFirst())
             }
+            // What the arms split: "Case xs = node(t1, l2)."
+            let subject = switch step.kind {
+            case "Induction": step.detail.variable
+            case "SwitchProof": step.detail.subject.map(display)
+            default: String?.none
+            }
             let intro = switch step.kind {
-            case "Induction": "By induction on \(step.detail.variable ?? "it")."
-            case "SwitchProof": "By cases on \(step.detail.subject.map(display) ?? "it")."
+            case "Induction": "By induction on \(subject ?? "it")."
+            case "SwitchProof": "By cases on \(subject ?? "it")."
             default: "By cases."
             }
             return .cases(range: step.range, intro: intro, arms: arms.map { arm in
-                let header = arm.pattern.map(display) ?? [arm.label, arm.formula.map(display)]
-                    .compactMap { $0 }.joined(separator: ": ")
+                let header = arm.pattern.map { (subject.map { $0 + " = " } ?? "") + display($0) }
+                    ?? [arm.label, arm.formula.map(display)].compactMap { $0 }.joined(separator: ": ")
                 let assumes = arm.hypotheses ?? []
-                return Arm(range: arm.range, title: "Case \(header).", assumes: assumes,
+                let inside = members.filter { arm.range.contains($0.step.range) }
+                // The hypotheses are given to every step inside the arm.
+                let givens = inside.min { $0.step.range.start < $1.step.range.start }?.step.givens ?? []
+                let formulas = Dictionary(givens.filter { assumes.contains($0.label) }
+                    .map { ($0.label, display($0.formula)) }, uniquingKeysWith: { _, inner in inner })
+                return Arm(range: arm.range, title: "Case \(header).", assumes: assumes, formulas: formulas,
                            introduces: arm.pattern == nil ? [arm.label].compactMap { $0 } : assumes,
                            variables: arm.pattern.map(Self.patternVariables) ?? [],
-                           blocks: blocks(members.filter { arm.range.contains($0.step.range) }))
+                           blocks: blocks(inside))
             })
         }
 
