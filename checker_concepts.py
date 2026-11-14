@@ -212,13 +212,10 @@ def _where_models(loc: Meta, where: WhereClause, env: Env) -> Env:
   scope, a where clause models its concepts (F^G's where clauses add
   models to the context), so a where theorem can be instantiated at the
   clause's types."""
-  insts: list[ConceptRef] = []
-  for wm in where.members:
-    if wm.instance not in insts:
-      insts.append(wm.instance)
-  if not insts:
-    return env
-  clause = where.members[0].binder
+  # From the constraints, not the members: a concept may have none.
+  insts = check_where(WhereClause(loc, concept_closure(where.constraints)),
+                      env).constraints
+  clause = str(loc.line) + '.' + str(loc.column)
   names = {str(inst): '<where ' + clause + '> ' + str(inst) for inst in insts}
   for inst in insts:
     decl = concept_of(env, inst.concept, loc)
