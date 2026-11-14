@@ -850,6 +850,47 @@ class SimplifyGoal(Proof):
       return self._head() + '\n' + str(self.body)
 
 
+# The names the `algebra` tactic builds its certificates from (lib/Linear.pf
+# and the literals of Nat, UInt, Int, and Rat).
+# The definitions of lib/Linear.pf that checking a certificate unfolds.
+LINEAR_DEFS = (
+  'lin_get', 'lin_denote', 'lin_ops_add', 'lin_ops_neg', 'lin_ops_sub',
+  'lin_ops_scale', 'lin_ops_zero', 'lin_ops_le', 'lin_ops_lt',
+  'lin_ops_unit', 'lin_vadd', 'lin_vscale', 'lin_vunit', 'lin_coeffs',
+  'lin_all_zero', 'lin_holds', 'lin_all_hold', 'lin_diff', 'lin_combine',
+  'lin_sign_ok', 'lin_strict_pos', 'lin_signs_ok', 'lin_some_strict',
+  'lin_unit_fact', 'lin_check', 'lin_check_goal',
+)
+ALGEBRA_NAMES = (
+  'LinearArith', 'lin_prove', 'lin_disprove', 'lin_refute',
+  'lvar', 'lconst', 'lzero', 'ladd', 'lsub', 'lneg', 'lscale',
+  'lin_fact', 'rle', 'rlt', 'req', 'node', 'empty',
+  'lit', 'suc', 'zero', 'fromNat', 'pos', 'negsuc', 'rat', 'frac',
+) + LINEAR_DEFS
+
+@dataclass
+class AlgebraGoal(Proof):
+  """`algebra` and `algebra with p1 | ... | pn`: prove a linear equation or
+  inequality from the givens and the ``givens`` (#1189)."""
+  givens: List[Proof]
+  # Recorded by uniquify: the unique names of ``ALGEBRA_NAMES``, and the
+  # models in scope.
+  names: dict[str, list[str]] = field(default_factory=dict, kw_only=True)
+  models: List[str] = field(default_factory=list, kw_only=True)
+
+  def __str__(self) -> str:
+    if not self.givens:
+      return 'algebra'
+    return 'algebra with ' + ' | '.join(
+        _proof_list_item_str(p) for p in self.givens)
+
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> AlgebraGoal:
+    return AlgebraGoal(self.location,
+                       [p.uniquify(env, ctx) for p in self.givens],
+                       names={n: env[n] for n in ALGEBRA_NAMES if n in env},
+                       models=list(env.get(MODELS_KEY, [])))
+
+
 @dataclass
 class SimplifyFact(Proof):
   subject: Proof

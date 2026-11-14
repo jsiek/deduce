@@ -80,7 +80,7 @@
         {
           "comment": "Tactics",
           "name": "keyword.control.tactic.deduce",
-          "match": "\\b(arbitrary|assume|suppose|have|show|obtain|from|for|induction|rule|inversion|switch|replace|expand|evaluate|simplify|equations|recall|reflexive|symmetric|transitive|injective|extensionality|apply|to|conclude|conjunct|contradict|suffices|choose|stop|help|by|of)\\b"
+          "match": "\\b(arbitrary|assume|suppose|have|show|obtain|from|for|induction|rule|inversion|switch|replace|expand|evaluate|algebra|simplify|equations|recall|reflexive|symmetric|transitive|injective|extensionality|apply|to|conclude|conjunct|contradict|suffices|choose|stop|help|by|of)\\b"
         },
         {
           "comment": "Logical / control",

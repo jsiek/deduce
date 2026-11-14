@@ -8,7 +8,7 @@ from abstract_syntax import (
     All, AllElim, AllElimTypes, AllIntro, And, ApplyDefsFact,
     ApplyDefsGoal, ArrayGet, ArrayType, Assert, Associative, Auto,
     Bool, BoolType, Call, Cases, Conditional, Constructor,
-    Define, Emp, EvaluateFact, EvaluateGoal, Export, FieldAccess, FrameEmpty,
+    AlgebraGoal, Define, Emp, EvaluateFact, EvaluateGoal, Export, FieldAccess, FrameEmpty,
     FrameFootprint, FrameTerm, FunCase, FunctionType,
     GenRecFun, Generic, Hole, IfThen, ImpIntro, Import,
     ImpAlloc, ImpAssert, ImpAssign, ImpAssume, ImpCall, ImpCallExpr, ImpIf, ImpReturn,
@@ -727,7 +727,7 @@ def parse_assumption() -> tuple[str, Term | None]:
   else:
     return label,None
 
-proof_keywords = {'apply', 'arbitrary', 'assume',
+proof_keywords = {'algebra', 'apply', 'arbitrary', 'assume',
                   'cases', 'case', 'choose', 'conclude', 'conjunct',
                   'expand',
                   'equations', 'evaluate', 'extensionality',
@@ -932,6 +932,14 @@ def parse_proof_hi() -> Proof:
     advance()
     return ConceptMemberProof(meta_from_tokens(token, previous_token()),
                               concept, member)
+
+  elif token.type == 'ALGEBRA':
+    advance()
+    givens = []
+    if current_token().type == 'WITH':
+      advance()
+      givens = parse_proof_list()
+    return AlgebraGoal(meta_from_tokens(token, previous_token()), givens)
 
   elif token.type == 'EVALUATE':
     advance()

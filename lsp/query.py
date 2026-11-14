@@ -331,6 +331,7 @@ REFINE_SUPPORTED_SHAPES: tuple[str, ...] = (
     "all _. _",
     "some _. _",
     "reducible _ = _",
+    "_ = _, _ ≤ _, _ < _, _ ≥ _, or _ > _ over Rat or Real",
 )
 
 
@@ -356,7 +357,7 @@ COMPLETION_KEYWORDS: tuple[str, ...] = (
     # tactics
     "arbitrary", "assume", "suppose", "have", "show", "obtain", "from", "for",
     "induction", "rule", "inversion", "switch", "replace", "expand",
-    "evaluate", "simplify", "equations", "recall", "reflexive", "symmetric",
+    "algebra", "evaluate", "simplify", "equations", "recall", "reflexive", "symmetric",
     "transitive", "injective", "extensionality", "apply", "to", "conclude",
     "conjunct", "contradict", "suffices", "choose", "stop", "help", "by", "of",
     # logical / control
@@ -2036,6 +2037,8 @@ def refine_at(
       invocation; nested quantifiers are refined in further steps)
     - ``some x:T. body`` -> ``choose ?\\n?``
     - reducible ``e1 = e2`` -> ``reflexive``
+    - otherwise ``e1 R e2`` with R one of ``=``, ``≤``, ``<``, ``≥``, ``>``
+      over ``Rat`` or ``Real`` -> ``algebra``
 
     Returns:
 
@@ -2223,23 +2226,28 @@ def _refine_template(formula: "Formula", env: Optional["Env"]) -> Optional[str]:
         case Some(_, _, vars, _body):
             choices = ", ".join("?" for _ in vars)
             return f"choose {choices}\n?"
-        # Match the equality operator at any stage of name resolution
-        # (`Var', `OverloadedVar', or `ResolvedVar' all subclass
-        # `VarRef').  Mirrors the dispatch in `proof_checker.py'
-        # `PReflexive' after the Var/ResolvedVar split (PR #330).
+        # Match the operator at any stage of name resolution (`Var',
+        # `OverloadedVar', or `ResolvedVar' all subclass `VarRef').
+        # Mirrors the dispatch in `proof_checker.py' `PReflexive' after
+        # the Var/ResolvedVar split (PR #330).
         case Call(_, _, rator, [lhs, rhs]) if (
             isinstance(rator, VarRef)
-            and rator.get_name() == "="
+            and base_name(rator.get_name()) in ("=", "≤", "<", "≥", ">")
             and env is not None
         ):
-            try:
-                if lhs.reduce(env) == rhs.reduce(env):
-                    return "reflexive"
-            except Exception:
-                # If reduction fails (e.g. a malformed env after a
-                # mid-check error), don't crash the editor request --
-                # just report "no template".
-                return None
+            if rator.get_name() == "=":
+                try:
+                    if lhs.reduce(env) == rhs.reduce(env):
+                        return "reflexive"
+                except Exception:
+                    # If reduction fails (e.g. a malformed env after a
+                    # mid-check error), don't crash the editor request --
+                    # just report "no template".
+                    return None
+            # A linear goal over the types `algebra` works at (#1189).
+            if isinstance(lhs.typeof, VarRef) \
+               and base_name(lhs.typeof.get_name()) in ("Rat", "Real"):
+                return "algebra"
             return None
     return None
 

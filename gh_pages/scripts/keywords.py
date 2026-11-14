@@ -53,6 +53,7 @@ known_tokens = {
     'EQUATIONS': 'keyword',
     'ENSURES': 'keyword',
     'EVALUATE': 'keyword',
+    'ALGEBRA': 'keyword',
     'SIMPLIFY': 'keyword',
     'EXPAND': 'keyword',
     'EXPORT': 'keyword',

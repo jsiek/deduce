@@ -1,0 +1,1103 @@
+module Linear
+
+/*
+  The certificates of the `algebra` tactic (#1189).
+
+  `algebra` proves a linear equation or inequality from the givens. It
+  writes the givens and the goal as linear expressions (`Lin`) over
+  atoms, finds coefficients for the givens (a certificate) whose
+  combination is a contradiction, and instantiates one of the theorems
+  below at the goal's type. The checker evaluates `lin_check` on the
+  certificate and `lin_denote` on the expressions, so the givens and goal
+  reappear as the user wrote them; nothing about the search is trusted.
+
+  The theorems hold for every `LinearArith` type: an ordered vector
+  space over the rationals with a positive `unit`, which gives meaning
+  to constants (the constant `q` is `scale(q, unit)`).
+
+  The operations are passed to `lin_denote` and friends explicitly, in a
+  `LinOps` record, since a function cannot have a where clause.
+*/
+
+// The tactic builds certificates from lists, Nat indices, and Int and
+// UInt literals, so their names must be in scope wherever this is.
+public import UInt
+public import Nat
+public import Int
+import Base
+public import List
+public import Rat
+public import Real
+public import Algebra
+
+concept LinearArith<T> {
+  refines OrderedQVectorSpace<T>
+  fun unit : T
+  theorem unit_pos: zero < unit
+}
+
+model LinearArith<Rat> {
+  fun unit = rat(+1)
+  theorem unit_pos = .
+}
+
+model LinearArith<Real> {
+  fun unit = real(+1)
+  theorem unit_pos = .
+}
+
+// Linear expressions over atoms numbered from 0.
+union Lin {
+  lvar(Nat)
+  lconst(Rat)
+  lzero
+  ladd(Lin, Lin)
+  lsub(Lin, Lin)
+  lneg(Lin)
+  lscale(Rat, Lin)
+}
+
+// The operations of a LinearArith type: +, unary -, binary -, scale,
+// zero, ≤, <, and unit.
+union LinOps<T> {
+  linops(fn (T, T) -> T, fn T -> T, fn (T, T) -> T, fn (Rat, T) -> T, T,
+         fn (T, T) -> bool, fn (T, T) -> bool, T)
+}
+
+fun lin_ops_add<T>(o : LinOps<T>) {
+  switch o { case linops(add, neg, sub, sc, z, le, lt, u) { add } }
+}
+fun lin_ops_neg<T>(o : LinOps<T>) {
+  switch o { case linops(add, neg, sub, sc, z, le, lt, u) { neg } }
+}
+fun lin_ops_sub<T>(o : LinOps<T>) {
+  switch o { case linops(add, neg, sub, sc, z, le, lt, u) { sub } }
+}
+fun lin_ops_scale<T>(o : LinOps<T>) {
+  switch o { case linops(add, neg, sub, sc, z, le, lt, u) { sc } }
+}
+fun lin_ops_zero<T>(o : LinOps<T>) {
+  switch o { case linops(add, neg, sub, sc, z, le, lt, u) { z } }
+}
+fun lin_ops_le<T>(o : LinOps<T>) {
+  switch o { case linops(add, neg, sub, sc, z, le, lt, u) { le } }
+}
+fun lin_ops_lt<T>(o : LinOps<T>) {
+  switch o { case linops(add, neg, sub, sc, z, le, lt, u) { lt } }
+}
+fun lin_ops_unit<T>(o : LinOps<T>) {
+  switch o { case linops(add, neg, sub, sc, z, le, lt, u) { u } }
+}
+
+recursive lin_get<T>(List<T>, Nat, T) -> T {
+  lin_get(empty, i, d) = d
+  lin_get(node(x, xs), i, d) =
+    switch i { case zero { x } case suc(j) { lin_get(xs, j, d) } }
+}
+
+recursive lin_denote<T>(Lin, List<T>, LinOps<T>) -> T {
+  lin_denote(lvar(i), env, o) = lin_get(env, i, lin_ops_zero(o))
+  lin_denote(lconst(q), env, o) = lin_ops_scale(o)(q, lin_ops_unit(o))
+  lin_denote(lzero, env, o) = lin_ops_zero(o)
+  lin_denote(ladd(a, b), env, o) = lin_ops_add(o)(lin_denote(a, env, o), lin_denote(b, env, o))
+  lin_denote(lsub(a, b), env, o) = lin_ops_sub(o)(lin_denote(a, env, o), lin_denote(b, env, o))
+  lin_denote(lneg(a), env, o) = lin_ops_neg(o)(lin_denote(a, env, o))
+  lin_denote(lscale(q, a), env, o) = lin_ops_scale(o)(q, lin_denote(a, env, o))
+}
+
+// Coefficient vectors: entry 0 is the coefficient of `unit`, entry
+// i + 1 that of atom i.
+
+recursive lin_vadd(List<Rat>, List<Rat>) -> List<Rat> {
+  lin_vadd(empty, ys) = ys
+  lin_vadd(node(x, xs), ys) =
+    switch ys {
+      case empty { node(x, xs) }
+      case node(y, ys2) { node(x + y, lin_vadd(xs, ys2)) }
+    }
+}
+
+recursive lin_vscale(List<Rat>, Rat) -> List<Rat> {
+  lin_vscale(empty, q) = empty
+  lin_vscale(node(x, xs), q) = node(q * x, lin_vscale(xs, q))
+}
+
+recursive lin_vunit(Nat) -> List<Rat> {
+  lin_vunit(zero) = [rat(+1)]
+  lin_vunit(suc(i)) = node(rat(+0), lin_vunit(i))
+}
+
+recursive lin_coeffs(Lin) -> List<Rat> {
+  lin_coeffs(lvar(i)) = lin_vunit(suc(i))
+  lin_coeffs(lconst(q)) = [q]
+  lin_coeffs(lzero) = []
+  lin_coeffs(ladd(a, b)) = lin_vadd(lin_coeffs(a), lin_coeffs(b))
+  lin_coeffs(lsub(a, b)) = lin_vadd(lin_coeffs(a), lin_vscale(lin_coeffs(b), rat(-1)))
+  lin_coeffs(lneg(a)) = lin_vscale(lin_coeffs(a), rat(-1))
+  lin_coeffs(lscale(q, a)) = lin_vscale(lin_coeffs(a), q)
+}
+
+recursive lin_all_zero(List<Rat>) -> bool {
+  lin_all_zero(empty) = true
+  lin_all_zero(node(x, xs)) = x = rat(+0) and lin_all_zero(xs)
+}
+
+// Facts `a ≤ b`, `a < b`, and `a = b`.
+
+union LinRel { rle  rlt  req }
+
+union LinFact { lin_fact(LinRel, Lin, Lin) }
+
+fun lin_holds<T>(f : LinFact, env : List<T>, o : LinOps<T>) {
+  switch f {
+    case lin_fact(r, a, b) {
+      switch r {
+        case rle { lin_ops_le(o)(lin_denote(a, env, o), lin_denote(b, env, o)) }
+        case rlt { lin_ops_lt(o)(lin_denote(a, env, o), lin_denote(b, env, o)) }
+        case req { lin_denote(a, env, o) = lin_denote(b, env, o) }
+      }
+    }
+  }
+}
+
+recursive lin_all_hold<T>(List<LinFact>, List<T>, LinOps<T>) -> bool {
+  lin_all_hold(empty, env, o) = true
+  lin_all_hold(node(f, fs), env, o) = lin_holds(f, env, o) and lin_all_hold(fs, env, o)
+}
+
+// The certificate: one coefficient per fact. Each inequality's must be
+// nonnegative, some strict inequality's positive, and the combination
+// of the facts (each as b - a) must be zero.
+
+fun lin_diff(f : LinFact) {
+  switch f { case lin_fact(r, a, b) { lsub(b, a) } }
+}
+
+recursive lin_combine(List<LinFact>, List<Rat>) -> Lin {
+  lin_combine(empty, cs) = lzero
+  lin_combine(node(f, fs), cs) =
+    switch cs {
+      case empty { lzero }
+      case node(c, cs2) { ladd(lscale(c, lin_diff(f)), lin_combine(fs, cs2)) }
+    }
+}
+
+fun lin_sign_ok(f : LinFact, c : Rat) {
+  switch f {
+    case lin_fact(r, a, b) {
+      switch r {
+        case rle { rat(+0) ≤ c }
+        case rlt { rat(+0) ≤ c }
+        case req { true }
+      }
+    }
+  }
+}
+
+fun lin_strict_pos(f : LinFact, c : Rat) {
+  switch f {
+    case lin_fact(r, a, b) {
+      switch r {
+        case rle { false }
+        case rlt { rat(+0) < c }
+        case req { false }
+      }
+    }
+  }
+}
+
+recursive lin_signs_ok(List<LinFact>, List<Rat>) -> bool {
+  lin_signs_ok(empty, cs) = true
+  lin_signs_ok(node(f, fs), cs) =
+    switch cs {
+      case empty { true }
+      case node(c, cs2) { lin_sign_ok(f, c) and lin_signs_ok(fs, cs2) }
+    }
+}
+
+recursive lin_some_strict(List<LinFact>, List<Rat>) -> bool {
+  lin_some_strict(empty, cs) = false
+  lin_some_strict(node(f, fs), cs) =
+    switch cs {
+      case empty { false }
+      case node(c, cs2) { lin_strict_pos(f, c) or lin_some_strict(fs, cs2) }
+    }
+}
+
+// `0 < unit`, which every certificate may use.
+define lin_unit_fact : LinFact = lin_fact(rlt, lzero, lconst(rat(+1)))
+
+fun lin_check(facts : List<LinFact>, cs : List<Rat>) {
+  lin_all_zero(lin_coeffs(lin_combine(node(lin_unit_fact, facts), cs)))
+  and lin_signs_ok(node(lin_unit_fact, facts), cs)
+  and lin_some_strict(node(lin_unit_fact, facts), cs)
+}
+
+// The certificates that prove the goal `g`: by refuting its negation
+// (for an equation, both of the strict inequalities).
+fun lin_check_goal(g : LinFact, facts : List<LinFact>, cs1 : List<Rat>, cs2 : List<Rat>) {
+  switch g {
+    case lin_fact(r, a, b) {
+      switch r {
+        case rle { lin_check(node(lin_fact(rlt, b, a), facts), cs1) }
+        case rlt { lin_check(node(lin_fact(rle, b, a), facts), cs1) }
+        case req { lin_check(node(lin_fact(rlt, a, b), facts), cs1)
+                   and lin_check(node(lin_fact(rlt, b, a), facts), cs2) }
+      }
+    }
+  }
+}
+
+/********************** Group and order lemmas **********************/
+
+lemma lin_zero_add: all T:type where { AddCommGroup<T> }. all x:T. zero + x = x
+proof
+  arbitrary T:type where { AddCommGroup<T> }
+  arbitrary x:T
+  replace add_commute[zero, x]
+  add_zero[x]
+end
+
+lemma lin_neg_add: all T:type where { AddCommGroup<T> }. all x:T. - x + x = zero
+proof
+  arbitrary T:type where { AddCommGroup<T> }
+  arbitrary x:T
+  replace add_commute[- x, x]
+  add_inverse[x]
+end
+
+lemma lin_add_cancel: all T:type where { AddCommGroup<T> }.
+  all a:T, x:T, y:T. if a + x = a + y then x = y
+proof
+  arbitrary T:type where { AddCommGroup<T> }
+  arbitrary a:T, x:T, y:T
+  assume eq
+  equations
+        x = zero + x            by symmetric lin_zero_add<T>[x]
+      ... = #(- a + a)# + x     by replace lin_neg_add<T>[a].
+      ... = - a + (a + x)       by add_assoc[- a, a, x]
+      ... = - a + (a + y)       by replace eq.
+      ... = (- a + a) + y       by symmetric add_assoc[- a, a, y]
+      ... = zero + y            by replace lin_neg_add<T>[a].
+      ... = y                   by lin_zero_add<T>[y]
+end
+
+lemma lin_neg_unique: all T:type where { AddCommGroup<T> }.
+  all x:T, y:T. if x + y = zero then y = - x
+proof
+  arbitrary T:type where { AddCommGroup<T> }
+  arbitrary x:T, y:T
+  assume eq
+  apply lin_add_cancel<T>[x, y, - x] to
+    (equations x + y = zero     by eq
+               ... = x + - x    by symmetric add_inverse[x])
+end
+
+lemma lin_sub_self: all T:type where { AddCommGroup<T> }. all x:T. x - x = zero
+proof
+  arbitrary T:type where { AddCommGroup<T> }
+  arbitrary x:T
+  replace sub_def[x, x]
+  add_inverse[x]
+end
+
+lemma lin_sub_zero_eq: all T:type where { AddCommGroup<T> }.
+  all x:T, y:T. if y - x = zero then y = x
+proof
+  arbitrary T:type where { AddCommGroup<T> }
+  arbitrary x:T, y:T
+  assume eq
+  equations
+        y = y + zero            by symmetric add_zero[y]
+      ... = y + #(- x + x)#     by replace lin_neg_add<T>[x].
+      ... = (y + - x) + x       by symmetric add_assoc[y, - x, x]
+      ... = #(y - x)# + x       by replace sub_def[y, x].
+      ... = zero + x            by replace eq.
+      ... = x                   by lin_zero_add<T>[x]
+end
+
+lemma lin_add_shuffle: all T:type where { AddCommGroup<T> }.
+  all a:T, b:T, c:T, d:T. (a + b) + (c + d) = (a + c) + (b + d)
+proof
+  arbitrary T:type where { AddCommGroup<T> }
+  arbitrary a:T, b:T, c:T, d:T
+  equations
+        (a + b) + (c + d) = a + (b + (c + d))   by add_assoc[a, b, c + d]
+      ... = a + ((b + c) + d)   by replace symmetric add_assoc[b, c, d].
+      ... = a + ((c + b) + d)   by replace add_commute[b, c].
+      ... = a + (c + (b + d))   by replace add_assoc[c, b, d].
+      ... = (a + c) + (b + d)   by symmetric add_assoc[a, c, b + d]
+end
+
+lemma lin_scale_zero: all T:type where { OrderedQVectorSpace<T> }.
+  all x:T. scale(rat(+0), x) = zero
+proof
+  arbitrary T:type where { OrderedQVectorSpace<T> }
+  arbitrary x:T
+  have ss: scale(rat(+0), x) + zero = scale(rat(+0), x) + scale(rat(+0), x)
+    by replace add_zero[scale(rat(+0), x)]
+       scale_add_left[rat(+0), rat(+0), x]
+  symmetric apply lin_add_cancel<T>[scale(rat(+0), x), zero, scale(rat(+0), x)] to ss
+end
+
+lemma lin_scale_zero_right: all T:type where { OrderedQVectorSpace<T> }.
+  all q:Rat. scale(q, zero) = zero
+proof
+  arbitrary T:type where { OrderedQVectorSpace<T> }
+  arbitrary q:Rat
+  have ss: scale(q, zero) + zero = scale(q, zero) + scale(q, zero)
+    by replace add_zero[scale(q, zero)]
+       replace symmetric scale_add_right[q, zero, zero]
+       replace add_zero[zero].
+  symmetric apply lin_add_cancel<T>[scale(q, zero), zero, scale(q, zero)] to ss
+end
+
+lemma lin_scale_neg_one: all T:type where { OrderedQVectorSpace<T> }.
+  all x:T. scale(rat(-1), x) = - x
+proof
+  arbitrary T:type where { OrderedQVectorSpace<T> }
+  arbitrary x:T
+  apply lin_neg_unique<T>[x, scale(rat(-1), x)] to
+    equations
+          x + scale(rat(-1), x)
+        = #scale(rat(+1), x)# + scale(rat(-1), x) by replace scale_one[x].
+      ... = scale(rat(+1) + rat(-1), x)           by symmetric scale_add_left[rat(+1), rat(-1), x]
+      ... = zero                                  by lin_scale_zero<T>[x]
+end
+
+lemma lin_le_refl: all T:type where { OrderedAddCommGroup<T> }. all x:T. x ≤ x
+proof
+  arbitrary T:type where { OrderedAddCommGroup<T> }
+  arbitrary x:T
+  cases less_equal_total[x, x]
+  case h { h }
+  case h { h }
+end
+
+lemma lin_less_irrefl: all T:type where { OrderedAddCommGroup<T> }.
+  all x:T. not (x < x)
+proof
+  arbitrary T:type where { OrderedAddCommGroup<T> }
+  arbitrary x:T
+  assume h
+  have h2: x ≤ x and not (x = x) by replace less_def[x, x] in h
+  apply conjunct 1 of h2 to .
+end
+
+lemma lin_le_or_less: all T:type where { OrderedAddCommGroup<T> }.
+  all x:T, y:T. x ≤ y or y < x
+proof
+  arbitrary T:type where { OrderedAddCommGroup<T> }
+  arbitrary x:T, y:T
+  cases less_equal_total[x, y]
+  case xy { conclude x ≤ y or y < x by xy }
+  case yx {
+    cases ex_mid[y = x]
+    case eq {
+      conclude x ≤ y or y < x by { replace eq  lin_le_refl<T>[x] }
+    }
+    case neq {
+      have both: y ≤ x and not (y = x) by yx, neq
+      have y_x: y < x by { replace less_def[y, x]  both }
+      conclude x ≤ y or y < x by y_x
+    }
+  }
+end
+
+lemma lin_sub_nonneg: all T:type where { OrderedAddCommGroup<T> }.
+  all x:T, y:T. if x ≤ y then zero ≤ y - x
+proof
+  arbitrary T:type where { OrderedAddCommGroup<T> }
+  arbitrary x:T, y:T
+  assume xy
+  have h: x + - x ≤ y + - x by apply add_le_right_mono[x, y, - x] to xy
+  replace sub_def[y, x]
+  replace symmetric add_inverse[x]
+  h
+end
+
+lemma lin_sub_pos: all T:type where { OrderedAddCommGroup<T> }.
+  all x:T, y:T. if x < y then zero < y - x
+proof
+  arbitrary T:type where { OrderedAddCommGroup<T> }
+  arbitrary x:T, y:T
+  assume xy
+  have h: x ≤ y and not (x = y) by replace less_def[x, y] in xy
+  replace less_def[zero, y - x]
+  have nz: not (zero = y - x) by {
+    assume z
+    apply conjunct 1 of h to
+      symmetric apply lin_sub_zero_eq<T>[x, y] to symmetric z
+  }
+  have nn: zero ≤ y - x by apply lin_sub_nonneg<T>[x, y] to conjunct 0 of h
+  nn, nz
+end
+
+lemma lin_add_nonneg: all T:type where { OrderedAddCommGroup<T> }.
+  all a:T, b:T. if zero ≤ a and zero ≤ b then zero ≤ a + b
+proof
+  arbitrary T:type where { OrderedAddCommGroup<T> }
+  arbitrary a:T, b:T
+  assume h
+  have ab: zero + b ≤ a + b by apply add_le_right_mono[zero, a, b] to conjunct 0 of h
+  have b_ab: b ≤ a + b by replace lin_zero_add<T>[b] in ab
+  have zb: zero ≤ b by conjunct 1 of h
+  apply less_equal_trans[zero, b, a + b] to zb, b_ab
+end
+
+lemma lin_add_pos_nonneg: all T:type where { OrderedAddCommGroup<T> }.
+  all a:T, b:T. if zero < a and zero ≤ b then zero < a + b
+proof
+  arbitrary T:type where { OrderedAddCommGroup<T> }
+  arbitrary a:T, b:T
+  assume h
+  have a_le_ne: zero ≤ a and not (zero = a) by replace less_def[zero, a] in conjunct 0 of h
+  have za: zero ≤ a by conjunct 0 of a_le_ne
+  have zb: zero ≤ b by conjunct 1 of h
+  have le: zero ≤ a + b by apply lin_add_nonneg<T>[a, b] to za, zb
+  replace less_def[zero, a + b]
+  have nz: not (zero = a + b) by {
+    assume z
+    // a = zero + a ≤ b + a = a + b = zero
+    have ba: zero + a ≤ b + a by apply add_le_right_mono[zero, b, a] to zb
+    have a_le: a ≤ zero by {
+      replace z
+      replace add_commute[a, b]
+      replace lin_zero_add<T>[a] in ba
+    }
+    have a0: zero = a by apply less_equal_antisymmetric[zero, a] to za, a_le
+    apply conjunct 1 of a_le_ne to a0
+  }
+  le, nz
+end
+
+lemma lin_scale_nonneg: all T:type where { OrderedQVectorSpace<T> }.
+  all q:Rat, x:T. if rat(+0) ≤ q and zero ≤ x then zero ≤ scale(q, x)
+proof
+  arbitrary T:type where { OrderedQVectorSpace<T> }
+  arbitrary q:Rat, x:T
+  assume h
+  have q_nn: rat(+0) ≤ q by conjunct 0 of h
+  have x_nn: zero ≤ x by conjunct 1 of h
+  cases ex_mid[rat(+0) = q]
+  case q0 {
+    replace symmetric q0
+    replace lin_scale_zero<T>[x]
+    lin_le_refl<T>[zero]
+  }
+  case qpos {
+    have q_pos: rat(+0) < q by {
+      replace rat_less_iff_le_not_equal[rat(+0), q]
+      q_nn, qpos
+    }
+    cases ex_mid[zero = x]
+    case x0 {
+      replace symmetric x0
+      replace lin_scale_zero_right<T>[q]
+      lin_le_refl<T>[zero]
+    }
+    case xpos {
+      have x_pos: zero < x by { replace less_def[zero, x]  x_nn, xpos }
+      have s: zero < scale(q, x) by apply scale_pos[q, x] to q_pos, x_pos
+      conjunct 0 of (replace less_def[zero, scale(q, x)] in s)
+    }
+  }
+end
+
+/********************** Coefficient vectors **********************/
+
+fun lin_tail<T>(xs : List<T>) {
+  switch xs { case empty { xs } case node(y, ys) { ys } }
+}
+
+// The combination of the atoms `env` with the coefficients `cs`.
+recursive lin_combo<T>(List<Rat>, List<T>, LinOps<T>) -> T {
+  lin_combo(empty, env, o) = lin_ops_zero(o)
+  lin_combo(node(c, cs), env, o) =
+    lin_ops_add(o)(lin_ops_scale(o)(c, lin_get(env, zero, lin_ops_zero(o))),
+               lin_combo(cs, lin_tail(env), o))
+}
+
+lemma lin_combo_empty: all T:type where { LinearArith<T> }.
+  all env:List<T>.
+  lin_combo(empty, env, linops(operator+, operator-, operator-, scale,
+                           zero, operator≤, operator<, unit))
+  = zero
+proof
+  arbitrary T:type where { LinearArith<T> }
+  arbitrary env:List<T>
+  expand lin_combo | lin_ops_zero.
+end
+
+lemma lin_combo_node: all T:type where { LinearArith<T> }.
+  all c:Rat, cs:List<Rat>, env:List<T>.
+  lin_combo(node(c, cs), env, linops(operator+, operator-, operator-, scale,
+                                 zero, operator≤, operator<, unit))
+  = scale(c, lin_get(env, zero, zero))
+    + lin_combo(cs, lin_tail(env), linops(operator+, operator-, operator-, scale,
+                                      zero, operator≤, operator<, unit))
+proof
+  arbitrary T:type where { LinearArith<T> }
+  arbitrary c:Rat, cs:List<Rat>, env:List<T>
+  expand lin_combo | lin_ops_add | lin_ops_scale | lin_ops_zero.
+end
+
+lemma lin_combo_vadd: all T:type where { LinearArith<T> }.
+  all xs:List<Rat>. all ys:List<Rat>, env:List<T>.
+  lin_combo(lin_vadd(xs, ys), env, linops(operator+, operator-, operator-, scale,
+                                  zero, operator≤, operator<, unit))
+  = lin_combo(xs, env, linops(operator+, operator-, operator-, scale,
+                          zero, operator≤, operator<, unit))
+    + lin_combo(ys, env, linops(operator+, operator-, operator-, scale,
+                            zero, operator≤, operator<, unit))
+proof
+  arbitrary T:type where { LinearArith<T> }
+  induction List<Rat>
+  case empty {
+    arbitrary ys:List<Rat>, env:List<T>
+    expand lin_vadd
+    replace lin_combo_empty<T>[env]
+    symmetric lin_zero_add<T>
+  }
+  case node(x, xs) assume IH {
+    arbitrary ys:List<Rat>, env:List<T>
+    switch ys {
+      case empty {
+        expand lin_vadd
+        replace lin_combo_empty<T>[env]
+        symmetric add_zero
+      }
+      case node(y, ys2) {
+        expand lin_vadd
+        replace lin_combo_node<T>[x + y, lin_vadd(xs, ys2), env]
+              | IH[ys2, lin_tail(env)]
+              | scale_add_left[x, y, lin_get(env, zero, zero)]
+              | lin_combo_node<T>[x, xs, env] | lin_combo_node<T>[y, ys2, env]
+        lin_add_shuffle<T>
+      }
+    }
+  }
+end
+
+lemma lin_combo_vscale: all T:type where { LinearArith<T> }.
+  all xs:List<Rat>. all q:Rat, env:List<T>.
+  lin_combo(lin_vscale(xs, q), env, linops(operator+, operator-, operator-, scale,
+                                   zero, operator≤, operator<, unit))
+  = scale(q, lin_combo(xs, env, linops(operator+, operator-, operator-, scale,
+                                   zero, operator≤, operator<, unit)))
+proof
+  arbitrary T:type where { LinearArith<T> }
+  induction List<Rat>
+  case empty {
+    arbitrary q:Rat, env:List<T>
+    expand lin_vscale
+    replace lin_combo_empty<T>[env]
+    symmetric lin_scale_zero_right<T>[q]
+  }
+  case node(x, xs) assume IH {
+    arbitrary q:Rat, env:List<T>
+    expand lin_vscale
+    replace lin_combo_node<T>[q * x, lin_vscale(xs, q), env]
+          | IH[q, lin_tail(env)]
+          | lin_combo_node<T>[x, xs, env]
+          | scale_add_right[q, scale(x, lin_get(env, zero, zero)),
+                            lin_combo(xs, lin_tail(env),
+                                  linops(operator+, operator-, operator-, scale,
+                                         zero, operator≤, operator<, unit))]
+          | scale_assoc[q, x, lin_get(env, zero, zero)].
+  }
+end
+
+lemma lin_combo_all_zero: all T:type where { LinearArith<T> }.
+  all cs:List<Rat>. all env:List<T>.
+  if lin_all_zero(cs)
+  then lin_combo(cs, env, linops(operator+, operator-, operator-, scale,
+                             zero, operator≤, operator<, unit)) = zero
+proof
+  arbitrary T:type where { LinearArith<T> }
+  induction List<Rat>
+  case empty {
+    arbitrary env:List<T>
+    assume _
+    lin_combo_empty<T>[env]
+  }
+  case node(c, cs) assume IH {
+    arbitrary env:List<T>
+    assume z
+    have c0: c = rat(+0) by conjunct 0 of (expand lin_all_zero in z)
+    have rest: lin_all_zero(cs) by conjunct 1 of (expand lin_all_zero in z)
+    replace lin_combo_node<T>[c, cs, env] | c0 | lin_scale_zero<T>
+          | (apply IH[lin_tail(env)] to rest) | add_zero.
+  }
+end
+
+lemma lin_combo_vunit: all T:type where { LinearArith<T> }.
+  all i:Nat. all env:List<T>.
+  lin_combo(lin_vunit(i), env, linops(operator+, operator-, operator-, scale,
+                              zero, operator≤, operator<, unit))
+  = lin_get(env, i, zero)
+proof
+  arbitrary T:type where { LinearArith<T> }
+  induction Nat
+  case zero {
+    arbitrary env:List<T>
+    expand lin_vunit | 2 * lin_combo | lin_ops_add | lin_ops_scale | lin_ops_zero
+    replace scale_one | add_zero.
+  }
+  case suc(j) assume IH {
+    arbitrary env:List<T>
+    expand lin_vunit | lin_combo | lin_ops_add | lin_ops_scale | lin_ops_zero
+    replace IH[lin_tail(env)] | lin_scale_zero<T> | lin_zero_add<T>
+    switch env {
+      case empty { evaluate }
+      case node(x, xs) { evaluate }
+    }
+  }
+end
+
+// The normal form of a linear expression: its coefficients, applied to
+// `unit` and the atoms.
+lemma lin_denote_coeffs: all T:type where { LinearArith<T> }.
+  all e:Lin. all env:List<T>.
+  lin_denote(e, env, linops(operator+, operator-, operator-, scale,
+                        zero, operator≤, operator<, unit))
+  = lin_combo(lin_coeffs(e), node(unit, env),
+          linops(operator+, operator-, operator-, scale,
+                 zero, operator≤, operator<, unit))
+proof
+  arbitrary T:type where { LinearArith<T> }
+  induction Lin
+  case lvar(i) {
+    arbitrary env:List<T>
+    expand lin_denote | lin_ops_zero | lin_coeffs
+    replace lin_combo_vunit<T>[suc(i), node(unit, env)]
+    expand lin_get.
+  }
+  case lconst(q) {
+    arbitrary env:List<T>
+    expand lin_denote | lin_ops_scale | lin_ops_unit | lin_coeffs
+    replace lin_combo_node<T>[q, empty, node(unit, env)]
+          | lin_combo_empty<T>[lin_tail(node(unit, env))] | add_zero
+    expand lin_get.
+  }
+  case lzero {
+    arbitrary env:List<T>
+    expand lin_denote | lin_ops_zero | lin_coeffs
+    symmetric lin_combo_empty<T>[node(unit, env)]
+  }
+  case ladd(a, b) assume IHa, IHb {
+    arbitrary env:List<T>
+    expand lin_denote | lin_ops_add | lin_coeffs
+    replace IHa[env] | IHb[env] | lin_combo_vadd<T>.
+  }
+  case lsub(a, b) assume IHa, IHb {
+    arbitrary env:List<T>
+    expand lin_denote | lin_ops_sub | lin_coeffs
+    replace IHa[env] | IHb[env] | lin_combo_vadd<T> | lin_combo_vscale<T>
+          | lin_scale_neg_one<T> | sub_def.
+  }
+  case lneg(a) assume IHa {
+    arbitrary env:List<T>
+    expand lin_denote | lin_ops_neg | lin_coeffs
+    replace IHa[env] | lin_combo_vscale<T> | lin_scale_neg_one<T>.
+  }
+  case lscale(q, a) assume IHa {
+    arbitrary env:List<T>
+    expand lin_denote | lin_ops_scale | lin_coeffs
+    replace IHa[env] | lin_combo_vscale<T>.
+  }
+end
+
+/********************** Combining facts **********************/
+
+lemma lin_le_scale: all T:type where { LinearArith<T> }.
+  all x:T, y:T, c:Rat. if x ≤ y and rat(+0) ≤ c then zero ≤ scale(c, y - x)
+proof
+  arbitrary T:type where { LinearArith<T> }
+  arbitrary x:T, y:T, c:Rat
+  assume h
+  have d: zero ≤ y - x by apply lin_sub_nonneg<T>[x, y] to (conjunct 0 of h)
+  have c0: rat(+0) ≤ c by conjunct 1 of h
+  apply lin_scale_nonneg<T>[c, y - x] to c0, d
+end
+
+lemma lin_lt_scale: all T:type where { LinearArith<T> }.
+  all x:T, y:T, c:Rat. if x < y and rat(+0) ≤ c then zero ≤ scale(c, y - x)
+proof
+  arbitrary T:type where { LinearArith<T> }
+  arbitrary x:T, y:T, c:Rat
+  assume h
+  have xy: x ≤ y by conjunct 0 of (replace less_def[x, y] in conjunct 0 of h)
+  have c0: rat(+0) ≤ c by conjunct 1 of h
+  apply lin_le_scale<T>[x, y, c] to xy, c0
+end
+
+lemma lin_lt_scale_pos: all T:type where { LinearArith<T> }.
+  all x:T, y:T, c:Rat. if x < y and rat(+0) < c then zero < scale(c, y - x)
+proof
+  arbitrary T:type where { LinearArith<T> }
+  arbitrary x:T, y:T, c:Rat
+  assume h
+  have d: zero < y - x by apply lin_sub_pos<T>[x, y] to (conjunct 0 of h)
+  have c0: rat(+0) < c by conjunct 1 of h
+  apply scale_pos[c, y - x] to c0, d
+end
+
+lemma lin_eq_scale: all T:type where { LinearArith<T> }.
+  all c:Rat. all x:T, y:T. if x = y then zero ≤ scale(c, y - x)
+proof
+  arbitrary T:type where { LinearArith<T> }
+  arbitrary c:Rat
+  arbitrary x:T, y:T
+  assume h
+  replace h | lin_sub_self<T>[y] | lin_scale_zero_right<T>[c]
+  lin_le_refl<T>[zero]
+end
+
+lemma lin_fact_nonneg: all T:type where { LinearArith<T> }.
+  all f:LinFact, c:Rat, env:List<T>.
+  if lin_holds(f, env, linops(operator+, operator-, operator-, scale,
+                          zero, operator≤, operator<, unit))
+     and lin_sign_ok(f, c)
+  then zero ≤ lin_denote(lscale(c, lin_diff(f)), env,
+                     linops(operator+, operator-, operator-, scale,
+                            zero, operator≤, operator<, unit))
+proof
+  arbitrary T:type where { LinearArith<T> }
+  arbitrary f:LinFact, c:Rat, env:List<T>
+  switch f {
+    case lin_fact(r, a, b) {
+      switch r {
+        case rle {
+          assume h
+          expand lin_diff | 2 * lin_denote | lin_ops_scale | lin_ops_sub
+          apply lin_le_scale<T> to (expand lin_holds | lin_ops_le | lin_sign_ok in h)
+        }
+        case rlt {
+          assume h
+          expand lin_diff | 2 * lin_denote | lin_ops_scale | lin_ops_sub
+          apply lin_lt_scale<T> to (expand lin_holds | lin_ops_lt | lin_sign_ok in h)
+        }
+        case req {
+          assume h
+          expand lin_diff | 2 * lin_denote | lin_ops_scale | lin_ops_sub
+          apply lin_eq_scale<T>[c] to (conjunct 0 of (expand lin_holds in h))
+        }
+      }
+    }
+  }
+end
+
+lemma lin_fact_pos: all T:type where { LinearArith<T> }.
+  all f:LinFact, c:Rat, env:List<T>.
+  if lin_holds(f, env, linops(operator+, operator-, operator-, scale,
+                          zero, operator≤, operator<, unit))
+     and lin_strict_pos(f, c)
+  then zero < lin_denote(lscale(c, lin_diff(f)), env,
+                     linops(operator+, operator-, operator-, scale,
+                            zero, operator≤, operator<, unit))
+proof
+  arbitrary T:type where { LinearArith<T> }
+  arbitrary f:LinFact, c:Rat, env:List<T>
+  switch f {
+    case lin_fact(r, a, b) {
+      switch r {
+        case rle {
+          assume h
+          expand lin_strict_pos in h
+        }
+        case rlt {
+          assume h
+          expand lin_diff | 2 * lin_denote | lin_ops_scale | lin_ops_sub
+          apply lin_lt_scale_pos<T> to (expand lin_holds | lin_ops_lt | lin_strict_pos in h)
+        }
+        case req {
+          assume h
+          expand lin_strict_pos in h
+        }
+      }
+    }
+  }
+end
+
+lemma lin_combine_nonneg: all T:type where { LinearArith<T> }.
+  all facts:List<LinFact>. all cs:List<Rat>, env:List<T>.
+  if lin_all_hold(facts, env, linops(operator+, operator-, operator-, scale,
+                                 zero, operator≤, operator<, unit))
+     and lin_signs_ok(facts, cs)
+  then zero ≤ lin_denote(lin_combine(facts, cs), env,
+                     linops(operator+, operator-, operator-, scale,
+                            zero, operator≤, operator<, unit))
+proof
+  arbitrary T:type where { LinearArith<T> }
+  induction List<LinFact>
+  case empty {
+    arbitrary cs:List<Rat>, env:List<T>
+    assume _
+    expand lin_combine | lin_denote | lin_ops_zero
+    lin_le_refl<T>[zero]
+  }
+  case node(f, fs) assume IH {
+    arbitrary cs:List<Rat>, env:List<T>
+    switch cs {
+      case empty {
+        assume _
+        expand lin_combine | lin_denote | lin_ops_zero
+        lin_le_refl<T>[zero]
+      }
+      case node(c, cs2) {
+        assume h
+        have holds_all: lin_holds(f, env, linops(operator+, operator-, operator-, scale,
+                                            zero, operator≤, operator<, unit))
+              and lin_all_hold(fs, env, linops(operator+, operator-, operator-, scale,
+                                           zero, operator≤, operator<, unit))
+          by expand lin_all_hold in (conjunct 0 of h)
+        have signs: lin_sign_ok(f, c) and lin_signs_ok(fs, cs2)
+          by expand lin_signs_ok in (conjunct 1 of h)
+        have first: zero ≤ lin_denote(lscale(c, lin_diff(f)), env,
+                                  linops(operator+, operator-, operator-, scale,
+                                         zero, operator≤, operator<, unit))
+          by apply lin_fact_nonneg<T>[f, c, env]
+             to (conjunct 0 of holds_all), (conjunct 0 of signs)
+        have rest: zero ≤ lin_denote(lin_combine(fs, cs2), env,
+                                 linops(operator+, operator-, operator-, scale,
+                                        zero, operator≤, operator<, unit))
+          by apply IH[cs2, env] to (conjunct 1 of holds_all), (conjunct 1 of signs)
+        expand lin_combine | lin_denote | lin_ops_add
+        apply lin_add_nonneg<T> to first, rest
+      }
+    }
+  }
+end
+
+lemma lin_combine_pos: all T:type where { LinearArith<T> }.
+  all facts:List<LinFact>. all cs:List<Rat>, env:List<T>.
+  if lin_all_hold(facts, env, linops(operator+, operator-, operator-, scale,
+                                 zero, operator≤, operator<, unit))
+     and lin_signs_ok(facts, cs) and lin_some_strict(facts, cs)
+  then zero < lin_denote(lin_combine(facts, cs), env,
+                     linops(operator+, operator-, operator-, scale,
+                            zero, operator≤, operator<, unit))
+proof
+  arbitrary T:type where { LinearArith<T> }
+  induction List<LinFact>
+  case empty {
+    arbitrary cs:List<Rat>, env:List<T>
+    assume h
+    expand lin_some_strict in h
+  }
+  case node(f, fs) assume IH {
+    arbitrary cs:List<Rat>, env:List<T>
+    switch cs {
+      case empty {
+        assume h
+        expand lin_some_strict in h
+      }
+      case node(c, cs2) {
+        assume h
+        have holds_all: lin_holds(f, env, linops(operator+, operator-, operator-, scale,
+                                            zero, operator≤, operator<, unit))
+              and lin_all_hold(fs, env, linops(operator+, operator-, operator-, scale,
+                                           zero, operator≤, operator<, unit))
+          by expand lin_all_hold in (conjunct 0 of h)
+        have signs: lin_sign_ok(f, c) and lin_signs_ok(fs, cs2)
+          by expand lin_signs_ok in (conjunct 1 of h)
+        have strict: lin_strict_pos(f, c) or lin_some_strict(fs, cs2)
+          by expand lin_some_strict in (conjunct 2 of h)
+        have first: zero ≤ lin_denote(lscale(c, lin_diff(f)), env,
+                                  linops(operator+, operator-, operator-, scale,
+                                         zero, operator≤, operator<, unit))
+          by apply lin_fact_nonneg<T>[f, c, env]
+             to (conjunct 0 of holds_all), (conjunct 0 of signs)
+        have rest: zero ≤ lin_denote(lin_combine(fs, cs2), env,
+                                 linops(operator+, operator-, operator-, scale,
+                                        zero, operator≤, operator<, unit))
+          by apply lin_combine_nonneg<T>[fs, cs2, env]
+             to (conjunct 1 of holds_all), (conjunct 1 of signs)
+        expand lin_combine | lin_denote | lin_ops_add
+        cases strict
+        case sf {
+          have first_pos: zero < lin_denote(lscale(c, lin_diff(f)), env,
+                                        linops(operator+, operator-, operator-, scale,
+                                               zero, operator≤, operator<, unit))
+            by apply lin_fact_pos<T>[f, c, env] to (conjunct 0 of holds_all), sf
+          apply lin_add_pos_nonneg<T> to first_pos, rest
+        }
+        case sr {
+          have rest_pos: zero < lin_denote(lin_combine(fs, cs2), env,
+                                       linops(operator+, operator-, operator-, scale,
+                                              zero, operator≤, operator<, unit))
+            by apply IH[cs2, env] to (conjunct 1 of holds_all), (conjunct 1 of signs), sr
+          replace add_commute[lin_denote(lscale(c, lin_diff(f)), env,
+                                     linops(operator+, operator-, operator-, scale,
+                                            zero, operator≤, operator<, unit)),
+                              lin_denote(lin_combine(fs, cs2), env,
+                                     linops(operator+, operator-, operator-, scale,
+                                            zero, operator≤, operator<, unit))]
+          apply lin_add_pos_nonneg<T> to rest_pos, first
+        }
+      }
+    }
+  }
+end
+
+lemma lin_all_hold_unit: all T:type where { LinearArith<T> }.
+  all facts:List<LinFact>, env:List<T>.
+  if lin_all_hold(facts, env, linops(operator+, operator-, operator-, scale,
+                                 zero, operator≤, operator<, unit))
+  then lin_all_hold(node(lin_unit_fact, facts), env,
+                linops(operator+, operator-, operator-, scale,
+                       zero, operator≤, operator<, unit))
+proof
+  arbitrary T:type where { LinearArith<T> }
+  arbitrary facts:List<LinFact>, env:List<T>
+  assume h
+  expand lin_all_hold | lin_holds | lin_unit_fact | lin_ops_lt | lin_denote | lin_ops_zero
+       | lin_ops_scale | lin_ops_unit
+  replace scale_one[unit]
+  unit_pos, h
+end
+
+theorem lin_refute: all T:type where { LinearArith<T> }.
+  all env:List<T>, facts:List<LinFact>, cs:List<Rat>.
+  if lin_check(facts, cs)
+     and lin_all_hold(facts, env, linops(operator+, operator-, operator-, scale,
+                                     zero, operator≤, operator<, unit))
+  then false
+proof
+  arbitrary T:type where { LinearArith<T> }
+  arbitrary env:List<T>, facts:List<LinFact>, cs:List<Rat>
+  assume prem
+  have chk: lin_all_zero(lin_coeffs(lin_combine(node(lin_unit_fact, facts), cs)))
+            and lin_signs_ok(node(lin_unit_fact, facts), cs)
+            and lin_some_strict(node(lin_unit_fact, facts), cs)
+    by expand lin_check in (conjunct 0 of prem)
+  have hold: lin_all_hold(node(lin_unit_fact, facts), env,
+                      linops(operator+, operator-, operator-, scale,
+                             zero, operator≤, operator<, unit))
+    by apply lin_all_hold_unit<T>[facts, env] to (conjunct 1 of prem)
+  have combo_pos: zero < lin_denote(lin_combine(node(lin_unit_fact, facts), cs), env,
+                          linops(operator+, operator-, operator-, scale,
+                                 zero, operator≤, operator<, unit))
+    by apply lin_combine_pos<T>[node(lin_unit_fact, facts), cs, env]
+       to hold, (conjunct 1 of chk), (conjunct 2 of chk)
+  have z: lin_combo(lin_coeffs(lin_combine(node(lin_unit_fact, facts), cs)), node(unit, env),
+                linops(operator+, operator-, operator-, scale,
+                       zero, operator≤, operator<, unit)) = zero
+    by apply lin_combo_all_zero<T>[lin_coeffs(lin_combine(node(lin_unit_fact, facts), cs)),
+                                   node(unit, env)]
+       to (conjunct 0 of chk)
+  apply lin_less_irrefl<T>[zero] to
+    (replace lin_denote_coeffs<T> | z in combo_pos)
+end
+
+lemma lin_le_by_refute: all T:type where { LinearArith<T> }.
+  all x:T, y:T. if not (y < x) then x ≤ y
+proof
+  arbitrary T:type where { LinearArith<T> }
+  arbitrary x:T, y:T
+  assume h
+  cases lin_le_or_less<T>[x, y]
+  case le { le }
+  case lt { apply h to lt }
+end
+
+lemma lin_lt_by_refute: all T:type where { LinearArith<T> }.
+  all x:T, y:T. if not (y ≤ x) then x < y
+proof
+  arbitrary T:type where { LinearArith<T> }
+  arbitrary x:T, y:T
+  assume h
+  cases lin_le_or_less<T>[y, x]
+  case le { apply h to le }
+  case lt { lt }
+end
+
+lemma lin_eq_by_refute: all T:type where { LinearArith<T> }.
+  all x:T, y:T. if not (x < y) and not (y < x) then x = y
+proof
+  arbitrary T:type where { LinearArith<T> }
+  arbitrary x:T, y:T
+  assume h
+  have xy: x ≤ y by apply lin_le_by_refute<T>[x, y] to (conjunct 1 of h)
+  have yx: y ≤ x by apply lin_le_by_refute<T>[y, x] to (conjunct 0 of h)
+  apply less_equal_antisymmetric[x, y] to xy, yx
+end
+
+theorem lin_disprove: all T:type where { LinearArith<T> }.
+  all env:List<T>, g:LinFact, facts:List<LinFact>, cs:List<Rat>.
+  if lin_check(node(g, facts), cs)
+     and lin_all_hold(facts, env, linops(operator+, operator-, operator-, scale,
+                                     zero, operator≤, operator<, unit))
+  then not lin_holds(g, env, linops(operator+, operator-, operator-, scale,
+                                zero, operator≤, operator<, unit))
+proof
+  arbitrary T:type where { LinearArith<T> }
+  arbitrary env:List<T>, g:LinFact, facts:List<LinFact>, cs:List<Rat>
+  assume prem
+  assume hg
+  have rest: lin_all_hold(facts, env, linops(operator+, operator-, operator-, scale,
+                                         zero, operator≤, operator<, unit))
+    by conjunct 1 of prem
+  have hold_all: lin_all_hold(node(g, facts), env,
+                     linops(operator+, operator-, operator-, scale,
+                            zero, operator≤, operator<, unit))
+    by { expand lin_all_hold  hg, rest }
+  apply lin_refute<T>[env, node(g, facts), cs] to (conjunct 0 of prem), hold_all
+end
+
+theorem lin_prove: all T:type where { LinearArith<T> }.
+  all env:List<T>, g:LinFact, facts:List<LinFact>, cs1:List<Rat>, cs2:List<Rat>.
+  if lin_check_goal(g, facts, cs1, cs2)
+     and lin_all_hold(facts, env, linops(operator+, operator-, operator-, scale,
+                                     zero, operator≤, operator<, unit))
+  then lin_holds(g, env, linops(operator+, operator-, operator-, scale,
+                            zero, operator≤, operator<, unit))
+proof
+  arbitrary T:type where { LinearArith<T> }
+  arbitrary env:List<T>, g:LinFact, facts:List<LinFact>, cs1:List<Rat>, cs2:List<Rat>
+  switch g {
+    case lin_fact(r, a, b) {
+      switch r {
+        case rle {
+          assume prem
+          expand lin_holds | lin_ops_le
+          apply lin_le_by_refute<T> to
+            (expand lin_holds | lin_ops_lt in
+              (apply lin_disprove<T>[env, lin_fact(rlt, b, a), facts, cs1]
+               to (expand lin_check_goal in (conjunct 0 of prem)), (conjunct 1 of prem)))
+        }
+        case rlt {
+          assume prem
+          expand lin_holds | lin_ops_lt
+          apply lin_lt_by_refute<T> to
+            (expand lin_holds | lin_ops_le in
+              (apply lin_disprove<T>[env, lin_fact(rle, b, a), facts, cs1]
+               to (expand lin_check_goal in (conjunct 0 of prem)), (conjunct 1 of prem)))
+        }
+        case req {
+          assume prem
+          have chks: lin_check(node(lin_fact(rlt, a, b), facts), cs1)
+                     and lin_check(node(lin_fact(rlt, b, a), facts), cs2)
+            by expand lin_check_goal in (conjunct 0 of prem)
+          have no_ab: not (lin_denote(a, env, linops(operator+, operator-, operator-, scale,
+                                                 zero, operator≤, operator<, unit))
+                           < lin_denote(b, env, linops(operator+, operator-, operator-, scale,
+                                                   zero, operator≤, operator<, unit)))
+            by expand lin_holds | lin_ops_lt in
+              (apply lin_disprove<T>[env, lin_fact(rlt, a, b), facts, cs1]
+               to (conjunct 0 of chks), (conjunct 1 of prem))
+          have no_ba: not (lin_denote(b, env, linops(operator+, operator-, operator-, scale,
+                                                 zero, operator≤, operator<, unit))
+                           < lin_denote(a, env, linops(operator+, operator-, operator-, scale,
+                                                   zero, operator≤, operator<, unit)))
+            by expand lin_holds | lin_ops_lt in
+              (apply lin_disprove<T>[env, lin_fact(rlt, b, a), facts, cs2]
+               to (conjunct 1 of chks), (conjunct 1 of prem))
+          expand lin_holds
+          apply lin_eq_by_refute<T> to no_ab, no_ba
+        }
+      }
+    }
+  }
+end

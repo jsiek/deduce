@@ -181,6 +181,26 @@ CASES = [
             end=Position(line=4, column=4),
         ),
     ),
+    RefineCase(
+        name="linear_inequality",
+        # Goal at hole: ``x < y + rat(+1)`` over Rat, with ``x ≤ y``
+        # given. Template: ``algebra`` (#1189).
+        source=(
+            "import Rat\n"
+            "theorem t: all x:Rat, y:Rat. if x ≤ y then x < y + rat(+1)\n"
+            "proof\n"
+            "  arbitrary x:Rat, y:Rat\n"
+            "  assume h\n"
+            "  ?\n"
+            "end\n"
+        ),
+        cursor=Position(line=6, column=3),
+        expected_text="algebra",
+        expected_range=Range(
+            start=Position(line=6, column=3),
+            end=Position(line=6, column=4),
+        ),
+    ),
 ]
 
 

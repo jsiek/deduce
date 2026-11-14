@@ -293,6 +293,7 @@ identifier: IDENT              -> identifier
     | "equations" equation equation_list                 -> equations_proof
     | "recall" term_list                                 -> recall_proof
     | "reflexive"                                        -> refl_proof
+    | "algebra" optional_proof_list                      -> algebra_proof
     | "symmetric" proof                                  -> sym_proof
     | "transitive" proof proof                           -> trans_proof
     | "help" proof                                       -> help_use_proof

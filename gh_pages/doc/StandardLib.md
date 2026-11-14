@@ -13,6 +13,11 @@ Only the top-level module files (such as `UInt.pf`) are listed below. Each modul
 - ([`Base.thm`](../lib/Base.thm), [`Base.pf`](../lib/Base.pf)): Base proofs about propositional and predicate logic
 - ([`BigO.thm`](../lib/BigO.thm), [`BigO.pf`](../lib/BigO.pf)): Big-O asymptotic analysis on `fn UInt -> UInt`
 - ([`Int.thm`](../lib/Int.thm), [`Int.pf`](../lib/Int.pf)): Integers
+- ([`Linear.thm`](../lib/Linear.thm), [`Linear.pf`](../lib/Linear.pf)): The
+  certificates of the [`algebra`](./Reference.md#algebra-proof) tactic,
+  and the concept `LinearArith` (an `OrderedQVectorSpace` with a
+  positive `unit`) of the types it works at, with models for `Rat` and
+  `Real`.
 - ([`List.thm`](../lib/List.thm), [`List.pf`](../lib/List.pf)): Lists.
   Higher-order list functions use collection-first order:
   `map(xs, f)`, `filter(xs, P)`, `foldr(xs, u, c)`, and

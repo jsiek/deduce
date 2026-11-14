@@ -1,0 +1,10 @@
+// `algebra` works at the types that model LinearArith; Int does not.
+
+import Linear
+
+theorem int_step: all x:Int, y:Int. if x ≤ y then x ≤ y + +1
+proof
+  arbitrary x:Int, y:Int
+  assume h
+  algebra
+end

@@ -2,7 +2,7 @@ from abstract_syntax import (
     All, AllElim, ConceptDecl, ConceptMember, ConceptMemberProof, ConceptRef, ModelDecl, WhereClause, AllElimTypes, AllIntro, And, ApplyDefsFact,
     ApplyDefsGoal, ArrayGet, ArrayType, Assert, Associative, Auto,
     Bool, BoolType, Call, Cases, Conditional, Constructor,
-    Define, Emp, EvaluateFact, EvaluateGoal, Export, FieldAccess, FunCase,
+    AlgebraGoal, Define, Emp, EvaluateFact, EvaluateGoal, Export, FieldAccess, FunCase,
     FunctionType,
     FrameEmpty, FrameFootprint, FrameTerm, GenRecFun, Generic,
     Hole, IfThen, ImpIntro, Import,
@@ -985,6 +985,8 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
         eqns = parse_tree_to_list(e.children[0], e)
         subject = parse_tree_to_ast(e.children[1], e)
         return RewriteFact(e.meta, subject, eqns)
+    elif e.data == 'algebra_proof':
+        return AlgebraGoal(e.meta, parse_tree_to_list(e.children[0], e))
     elif e.data == 'simplify_goal':
         givens = parse_tree_to_list(e.children[0], e)
         return SimplifyGoal(e.meta, None, givens)
