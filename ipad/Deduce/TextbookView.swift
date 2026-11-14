@@ -117,6 +117,7 @@ struct TextbookView: View {
         let level = levels[line.range] ?? defaultLevel
         let isHole = editable && book.holes.contains { $0.range == line.range }
         let given = line.introduces.first { uses[$0]?.range == line.range }
+        let tap = { if let given { useGiven(given) } else { selection = line.range } }
         return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 if isHole {
@@ -125,14 +126,14 @@ struct TextbookView: View {
                         .padding(.horizontal, 8)
                         .background(Capsule().fill(Color.orange.opacity(0.2)))
                 }
-                variablesText(line.prose, line.variables.filter { splittable[$0] == line.range })
+                variablesText(line.prose, line.variables.filter { splittable[$0] == line.range }, otherwise: tap)
                     .font(Self.proseFont)
                 if let formula = line.formula {
                     // The selected hole's goal marks the variables it binds
                     // up front, or the `if` that starts it.
                     let goal = isHole && selection == line.range
                     variablesText(formula, goal ? binders.map(\.name) : [], binder: true,
-                                  assume: goal && assume != nil)
+                                  assume: goal && assume != nil, otherwise: tap)
                         .font(Self.formulaFont)
                 }
                 statusMark(line.status)
@@ -151,7 +152,7 @@ struct TextbookView: View {
             .padding(.vertical, 2)
             .background { given.map { usable($0) } ?? AnyView(selected(line.range)) }
             .contentShape(Rectangle())
-            .onTapGesture { if let given { useGiven(given) } else { selection = line.range } }
+            .onTapGesture(perform: tap)
             .popover(isPresented: asking(given)) { given.map(instantiator) }
             .popover(isPresented: choosing(isHole && selection == line.range)) { binderChoice }
             .contextMenu { editMenu(line.range) }
@@ -223,8 +224,10 @@ struct TextbookView: View {
         let usable = { (label: String) in self.uses[label].flatMap { $0.range == arm.range ? label : nil } }
         return VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline) {
-                givenText(variablesText(arm.title, arm.variables.filter { splittable[$0] == arm.range }),
-                          arm.assumes.isEmpty ? arm.introduces.first.flatMap(usable) : nil)
+                let given = arm.assumes.isEmpty ? arm.introduces.first.flatMap(usable) : nil
+                givenText(variablesText(arm.title, arm.variables.filter { splittable[$0] == arm.range },
+                                        otherwise: given.map { label in { useGiven(label) } }),
+                          given)
                     .font(Self.proseFont).bold()
                 Spacer(minLength: 16)
                 if arm.assumes.isEmpty { arm.introduces.first.map(sideLabel) }
@@ -293,27 +296,32 @@ struct TextbookView: View {
     }
 
     /// `text` with the first occurrence of each of `names`, in order, boxed;
-    /// tapping one splits on it (or, with `binder`, is a tap on a goal
-    /// binder). With `assume`, the `if` that starts `text` is boxed too,
-    /// for `assume`.
+    /// tapping one (or near one: `BoxedText`) splits on it (or, with
+    /// `binder`, is a tap on a goal binder). With `assume`, the `if` that
+    /// starts `text` is boxed too, for `assume`. A tap near no box does
+    /// `otherwise`.
     private func variablesText(_ text: String, _ names: [String], binder: Bool = false,
-                               assume: Bool = false) -> some View {
+                               assume: Bool = false, otherwise: (() -> Void)? = nil) -> some View {
         let marks = (assume ? [("if", Self.assumeScheme)] : [])
             + names.map { ($0, binder ? Self.binderScheme : Self.splitScheme) }
         var result = Text(verbatim: "")
         var rest = Substring(text)
+        var boxed = false
         for (name, scheme) in marks {
             let word = "(?<![\\w'′])" + NSRegularExpression.escapedPattern(for: name) + "(?![\\w'′])"
             guard let range = rest.range(of: word, options: .regularExpression),
-                  let encoded = name.addingPercentEncoding(withAllowedCharacters: .alphanumerics) else { continue }
+                  let encoded = name.addingPercentEncoding(withAllowedCharacters: .alphanumerics),
+                  let url = URL(string: "\(scheme):\(encoded)") else { continue }
             // A hair space each side keeps the box off its neighbors.
             var marked = AttributedString("\u{200A}" + rest[range] + "\u{200A}")
-            marked.link = URL(string: "\(scheme):\(encoded)")
+            marked.link = url
             marked.foregroundColor = .accentColor
-            result = result + Text(verbatim: String(rest[..<range.lowerBound])) + Text(marked).customAttribute(Boxed())
+            result = result + Text(verbatim: String(rest[..<range.lowerBound]))
+                + Text(marked).customAttribute(Boxed(url: url))
             rest = rest[range.upperBound...]
+            boxed = true
         }
-        return (result + Text(verbatim: String(rest))).textRenderer(BoxedRenderer())
+        return BoxedText(text: result + Text(verbatim: String(rest)), boxed: boxed, otherwise: otherwise)
     }
 
     /// Handles a tap on a variable `variablesText` marked.
@@ -418,32 +426,79 @@ struct TextbookView: View {
     static let formulaFont = Font.system(.title3, design: .serif).weight(.medium)
 }
 
-/// Marks a word in a `Text` to tap, which `BoxedRenderer` draws boxed.
-struct Boxed: TextAttribute {}
+/// Marks a word in a `Text` to tap (opening `url`), which `BoxedRenderer`
+/// draws boxed.
+struct Boxed: TextAttribute {
+    let url: URL
+}
 
 /// Draws text with a rounded box around each run marked `Boxed`, the way
-/// a given to tap is outlined.
+/// a given to tap is outlined, and notes where each box is in `boxes`.
 struct BoxedRenderer: TextRenderer {
+    /// Where the boxes were last drawn, with what each opens.
+    final class Boxes {
+        var drawn: [(rect: CGRect, url: URL)] = []
+
+        /// What the box nearest `point` opens, if one is within `reach`.
+        func nearest(to point: CGPoint, within reach: CGFloat) -> URL? {
+            let distance = { (rect: CGRect) in
+                hypot(max(rect.minX - point.x, 0, point.x - rect.maxX), max(rect.minY - point.y, 0, point.y - rect.maxY))
+            }
+            return drawn.map { (distance($0.rect), $0.url) }.filter { $0.0 <= reach }.min { $0.0 < $1.0 }?.1
+        }
+    }
+
+    let boxes: Boxes
+
     func draw(layout: Text.Layout, in context: inout GraphicsContext) {
+        boxes.drawn = []
         for line in layout {
             // A word can be laid out as several runs: one box around them all.
-            var boxes: [CGRect] = []
-            var open = false
+            var open: URL?
             for run in line {
-                let marked = run[Boxed.self] != nil
-                if marked, open, let last = boxes.popLast() {
-                    boxes.append(last.union(run.typographicBounds.rect))
-                } else if marked {
-                    boxes.append(run.typographicBounds.rect)
+                let url = run[Boxed.self]?.url
+                if let url, url == open, let last = boxes.drawn.popLast() {
+                    boxes.drawn.append((last.rect.union(run.typographicBounds.rect), url))
+                } else if let url {
+                    boxes.drawn.append((run.typographicBounds.rect, url))
                 }
-                open = marked
+                open = url
             }
-            for rect in boxes {
-                let box = RoundedRectangle(cornerRadius: 5).path(in: rect.insetBy(dx: 0, dy: -1))
-                context.fill(box, with: .color(.accentColor.opacity(0.08)))
-                context.stroke(box, with: .color(.accentColor.opacity(0.7)), lineWidth: 1)
-            }
+        }
+        for (rect, _) in boxes.drawn {
+            let box = RoundedRectangle(cornerRadius: 5).path(in: rect.insetBy(dx: 0, dy: -1))
+            context.fill(box, with: .color(.accentColor.opacity(0.08)))
+            context.stroke(box, with: .color(.accentColor.opacity(0.7)), lineWidth: 1)
+        }
+        for line in layout {
             for run in line { context.draw(run) }
+        }
+    }
+}
+
+/// Text with boxed words to tap, where a tap near a box counts as a tap on
+/// it: the nearest box within `reach` opens, and a tap with none that near
+/// does `otherwise`.
+struct BoxedText: View {
+    let text: Text
+    /// Whether any word is boxed; without one, taps pass through.
+    let boxed: Bool
+    let otherwise: (() -> Void)?
+
+    @State private var boxes = BoxedRenderer.Boxes()
+    @Environment(\.openURL) private var openURL
+
+    /// About half a fingertip either side of a word.
+    static let reach: CGFloat = 32
+
+    var body: some View {
+        if boxed {
+            text.textRenderer(BoxedRenderer(boxes: boxes))
+                .onTapGesture { point in
+                    if let url = boxes.nearest(to: point, within: Self.reach) { openURL(url) } else { otherwise?() }
+                }
+        } else {
+            text
         }
     }
 }
