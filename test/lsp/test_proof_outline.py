@@ -150,6 +150,26 @@ end
 """
 
 
+def test_cases_on_a_proof_that_is_not_a_given(tmp_path):
+    """`cases` on any proof still says what it splits: the formula the
+    checker found for the proof, with no label."""
+    src = (
+        "theorem t: all P:bool, Q:bool. if (P or Q) and P then Q or P\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H\n"
+        "  cases conjunct 0 of H\n"
+        "  case p { conclude Q or P by p }\n"
+        "  case q { conclude Q or P by q }\n"
+        "end\n"
+    )
+    outline = proof_outline(str(tmp_path / "t.pf"), src)
+    assert outline.diagnostics == ()
+    [cases] = [s for s in outline.steps if s.kind == "Cases"]
+    assert "label" not in cases.detail
+    assert text(cases.detail["claim"]) == "(P or Q)"
+
+
 def test_step_detail_for_assume_have_cases_and_switch(tmp_path):
     outline = proof_outline(str(tmp_path / "detail.pf"), DETAIL_SRC)
     assert outline.diagnostics == ()
@@ -165,6 +185,8 @@ def test_step_detail_for_assume_have_cases_and_switch(tmp_path):
     assert by_kind["PLet"][0].detail == {"label": "p2"}
 
     [cases] = by_kind["Cases"]
+    # What it splits: the given and its formula.
+    assert (cases.detail["label"], text(cases.detail["claim"])) == ("pq", "(P or Q)")
     arms = text(cases.detail["cases"])
     assert [(a["label"], a["formula"]) for a in arms] == [("p", "P"), ("q", "Q")]
     # Arms partition the steps: `have p2` is in the first, the last

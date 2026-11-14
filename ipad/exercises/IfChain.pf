@@ -1,0 +1,8 @@
+// If P gives Q and Q gives R, then P gives R. Take the assumption apart,
+// assume P, then tap the "if … then" givens to use them.
+
+theorem if_chain: all P:bool, Q:bool, R:bool.
+  if (if P then Q) and (if Q then R) then (if P then R)
+proof
+  ?
+end

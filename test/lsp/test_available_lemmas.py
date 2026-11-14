@@ -899,6 +899,36 @@ def test_type_incompatible_match_does_not_outrank_real_match() -> None:
     )
 
 
+def test_a_conclusion_of_bare_variables_does_not_match() -> None:
+    """``n_injective: … then x = y`` fits every equation between two
+    Nats, types and all; with its premise still to prove it says nothing
+    about the goal, so it isn't offered as fitting it."""
+    source = (
+        "theorem n_injective: all x:Nat, y:Nat."
+        " if suc(x) = suc(y) then x = y\n"
+        "proof\n"
+        "  arbitrary x:Nat, y:Nat\n"
+        "  suppose h: suc(x) = suc(y)\n"
+        "  injective suc h\n"
+        "end\n"
+        "\n"
+        "theorem t: all f:fn Nat -> Nat, a:Nat. if (all x:Nat. f(x) = x) then f(f(a)) = a\n"
+        "proof\n"
+        "  arbitrary f:fn Nat -> Nat, a:Nat\n"
+        "  assume H1: (all x:Nat. f(x) = x)\n"
+        "  ?\n"
+        "end\n"
+    )
+    hole_line = source.split("\n").index("  ?") + 1
+    matches = available_lemmas_at(
+        "user.pf", source, Position(line=hole_line, column=3),
+        prelude=("Base", "Option", "NatDefs"),
+    )
+    by_name = {m.name: m for m in matches}
+    assert "n_injective" in by_name
+    assert by_name["n_injective"].unify_tier is None
+
+
 def test_browse_mode_leaves_unify_tier_unset() -> None:
     """Browse mode (no goal, no query) doesn't run the unifier, so
     ``unify_tier`` stays ``None`` on every result."""

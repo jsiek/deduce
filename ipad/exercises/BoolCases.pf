@@ -1,0 +1,7 @@
+// Every bool is true or not true. Make b arbitrary, then tap b where the
+// proof introduces it to consider its two cases.
+
+theorem bool_or_not: all b:bool. b or not b
+proof
+  ?
+end

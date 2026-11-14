@@ -670,7 +670,9 @@ class ProofStep:
       is ``{pattern, hypotheses, range}``, ``range`` (a :class:`Range`)
       covering the whole case, so it contains the case's steps.
     - ``Cases``: ``cases``, each ``{label, formula, range}``, ``range``
-      running from the arm's proof to the next arm's.
+      running from the arm's proof to the next arm's; ``claim``, the
+      ``or`` formula it splits, and when that's a given (``cases H2``)
+      its ``label``.
     - ``PAnnot`` proving an equation: ``lhs`` and ``rhs``.
     - ``PLet``: ``label``. ``Suffices``: ``claim``.
     - ``PTLetNew`` (``define`` in a proof): ``name`` and ``term``.
@@ -2891,7 +2893,8 @@ def _render_induction(
 #                            h2: Q by conjunct 1 of H\n?''
 # - ``H: P or Q''       -> ``cases H\n  case h1: P { ? }\n
 #                            case h2: Q { ? }''
-# - ``H: if P then Q''  -> ``have h: Q by apply H to ?\n?''
+# - ``H: if P then Q''  -> ``have h: Q by apply H to ?\n?'', or
+#                            ``apply H to ?'' when Q is the goal
 # - ``H: all x:T. P''   -> ``H[?, ?, ...]'' (or ``H<?, ?, ...>''
 #                            for type-arg quantifiers)
 # - ``H: some x:T. P''  -> ``obtain x1, ... where h: <body[subst]>
@@ -2925,6 +2928,8 @@ def eliminate_at(
     For client-side completion of valid ``label`` choices, see
     :func:`eliminable_vars_at`.
     """
+    from abstract_syntax import IfThen, remove_mark
+
     hole_range = _find_hole_at(content, pos)
     if hole_range is None:
         return None
@@ -2939,7 +2944,13 @@ def eliminate_at(
     template = _eliminate_template(label, env)
     if template is None:
         return None
-    if template == f"replace {label}\n?":
+    binding = _lookup(label, env)
+    goal = getattr(exc, "formula", None)
+    if (isinstance(getattr(binding, "formula", None), IfThen) and goal is not None
+            and remove_mark(goal) == binding.formula.conclusion):
+        # It concludes the goal: `apply` proves it, leaving the premise.
+        template = f"apply {label} to {_premise_args(binding.formula.premise, iter(()))}"
+    elif template == f"replace {label}\n?":
         # When the rewrite proves the goal, end it with `.`: the checker
         # never reaches a `?` after a step that leaves `true`.
         tried = _try_step(path, content, hole_range, f"replace {label}", prelude)
@@ -5307,6 +5318,33 @@ def _render_instantiations(
     return tuple(out)
 
 
+def _vacuous_match(
+    formula: Optional["Formula"], goal_ast: Optional["Formula"], env: Optional["Env"]
+) -> bool:
+    """Whether the lemma ``formula`` fits ``goal_ast`` only vacuously: its
+    conclusion is just its own variables under at most one operator
+    (``x = y``, ``x < y``), so it fits any goal of that shape, and the
+    goal alone fixes all of them, so nothing else (no given) bears on
+    it. ``fromNat_injective: … then x = y`` on any equation between Nats
+    is; ``less_trans``, whose middle variable the givens supply, isn't."""
+    from abstract_syntax import Call, Env, VarRef, formula_match
+
+    peeled = _peel_quantified_implication(formula) if formula is not None else None
+    if peeled is None or goal_ast is None or env is None:
+        return False
+    vars, _, conc = peeled
+    names = {v.name for v in vars}
+    parts = conc.args if isinstance(conc, Call) and isinstance(conc.rator, VarRef) else [conc]
+    if not all(isinstance(p, VarRef) and p.get_name() in names for p in parts):
+        return False
+    matching: dict[str, "Term"] = {}
+    try:
+        formula_match(getattr(formula, "location", None), vars, conc, goal_ast, matching, Env(), outer_env=env)
+    except Exception:
+        return False
+    return all(v.name in matching for v in vars)
+
+
 def _unify_score(
     formula: Optional["Formula"],
     goal_ast: Optional["Formula"],
@@ -5743,6 +5781,10 @@ def _rank_lemmas(
             unify_score, unify_tier, discharged, _insts = _unify_score(
                 unify_input, goal_ast, env, given_pairs
             )
+            if unify_tier == "premises_remain" and _vacuous_match(unify_input, goal_ast, env):
+                # It says nothing about this goal, so it isn't suggested
+                # as fitting it (it can still be picked by name).
+                unify_score, unify_tier = 0.0, None
         else:
             unify_score, unify_tier, discharged = 0.0, None, ()
 
@@ -6343,7 +6385,7 @@ def proof_outline(
             givens=_givens(r.env, normalize=False),
             uses=_step_uses(r.proof, r.env),
             status="incomplete" if isinstance(r.proof, PSorry) else st,
-            detail=_step_detail(r),
+            detail=_step_detail(r, records),
         )
         for r, st in zip(mine, status)
     )
@@ -6368,12 +6410,16 @@ def _outline_theorems(
 
 
 # Any: JSON payload whose shape depends on the step kind (see ProofStep).
-def _step_detail(rec: "StepRecord") -> dict[str, Any]:
-    """The ``detail`` of a :class:`ProofStep` (see its docstring)."""
+def _step_detail(
+    rec: "StepRecord", records: dict[tuple[object, ...], "StepRecord"]
+) -> dict[str, Any]:
+    """The ``detail`` of a :class:`ProofStep` (see its docstring), given
+    every record of the check (``records``)."""
     from abstract_syntax import (
         All, AllIntro, Call, Cases, IfThen, ImpIntro, Induction, PAnnot, PLet,
-        PTLetNew, SomeIntro, Suffices, SwitchProof, VarRef, base_name,
+        PTLetNew, PVar, SomeIntro, Suffices, SwitchProof, VarRef, base_name,
     )
+    from checker_proofs import step_key
 
     proof = rec.proof
 
@@ -6429,7 +6475,7 @@ def _step_detail(rec: "StepRecord") -> dict[str, Any]:
                     for c in cases
                 ],
             }
-        case Cases(cases=cases):
+        case Cases(subject=subject, cases=cases):
             # An arm is a bare tuple with no location of its own, so it
             # spans from its proof to the next arm's (or the end).
             starts = [
@@ -6439,7 +6485,13 @@ def _step_detail(rec: "StepRecord") -> dict[str, Any]:
             ends = starts[1:] + [
                 Position(proof.location.end_line, proof.location.end_column)
             ]
+            # The checker recorded the subject, whatever proof it is, with
+            # the `or` formula it proves.
+            split = records.get(step_key(subject))
             return {
+                **({"label": base_name(subject.name)} if isinstance(subject, PVar) else {}),
+                **({"claim": _term_tree(split.formula)}
+                   if split is not None and split.formula is not None else {}),
                 "cases": [
                     {
                         "label": base_name(label),

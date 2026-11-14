@@ -47,10 +47,11 @@ struct HoleInspector: View {
             Section {
                 if let steps {
                     // Induction, and making a goal variable arbitrary, are a tap
-                    // on the variable in the textbook.
+                    // on the variable in the textbook; assuming the premise,
+                    // a tap on the goal's `if`.
                     ForEach(steps.actions.filter { action in
-                        steps.binders.isEmpty || !(action.title == "Induction"
-                            || action.edits.first?.newText.hasPrefix("arbitrary ") == true)
+                        !Self.isAssume(action) && (steps.binders.isEmpty || !(action.title == "Induction"
+                            || action.edits.first?.newText.hasPrefix("arbitrary ") == true))
                     }, id: \.title) { action in
                         Button(Self.label(action)) { server.apply(action.edits) }
                     }
@@ -67,8 +68,8 @@ struct HoleInspector: View {
             } footer: {
                 if marked {
                     Text("Tap a marked given or variable in the proof to use it. Green givens prove the goal. "
-                         + "An underlined variable in the goal can be made arbitrary or inducted on; "
-                         + "elsewhere, tap one for cases on it.")
+                         + "A boxed variable in the goal can be made arbitrary or inducted on; "
+                         + "elsewhere, tap one for cases on it. Tap a boxed “if” to assume what follows it.")
                 }
             }
             Section {
@@ -96,9 +97,9 @@ struct HoleInspector: View {
                     stepButton("Expand " + name, "deduce/previewExpandAtSubterm",
                                ["names": [name], "subterm": subterm ?? []])
                 }
-                ForEach(equations, id: \.self) { equation in
-                    stepButton("Replace using " + equation, "deduce/previewReplaceAtSubterm",
-                               ["equation": equation, "subterm": subterm ?? []])
+                ForEach(equations, id: \.equation) { equation in
+                    stepButton(equation.title, "deduce/previewReplaceAtSubterm",
+                               ["equation": equation.equation, "subterm": subterm ?? []])
                 }
             }
         }
@@ -161,12 +162,17 @@ struct HoleInspector: View {
     }
 
     /// Givens that are equations (either way round), then lemmas that
-    /// rewrite the selection.
-    private var equations: [String] {
+    /// rewrite the selection: each as the server names it (`equation`)
+    /// with its step's title ("Replace f(x) with x", "Replace using
+    /// add_zero").
+    private var equations: [(equation: String, title: String)] {
         // A given labeled `_` (a case's unnamed equation) can't be named.
-        let givens = hole.givens.filter { $0.label != "_" && isEquation($0.formula) }.map(\.label)
-        return givens + givens.map { "symmetric " + $0 }
-            + lemmas.filter { $0.unify_tier == "rewrite_subterm" }.map(\.name)
+        let givens = hole.givens.filter { $0.label != "_" }.compactMap { given in
+            sides(given.formula).map { (given.label, $0.0, $0.1) }
+        }
+        return givens.map { ($0.0, "Replace \($0.1) with \($0.2)") }
+            + givens.map { ("symmetric " + $0.0, "Replace \($0.2) with \($0.1)") }
+            + lemmas.filter { $0.unify_tier == "rewrite_subterm" }.map { ($0.name, "Replace using " + $0.name) }
     }
 
     /// Without a search, the lemmas whose conclusion fits the goal (those
@@ -203,10 +209,12 @@ struct HoleInspector: View {
         "rewrite_subterm": "rewrites it",
     ]
 
-    private func isEquation(_ formula: Outline.Tree) -> Bool {
-        if formula.kind == "All", let body = FormulaView.subtrees(formula).last { return isEquation(body) }
+    /// The two sides of `formula` when it's an equation, under any `all`s.
+    private func sides(_ formula: Outline.Tree) -> (String, String)? {
         let children = FormulaView.subtrees(formula)
-        return formula.kind == "Call" && children.count == 3 && children[1].text == "="
+        if formula.kind == "All", let body = children.last { return sides(body) }
+        guard formula.kind == "Call", children.count == 3, children[1].text == "=" else { return nil }
+        return (display(children[0]), display(children[2]))
     }
 
     @ViewBuilder
@@ -280,6 +288,12 @@ struct HoleInspector: View {
         .padding(.vertical, 4)
     }
 
+    /// Whether `action` is the refine step that assumes an `if` goal's premise.
+    static func isAssume(_ action: (title: String, edits: [TextEdit])) -> Bool {
+        guard action.title == "Refine hole", let text = action.edits.first?.newText else { return false }
+        return text.hasPrefix("assume ") || text.hasPrefix("{ assume ")
+    }
+
     /// What a code action does, in words. The server titles its refine
     /// action "Refine hole" whatever step it inserts, so name the step
     /// from the start of its edit (`refine_at` in `lsp/query.py`).
@@ -287,14 +301,8 @@ struct HoleInspector: View {
         guard action.title == "Refine hole", let text = action.edits.first?.newText else { return action.title }
         var step = String(text.prefix { $0 != "\n" })
         if step.hasPrefix("{ ") { step.removeFirst(2) }  // braced as part of a larger step
-        // (`arbitrary` isn't offered here: it's a tap on the goal's variable.)
-        if step.hasPrefix("assume "), let colon = step.firstIndex(of: ":") {
-            var premise = step[step.index(after: colon)...].trimmingCharacters(in: .whitespaces)
-            if premise.hasPrefix("("), closingParen(of: premise) == premise.index(before: premise.endIndex) {
-                premise = String(premise.dropFirst().dropLast())
-            }
-            return "Assume \(step.dropFirst("assume ".count)[..<colon]): \(premise)"
-        }
+        // (`arbitrary` and `assume` aren't offered here: they're a tap on
+        // the goal's variable or its `if`.)
         if step.hasPrefix("choose ") { return "Choose a witness" }
         if step.hasPrefix("?,") { return "Prove each part" }
         if step == "reflexive" { return "Finish: both sides are equal" }
@@ -309,6 +317,8 @@ struct HoleInspector: View {
 struct InstantiateView: View {
     @EnvironmentObject var server: DeduceServer
     let label: String
+    /// How the textbook cites the given (`Textbook.Labels.cite`).
+    let shown: String
     let hole: Outline.Position
     let done: () -> Void
 
@@ -319,7 +329,7 @@ struct InstantiateView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Use \(label) with").font(.headline)
+            Text("Use \(shown) with").font(.headline)
             if let vars {
                 ForEach(vars.indices, id: \.self) { i in
                     VStack(alignment: .leading, spacing: 6) {
