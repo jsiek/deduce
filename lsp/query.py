@@ -669,7 +669,9 @@ class ProofStep:
       is ``{pattern, hypotheses, range}``, ``range`` (a :class:`Range`)
       covering the whole case, so it contains the case's steps.
     - ``Cases``: ``cases``, each ``{label, formula, range}``, ``range``
-      running from the arm's proof to the next arm's.
+      running from the arm's proof to the next arm's; with a given as
+      its subject (``cases H2``), ``label`` (``H2``) and ``claim``, the
+      ``or`` formula it splits.
     - ``PAnnot`` proving an equation: ``lhs`` and ``rhs``.
     - ``PLet``: ``label``. ``Suffices``: ``claim``.
     - ``PTLetNew`` (``define`` in a proof): ``name`` and ``term``.
@@ -6364,7 +6366,8 @@ def _step_detail(rec: "StepRecord") -> dict[str, Any]:
     """The ``detail`` of a :class:`ProofStep` (see its docstring)."""
     from abstract_syntax import (
         All, AllIntro, Call, Cases, IfThen, ImpIntro, Induction, PAnnot, PLet,
-        PTLetNew, SomeIntro, Suffices, SwitchProof, VarRef, base_name,
+        ProofBinding, PTLetNew, PVar, SomeIntro, Suffices, SwitchProof, VarRef,
+        base_name,
     )
 
     proof = rec.proof
@@ -6421,7 +6424,7 @@ def _step_detail(rec: "StepRecord") -> dict[str, Any]:
                     for c in cases
                 ],
             }
-        case Cases(cases=cases):
+        case Cases(subject=subject, cases=cases):
             # An arm is a bare tuple with no location of its own, so it
             # spans from its proof to the next arm's (or the end).
             starts = [
@@ -6431,7 +6434,13 @@ def _step_detail(rec: "StepRecord") -> dict[str, Any]:
             ends = starts[1:] + [
                 Position(proof.location.end_line, proof.location.end_column)
             ]
+            given = (
+                _lookup(base_name(subject.name), rec.env, ProofBinding)
+                if isinstance(subject, PVar) else None
+            )
             return {
+                **({"label": base_name(subject.name), "claim": _term_tree(given.formula)}
+                   if given is not None else {}),
                 "cases": [
                     {
                         "label": base_name(label),

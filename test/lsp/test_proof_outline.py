@@ -165,6 +165,8 @@ def test_step_detail_for_assume_have_cases_and_switch(tmp_path):
     assert by_kind["PLet"][0].detail == {"label": "p2"}
 
     [cases] = by_kind["Cases"]
+    # What it splits: the given and its formula.
+    assert (cases.detail["label"], text(cases.detail["claim"])) == ("pq", "(P or Q)")
     arms = text(cases.detail["cases"])
     assert [(a["label"], a["formula"]) for a in arms] == [("p", "P"), ("q", "Q")]
     # Arms partition the steps: `have p2` is in the first, the last

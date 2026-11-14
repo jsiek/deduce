@@ -443,10 +443,14 @@ struct Textbook {
             case "SwitchProof": step.detail.subject.map(display)
             default: String?.none
             }
+            // `cases H2` names the given it splits: "By cases on H2: P or Q."
+            let given = step.detail.label.map { label in
+                " on " + label + (step.detail.claim.map { ": " + display($0) } ?? "")
+            }
             let intro = switch step.kind {
             case "Induction": "By induction on \(subject ?? "it")."
             case "SwitchProof": "By cases on \(subject ?? "it")."
-            default: "By cases."
+            default: "By cases\(given ?? "")."
             }
             return .cases(range: step.range, intro: intro, arms: arms.map { arm in
                 let header = arm.pattern.map { (subject.map { $0 + " = " } ?? "") + display($0) }
