@@ -1,7 +1,0 @@
-// If P or Q is true, so is Q or P. Tap the ? to start, then tap the
-// assumption: an "or" splits the proof into one case for each side.
-
-theorem or_swap: all P:bool, Q:bool. if P or Q then Q or P
-proof
-  ?
-end
