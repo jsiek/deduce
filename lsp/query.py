@@ -5310,6 +5310,17 @@ def _render_instantiations(
     return tuple(out)
 
 
+def _generic_conclusion(conc: "Formula", vars: Sequence["ResolvedVar"]) -> bool:
+    """Whether ``conc`` is just the lemma's own variables under at most one
+    operator (``x = y``, ``x < y``, ``P``): it then fits any goal of that
+    shape, whatever the goal says."""
+    from abstract_syntax import Call, VarRef
+
+    names = {v.name for v in vars}
+    parts = conc.args if isinstance(conc, Call) and isinstance(conc.rator, VarRef) else [conc]
+    return all(isinstance(p, VarRef) and p.get_name() in names for p in parts)
+
+
 def _unify_score(
     formula: Optional["Formula"],
     goal_ast: Optional["Formula"],
@@ -5413,6 +5424,10 @@ def _unify_score(
                 tuple(discharged),
                 instantiations,
             )
+        if _generic_conclusion(conc, vars):
+            # `fromNat_injective: … then x = y` fits every equation; with
+            # its premise still to prove, it says nothing about this one.
+            return (0.0, None, (), ())
         return (
             _UNIFY_TIER_SCORE["premises_remain"],
             "premises_remain",

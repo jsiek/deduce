@@ -16,8 +16,6 @@ struct HoleInspector: View {
     /// Variables to split on that the textbook doesn't show where they're
     /// introduced, offered here instead.
     let otherSplittable: [String]
-    /// How the textbook cites givens, so steps name them the same way.
-    let labels: Textbook.Labels
 
     @State private var subterm: [Int]?
     /// Lemmas that rewrite the selected part of the goal.
@@ -100,7 +98,7 @@ struct HoleInspector: View {
                                ["names": [name], "subterm": subterm ?? []])
                 }
                 ForEach(equations, id: \.equation) { equation in
-                    stepButton("Replace using " + equation.shown, "deduce/previewReplaceAtSubterm",
+                    stepButton(equation.title, "deduce/previewReplaceAtSubterm",
                                ["equation": equation.equation, "subterm": subterm ?? []])
                 }
             }
@@ -164,15 +162,17 @@ struct HoleInspector: View {
     }
 
     /// Givens that are equations (either way round), then lemmas that
-    /// rewrite the selection: each as the server names it (`equation`) and
-    /// as the textbook cites it (`shown`: a given by what it says when its
-    /// label isn't shown).
-    private var equations: [(equation: String, shown: String)] {
+    /// rewrite the selection: each as the server names it (`equation`)
+    /// with its step's title ("Replace f(x) with x", "Replace using
+    /// add_zero").
+    private var equations: [(equation: String, title: String)] {
         // A given labeled `_` (a case's unnamed equation) can't be named.
-        let givens = hole.givens.filter { $0.label != "_" && isEquation($0.formula) }
-            .map { ($0.label, labels.cite($0.label)) }
-        return givens + givens.map { ("symmetric " + $0.0, "symmetric " + $0.1) }
-            + lemmas.filter { $0.unify_tier == "rewrite_subterm" }.map { ($0.name, $0.name) }
+        let givens = hole.givens.filter { $0.label != "_" }.compactMap { given in
+            sides(given.formula).map { (given.label, $0.0, $0.1) }
+        }
+        return givens.map { ($0.0, "Replace \($0.1) with \($0.2)") }
+            + givens.map { ("symmetric " + $0.0, "Replace \($0.2) with \($0.1)") }
+            + lemmas.filter { $0.unify_tier == "rewrite_subterm" }.map { ($0.name, "Replace using " + $0.name) }
     }
 
     /// Without a search, the lemmas whose conclusion fits the goal (those
@@ -209,10 +209,12 @@ struct HoleInspector: View {
         "rewrite_subterm": "rewrites it",
     ]
 
-    private func isEquation(_ formula: Outline.Tree) -> Bool {
-        if formula.kind == "All", let body = FormulaView.subtrees(formula).last { return isEquation(body) }
+    /// The two sides of `formula` when it's an equation, under any `all`s.
+    private func sides(_ formula: Outline.Tree) -> (String, String)? {
         let children = FormulaView.subtrees(formula)
-        return formula.kind == "Call" && children.count == 3 && children[1].text == "="
+        if formula.kind == "All", let body = children.last { return sides(body) }
+        guard formula.kind == "Call", children.count == 3, children[1].text == "=" else { return nil }
+        return (display(children[0]), display(children[2]))
     }
 
     @ViewBuilder

@@ -136,15 +136,14 @@ struct ContentView: View {
             VStack(spacing: 0) {
                 HStack(spacing: 0) {
                     textbook
-                    if let hole, let book = server.textbook {
+                    if let hole {
                         Divider()
                         HoleInspector(hole: hole, steps: steps,
                                       marked: !uses.isEmpty || !splittable.isEmpty || !(steps?.binders.isEmpty ?? true)
                                           || assumeStep != nil,
                                       otherSplittable: (steps?.splittable ?? []).filter {
                                           splittable[$0] == nil && !(steps?.eliminable.contains($0) ?? false)
-                                      },
-                                      labels: book.labels)
+                                      })
                             .frame(maxWidth: 440)
                     } else if showSource {
                         Divider()
