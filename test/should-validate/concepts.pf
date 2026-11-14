@@ -63,6 +63,23 @@ proof
   add_zero[zero]
 end
 
+// Inside a where clause, the clause models its concepts, so a where
+// theorem can be used at the clause's types.
+theorem zero_zero_zero: all T:type where { Monoid<T> }.
+  (zero:T) + (zero + zero) = zero
+proof
+  arbitrary T:type where { Monoid<T> }
+  replace zero_zero<T>
+  zero_zero<T>
+end
+
+// ... and the concepts they refine, with the type inferred.
+theorem comm_zero_zero: all U:type where { CommMonoid<U> }. (zero:U) + zero = zero
+proof
+  arbitrary U:type where { CommMonoid<U> }
+  zero_zero
+end
+
 // A refined concept's members are in scope too.
 theorem swap_zero: all U:type where { CommMonoid<U> }. all a:U. zero + a = a + zero
 proof

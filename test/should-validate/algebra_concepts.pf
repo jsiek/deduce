@@ -66,3 +66,20 @@ proof
   assume xy
   apply ordered_add_le_left_mono[x, y, z] to xy
 end
+
+// Inside a where clause, the clause models its concepts (and the ones
+// they refine), so a where theorem can be used at the clause's types.
+
+theorem group_zero_add_twice: all T:type where { OrderedAddCommGroup<T> }.
+  all y:T. zero + (zero + y) = y
+proof
+  arbitrary T:type where { OrderedAddCommGroup<T> }
+  arbitrary y:T
+  replace group_zero_add<T>[zero + y]
+  group_zero_add[y]
+end
+
+theorem rat_zero_add_twice: all y:Rat. rat(+0) + (rat(+0) + y) = y
+proof
+  group_zero_add_twice<Rat>
+end

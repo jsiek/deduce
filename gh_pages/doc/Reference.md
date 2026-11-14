@@ -3556,6 +3556,23 @@ end
 If more than one type fits the arguments with different results,
 Deduce reports the ambiguity; give the types, as in `zero_zero<bool>`.
 
+Inside the proof of a where formula, the where clause is the model of
+its concepts (and of the concepts they refine), so another where
+theorem can be used at the clause's types. It takes the clause's
+operations, and the clause's theorems stand in for the model's. The
+clause's model comes before any other model of the same concept
+instance:
+
+```
+theorem zero_zero_zero: all T:type where { Monoid<T> }.
+  (zero:T) + (zero + zero) = zero
+proof
+  arbitrary T:type where { Monoid<T> }
+  replace zero_zero<T>
+  zero_zero<T>
+end
+```
+
 **Qualified members.** `@C<T>.m` names the member `m` of the concept
 instance `C<T>`, in a term (an operation) or a proof (a theorem):
 
