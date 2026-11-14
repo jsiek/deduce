@@ -3191,7 +3191,10 @@ conclusion ::= "transitive" proof proof
 
 If `X` is a proof of `a = b` and `Y` is a proof of `b = c`,
 then `transitive X Y` is a proof of `a = c`, for any
-terms `a`, `b`, and `c`.
+terms `a`, `b`, and `c`. If both are quantified over the same
+variables, as in `all x. a = b` and `all y. b = c`, then
+`transitive X Y` proves `all x. a = c`. To chain instances of them
+instead, instantiate them, as in `transitive X[t] Y[t]`.
 
 ## True (Formula)
 

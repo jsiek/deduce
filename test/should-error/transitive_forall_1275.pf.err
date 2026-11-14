@@ -1,0 +1,3 @@
+./test/should-error/transitive_forall_1275.pf:19.3-19.13: in transitive, the equations and the goal must be quantified over the same variables, but this one has extra:
+	(all n:N. f(n) = g(n))
+instantiate it, as in thm[x], or quantify the others

@@ -47,7 +47,7 @@ If a name on this page is unfamiliar, follow the link in the Reference column fo
 | `replace eq1 \| eq2 \| ...` | Apply rewrites in sequence. |
 | `simplify with h` | Like `replace`, but accepts non-equation hypotheses: `h : not P` substitutes `P` with `false` in the goal; `h : P` (bare boolean) substitutes `P` with `true`. Use in the `case false` arm of a boolean `switch`, where `replace` rejects the `not P` hypothesis. |
 | `symmetric p` | If `p : a = b`, returns a proof of `b = a`; if `p : all x. a = b`, of `all x. b = a`. |
-| `transitive p1 p2` | `p1 : a = b` together with `p2 : b = c` gives a proof of `a = c`. |
+| `transitive p1 p2` | `p1 : a = b` together with `p2 : b = c` gives a proof of `a = c`; for `all x. a = b` and `all y. b = c`, of `all x. a = c`. |
 | `equations a = b by r1   ... = c by r2   ... = d by r3` | Equational chain — a readable form of nested `transitive`. Inside each step, `expand`/`replace` target the **LHS** by default; wrap a subterm of the RHS in `#...#` to retarget there. |
 
 ## Applying lemmas
