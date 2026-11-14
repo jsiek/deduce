@@ -136,14 +136,15 @@ struct ContentView: View {
             VStack(spacing: 0) {
                 HStack(spacing: 0) {
                     textbook
-                    if let hole {
+                    if let hole, let book = server.textbook {
                         Divider()
                         HoleInspector(hole: hole, steps: steps,
                                       marked: !uses.isEmpty || !splittable.isEmpty || !(steps?.binders.isEmpty ?? true)
                                           || assumeStep != nil,
                                       otherSplittable: (steps?.splittable ?? []).filter {
                                           splittable[$0] == nil && !(steps?.eliminable.contains($0) ?? false)
-                                      })
+                                      },
+                                      labels: book.labels)
                             .frame(maxWidth: 440)
                     } else if showSource {
                         Divider()
@@ -232,7 +233,8 @@ struct ContentView: View {
                          uses: uses, useGiven: useGiven, instantiating: $instantiating,
                          instantiator: { label in
                              AnyView(hole.map { hole in
-                                 InstantiateView(label: label, hole: hole.range.start) { instantiating = nil }
+                                 InstantiateView(label: label, shown: book.labels.cite(label),
+                                                 hole: hole.range.start) { instantiating = nil }
                                      .environmentObject(server)
                              })
                          },

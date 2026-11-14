@@ -165,9 +165,11 @@ struct Textbook {
             return formula.count > Self.shortFormula || sameAsAnother.contains(label)
         }
 
-        /// How `label` is cited: by itself when `shown`, else by what it says.
+        /// How `label` is cited: by itself when `shown`, else by what it says,
+        /// on one line (without the break after an `all x.`).
         func cite(_ label: String) -> String {
-            shown(label) ? label : formulas[label] ?? label
+            guard !shown(label), let formula = formulas[label] else { return label }
+            return formula.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.joined(separator: " ")
         }
     }
 

@@ -16,6 +16,8 @@ struct HoleInspector: View {
     /// Variables to split on that the textbook doesn't show where they're
     /// introduced, offered here instead.
     let otherSplittable: [String]
+    /// How the textbook cites givens, so steps name them the same way.
+    let labels: Textbook.Labels
 
     @State private var subterm: [Int]?
     /// Lemmas that rewrite the selected part of the goal.
@@ -97,9 +99,9 @@ struct HoleInspector: View {
                     stepButton("Expand " + name, "deduce/previewExpandAtSubterm",
                                ["names": [name], "subterm": subterm ?? []])
                 }
-                ForEach(equations, id: \.self) { equation in
-                    stepButton("Replace using " + equation, "deduce/previewReplaceAtSubterm",
-                               ["equation": equation, "subterm": subterm ?? []])
+                ForEach(equations, id: \.equation) { equation in
+                    stepButton("Replace using " + equation.shown, "deduce/previewReplaceAtSubterm",
+                               ["equation": equation.equation, "subterm": subterm ?? []])
                 }
             }
         }
@@ -162,12 +164,15 @@ struct HoleInspector: View {
     }
 
     /// Givens that are equations (either way round), then lemmas that
-    /// rewrite the selection.
-    private var equations: [String] {
+    /// rewrite the selection: each as the server names it (`equation`) and
+    /// as the textbook cites it (`shown`: a given by what it says when its
+    /// label isn't shown).
+    private var equations: [(equation: String, shown: String)] {
         // A given labeled `_` (a case's unnamed equation) can't be named.
-        let givens = hole.givens.filter { $0.label != "_" && isEquation($0.formula) }.map(\.label)
-        return givens + givens.map { "symmetric " + $0 }
-            + lemmas.filter { $0.unify_tier == "rewrite_subterm" }.map(\.name)
+        let givens = hole.givens.filter { $0.label != "_" && isEquation($0.formula) }
+            .map { ($0.label, labels.cite($0.label)) }
+        return givens + givens.map { ("symmetric " + $0.0, "symmetric " + $0.1) }
+            + lemmas.filter { $0.unify_tier == "rewrite_subterm" }.map { ($0.name, $0.name) }
     }
 
     /// Without a search, the lemmas whose conclusion fits the goal (those
@@ -310,6 +315,8 @@ struct HoleInspector: View {
 struct InstantiateView: View {
     @EnvironmentObject var server: DeduceServer
     let label: String
+    /// How the textbook cites the given (`Textbook.Labels.cite`).
+    let shown: String
     let hole: Outline.Position
     let done: () -> Void
 
@@ -320,7 +327,7 @@ struct InstantiateView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Use \(label) with").font(.headline)
+            Text("Use \(shown) with").font(.headline)
             if let vars {
                 ForEach(vars.indices, id: \.self) { i in
                     VStack(alignment: .leading, spacing: 6) {
