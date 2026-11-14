@@ -2885,7 +2885,8 @@ def _render_induction(
 #                            h2: Q by conjunct 1 of H\n?''
 # - ``H: P or Q''       -> ``cases H\n  case h1: P { ? }\n
 #                            case h2: Q { ? }''
-# - ``H: if P then Q''  -> ``have h: Q by apply H to ?\n?''
+# - ``H: if P then Q''  -> ``have h: Q by apply H to ?\n?'', or
+#                            ``apply H to ?'' when Q is the goal
 # - ``H: all x:T. P''   -> ``H[?, ?, ...]'' (or ``H<?, ?, ...>''
 #                            for type-arg quantifiers)
 # - ``H: some x:T. P''  -> ``obtain x1, ... where h: <body[subst]>
@@ -2919,6 +2920,8 @@ def eliminate_at(
     For client-side completion of valid ``label`` choices, see
     :func:`eliminable_vars_at`.
     """
+    from abstract_syntax import IfThen, remove_mark
+
     hole_range = _find_hole_at(content, pos)
     if hole_range is None:
         return None
@@ -2933,7 +2936,13 @@ def eliminate_at(
     template = _eliminate_template(label, env)
     if template is None:
         return None
-    if template == f"replace {label}\n?":
+    binding = _lookup(label, env)
+    goal = getattr(exc, "formula", None)
+    if (isinstance(getattr(binding, "formula", None), IfThen) and goal is not None
+            and remove_mark(goal) == binding.formula.conclusion):
+        # It concludes the goal: `apply` proves it, leaving the premise.
+        template = f"apply {label} to {_premise_args(binding.formula.premise, iter(()))}"
+    elif template == f"replace {label}\n?":
         # When the rewrite proves the goal, end it with `.`: the checker
         # never reaches a `?` after a step that leaves `true`.
         tried = _try_step(path, content, hole_range, f"replace {label}", prelude)

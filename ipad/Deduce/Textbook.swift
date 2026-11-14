@@ -219,6 +219,11 @@ struct Textbook {
             children.map(\.status).reduce(Status(step.status), max)
         }
 
+        /// Whether a `?` (or `sorry`) is nested anywhere in this step.
+        var hasHole: Bool {
+            children.contains { ["PHole", "PSorry"].contains($0.step.kind) || $0.hasHole }
+        }
+
         /// Nest `steps` by range containment; returns the outermost ones in
         /// source order.
         static func forest(_ steps: [Outline.Step], isChain: (Outline.Step) -> Bool) -> [Node] {
@@ -360,10 +365,12 @@ struct Textbook {
         }
 
         /// A line for `node`. With `reason`, its reason is either nested as a
-        /// sub-proof (when it has steps of its own) or summarized.
+        /// sub-proof (when it has steps of its own, or a `?` somewhere in
+        /// it, as in `apply H3 to ?`) or summarized.
         private func line(_ node: Node, _ prose: String, _ formula: String?, reason: Bool = false,
                           introduces: [String] = [], variables: [String] = []) -> Block {
-            let nested = reason && node.children.contains { $0.startsLine && Node.subproof.contains($0.step.kind) }
+            let nested = reason
+                && (node.hasHole || node.children.contains { $0.startsLine && Node.subproof.contains($0.step.kind) })
             return .line(Line(range: node.step.range, prose: prose, formula: formula,
                               reason: reason && !nested ? self.reason(node.step) : nil,
                               status: node.status,

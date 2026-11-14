@@ -155,7 +155,8 @@ struct TextbookView: View {
             .popover(isPresented: choosing(isHole && selection == line.range)) { binderChoice }
             .contextMenu { editMenu(line.range) }
             notes(line.range)
-            if !line.subproof.isEmpty && level != .hidden {
+            // A sub-proof with a `?` in it stays open, so the `?` can be seen.
+            if !line.subproof.isEmpty && (level != .hidden || holdsHole(line.range)) {
                 blocksView(line.subproof)
                     .padding(.leading, 12)
                     .overlay(alignment: .leading) {
@@ -314,6 +315,11 @@ struct TextbookView: View {
     private static let splitScheme = "deduce-split"
     private static let binderScheme = "deduce-binder"
     private static let assumeScheme = "deduce-assume"
+
+    /// Whether a hole other than the line at `range` is inside it.
+    private func holdsHole(_ range: Outline.Range) -> Bool {
+        editable && book.holes.contains { $0.range != range && range.contains($0.range) }
+    }
 
     /// Whether the given `label` is asking for values.
     private func asking(_ label: String?) -> Binding<Bool> {
