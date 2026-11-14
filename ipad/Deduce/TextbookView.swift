@@ -146,6 +146,7 @@ struct TextbookView: View {
                         .contentShape(Rectangle())
                         .onTapGesture { levels[line.range] = level == .hidden ? .full : .hidden }
                 }
+                line.introduces.first.map(sideLabel)
             }
             .padding(.vertical, 2)
             .background { given.map { usable($0) } ?? AnyView(selected(line.range)) }
@@ -215,28 +216,46 @@ struct TextbookView: View {
     }
 
     /// "Case xs = node(t1, l2)." then, a line each, its hypotheses ("Assume
-    /// IH1: …"), each given it introduces marked and tappable when the
-    /// selected hole can use it: the hypotheses one by one, or a `cases`
-    /// arm's whole title.
+    /// …"), each given it introduces marked and tappable when the selected
+    /// hole can use it: the hypotheses one by one, or a `cases` arm's whole
+    /// title. Their labels, when shown, go beside them.
     private func armTitle(_ arm: Textbook.Arm) -> some View {
         let usable = { (label: String) in self.uses[label].flatMap { $0.range == arm.range ? label : nil } }
         return VStack(alignment: .leading, spacing: 4) {
-            givenText(variablesText(arm.title, arm.variables.filter { splittable[$0] == arm.range }),
-                      arm.assumes.isEmpty ? arm.introduces.first.flatMap(usable) : nil)
-                .font(Self.proseFont).bold()
+            HStack(alignment: .firstTextBaseline) {
+                givenText(variablesText(arm.title, arm.variables.filter { splittable[$0] == arm.range }),
+                          arm.assumes.isEmpty ? arm.introduces.first.flatMap(usable) : nil)
+                    .font(Self.proseFont).bold()
+                Spacer(minLength: 16)
+                if arm.assumes.isEmpty { arm.introduces.first.map(sideLabel) }
+            }
             ForEach(arm.assumes, id: \.self) { label in
-                givenText(hypothesis(label, arm.formulas[label]), usable(label))
-                    .padding(.leading, 20)
+                HStack(alignment: .firstTextBaseline) {
+                    givenText(hypothesis(label, arm.formulas[label]), usable(label))
+                    Spacer(minLength: 16)
+                    if arm.formulas[label] != nil { sideLabel(label) }
+                }
+                .padding(.leading, 20)
             }
         }
     }
 
-    /// "Assume IH1: formula", the formula's lines lined up, or without the
-    /// formula when it isn't known.
+    /// "Assume formula", the formula's lines lined up, or "Assume IH1."
+    /// when what it says isn't known.
     private func hypothesis(_ label: String, _ formula: String?) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(formula == nil ? "Assume \(label)." : "Assume \(label):").font(Self.proseFont)
+            Text(formula == nil ? "Assume \(label)." : "Assume").font(Self.proseFont)
             if let formula { Text(formula).font(Self.formulaFont) }
+        }
+    }
+
+    /// A given's label, the way a textbook numbers a formula: in
+    /// parentheses at the side ("(IH1)"). Shown in Full, and otherwise when
+    /// the given is cited by its label (`Textbook.Labels.shown`).
+    @ViewBuilder
+    private func sideLabel(_ label: String) -> some View {
+        if defaultLevel == .full || book.labels.shown(label) {
+            Text("(\(label))").font(Self.proseFont)
         }
     }
 
@@ -366,7 +385,8 @@ struct TextbookView: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.trailing)
             case .summary:
-                Text(reason.summary.isEmpty ? "by definition" : reason.summary)
+                let summary = book.summary(reason, all: defaultLevel == .full)
+                Text(summary.isEmpty ? "by definition" : summary)
                     .font(.footnote)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 2)
