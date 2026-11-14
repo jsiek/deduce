@@ -638,10 +638,36 @@ def _swap_sides(loc: Meta, frm: CheckedFormula, env: Env) -> CheckedFormula:
   (a,b) = split_equation(loc, frm, env)
   return mkEqual(loc, b, a)
 
+def _same_binder(loc: Meta, frm: Formula, other: Formula, env: Env) -> tuple[Formula, Formula] | None:
+  """When ``frm`` and ``other`` both start with ``all`` over the same
+  type, their bodies, with ``other``'s variable renamed to ``frm``'s."""
+  frm, other = reduce_lets(frm, env), reduce_lets(other, env)
+  if not (isinstance(frm, All) and isinstance(other, All) and frm.var[1] == other.var[1]):
+    return None
+  x, ty = frm.var
+  return frm.body, instantiate(loc, other, ResolvedVar(loc, ty, x))
+
+def _unquantified(loc: Meta, eq: Formula, env: Env) -> Formula:
+  """``eq``, which transitive needs without leftover quantifiers."""
+  eq = reduce_lets(eq, env)
+  if isinstance(eq, All):
+    user_error(loc, 'in transitive, the equations and the goal must be '
+               'quantified over the same variables, but this one has extra:\n\t'
+               + str(eq) + '\ninstantiate it, as in thm[x], or quantify the others'
+               + givens_str(env))
+  return eq
+
 def _check_proof_transitive(proof: PTransitive, env: Env) -> CheckedFormula:
-  loc = proof.location
-  eq1 = check_proof(proof.first, env)
-  eq2 = check_proof(proof.second, env)
+  return _chain(proof.location, check_proof(proof.first, env),
+                check_proof(proof.second, env), env)
+
+def _chain(loc: Meta, eq1: Formula, eq2: Formula, env: Env) -> CheckedFormula:
+  """``all x. a = c`` from ``all x. a = b`` and ``all y. b = c`` (#1275)."""
+  bodies = _same_binder(loc, eq1, eq2, env)
+  if bodies is not None:
+    return dataclasses.replace(cast(All, reduce_lets(eq1, env)),
+                               body=_chain(loc, *bodies, env))
+  eq1, eq2 = _unquantified(loc, eq1, env), _unquantified(loc, eq2, env)
   (a,b1) = split_equation(loc, eq1, env)
   (b2,c) = split_equation(loc, eq2, env)
   b1r = b1.reduce(env)
@@ -1522,12 +1548,19 @@ def _check_proof_of_symmetric(proof: PSymmetric, formula: CheckedFormula, env: E
 
 def _check_proof_of_transitive(proof: PTransitive, formula: CheckedFormula, env: Env) -> None:
   loc = proof.location
-  (a1,c) = split_equation(loc, formula, env)
-
   eq1 = check_proof(proof.first, env)
-  (a2,b) = split_equation(loc, eq1, env)
+  # Line the goal's quantifiers up with the first equation's (#1275).
+  goal, binders = formula, []
+  while (bodies := _same_binder(loc, goal, eq1, env)) is not None:
+    binders.append(cast(All, reduce_lets(goal, env)))
+    goal, eq1 = bodies
+  (a1,c) = split_equation(loc, _unquantified(loc, goal, env), env)
+  (a2,b) = split_equation(loc, _unquantified(loc, eq1, env), env)
 
-  _try_check_proof_of(proof.second, mkEqual(loc, b, c), env)
+  second: Formula = mkEqual(loc, b, c)
+  for binder in reversed(binders):
+    second = dataclasses.replace(binder, body=second)
+  _try_check_proof_of(proof.second, second, env)
 
   a1r = a1.reduce(env)
   a2r = a2.reduce(env)

@@ -1,0 +1,20 @@
+// `transitive` needs its equations and the goal quantified over the
+// same variables; here the goal is about one `k`, so the theorems must
+// be instantiated (#1275).
+
+union N { z  s(N) }
+recursive f(N) -> N { f(z) = z  f(s(n)) = s(f(n)) }
+recursive g(N) -> N { g(z) = z  g(s(n)) = s(g(n)) }
+
+theorem fg: all n:N. f(n) = g(n)
+proof
+  induction N
+  case z { expand f | g. }
+  case s(n) suppose IH { expand f | g replace IH. }
+end
+
+theorem t: all k:N. f(k) = g(k)
+proof
+  arbitrary k:N
+  transitive fg (symmetric symmetric fg)
+end

@@ -1,0 +1,68 @@
+// `transitive` chains equations quantified over the same variables,
+// lining up their bound variables, and sames the quantifiers (#1275).
+
+union N { z  s(N) }
+recursive f(N) -> N { f(z) = z  f(s(n)) = s(f(n)) }
+recursive g(N) -> N { g(z) = z  g(s(n)) = s(g(n)) }
+recursive h(N) -> N { h(z) = z  h(s(n)) = s(h(n)) }
+
+theorem fg: all n:N. f(n) = g(n)
+proof
+  induction N
+  case z { expand f | g. }
+  case s(n) suppose IH { expand f | g replace IH. }
+end
+
+theorem gh: all m:N. g(m) = h(m)
+proof
+  induction N
+  case z { expand g | h. }
+  case s(n) suppose IH { expand g | h replace IH. }
+end
+
+// Checked against the goal.
+theorem fh: all k:N. f(k) = h(k)
+proof
+  transitive fg gh
+end
+
+// Proved outright, then used.
+theorem fh_have: all k:N. f(k) = h(k)
+proof
+  have e: all k:N. f(k) = h(k) by transitive fg gh
+  e
+end
+
+theorem fh_at: f(s(z)) = h(s(z))
+proof
+  (transitive fg gh)[s(z)]
+end
+
+// Several variables, and a type variable.
+union Duo<T> { duo(T, T) }
+fun flip<T>(p: Duo<T>) { switch p { case duo(a, b) { duo(b, a) } } }
+fun same<T>(p: Duo<T>) { switch p { case duo(a, b) { duo(a, b) } } }
+
+theorem duo_flip_flip: all T:type, a:T, b:T. flip(flip(duo(a, b))) = same(duo(a, b))
+proof
+  arbitrary T:type, a:T, b:T
+  expand flip | same.
+end
+
+theorem duo_same_id: all U:type, x:U, y:U. same(duo(x, y)) = duo(x, y)
+proof
+  arbitrary U:type, x:U, y:U
+  expand same.
+end
+
+theorem duo_flip_flip_id: all T:type, a:T, b:T. flip(flip(duo(a, b))) = duo(a, b)
+proof
+  transitive duo_flip_flip duo_same_id
+end
+
+theorem duo_flip_flip_id_have: all T:type, a:T, b:T. flip(flip(duo(a, b))) = duo(a, b)
+proof
+  have e: all T:type, a:T, b:T. flip(flip(duo(a, b))) = duo(a, b)
+    by transitive duo_flip_flip duo_same_id
+  e
+end
