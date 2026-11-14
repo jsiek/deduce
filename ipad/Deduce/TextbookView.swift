@@ -54,6 +54,9 @@ struct TextbookView: View {
     @Binding var choosingFor: String?
     /// Called to make a binder arbitrary (`false`) or induct on it (`true`).
     let introduce: (String, Bool) -> Void
+    /// Assumes the selected hole's goal's premise, when it's an `if`: a
+    /// tap on the goal's `if`.
+    let assume: (() -> Void)?
     /// Called with a step's range to edit it as text.
     let editAsText: (Outline.Range) -> Void
 
@@ -125,9 +128,11 @@ struct TextbookView: View {
                 variablesText(line.prose, line.variables.filter { splittable[$0] == line.range })
                     .font(Self.proseFont)
                 if let formula = line.formula {
-                    // The selected hole's goal marks the variables it binds up front.
-                    variablesText(formula, isHole && selection == line.range ? binders.map(\.name) : [],
-                                  binder: true)
+                    // The selected hole's goal marks the variables it binds
+                    // up front, or the `if` that starts it.
+                    let goal = isHole && selection == line.range
+                    variablesText(formula, goal ? binders.map(\.name) : [], binder: true,
+                                  assume: goal && assume != nil)
                         .font(Self.formulaFont)
                 }
                 statusMark(line.status)
@@ -267,41 +272,48 @@ struct TextbookView: View {
         }
     }
 
-    /// `text` with the first occurrence of each of `names`, in order, marked
-    /// with a dotted underline; tapping one splits on it (or, with
-    /// `binder`, is a tap on a goal binder).
-    private func variablesText(_ text: String, _ names: [String], binder: Bool = false) -> Text {
-        guard !names.isEmpty else { return Text(text) }
-        var result = AttributedString()
+    /// `text` with the first occurrence of each of `names`, in order, boxed;
+    /// tapping one splits on it (or, with `binder`, is a tap on a goal
+    /// binder). With `assume`, the `if` that starts `text` is boxed too,
+    /// for `assume`.
+    private func variablesText(_ text: String, _ names: [String], binder: Bool = false,
+                               assume: Bool = false) -> some View {
+        let marks = (assume ? [("if", Self.assumeScheme)] : [])
+            + names.map { ($0, binder ? Self.binderScheme : Self.splitScheme) }
+        var result = Text(verbatim: "")
         var rest = Substring(text)
-        for name in names {
+        for (name, scheme) in marks {
             let word = "(?<![\\w'′])" + NSRegularExpression.escapedPattern(for: name) + "(?![\\w'′])"
             guard let range = rest.range(of: word, options: .regularExpression),
                   let encoded = name.addingPercentEncoding(withAllowedCharacters: .alphanumerics) else { continue }
-            result += AttributedString(rest[..<range.lowerBound])
-            var marked = AttributedString(rest[range])
-            marked.link = URL(string: "\(binder ? Self.binderScheme : Self.splitScheme):\(encoded)")
-            marked.underlineStyle = Text.LineStyle(pattern: .dot, color: .accentColor)
-            result += marked
+            // A hair space each side keeps the box off its neighbors.
+            var marked = AttributedString("\u{200A}" + rest[range] + "\u{200A}")
+            marked.link = URL(string: "\(scheme):\(encoded)")
+            marked.foregroundColor = .accentColor
+            result = result + Text(verbatim: String(rest[..<range.lowerBound])) + Text(marked).customAttribute(Boxed())
             rest = rest[range.upperBound...]
         }
-        result += AttributedString(rest)
-        return Text(result)
+        return (result + Text(verbatim: String(rest))).textRenderer(BoxedRenderer())
     }
 
     /// Handles a tap on a variable `variablesText` marked.
     private var openVariable: OpenURLAction {
         OpenURLAction { url in
-            guard let scheme = url.scheme, [Self.splitScheme, Self.binderScheme].contains(scheme),
+            guard let scheme = url.scheme, [Self.splitScheme, Self.binderScheme, Self.assumeScheme].contains(scheme),
                   let name = url.absoluteString.dropFirst(scheme.count + 1).removingPercentEncoding
             else { return .systemAction }
-            if scheme == Self.binderScheme { tapBinder(name) } else { split(name) }
+            switch scheme {
+            case Self.binderScheme: tapBinder(name)
+            case Self.assumeScheme: assume?()
+            default: split(name)
+            }
             return .handled
         }
     }
 
     private static let splitScheme = "deduce-split"
     private static let binderScheme = "deduce-binder"
+    private static let assumeScheme = "deduce-assume"
 
     /// Whether the given `label` is asking for values.
     private func asking(_ label: String?) -> Binding<Bool> {
@@ -376,8 +388,38 @@ struct TextbookView: View {
             .padding(-4)
     }
 
-    static let proseFont = Font.system(.body, design: .serif)
-    static let formulaFont = Font.system(.body, design: .serif).weight(.medium)
+    static let proseFont = Font.system(.title3, design: .serif)
+    static let formulaFont = Font.system(.title3, design: .serif).weight(.medium)
+}
+
+/// Marks a word in a `Text` to tap, which `BoxedRenderer` draws boxed.
+struct Boxed: TextAttribute {}
+
+/// Draws text with a rounded box around each run marked `Boxed`, the way
+/// a given to tap is outlined.
+struct BoxedRenderer: TextRenderer {
+    func draw(layout: Text.Layout, in context: inout GraphicsContext) {
+        for line in layout {
+            // A word can be laid out as several runs: one box around them all.
+            var boxes: [CGRect] = []
+            var open = false
+            for run in line {
+                let marked = run[Boxed.self] != nil
+                if marked, open, let last = boxes.popLast() {
+                    boxes.append(last.union(run.typographicBounds.rect))
+                } else if marked {
+                    boxes.append(run.typographicBounds.rect)
+                }
+                open = marked
+            }
+            for rect in boxes {
+                let box = RoundedRectangle(cornerRadius: 5).path(in: rect.insetBy(dx: 0, dy: -1))
+                context.fill(box, with: .color(.accentColor.opacity(0.08)))
+                context.stroke(box, with: .color(.accentColor.opacity(0.7)), lineWidth: 1)
+            }
+            for run in line { context.draw(run) }
+        }
+    }
 }
 
 /// An error (red) or warning (orange) on the step it's about. Long

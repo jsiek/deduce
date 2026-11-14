@@ -97,6 +97,12 @@ struct ContentView: View {
         }
     }
 
+    /// The step assuming the selected hole's goal's premise, when it's an
+    /// `if`: a tap on the goal's `if`.
+    private var assumeStep: [TextEdit]? {
+        steps?.actions.first(where: HoleInspector.isAssume)?.edits
+    }
+
     /// Make the goal variable `name` arbitrary, or induct on it, after
     /// making the ones before it arbitrary.
     private func introduce(_ name: String, induction: Bool) {
@@ -133,7 +139,8 @@ struct ContentView: View {
                     if let hole {
                         Divider()
                         HoleInspector(hole: hole, steps: steps,
-                                      marked: !uses.isEmpty || !splittable.isEmpty || !(steps?.binders.isEmpty ?? true),
+                                      marked: !uses.isEmpty || !splittable.isEmpty || !(steps?.binders.isEmpty ?? true)
+                                          || assumeStep != nil,
                                       otherSplittable: (steps?.splittable ?? []).filter {
                                           splittable[$0] == nil && !(steps?.eliminable.contains($0) ?? false)
                                       })
@@ -231,7 +238,8 @@ struct ContentView: View {
                          },
                          splittable: splittable, split: split,
                          binders: steps?.binders ?? [], tapBinder: tapBinder,
-                         choosingFor: $choosingFor, introduce: introduce) { range in
+                         choosingFor: $choosingFor, introduce: introduce,
+                         assume: assumeStep.map { edits in { server.apply(edits) } }) { range in
                 editing = EditingStep(range: range, text: sourceText(server.source.scalarLines, range))
             }
         } else if server.openFile == nil {
