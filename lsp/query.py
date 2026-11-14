@@ -669,9 +669,9 @@ class ProofStep:
       is ``{pattern, hypotheses, range}``, ``range`` (a :class:`Range`)
       covering the whole case, so it contains the case's steps.
     - ``Cases``: ``cases``, each ``{label, formula, range}``, ``range``
-      running from the arm's proof to the next arm's; with a given as
-      its subject (``cases H2``), ``label`` (``H2``) and ``claim``, the
-      ``or`` formula it splits.
+      running from the arm's proof to the next arm's; ``claim``, the
+      ``or`` formula it splits, and when that's a given (``cases H2``)
+      its ``label``.
     - ``PAnnot`` proving an equation: ``lhs`` and ``rhs``.
     - ``PLet``: ``label``. ``Suffices``: ``claim``.
     - ``PTLetNew`` (``define`` in a proof): ``name`` and ``term``.
@@ -6337,7 +6337,7 @@ def proof_outline(
             givens=_givens(r.env, normalize=False),
             uses=_step_uses(r.proof, r.env),
             status="incomplete" if isinstance(r.proof, PSorry) else st,
-            detail=_step_detail(r),
+            detail=_step_detail(r, records),
         )
         for r, st in zip(mine, status)
     )
@@ -6362,13 +6362,16 @@ def _outline_theorems(
 
 
 # Any: JSON payload whose shape depends on the step kind (see ProofStep).
-def _step_detail(rec: "StepRecord") -> dict[str, Any]:
-    """The ``detail`` of a :class:`ProofStep` (see its docstring)."""
+def _step_detail(
+    rec: "StepRecord", records: dict[tuple[object, ...], "StepRecord"]
+) -> dict[str, Any]:
+    """The ``detail`` of a :class:`ProofStep` (see its docstring), given
+    every record of the check (``records``)."""
     from abstract_syntax import (
         All, AllIntro, Call, Cases, IfThen, ImpIntro, Induction, PAnnot, PLet,
-        ProofBinding, PTLetNew, PVar, SomeIntro, Suffices, SwitchProof, VarRef,
-        base_name,
+        PTLetNew, PVar, SomeIntro, Suffices, SwitchProof, VarRef, base_name,
     )
+    from checker_proofs import step_key
 
     proof = rec.proof
 
@@ -6434,13 +6437,13 @@ def _step_detail(rec: "StepRecord") -> dict[str, Any]:
             ends = starts[1:] + [
                 Position(proof.location.end_line, proof.location.end_column)
             ]
-            given = (
-                _lookup(base_name(subject.name), rec.env, ProofBinding)
-                if isinstance(subject, PVar) else None
-            )
+            # The checker recorded the subject, whatever proof it is, with
+            # the `or` formula it proves.
+            split = records.get(step_key(subject))
             return {
-                **({"label": base_name(subject.name), "claim": _term_tree(given.formula)}
-                   if given is not None else {}),
+                **({"label": base_name(subject.name)} if isinstance(subject, PVar) else {}),
+                **({"claim": _term_tree(split.formula)}
+                   if split is not None and split.formula is not None else {}),
                 "cases": [
                     {
                         "label": base_name(label),

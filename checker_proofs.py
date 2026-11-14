@@ -126,6 +126,12 @@ class StepRecord:
   goal: Optional[Term] = None
   formula: Optional[Term] = None
 
+def step_key(proof: Proof) -> tuple[Optional[str], int, int, int, int]:
+  """The key of ``proof``'s record in the proof outline: its source range."""
+  loc = proof.location
+  return (getattr(loc, 'filename', None), loc.line, loc.column,
+          loc.end_line, loc.end_column)
+
 def record_step(proof: Proof, env: Env, goal: Optional[Term] = None,
                 formula: Optional[Term] = None) -> None:
   """Record ``proof`` in the active proof outline, if any. Nodes that
@@ -133,11 +139,9 @@ def record_step(proof: Proof, env: Env, goal: Optional[Term] = None,
   ``AllIntro``s; synthesized nodes reuse their source's location) merge
   into one record: the first visit wins, later ones fill in blanks."""
   steps = get_proof_outline()
-  loc = proof.location
-  if steps is None or loc.empty:
+  if steps is None or proof.location.empty:
     return
-  key = (getattr(loc, 'filename', None), loc.line, loc.column,
-         loc.end_line, loc.end_column)
+  key = step_key(proof)
   rec = steps.get(key)
   if rec is None:
     steps[key] = StepRecord(proof, env, goal, formula)
