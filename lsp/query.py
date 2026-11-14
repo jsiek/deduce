@@ -5310,15 +5310,31 @@ def _render_instantiations(
     return tuple(out)
 
 
-def _generic_conclusion(conc: "Formula", vars: Sequence["ResolvedVar"]) -> bool:
-    """Whether ``conc`` is just the lemma's own variables under at most one
-    operator (``x = y``, ``x < y``, ``P``): it then fits any goal of that
-    shape, whatever the goal says."""
-    from abstract_syntax import Call, VarRef
+def _vacuous_match(
+    formula: Optional["Formula"], goal_ast: Optional["Formula"], env: Optional["Env"]
+) -> bool:
+    """Whether the lemma ``formula`` fits ``goal_ast`` only vacuously: its
+    conclusion is just its own variables under at most one operator
+    (``x = y``, ``x < y``), so it fits any goal of that shape, and the
+    goal alone fixes all of them, so nothing else (no given) bears on
+    it. ``fromNat_injective: … then x = y`` on any equation between Nats
+    is; ``less_trans``, whose middle variable the givens supply, isn't."""
+    from abstract_syntax import Call, Env, VarRef, formula_match
 
+    peeled = _peel_quantified_implication(formula) if formula is not None else None
+    if peeled is None or goal_ast is None or env is None:
+        return False
+    vars, _, conc = peeled
     names = {v.name for v in vars}
     parts = conc.args if isinstance(conc, Call) and isinstance(conc.rator, VarRef) else [conc]
-    return all(isinstance(p, VarRef) and p.get_name() in names for p in parts)
+    if not all(isinstance(p, VarRef) and p.get_name() in names for p in parts):
+        return False
+    matching: dict[str, "Term"] = {}
+    try:
+        formula_match(getattr(formula, "location", None), vars, conc, goal_ast, matching, Env(), outer_env=env)
+    except Exception:
+        return False
+    return all(v.name in matching for v in vars)
 
 
 def _unify_score(
@@ -5424,10 +5440,6 @@ def _unify_score(
                 tuple(discharged),
                 instantiations,
             )
-        if _generic_conclusion(conc, vars):
-            # `fromNat_injective: … then x = y` fits every equation; with
-            # its premise still to prove, it says nothing about this one.
-            return (0.0, None, (), ())
         return (
             _UNIFY_TIER_SCORE["premises_remain"],
             "premises_remain",
@@ -5761,6 +5773,10 @@ def _rank_lemmas(
             unify_score, unify_tier, discharged, _insts = _unify_score(
                 unify_input, goal_ast, env, given_pairs
             )
+            if unify_tier == "premises_remain" and _vacuous_match(unify_input, goal_ast, env):
+                # It says nothing about this goal, so it isn't suggested
+                # as fitting it (it can still be picked by name).
+                unify_score, unify_tier = 0.0, None
         else:
             unify_score, unify_tier, discharged = 0.0, None, ()
 
