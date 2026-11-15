@@ -395,9 +395,7 @@ class Conditional(Term):
   els: Term
 
   def __str__(self) -> str:
-      return '(if ' + str(self.cond) \
-        + ' then ' + str(self.thn) \
-        + ' else ' + str(self.els) + ')'
+      return show(self)
 
   def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
       return ('' if afterNewline else '\n') + indent*' ' + 'if ' + str(self.cond) + ' then\n' \
@@ -438,7 +436,7 @@ class TAnnote(Term):
   typ: Type
 
   def __str__(self) -> str:
-      return str(self.subject) + ':' + str(self.typ)
+      return show(self)
 
   def reduce(self, env: Env) -> Term:
     return self.subject.reduce(env)
@@ -966,73 +964,150 @@ def is_prefix_operator(trm: Term | RecFun | GenRecFun) -> bool:
   name = callable_name(trm)
   return name is not None and base_name(name) in prefix_precedence.keys()
 
-def precedence(trm: Term) -> int | None:
+# Printing with only the parentheses the grammar needs (#1283).
+#
+# Binding levels of the grammar (Deduce.lark), loosest first. `and`, `or`
+# and the annotation `:` share a level; every binary level groups to the
+# left; `if`, `all`, `some`, `define` and the conditional are atoms whose
+# last part extends as far right as it can.
+_IFF, _LOGIC, _SEP, _POINTS_TO, _EQUAL, _COMPARE, _ADD, _MULT, _EXPT, ATOM \
+  = range(1, 11)
+_INFIX_LEVEL = {'=': _EQUAL, '^': _EXPT}
+_INFIX_LEVEL.update({op: _COMPARE for op in ('<', '>', '≤', '≥', '⊆', '∈', '≲', '≈')})
+_INFIX_LEVEL.update({op: _ADD for op in ('+', '-', '∪', '∩', '⨄', '++', '∸', '⊝')})
+_INFIX_LEVEL.update({op: _MULT for op in ('*', '/', '%', '∘')})
+
+def _infix_level(trm: Call) -> int | None:
+  if len(trm.args) >= 2 and is_infix_operator(trm.rator):
+    return _INFIX_LEVEL.get(base_name(operator_display_name(trm.rator)))
+  return None
+
+def _connective_args(trm: And | Or) -> list[Formula | tuple[Formula, Formula]]:
+  """The operands of ``trm``, with each ``if P then Q`` that is followed
+  by ``if Q then P`` in an ``and`` merged into the pair ``(P, Q)``, which
+  prints as ``P ⇔ Q``."""
+  if isinstance(trm, Or):
+    return list(trm.args)
+  ret: list[Formula | tuple[Formula, Formula]] = []
+  i = 0
+  while i < len(trm.args):
+    arg = trm.args[i]
+    if isinstance(arg, IfThen) and i + 1 < len(trm.args) and not _is_negation(arg) \
+       and trm.args[i + 1] == IfThen(arg.location, arg.typeof, arg.conclusion, arg.premise):
+      ret.append((arg.premise, arg.conclusion))
+      i += 2
+    else:
+      ret.append(arg)
+      i += 1
+  return ret
+
+def _is_negation(trm: Term) -> bool:
+  return isinstance(trm, IfThen) and isinstance(trm.conclusion, Bool) \
+    and not trm.conclusion.value
+
+def _not_equal_sides(trm: IfThen) -> tuple[Term, Term] | None:
+  """``(a, b)`` when ``trm`` is ``not (a = b)``, printed ``a ≠ b``."""
+  prem = trm.premise
+  if _is_negation(trm) and isinstance(prem, Call) and len(prem.args) == 2:
+    name = callable_name(prem.rator)
+    if name is not None and base_name(name) == '=':
+      return prem.args[0], prem.args[1]
+  return None
+
+def _level(trm: Term) -> int:
   match trm:
-    case Call(_, _, rator, args) if is_operator_callable(rator):
-      op_name = base_name(operator_display_name(rator))
-      if len(args) >= 2:
-        return infix_precedence.get(op_name, None)
-      elif len(args) == 1:
-        return prefix_precedence.get(op_name, None)
-      else:
-        return None
-    case IfThen(_, _, _, Bool(_, _, False)):
-      # `not X` (and the `X ≠ Y` sugar that desugars to `not (X = Y)`)
-      # bind looser than every infix operator in the parser: the `NOT`
-      # branch of `parse_term_hi` consumes `parse_term_equal`, so the
-      # printed `not X = Y` reparses as `not (X = Y)`. Returning a
-      # precedence strictly less than every `infix_precedence` value
-      # makes `op_arg_str` parenthesize a `not X` operand of `=`, `<`,
-      # `+`, etc. so the original `(not X) = Y` shape round-trips.
-      return 0
-    case _:
-      return None
+    case Call() if (level := _infix_level(trm)) is not None:
+      return level
+    case IfThen() if _not_equal_sides(trm) is not None:
+      return _EQUAL
+    case IfThen() if _is_negation(trm):
+      # The grammar's `not` takes an atom, so `not y = x` is
+      # `(not y) = x`; but readers take it as `not (y = x)`, so a `not`
+      # is grouped where it is an operand of `=` or tighter.
+      return _SEP
+    case And() | Or():
+      args = _connective_args(trm)
+      if len(args) == 1:
+        return _IFF if isinstance(args[0], tuple) else _level(args[0])
+      return _LOGIC
+    case TAnnote():
+      return _LOGIC
+    case SepConj():
+      return _SEP
+    case PointsTo():
+      return _POINTS_TO
+  return ATOM
 
-def left_child(parent: Term, child: Term) -> bool:
-  match parent:
-    case Call(_, _, _, [left, _]):
-      return child is left
-    case _:
-      return False
-    
-def op_arg_str(trm: Term, arg: Term) -> str:
-  trm_precedence = precedence(trm)
-  arg_precedence = precedence(arg)
-  if trm_precedence is not None and arg_precedence is not None:
-    if arg_precedence < trm_precedence:
-      return "(" + str(arg) + ")"
-    elif arg_precedence == trm_precedence: # and left_child(trm, arg):
-      return "(" + str(arg) + ")"
-  # TAnnote's `:` and TLet's `define ...; ...` bind looser than every
-  # operator, so operator-call operands with either shape must be grouped
-  # to round-trip through the parsers without re-association.
-  if trm_precedence is not None and isinstance(arg, (TAnnote, TLet)):
-    return "(" + str(arg) + ")"
-  return str(arg)
+def _open_ended(trm: Term) -> bool:
+  """Whether ``trm`` starts a form whose last part extends as far right
+  as it can, so that it must be last in its context."""
+  match trm:
+    case All() | Some() | Conditional() | TLet():
+      return True
+    case IfThen():
+      return not _is_negation(trm)
+    case And() | Or():
+      args = _connective_args(trm)
+      return len(args) == 1 and not isinstance(args[0], tuple) and _open_ended(args[0])
+  return False
 
+def show(trm: Term, level: int = 0, last: bool = True) -> str:
+  """``trm`` printed where the context needs a term binding at least as
+  tightly as ``level``, parenthesized only if the grammar needs it.
+  ``last`` says whether ``trm`` ends its context, so that an open-ended
+  form there needs no parentheses."""
+  if _level(trm) < level or (_open_ended(trm) and not last):
+    return '(' + _show(trm, True) + ')'
+  return _show(trm, last)
 
-def _connective_arg_str(connective: str, arg: 'str | Formula') -> str:
-  # `connective` is 'and' or 'or'; `arg` is either a pre-rendered string
-  # (e.g. the synthetic `(P ⇔ Q)` produced by the iff-pair detection
-  # in `And.__str__`) or a Formula.
-  #
-  # An infix-operator Call -- e.g. `Call(=, [a, b])` -- renders as
-  # `a = b` with no outer parens, so embedding it inside an `and`/`or`
-  # would yield `(a = b and c)`, which a reader will misparse as
-  # `a = (b and c)` even though the grammar disambiguated it the other
-  # way. Wrap such a Call when its operator binds looser than the
-  # connective itself, so the goal printer never hides this trap.
-  if isinstance(arg, str):
-    return arg
-  if isinstance(arg, TLet):
-    return '(' + str(arg) + ')'
-  conn_prec = infix_precedence.get(connective)
-  if isinstance(arg, Call) and conn_prec is not None:
-    arg_prec = precedence(arg)
-    if arg_prec is not None and arg_prec < conn_prec:
-      return '(' + str(arg) + ')'
-  return str(arg)
-
+def _show(trm: Term, last: bool) -> str:
+  match trm:
+    case Call(_, _, rator, args) if (level := _infix_level(trm)) is not None:
+      # Left-associative: the first operand may bind as loosely as the
+      # operator, the others must bind tighter. Different operators of
+      # one level are grouped anyway, as in `(a * b) % m`.
+      name = operator_display_name(rator)
+      first = args[0]
+      same = isinstance(first, Call) and _infix_level(first) == level \
+        and operator_display_name(first.rator) == name
+      op = ' ' + name + ' '
+      return show(first, level if same else level + 1, False) + op \
+        + op.join(show(arg, level + 1, last and i == len(args) - 2)
+                  for i, arg in enumerate(args[1:]))
+    case Call(_, _, rator, [arg]) if is_prefix_operator(rator):
+      return operator_display_name(rator) + ' ' + show(arg, ATOM, last)
+    case IfThen(_, _, prem, conc):
+      if (sides := _not_equal_sides(trm)) is not None:
+        return show(sides[0], _EQUAL, False) + ' ≠ ' + show(sides[1], _EQUAL + 1, last)
+      if _is_negation(trm):
+        return 'not ' + show(prem, ATOM, last)
+      return 'if ' + show(prem, 0, False) + ' then ' + show(conc)
+    case And() | Or():
+      operands = _connective_args(trm)
+      if len(operands) == 1 and not isinstance(operands[0], tuple):
+        return _show(operands[0], last)
+      # Mixed `and`/`or`, nested connectives and `⇔` are always
+      # grouped: the grammar would group them left to right, but
+      # readers expect `and` to bind tighter than `or`.
+      def operand(arg: Formula | tuple[Formula, Formula], ends: bool) -> str:
+        if isinstance(arg, tuple):
+          iff = show(arg[0], _LOGIC + 1, False) + ' ⇔ ' + show(arg[1], _LOGIC + 1, ends)
+          return iff if len(operands) == 1 else '(' + iff + ')'
+        return show(arg, _LOGIC + 1, ends)
+      conn = ' and ' if isinstance(trm, And) else ' or '
+      return conn.join(operand(arg, last and i == len(operands) - 1)
+                       for i, arg in enumerate(operands))
+    case TAnnote(_, _, subject, typ):
+      return show(subject, _LOGIC + 1, False) + ':' + str(typ)
+    case SepConj(_, _, left, right):
+      return show(left, _SEP, False) + ' ** ' + show(right, _SEP + 1, last)
+    case PointsTo(_, _, address, value):
+      return show(address, _POINTS_TO + 1, False) + ' |-> ' \
+        + show(value, _POINTS_TO + 1, last)
+    case Conditional(_, _, cond, thn, els):
+      return 'if ' + show(cond, 0, False) + ' then ' + show(thn, 0, False) \
+        + ' else ' + show(els)
+  return trm._atomic_str()
 
 
 def do_function_call(loc: Meta, name: str, type_params: list[str],
@@ -1164,11 +1239,14 @@ class Call(Term):
   args: list[Term]
 
   def __str__(self) -> str:
+    return show(self)
+
+  def _atomic_str(self) -> str:
     if is_infix_operator(self.rator) and len(self.args) >= 2:
+      # An infix operator without a printing level (`and`, `or`, `⇔`
+      # used as a function).
       op_str = ' ' + operator_display_name(self.rator) + ' '
-      return op_str.join([op_arg_str(self, arg) for arg in self.args])
-    elif is_prefix_operator(self.rator) and len(self.args) == 1:
-      return operator_display_name(self.rator) + " " + op_arg_str(self, self.args[0])
+      return '(' + op_str.join(show(arg, ATOM) for arg in self.args) + ')'
     elif isDeduceInt(self):
       return deduceIntToInt(self)
     elif (rat := ratToStr(self)) is not None and not get_verbose():
@@ -1192,7 +1270,7 @@ class Call(Term):
       # operator-call rator (e.g. `f ∘ g`) must be parenthesized so the
       # printed form reparses as `Call(Call(∘, f, g), [args])` instead of
       # `Call(∘, f, Call(g, [args]))`.
-      if precedence(self.rator) is not None:
+      if _level(self.rator) < ATOM or _open_ended(self.rator):
         rator_str = "(" + rator_str + ")"
       return rator_str + "(" \
         + ", ".join([str(arg) for arg in self.args])\
@@ -1737,7 +1815,7 @@ class TLet(Term):
 
   def __str__(self) -> str:
     return 'define ' + base_name(self.var) + ' = ' + str(self.rhs) + ';' \
-      + '\n\t' + str(self.body)
+      + '\n\t' + show(self.body)
 
   def reduce(self, env: Env) -> Term:
     new_body = self.body.substitute({self.var: self.rhs})
@@ -1858,31 +1936,7 @@ class And(Formula):
   args: list[Formula]
 
   def __str__(self) -> str:
-    ret_args: list[str | Formula] = []
-    skip = False
-    for i in range(len(self.args) - 1):
-      if skip: 
-        skip = False
-        continue
-      match self.args[i]:
-        case IfThen(loc, tyof, prem, conc):
-          if (self.args[i + 1]) == IfThen(loc, tyof, conc, prem):
-            iff = Call(self.location, None, ResolvedVar(self.location, None, '⇔'),
-                       [prem,conc])
-            iff_str = '(' + op_arg_str(iff, prem) + ' ⇔ ' + op_arg_str(iff, conc) +')'
-            ret_args.append(iff_str)
-            skip = True
-            continue
-      ret_args.append(self.args[i])
-    
-    if not skip:
-      ret_args.append(self.args[-1])
-
-    if len(ret_args) == 1:
-      return str(ret_args[0])
-
-    return '(' + ' and '.join([_connective_arg_str('and', arg)
-                               for arg in ret_args]) + ')'
+    return show(self)
 
   def __eq__(self, other: object) -> bool:
     return eq_arg_list(self, other)
@@ -1907,8 +1961,7 @@ class Or(Formula):
   args: list[Formula]
 
   def __str__(self) -> str:
-    return '(' + ' or '.join([_connective_arg_str('or', arg)
-                              for arg in self.args]) + ')'
+    return show(self)
   
   def __eq__(self, other: object) -> bool:
     return eq_arg_list(self, other)
@@ -1922,21 +1975,7 @@ class IfThen(Formula):
   conclusion : Formula
 
   def __str__(self) -> str:
-    match self.conclusion:
-      case Bool(_, _, False):
-        eq_call = self.premise
-        rator_name = callable_name(eq_call.rator) \
-          if isinstance(eq_call, Call) and len(eq_call.args) == 2 else None
-        if rator_name is not None and base_name(rator_name) == '=':
-          assert isinstance(eq_call, Call)
-          lhs, rhs = eq_call.args
-          return str(lhs) + ' ≠ ' + str(rhs)
-        return str(Call(self.location, self.typeof,
-                        Var(self.location, None, 'not'),
-                        [self.premise]))
-      case _:
-        return '(if ' + str(self.premise) \
-          + ' then ' + str(self.conclusion) + ')'
+    return show(self)
 
   def __eq__(self, other: object) -> bool:
     return eq_fields(self, other, 'premise', 'conclusion')
@@ -2012,7 +2051,7 @@ class PointsTo(Formula):
     return eq_fields(self, other, 'address', 'value')
 
   def __str__(self) -> str:
-    return '(' + str(self.address) + ' |-> ' + str(self.value) + ')'
+    return show(self)
 
 @dataclass
 class SepConj(Formula):
@@ -2025,7 +2064,7 @@ class SepConj(Formula):
     return eq_fields(self, other, 'left', 'right')
 
   def __str__(self) -> str:
-    return '(' + str(self.left) + ' ** ' + str(self.right) + ')'
+    return show(self)
 
 @dataclass
 class All(Formula):
@@ -2051,20 +2090,14 @@ class All(Formula):
 
     result = ''
     if s + 1 == e:
-      result += "(all "
+      result += "all "
     result += f"{v}:{str(t)}"
     if self.where is not None:
       result += ' ' + str(self.where)
     if s == 0:
-      result += ". "
+      result += ". " + show(where_body(self))
     else:
-      result += ", "
-
-    result += f"{str(where_body(self))}"
-
-    if s + 1 == e: 
-      result += ")"
-
+      result += ", " + str(where_body(self))
     return result
 
   def reduce(self, env: Env) -> Formula:
@@ -2110,7 +2143,7 @@ class Some(Formula):
   def __str__(self) -> str:
       return 'some ' + ",".join([(v if get_verbose() else base_name(v)) + ":" + str(t) \
                                  for (v,t) in self.vars]) \
-        + '. ' + str(self.body)
+        + '. ' + show(self.body)
   
   def reduce(self, env: Env) -> Formula:
     len(self.vars)

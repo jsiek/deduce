@@ -272,6 +272,11 @@ class Term(AST):
   def reduce(self, env: Env) -> Term:
     return self._map_children(lambda x: x.reduce(env))
 
+  def _atomic_str(self) -> str:
+    # How `show` (abstract_syntax/terms.py) prints a term it has no
+    # operator rule for: as the term prints on its own.
+    return str(self)
+
   def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
       if afterNewline:
           return indent*' ' + str(self)

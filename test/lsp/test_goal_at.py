@@ -87,7 +87,7 @@ CASES = [
             "end\n"
         ),
         cursor=Position(line=6, column=1),
-        expected_formula="(P and Q)",
+        expected_formula="P and Q",
         expected_givens=(
             ("qQ", "Q"),
             ("pP", "P"),
@@ -469,7 +469,7 @@ def test_goal_at_synthetic_hole_skips_earlier_existing_hole() -> None:
     g = goal_at("test.pf", source, Position(line=7, column=3))
     assert g is not None
     # The remaining goal after `have h1: P` is the conjunction.
-    assert str(g.formula) == "(P and Q)"
+    assert str(g.formula) == "P and Q"
     labels = {given.label for given in g.givens}
     assert "h1" in labels, (
         f"expected h1 in scope at synthetic hole, got givens: {g.givens}"

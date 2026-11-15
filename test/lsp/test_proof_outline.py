@@ -64,7 +64,7 @@ def test_length_append_induction_and_equations():
 
     induction = next(s for s in steps if s.kind == "Induction")
     assert text(induction.goal) == (
-        "(all xs:List<U>, ys:List<U>. length(xs ++ ys) = length(xs) + length(ys))"
+        "all xs:List<U>, ys:List<U>. length(xs ++ ys) = length(xs) + length(ys)"
     )
 
     # The three links of the `equations` chain in the `node` case each
@@ -83,7 +83,7 @@ def test_length_append_induction_and_equations():
     assert links[2].uses == (StepUse("length", "definition"),)
     assert all(
         [(g.label, text(g.formula)) for g in s.givens]
-        == [("IH", "(all ys:List<U>. length(xs' ++ ys) = length(xs') + length(ys))")]
+        == [("IH", "all ys:List<U>. length(xs' ++ ys) = length(xs') + length(ys)")]
         for s in links
     )
 
@@ -114,7 +114,7 @@ def test_length_append_induction_and_equations():
 
     theorem = next(t for t in outline.theorems if t.name == "length_append")
     assert text(theorem.formula) == (
-        "(all U:type, xs:List<U>, ys:List<U>. length(xs ++ ys) = length(xs) + length(ys))"
+        "all U:type, xs:List<U>, ys:List<U>. length(xs ++ ys) = length(xs) + length(ys)"
     )
     assert not theorem.lemma
     assert (theorem.range.start.line, theorem.range.end.line) == (first, last)
@@ -161,7 +161,7 @@ def test_step_detail_for_assume_have_cases_and_switch(tmp_path):
     assert text(by_kind["AllIntro"][0].detail) == {
         "vars": [{"name": "P", "type": "bool"}, {"name": "Q", "type": "bool"}]
     }
-    assert text(by_kind["ImpIntro"][0].detail) == {"label": "pq", "premise": "(P or Q)"}
+    assert text(by_kind["ImpIntro"][0].detail) == {"label": "pq", "premise": "P or Q"}
     assert by_kind["PLet"][0].detail == {"label": "p2"}
 
     [cases] = by_kind["Cases"]
@@ -228,9 +228,9 @@ def test_error_partway_keeps_earlier_and_later_steps(tmp_path):
 
     have_p = by_line[5][0]
     assert (have_p.kind, have_p.status) == ("PLet", "ok")
-    assert text((have_p.goal, have_p.formula)) == ("(Q and P)", "P")
+    assert text((have_p.goal, have_p.formula)) == ("Q and P", "P")
     assert have_p.uses == (StepUse("pq", "given"),)
-    assert [(g.label, text(g.formula)) for g in have_p.givens] == [("pq", "(P and Q)")]
+    assert [(g.label, text(g.formula)) for g in have_p.givens] == [("pq", "P and Q")]
 
     # The bad `conjunct 0` owns the error; the `have` around it doesn't.
     have_q, bad = by_line[6][0], by_line[6][1]
@@ -241,7 +241,7 @@ def test_error_partway_keeps_earlier_and_later_steps(tmp_path):
     assert (conclude.kind, conclude.status) == ("PAnnot", "ok")
     # Most recent first, as the checker lists givens.
     assert [g.label for g in conclude.givens] == ["q", "p", "pq"]
-    assert text((hole.kind, hole.status, hole.goal)) == ("PHole", "incomplete", "(Q and P)")
+    assert text((hole.kind, hole.status, hole.goal)) == ("PHole", "incomplete", "Q and P")
 
     assert len(outline.diagnostics) == 2
 

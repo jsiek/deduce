@@ -451,7 +451,7 @@ PARSER_ROUND_TRIP_FILES = (
     # the `= body`. Covers both an annotated `opaque define : T = fun ...`
     # and the visibility coexisting with the broader Define pretty-print.
     "./test/should-validate/ImportTests.pf",
-    # `op_arg_str` now parenthesizes `TAnnote` args of operator Calls --
+    # The printer (`show`) parenthesizes `TAnnote` args of operator Calls --
     # `:` binds looser than every operator, so the printed
     # `subject:type ^ ...` previously reparsed as `subject : (type ^ ...)`
     # and the leftover operator tripped the next statement.

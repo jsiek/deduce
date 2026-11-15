@@ -2,7 +2,7 @@
 Could not prove that
 	P
 implies
-	(Q or R)
+	Q or R
 because we could not prove at least one of
 	P   implies   Q
 	P   implies   R

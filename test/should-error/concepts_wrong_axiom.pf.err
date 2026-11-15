@@ -8,7 +8,7 @@ because
 
 
 While trying to prove that
-	(all x:bool. band(x, true) = x)
+	all x:bool. band(x, true) = x
 implies
-	(all x:bool. band(true, x) = x)
+	all x:bool. band(true, x) = x
 Did you mean `replace band_true`?

@@ -91,7 +91,7 @@ def test_full_tier_no_premises_emits_conclude_by_name() -> None:
     # Goal text is rendered with surrounding parens for ``and`` because
     # that's the canonical ``Goal`` formula spelling the goal-extractor
     # returns; the template embeds it verbatim.
-    assert edit.new_text == "conclude (true and true) by helper"
+    assert edit.new_text == "conclude true and true by helper"
 
 
 def test_full_tier_one_premise_discharged_emits_apply_to_label() -> None:
@@ -119,7 +119,7 @@ def test_full_tier_one_premise_discharged_emits_apply_to_label() -> None:
         "lemmas.pf", source, Position(line=12, column=3), "dup"
     )
     assert edit is not None
-    assert edit.new_text == "conclude (P and P) by apply dup[P] to h"
+    assert edit.new_text == "conclude P and P by apply dup[P] to h"
 
 
 def test_full_tier_two_curried_premises_discharged_emits_nested_apply() -> None:
@@ -148,7 +148,7 @@ def test_full_tier_two_curried_premises_discharged_emits_nested_apply() -> None:
     )
     assert edit is not None
     assert edit.new_text == (
-        "conclude (P and Q) by apply (apply and_intro[P, Q] to pP) to qQ"
+        "conclude P and Q by apply (apply and_intro[P, Q] to pP) to qQ"
     )
     assert _check_spliced(source, edit).ok
 

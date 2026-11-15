@@ -111,7 +111,7 @@ def test_sugar_stays_text():
     assert str(goal.formula) == "not (P and not P)"
     assert goal.formula.kind == "IfThen"
     [conj] = [p for p in goal.formula.parts if isinstance(p, TermTree)]
-    assert (conj.kind, str(conj)) == ("And", "(P and not P)")
+    assert (conj.kind, str(conj)) == ("And", "P and not P")
 
 
 def _text_outside(tree: TermTree, kind: str):

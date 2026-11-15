@@ -390,7 +390,7 @@ def test_refine_at_picks_second_of_two_holes() -> None:
     """Two `?`s in one proof: refine_at on the second hole picks the
     template for that hole's goal, not the first hole's."""
     # First hole's goal: ``P`` (label ``pP`` proves it).
-    # Second hole's goal: ``(Q and P)`` -- a conjunction, so the
+    # Second hole's goal: ``Q and P`` -- a conjunction, so the
     # template is ``?, ?``. Without per-hole targeting we'd see the
     # template for ``P`` (which is a non-conjunctive atom and yields
     # no template, so refine_at would return None).

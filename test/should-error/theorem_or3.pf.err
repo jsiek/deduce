@@ -5,6 +5,6 @@ but that is different from what you need to prove:
 	Q
 
 While trying to prove that
-	(P or P)
+	P or P
 implies
 	Q

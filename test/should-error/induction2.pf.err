@@ -1,6 +1,6 @@
 ./test/should-error/induction2.pf:20.3-20.4: incomplete proof
 Goal:
-	(all T:Tree. size(T) = size(flip(T)))
+	all T:Tree. size(T) = size(flip(T))
 Advice:
 	Prove this "all" formula with:
 		arbitrary T:Tree

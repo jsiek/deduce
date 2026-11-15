@@ -1,6 +1,6 @@
 ./test/should-error/advice_and.pf:6.3-6.4: incomplete proof
 Goal:
-	(P and Q)
+	P and Q
 Advice:
 	Prove this logical-and formula by proving each of its parts,
 	shown below, then combine the proofs with commas.

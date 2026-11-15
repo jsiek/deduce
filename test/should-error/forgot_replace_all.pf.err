@@ -1,6 +1,6 @@
 ./test/should-error/forgot_replace_all.pf:7.8-7.19: 
 Could not prove that
-	(all n:Nat. (all m:Nat. n + m = m + n))
+	all n:Nat. all m:Nat. n + m = m + n
 instantiates to
 	m + n + m + n = n + m + m + n
 because

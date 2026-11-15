@@ -760,7 +760,7 @@ def test_preview_conclude_at_request(server, open_doc):
     doc = {"textDocument": {"uri": uri}, "position": _HOLE}
     result = lsp_server.on_preview_conclude_at(server, {**doc, "label": "pq"})
     assert result["outcome"] == "discharges"
-    assert _text(result["goal_normalized"]) == "(P or Q)"
+    assert _text(result["goal_normalized"]) == "P or Q"
     assert result["goal_normalized"]["kind"] == "Or"
     assert lsp_server.on_preview_conclude_at(server, {**doc, "label": "nope"}) == {
         "outcome": "unbound", "label": "nope",
@@ -809,7 +809,7 @@ def test_auto_rules_at_request(server, open_doc):
         server, {"textDocument": {"uri": uri}, "position": {"line": 13, "character": 2}}
     )
     assert (rule["name"], rule["premises"]) == ("add_z", [])
-    assert _text(rule["equation"]) == "(all y:N. add(z, y) = y)"
+    assert _text(rule["equation"]) == "all y:N. add(z, y) = y"
     assert lsp_server.on_auto_rules_at(server, {"textDocument": {}}) == []
 
 
@@ -1600,7 +1600,7 @@ def test_insert_lemma_returns_full_tier_workspace_edit(server, open_doc):
     # #734) ahead of the discharged-given labels; the curried premises
     # take one nested ``apply`` each.
     assert edits[0]["newText"] == (
-        "conclude (P and Q) by apply (apply and_intro[P, Q] to pP) to qQ"
+        "conclude P and Q by apply (apply and_intro[P, Q] to pP) to qQ"
     )
     assert edits[0]["range"]["start"] == {"line": 13, "character": 2}
     assert edits[0]["range"]["end"] == {"line": 13, "character": 3}
@@ -1637,7 +1637,7 @@ def test_preview_lemma_checks_the_insert_lemma_step(server, open_doc):
     assert result is not None
     assert result["outcome"] == "ok" and result["goals"] == []
     assert result["edit"]["changes"][uri][0]["newText"] == (
-        "conclude (P and Q) by apply (apply and_intro[P, Q] to pP) to qQ"
+        "conclude P and Q by apply (apply and_intro[P, Q] to pP) to qQ"
     )
     params["name"] = "no_such_lemma"
     assert lsp_server.on_preview_lemma_at(server, params) is None
