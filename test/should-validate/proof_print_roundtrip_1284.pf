@@ -1,0 +1,30 @@
+// Proofs that print back to the same proof (#1284): a model member
+// proved by `arbitrary`, and a tuple of `replace` steps.
+
+concept Commutes<T> {
+  fun op : fn (T, T) -> T
+  theorem op_commute: all x:T, y:T. op(x, y) = op(y, x)
+}
+
+fun band(a:bool, b:bool) { a and b }
+
+theorem band_commute: all x:bool, y:bool. band(x, y) = band(y, x)
+proof
+  arbitrary x:bool, y:bool
+  switch x {
+    case true { switch y { case true { evaluate } case false { evaluate } } }
+    case false { switch y { case true { evaluate } case false { evaluate } } }
+  }
+end
+
+model Commutes<bool> {
+  fun op = band
+  theorem op_commute = arbitrary x:bool, y:bool  band_commute[x, y]
+}
+
+theorem band_swaps: all a:bool, b:bool, c:bool.
+  band(a, b) = band(b, a) and band(b, c) = band(c, b)
+proof
+  arbitrary a:bool, b:bool, c:bool
+  (replace band_commute[a, b].), (replace band_commute[b, c].)
+end
