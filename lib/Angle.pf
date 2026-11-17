@@ -1,0 +1,508 @@
+module Angle
+
+/*
+  Angle measures (#1186), an ordered vector space over the rationals,
+  so that the `algebra` tactic works on them.
+
+  Write `deg(n)` for n degrees, with `n` an Int or a Rat, e.g.
+  `deg(+90)` or `deg(frac(+45, 2))`. Angles can be added, negated,
+  subtracted, scaled by a rational (`q * a`), and compared with ≤, <,
+  ≥, and >. Concrete arithmetic and comparisons on `deg` values are
+  computed by auto-rules, e.g. `deg(+30) + deg(+60) = deg(+90)` is
+  proved by `.`.
+
+  The representation is private: angles are measured in degrees by a
+  real number, but nothing outside this module can see that, so it can
+  later become the rotation model of the geometry roadmap (#1186).
+*/
+
+import UInt
+import Int
+import Base
+public import Rat
+public import Real
+public import Linear
+
+opaque union Angle {
+  angle_of(Real)
+}
+
+// n degrees.
+opaque fun deg(n : Int) { angle_of(real(n)) }
+
+opaque fun deg(q : Rat) { angle_of(real(q)) }
+
+opaque fun operator +(a : Angle, b : Angle) {
+  switch a {
+    case angle_of(x) {
+      switch b {
+        case angle_of(y) { angle_of(x + y) }
+      }
+    }
+  }
+}
+
+opaque fun operator -(a : Angle) {
+  switch a {
+    case angle_of(x) { angle_of(- x) }
+  }
+}
+
+opaque fun operator -(a : Angle, b : Angle) { a + - b }
+
+// Scaling by a rational.
+opaque fun operator *(q : Rat, a : Angle) {
+  switch a {
+    case angle_of(x) { angle_of(real(q) * x) }
+  }
+}
+
+opaque fun operator ≤(a : Angle, b : Angle) {
+  switch a {
+    case angle_of(x) {
+      switch b {
+        case angle_of(y) { x ≤ y }
+      }
+    }
+  }
+}
+
+opaque fun operator <(a : Angle, b : Angle) { a ≤ b and not (a = b) }
+
+fun operator >(a : Angle, b : Angle) { b < a }
+
+fun operator ≥(a : Angle, b : Angle) { b ≤ a }
+
+/*
+  The ordered group laws
+*/
+
+theorem angle_add_commute: all a:Angle, b:Angle. a + b = b + a
+proof
+  arbitrary a:Angle, b:Angle
+  switch a { case angle_of(x) { switch b { case angle_of(y) {
+    expand operator+
+    replace real_add_commute[x, y].
+  } } } }
+end
+
+theorem angle_add_assoc: all a:Angle, b:Angle, c:Angle.
+  (a + b) + c = a + (b + c)
+proof
+  arbitrary a:Angle, b:Angle, c:Angle
+  switch a { case angle_of(x) { switch b { case angle_of(y) {
+  switch c { case angle_of(z) {
+    expand operator+.
+  } } } } } }
+end
+
+theorem angle_add_zero: all a:Angle. a + deg(+0) = a
+proof
+  arbitrary a:Angle
+  switch a { case angle_of(x) {
+    expand deg | operator+.
+  } }
+end
+
+theorem angle_zero_add: all a:Angle. deg(+0) + a = a
+proof
+  arbitrary a:Angle
+  replace angle_add_commute[deg(+0), a]
+  angle_add_zero[a]
+end
+
+theorem angle_add_inverse: all a:Angle. a + - a = deg(+0)
+proof
+  arbitrary a:Angle
+  switch a { case angle_of(x) {
+    expand deg | operator- | operator+
+    replace real_add_inverse[x].
+  } }
+end
+
+theorem angle_sub_def: all a:Angle, b:Angle. a - b = a + - b
+proof
+  arbitrary a:Angle, b:Angle
+  switch b { case angle_of(y) { expand 2 * operator-. } }
+end
+
+theorem angle_less_def: all a:Angle, b:Angle. (a < b) = (a ≤ b and not (a = b))
+proof
+  arbitrary a:Angle, b:Angle
+  expand operator<.
+end
+
+theorem angle_less_equal_refl: all a:Angle. a ≤ a
+proof
+  arbitrary a:Angle
+  switch a { case angle_of(x) {
+    expand operator≤
+    real_less_equal_refl[x]
+  } }
+end
+
+theorem angle_less_equal_trans: all a:Angle, b:Angle, c:Angle.
+  if a ≤ b and b ≤ c then a ≤ c
+proof
+  arbitrary a:Angle, b:Angle, c:Angle
+  switch a { case angle_of(x) { switch b { case angle_of(y) {
+  switch c { case angle_of(z) {
+    expand operator≤
+    real_less_equal_trans[x, y, z]
+  } } } } } }
+end
+
+theorem angle_less_equal_antisymmetric: all a:Angle, b:Angle.
+  if a ≤ b and b ≤ a then a = b
+proof
+  arbitrary a:Angle, b:Angle
+  switch a { case angle_of(x) { switch b { case angle_of(y) {
+    expand operator≤
+    assume prem
+    replace apply real_less_equal_antisymmetric[x, y] to prem.
+  } } } }
+end
+
+theorem angle_less_equal_total: all a:Angle, b:Angle. a ≤ b or b ≤ a
+proof
+  arbitrary a:Angle, b:Angle
+  switch a { case angle_of(x) { switch b { case angle_of(y) {
+    expand operator≤
+    real_less_equal_total[x, y]
+  } } } }
+end
+
+theorem angle_add_le_right_mono: all a:Angle, b:Angle, c:Angle.
+  if a ≤ b then a + c ≤ b + c
+proof
+  arbitrary a:Angle, b:Angle, c:Angle
+  switch a { case angle_of(x) { switch b { case angle_of(y) {
+  switch c { case angle_of(z) {
+    expand operator+ | operator≤
+    real_add_le_right_mono[x, y, z]
+  } } } } } }
+end
+
+/*
+  Scaling by a rational
+*/
+
+theorem angle_one_mult: all a:Angle. rat(+1) * a = a
+proof
+  arbitrary a:Angle
+  switch a { case angle_of(x) {
+    expand operator*.
+  } }
+end
+
+theorem angle_mult_assoc: all p:Rat, q:Rat, a:Angle.
+  (p * q) * a = p * (q * a)
+proof
+  arbitrary p:Rat, q:Rat, a:Angle
+  switch a { case angle_of(x) {
+    expand operator*.
+  } }
+end
+
+theorem angle_dist_add_mult: all p:Rat, q:Rat, a:Angle.
+  (p + q) * a = p * a + q * a
+proof
+  arbitrary p:Rat, q:Rat, a:Angle
+  switch a { case angle_of(x) {
+    expand operator* | operator+
+    replace real_dist_mult_add_right[x, real(p), real(q)].
+  } }
+end
+
+theorem angle_dist_mult_add: all q:Rat, a:Angle, b:Angle.
+  q * (a + b) = q * a + q * b
+proof
+  arbitrary q:Rat, a:Angle, b:Angle
+  switch a { case angle_of(x) { switch b { case angle_of(y) {
+    expand operator+ | operator*
+    replace real_dist_mult_add[real(q), x, y].
+  } } } }
+end
+
+theorem angle_mult_pos: all q:Rat, a:Angle.
+  if rat(+0) < q and deg(+0) < a then deg(+0) < q * a
+proof
+  arbitrary q:Rat, a:Angle
+  switch a { case angle_of(x) {
+    expand deg | operator< | operator≤ | operator*
+    assume prem
+    have q_pos: real(+0) < real(q) by conjunct 0 of prem
+    have x_ne: not (real(+0) = x) by {
+      assume e
+      apply (conjunct 2 of prem) to (replace e.)
+    }
+    have x_pos: real(+0) < x by {
+      replace real_less_def
+      ((conjunct 1 of prem), x_ne)
+    }
+    have qx_pos: real(+0) < real(q) * x by apply real_mult_pos[real(q), x] to q_pos, x_pos
+    have qx: real(+0) ≤ real(q) * x and not (real(+0) = real(q) * x)
+      by replace real_less_def in qx_pos
+    have qx_le: real(+0) ≤ real(q) * x by conjunct 0 of qx
+    have qx_ne: not (angle_of(real(+0)) = angle_of(real(q) * x)) by {
+      assume e
+      apply (conjunct 1 of qx) to (injective angle_of e)
+    }
+    (qx_le, qx_ne)
+  } }
+end
+
+/*
+  Concrete arithmetic on degrees
+*/
+
+theorem deg_rat_int: all n:Int. deg(rat(n)) = deg(n)
+proof
+  arbitrary n:Int
+  expand deg.
+end
+
+lemma angle_of_eq: all x:Real, y:Real. (angle_of(x) = angle_of(y)) = (x = y)
+proof
+  arbitrary x:Real, y:Real
+  have fwd: if angle_of(x) = angle_of(y) then x = y by {
+    assume e
+    injective angle_of e
+  }
+  have bwd: if x = y then angle_of(x) = angle_of(y) by {
+    assume e
+    replace e.
+  }
+  apply iff_equal to fwd, bwd
+end
+
+lemma angle_of_sub: all x:Real, y:Real. angle_of(x) - angle_of(y) = angle_of(x - y)
+proof
+  arbitrary x:Real, y:Real
+  expand 2 * operator- | operator+
+  replace real_sub_def.
+end
+
+lemma angle_of_less: all x:Real, y:Real. (angle_of(x) < angle_of(y)) = (x < y)
+proof
+  arbitrary x:Real, y:Real
+  expand operator< | operator≤
+  replace angle_of_eq[x, y] | real_less_def[x, y].
+end
+
+theorem deg_add_int_int: all n:Int, m:Int. deg(n) + deg(m) = deg(n + m)
+proof
+  arbitrary n:Int, m:Int
+  expand deg | operator+.
+end
+
+theorem deg_sub_int_int: all n:Int, m:Int. deg(n) - deg(m) = deg(n - m)
+proof
+  arbitrary n:Int, m:Int
+  expand deg
+  replace angle_of_sub.
+end
+
+theorem deg_eq_int_int: all n:Int, m:Int. (deg(n) = deg(m)) = (n = m)
+proof
+  arbitrary n:Int, m:Int
+  expand deg
+  replace angle_of_eq.
+end
+
+theorem deg_le_int_int: all n:Int, m:Int. (deg(n) ≤ deg(m)) = (n ≤ m)
+proof
+  arbitrary n:Int, m:Int
+  expand deg | operator≤.
+end
+
+theorem deg_less_int_int: all n:Int, m:Int. (deg(n) < deg(m)) = (n < m)
+proof
+  arbitrary n:Int, m:Int
+  expand deg
+  replace angle_of_less.
+end
+
+theorem deg_add_rat_rat: all q:Rat, r:Rat. deg(q) + deg(r) = deg(q + r)
+proof
+  arbitrary q:Rat, r:Rat
+  expand deg | operator+.
+end
+
+theorem deg_sub_rat_rat: all q:Rat, r:Rat. deg(q) - deg(r) = deg(q - r)
+proof
+  arbitrary q:Rat, r:Rat
+  expand deg
+  replace angle_of_sub.
+end
+
+theorem deg_eq_rat_rat: all q:Rat, r:Rat. (deg(q) = deg(r)) = (q = r)
+proof
+  arbitrary q:Rat, r:Rat
+  expand deg
+  replace angle_of_eq.
+end
+
+theorem deg_le_rat_rat: all q:Rat, r:Rat. (deg(q) ≤ deg(r)) = (q ≤ r)
+proof
+  arbitrary q:Rat, r:Rat
+  expand deg | operator≤.
+end
+
+theorem deg_less_rat_rat: all q:Rat, r:Rat. (deg(q) < deg(r)) = (q < r)
+proof
+  arbitrary q:Rat, r:Rat
+  expand deg
+  replace angle_of_less.
+end
+
+theorem deg_add_int_rat: all n:Int, r:Rat. deg(n) + deg(r) = deg(rat(n) + r)
+proof
+  arbitrary n:Int, r:Rat
+  expand deg | operator+.
+end
+
+theorem deg_sub_int_rat: all n:Int, r:Rat. deg(n) - deg(r) = deg(rat(n) - r)
+proof
+  arbitrary n:Int, r:Rat
+  expand deg
+  replace angle_of_sub.
+end
+
+theorem deg_eq_int_rat: all n:Int, r:Rat. (deg(n) = deg(r)) = (rat(n) = r)
+proof
+  arbitrary n:Int, r:Rat
+  expand deg
+  replace angle_of_eq.
+end
+
+theorem deg_le_int_rat: all n:Int, r:Rat. (deg(n) ≤ deg(r)) = (rat(n) ≤ r)
+proof
+  arbitrary n:Int, r:Rat
+  expand deg | operator≤.
+end
+
+theorem deg_less_int_rat: all n:Int, r:Rat. (deg(n) < deg(r)) = (rat(n) < r)
+proof
+  arbitrary n:Int, r:Rat
+  expand deg
+  replace angle_of_less.
+end
+
+theorem deg_add_rat_int: all q:Rat, m:Int. deg(q) + deg(m) = deg(q + rat(m))
+proof
+  arbitrary q:Rat, m:Int
+  expand deg | operator+.
+end
+
+theorem deg_sub_rat_int: all q:Rat, m:Int. deg(q) - deg(m) = deg(q - rat(m))
+proof
+  arbitrary q:Rat, m:Int
+  expand deg
+  replace angle_of_sub.
+end
+
+theorem deg_eq_rat_int: all q:Rat, m:Int. (deg(q) = deg(m)) = (q = rat(m))
+proof
+  arbitrary q:Rat, m:Int
+  expand deg
+  replace angle_of_eq.
+end
+
+theorem deg_le_rat_int: all q:Rat, m:Int. (deg(q) ≤ deg(m)) = (q ≤ rat(m))
+proof
+  arbitrary q:Rat, m:Int
+  expand deg | operator≤.
+end
+
+theorem deg_less_rat_int: all q:Rat, m:Int. (deg(q) < deg(m)) = (q < rat(m))
+proof
+  arbitrary q:Rat, m:Int
+  expand deg
+  replace angle_of_less.
+end
+
+theorem deg_neg_int: all n:Int. - deg(n) = deg(- n)
+proof
+  arbitrary n:Int
+  expand deg | operator-.
+end
+
+theorem deg_neg_rat: all q:Rat. - deg(q) = deg(- q)
+proof
+  arbitrary q:Rat
+  expand deg | operator-.
+end
+
+theorem deg_mult_int: all q:Rat, m:Int. q * deg(m) = deg(q * rat(m))
+proof
+  arbitrary q:Rat, m:Int
+  expand deg | operator*.
+end
+
+theorem deg_mult_rat: all q:Rat, r:Rat. q * deg(r) = deg(q * r)
+proof
+  arbitrary q:Rat, r:Rat
+  expand deg | operator*.
+end
+
+auto deg_rat_int
+auto deg_add_int_int
+auto deg_sub_int_int
+auto deg_eq_int_int
+auto deg_le_int_int
+auto deg_less_int_int
+auto deg_add_rat_rat
+auto deg_sub_rat_rat
+auto deg_eq_rat_rat
+auto deg_le_rat_rat
+auto deg_less_rat_rat
+auto deg_add_int_rat
+auto deg_sub_int_rat
+auto deg_eq_int_rat
+auto deg_le_int_rat
+auto deg_less_int_rat
+auto deg_add_rat_int
+auto deg_sub_rat_int
+auto deg_eq_rat_int
+auto deg_le_rat_int
+auto deg_less_rat_int
+auto deg_neg_int
+auto deg_neg_rat
+auto deg_mult_int
+auto deg_mult_rat
+
+/*
+  Models
+*/
+
+model AddCommGroup<Angle> {
+  fun zero = deg(+0)
+  theorem add_commute = angle_add_commute
+  theorem add_assoc = angle_add_assoc
+  theorem add_zero = angle_add_zero
+  theorem add_inverse = angle_add_inverse
+  theorem sub_def = angle_sub_def
+}
+
+model OrderedAddCommGroup<Angle> {
+  theorem less_equal_trans = angle_less_equal_trans
+  theorem less_equal_antisymmetric = angle_less_equal_antisymmetric
+  theorem less_equal_total = angle_less_equal_total
+  theorem add_le_right_mono = angle_add_le_right_mono
+  theorem less_def = angle_less_def
+}
+
+model OrderedQVectorSpace<Angle> {
+  fun scale = operator*
+  theorem scale_one = angle_one_mult
+  theorem scale_assoc = angle_mult_assoc
+  theorem scale_add_left = angle_dist_add_mult
+  theorem scale_add_right = angle_dist_mult_add
+  theorem scale_pos = angle_mult_pos
+}
+
+model LinearArith<Angle> {
+  fun unit = deg(+1)
+  theorem unit_pos = .
+}

@@ -206,15 +206,16 @@ end
 ```
 
 The sides of the goal and the givens may use `+`, `-` (subtraction
-and negation), constants (`rat(+180)`, `frac(+1, 2)`, `real(+2)`), and
+and negation), constants (`rat(+180)`, `frac(+1, 2)`, `real(+2)`,
+`deg(+90)`), and
 multiplication by a constant on the left (`rat(+2) * x`). Any other
 subterm, such as `x * y` or `f(x)`, is treated as an unknown of its
 own. So `algebra` does not know that `x * y = y * x`, and it does not
 use facts about `≠`, `or`, or `all`.
 
 `algebra` works at the types that model the concept `LinearArith`
-(lib/Linear.pf): `Rat` and `Real`, and any other ordered vector space
-over the rationals. Its proof is checked: the tactic finds the
+(lib/Linear.pf): `Rat`, `Real`, the angle measures `Angle`
+(lib/Angle.pf), and any other ordered vector space over the rationals. Its proof is checked: the tactic finds the
 coefficients, and Deduce checks them by instantiating the theorems
 `lin_prove`, `lin_disprove`, and `lin_refute` of lib/Linear.pf at the
 goal's type. When there are no such coefficients, `algebra` lists the

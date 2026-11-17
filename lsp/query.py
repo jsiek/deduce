@@ -331,7 +331,7 @@ REFINE_SUPPORTED_SHAPES: tuple[str, ...] = (
     "all _. _",
     "some _. _",
     "reducible _ = _",
-    "_ = _, _ ≤ _, _ < _, _ ≥ _, or _ > _ over Rat or Real",
+    "_ = _, _ ≤ _, _ < _, _ ≥ _, or _ > _ over Rat, Real, or Angle",
 )
 
 
@@ -2038,7 +2038,7 @@ def refine_at(
     - ``some x:T. body`` -> ``choose ?\\n?``
     - reducible ``e1 = e2`` -> ``reflexive``
     - otherwise ``e1 R e2`` with R one of ``=``, ``≤``, ``<``, ``≥``, ``>``
-      over ``Rat`` or ``Real`` -> ``algebra``
+      over ``Rat``, ``Real``, or ``Angle`` -> ``algebra``
 
     Returns:
 
@@ -2246,7 +2246,7 @@ def _refine_template(formula: "Formula", env: Optional["Env"]) -> Optional[str]:
                     return None
             # A linear goal over the types `algebra` works at (#1189).
             if isinstance(lhs.typeof, VarRef) \
-               and base_name(lhs.typeof.get_name()) in ("Rat", "Real"):
+               and base_name(lhs.typeof.get_name()) in ("Rat", "Real", "Angle"):
                 return "algebra"
             return None
     return None
