@@ -186,7 +186,7 @@ CASES = [
         # Goal at hole: ``x < y + rat(+1)`` over Rat, with ``x ≤ y``
         # given. Template: ``algebra`` (#1189).
         source=(
-            "import Rat\n"
+            "import Linear\n"
             "theorem t: all x:Rat, y:Rat. if x ≤ y then x < y + rat(+1)\n"
             "proof\n"
             "  arbitrary x:Rat, y:Rat\n"
@@ -199,6 +199,27 @@ CASES = [
         expected_range=Range(
             start=Position(line=6, column=3),
             end=Position(line=6, column=4),
+        ),
+    ),
+    RefineCase(
+        name="linear_angle_equation",
+        # Goal at hole: ``a = c`` over Angle (lib/Angle.pf), which
+        # models LinearArith. Template: ``algebra``.
+        source=(
+            "import Angle\n"
+            "theorem t: all a:Angle, b:Angle, c:Angle.\n"
+            "  if a + b = deg(+180) and b + c = deg(+180) then a = c\n"
+            "proof\n"
+            "  arbitrary a:Angle, b:Angle, c:Angle\n"
+            "  assume h\n"
+            "  ?\n"
+            "end\n"
+        ),
+        cursor=Position(line=7, column=3),
+        expected_text="algebra",
+        expected_range=Range(
+            start=Position(line=7, column=3),
+            end=Position(line=7, column=4),
         ),
     ),
 ]
@@ -258,6 +279,22 @@ def test_refine_at_returns_unsupported_shape_for_bare_atom() -> None:
     assert result.outcome == "unsupported_shape"
     assert result.goal == "P"
     assert result.supported_shapes == REFINE_SUPPORTED_SHAPES
+
+
+def test_refine_at_no_algebra_without_linear_arith_model() -> None:
+    """``algebra`` is suggested only at types that model LinearArith,
+    not at a user's own type that happens to be named ``Angle``."""
+    source = (
+        "union Angle { a0  a1 }\n"
+        "theorem t: all x:Angle, y:Angle. if x = a0 then x = y\n"
+        "proof\n"
+        "  arbitrary x:Angle, y:Angle\n"
+        "  assume h\n"
+        "  ?\n"
+        "end\n"
+    )
+    result = refine_at("test.pf", source, Position(line=6, column=3))
+    assert isinstance(result, UnsupportedRefineShape)
 
 
 def test_refine_at_returns_none_when_file_is_complete() -> None:
