@@ -306,7 +306,7 @@ class AllIntro(Proof):
           + maybe_pretty_print(self.body, indent)
   
   def __str__(self) -> str:
-    return self.arbitrary_str() + maybe_str(self.body)
+    return self.arbitrary_str() + ' ' + maybe_str(self.body)
 
   def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> AllIntro:
     body_env = copy_dict(env)
@@ -814,7 +814,10 @@ def _proof_tail_is_term_greedy(p: Proof) -> bool:
     elif isinstance(p, PHelpUse):
       p = p.proof
     else:
-      return False
+      # A tactic followed by the rest of the proof, such as `replace e .`
+      # or `arbitrary x:T P`, reads that rest with ``parse_proof()``
+      # (`assume` braces it).
+      return not isinstance(p, ImpIntro) and isinstance(getattr(p, 'body', None), Proof)
 
 
 def _proof_list_item_str(p: Proof) -> str:
