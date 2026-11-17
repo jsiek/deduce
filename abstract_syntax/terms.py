@@ -398,8 +398,12 @@ class Conditional(Term):
       return show(self)
 
   def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
-      return ('' if afterNewline else '\n') + indent*' ' + 'if ' + str(self.cond) + ' then\n' \
-          + self.thn.pretty_print(indent+2, True) + '\n'\
+      # The then branch is followed by `else`, so an open-ended form
+      # there, such as an `if` without `else`, is grouped.
+      thn = (indent+2)*' ' + show(self.thn, 0, False) if _open_ended(self.thn) \
+        else self.thn.pretty_print(indent+2, True)
+      return ('' if afterNewline else '\n') + indent*' ' + 'if ' + show(self.cond, 0, False) \
+          + ' then\n' + thn + '\n'\
           + indent*' ' + 'else\n' \
           + self.els.pretty_print(indent+2, True)
 
@@ -1687,7 +1691,7 @@ class ArrayGet(Term):
     return eq_fields(self, other, 'subject', 'position')
 
   def __str__(self) -> str:
-    return str(self.subject) + '[' + str(self.position) + ']'
+    return show(self.subject, ATOM, False) + '[' + str(self.position) + ']'
 
   def reduce(self, env: Env) -> Term:
     subject_red = self.subject.reduce(env)
@@ -1778,7 +1782,7 @@ class ArraySet(Term):
     return eq_fields(self, other, 'subject', 'position', 'value')
 
   def __str__(self) -> str:
-    return str(self.subject) + '[' + str(self.position) + ' := ' \
+    return show(self.subject, ATOM, False) + '[' + str(self.position) + ' := ' \
         + str(self.value) + ']'
 
 @dataclass
@@ -2029,7 +2033,7 @@ class FieldAccess(Term):
   field: str
 
   def __str__(self) -> str:
-    return str(self.subject) + '.' + base_name(self.field)
+    return show(self.subject, ATOM, False) + '.' + base_name(self.field)
 
 @dataclass
 class Emp(Formula):
