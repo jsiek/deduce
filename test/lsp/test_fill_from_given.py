@@ -127,7 +127,7 @@ def test_fill_from_given_at_implies_or_intro() -> None:
         "test.pf", source, Position(line=5, column=3), "H"
     )
     assert edit is not None
-    assert edit.new_text == "conclude (P or Q) by H"
+    assert edit.new_text == "conclude P or Q by H"
 
 
 def test_fill_from_given_at_in_conjunction_slot() -> None:

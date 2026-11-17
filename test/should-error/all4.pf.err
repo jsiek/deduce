@@ -5,6 +5,6 @@ but that is different from what you need to prove:
 	not P
 
 While trying to prove that
-	(all P:bool. P)
+	all P:bool. P
 implies
-	(all Q:bool. not Q)
+	all Q:bool. not Q

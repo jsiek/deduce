@@ -1,1 +1,1 @@
-./test/should-error/resource_declarations.pf:46.28-46.44: cannot synthesize a type for ((p |-> v) ** emp)
+./test/should-error/resource_declarations.pf:46.28-46.44: cannot synthesize a type for p |-> v ** emp

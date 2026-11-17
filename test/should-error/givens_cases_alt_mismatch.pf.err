@@ -2,4 +2,4 @@
 does not match alternative in goal: 
 P
 Givens:
-	porq: (P or Q)
+	porq: P or Q

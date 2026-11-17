@@ -181,7 +181,7 @@ def test_incomplete_proof_diagnostic_includes_goal_formula() -> None:
     # Goal text is rendered into the message somewhere after the
     # "incomplete proof" prefix.
     assert msg.startswith("incomplete proof")
-    assert "P = P" in msg or "(all P:bool. P = P)" in msg
+    assert "P = P" in msg or "all P:bool. P = P" in msg
 
 
 # --------------------------------------------------------------------------

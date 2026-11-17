@@ -343,7 +343,7 @@ def test_loop_established_and_preserved_proofs_drive_combined_obligations() -> \
   assert len(preserve) == 1 and preserve[0].proof is not None
   # The single preservation goal is the conjunction of both invariants (in the
   # havoced state, so the invariant variables `a`/`b` stay symbolic).
-  assert str(preserve[0].goal) == '((a = x) and (b = x))'
+  assert str(preserve[0].goal) == 'a = x and b = x'
 
 
 # --- the _proc_verifiable gate ----------------------------------------------

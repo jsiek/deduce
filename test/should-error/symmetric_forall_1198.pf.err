@@ -18,7 +18,7 @@ implies
 	x:UInt, y:UInt. a * x + a * y = a * (x + y)
 
 While trying to prove that
-	(all a:UInt, x:UInt, y:UInt. a * (x + y) = a * x + a * y)
+	all a:UInt, x:UInt, y:UInt. a * (x + y) = a * x + a * y
 implies
-	(all a:UInt, x:UInt, y:UInt. a * x + a * y = a * (x + y))
+	all a:UInt, x:UInt, y:UInt. a * x + a * y = a * (x + y)
 Did you mean `replace uint_dist_mult_add`?

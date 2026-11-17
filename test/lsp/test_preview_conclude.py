@@ -63,8 +63,8 @@ def test_preview_conclude_at_exact_match() -> None:
     assert result is not None
     assert result["outcome"] == "discharges"
     # Renderer parenthesises top-level ``or`` expressions.
-    assert result["given_normalized"] == "(P or Q)"
-    assert result["goal_normalized"] == "(P or Q)"
+    assert result["given_normalized"] == "P or Q"
+    assert result["goal_normalized"] == "P or Q"
 
 
 def test_preview_conclude_at_implies_only_match() -> None:

@@ -5,6 +5,6 @@ but that is different from what you need to prove:
 	R
 
 While trying to prove that
-	(if P then Q)
+	if P then Q
 implies
-	(if P then R)
+	if P then R

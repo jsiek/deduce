@@ -4,7 +4,7 @@ could not find any matches for
 in
 	true
 while trying to replace using the below equation, left to right
-	(all x:UInt, y:UInt. toNat(x * y) = toNat(x) * toNat(y))
+	all x:UInt, y:UInt. toNat(x * y) = toNat(x) * toNat(y)
 The goal has been simplified to `true`, possibly by an earlier transformation
 in this chain or an `auto` rewrite rule. Drop the remaining transformation(s)
 and end the step with `.`, or replace the whole step with `evaluate`.

@@ -184,7 +184,7 @@ CASES = [
         cursor=Position(line=6, column=3),
         label="H",
         expected_text=(
-            "obtain b1 where H1: (P or Q) from H\n"
+            "obtain b1 where H1: P or Q from H\n"
             "  ?"
         ),
         expected_range=Range(

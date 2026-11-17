@@ -1,6 +1,6 @@
 ./test/should-error/induction_case.pf:20.15-20.16: incomplete proof
 Goal:
-	(all n:Nat. suc(length(null)) = length(cons(n, null)))
+	all n:Nat. suc(length(null)) = length(cons(n, null))
 Advice:
 	Prove this "all" formula with:
 		arbitrary n:Nat

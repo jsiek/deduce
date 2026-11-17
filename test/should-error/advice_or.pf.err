@@ -1,6 +1,6 @@
 ./test/should-error/advice_or.pf:6.3-6.4: incomplete proof
 Goal:
-	(P or Q)
+	P or Q
 Advice:
 	Prove this logical-or formula by proving one of its parts:
 		P

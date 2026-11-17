@@ -1,6 +1,6 @@
 ./test/should-error/simplify2.pf:3.3-3.4: incomplete proof
 Goal:
-	(true or false)
+	true or false
 Advice:
 	This goal simplifies to
 		true

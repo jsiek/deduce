@@ -1,6 +1,6 @@
 ./test/should-error/theorem_implies_7.pf:18.3-18.21: 
 Could not prove that
-	(Q and R)
+	Q and R
 implies
 	P
 because we could not prove at least one of
@@ -8,6 +8,6 @@ because we could not prove at least one of
 	R   implies   P
 
 While trying to prove that
-	(Q and R)
+	Q and R
 implies
-	(P and R)
+	P and R
