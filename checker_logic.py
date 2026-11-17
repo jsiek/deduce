@@ -179,6 +179,15 @@ def check_implies(loc: Meta, frm1: Formula, frm2: Formula) -> None:
             case _:
               pass
           continue
+      # No conjunct alone proves the goal, but the whole conjunction may
+      # prove one of its disjuncts, as `Q and R` proves `P or (Q and R)`.
+      if isinstance(frm2, Or):
+        for arg2 in frm2.args:
+          try:
+            check_implies(loc, frm1, arg2)
+            return
+          except UserError:
+            continue
       user_error(loc, '\nCould not prove that\n\t' + str(frm1) + '\n' \
                  + 'implies\n\t' + str(frm2) + '\n' \
                  + 'because we could not prove at least one of\n'

@@ -1,0 +1,24 @@
+// A proof of a conjunction proves a disjunction that has the
+// conjunction as a disjunct (#1280).
+
+theorem or_and: all P:bool, Q:bool, R:bool. if Q and R then P or (Q and R)
+proof
+  arbitrary P:bool, Q:bool, R:bool
+  assume h
+  h
+end
+
+theorem and_or_left: all P:bool, Q:bool, R:bool. if Q and R then (R and Q) or P
+proof
+  arbitrary P:bool, Q:bool, R:bool
+  assume h
+  h
+end
+
+// Still works: one conjunct proves the whole disjunction.
+theorem or_commute_conjunct: all A:bool, B:bool, C:bool. if (A or B) and C then B or A
+proof
+  arbitrary A:bool, B:bool, C:bool
+  assume h
+  h
+end
