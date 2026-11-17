@@ -331,7 +331,7 @@ REFINE_SUPPORTED_SHAPES: tuple[str, ...] = (
     "all _. _",
     "some _. _",
     "reducible _ = _",
-    "_ = _, _ ≤ _, _ < _, _ ≥ _, or _ > _ over Rat or Real",
+    "_ = _, _ ≤ _, _ < _, _ ≥ _, or _ > _ over a type that models LinearArith",
 )
 
 
@@ -2038,7 +2038,7 @@ def refine_at(
     - ``some x:T. body`` -> ``choose ?\\n?``
     - reducible ``e1 = e2`` -> ``reflexive``
     - otherwise ``e1 R e2`` with R one of ``=``, ``≤``, ``<``, ``≥``, ``>``
-      over ``Rat`` or ``Real`` -> ``algebra``
+      over a type that models ``LinearArith`` -> ``algebra``
 
     Returns:
 
@@ -2210,7 +2210,7 @@ def _refine_template(formula: "Formula", env: Optional["Env"]) -> Optional[str]:
     uses for pipeline-level imports.
     """
     from abstract_syntax import (
-        All, And, Bool, Call, IfThen, Some, VarRef, base_name,
+        All, And, Bool, Call, IfThen, ModelBinding, Some, VarRef, base_name,
     )
 
     match formula:
@@ -2244,9 +2244,12 @@ def _refine_template(formula: "Formula", env: Optional["Env"]) -> Optional[str]:
                     # mid-check error), don't crash the editor request --
                     # just report "no template".
                     return None
-            # A linear goal over the types `algebra` works at (#1189).
-            if isinstance(lhs.typeof, VarRef) \
-               and base_name(lhs.typeof.get_name()) in ("Rat", "Real"):
+            # A linear goal over a type that models LinearArith, the
+            # types `algebra` works at (#1189).
+            if any(isinstance(b, ModelBinding)
+                   and base_name(b.model.concept.concept) == "LinearArith"
+                   and b.model.concept.type_args == [lhs.typeof]
+                   for b in env.dict.values()):
                 return "algebra"
             return None
     return None

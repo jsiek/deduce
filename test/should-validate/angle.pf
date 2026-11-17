@@ -1,0 +1,66 @@
+// Angle measures (lib/Angle.pf) and the `algebra` tactic on them.
+
+import Angle
+
+// Concrete arithmetic on degrees is computed.
+theorem deg_arith: deg(+30) + deg(+60) = deg(+90)
+  and deg(frac(+1, 2)) + deg(frac(+1, 2)) = deg(+1)
+  and rat(+2) * deg(+45) = deg(+90)
+  and deg(+180) - deg(+45) = deg(+135)
+  and - deg(+90) = deg(-90)
+  and deg(+1) < deg(+2)
+  and deg(+90) ≤ deg(+90)
+  and not (deg(+90) = deg(+180))
+proof
+  .
+end
+
+// Supplements of the same angle are equal.
+theorem supplements_equal: all a:Angle, b:Angle, c:Angle.
+  if a + b = deg(+180) and b + c = deg(+180) then a = c
+proof
+  arbitrary a:Angle, b:Angle, c:Angle
+  assume h
+  algebra
+end
+
+// The angles of an equiangular triangle measure 60°.
+theorem equiangular: all a:Angle, b:Angle, c:Angle.
+  if a + b + c = deg(+180) and a = b and b = c then a = deg(+60)
+proof
+  arbitrary a:Angle, b:Angle, c:Angle
+  assume h
+  algebra
+end
+
+theorem complement_half: all a:Angle, b:Angle.
+  if a + b = deg(+90) and a = frac(+1, 2) * b then b = deg(+60)
+proof
+  arbitrary a:Angle, b:Angle
+  assume h
+  algebra
+end
+
+// The other acute angle of a right triangle is acute.
+theorem acute: all a:Angle, b:Angle.
+  if a + b = deg(+90) and deg(+0) < b then a < deg(+90)
+proof
+  arbitrary a:Angle, b:Angle
+  assume h
+  algebra
+end
+
+theorem half_angle: all a:Angle. if a + a = deg(+45) then a = deg(frac(+45, 2))
+proof
+  arbitrary a:Angle
+  assume h
+  algebra
+end
+
+// Doubling a positive angle gives a positive angle.
+theorem angle_double_pos: all a:Angle. if deg(+0) < a then deg(+0) < a + a
+proof
+  arbitrary a:Angle
+  assume h
+  algebra
+end

@@ -10,6 +10,14 @@ Only the top-level module files (such as `UInt.pf`) are listed below. Each modul
   group with scaling by rationals), with models for `Rat` and `Real`.
   Prove a theorem once under `where { OrderedQVectorSpace<T> }` and use
   it at `Rat` or `Real`.
+- ([`Angle.thm`](../lib/Angle.thm), [`Angle.pf`](../lib/Angle.pf)): Angle
+  measures. Write `deg(n)` for n degrees (an `Int` or a `Rat`), e.g.
+  `deg(+90)` or `deg(frac(+45, 2))`. Angles can be added, negated,
+  subtracted, scaled by a rational (`frac(+1, 2) * a`), and compared;
+  concrete arithmetic on `deg` values is computed automatically.
+  `Angle` models `LinearArith`, so the
+  [`algebra`](./Reference.md#algebra-proof) tactic proves linear facts
+  about angles, such as that supplements of the same angle are equal.
 - ([`Base.thm`](../lib/Base.thm), [`Base.pf`](../lib/Base.pf)): Base proofs about propositional and predicate logic
 - ([`BigO.thm`](../lib/BigO.thm), [`BigO.pf`](../lib/BigO.pf)): Big-O asymptotic analysis on `fn UInt -> UInt`
 - ([`Int.thm`](../lib/Int.thm), [`Int.pf`](../lib/Int.pf)): Integers

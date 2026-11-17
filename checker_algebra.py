@@ -78,8 +78,8 @@ def _int_value(t: Term) -> int | None:
 
 
 def _literal(t: Term) -> Fraction | None:
-  """The value of a rational or real literal: ``rat(n)``,
-  ``frac(n, d)``, ``real(n)``, or ``real(q)``."""
+  """The value of a rational, real, or angle literal: ``rat(n)``,
+  ``frac(n, d)``, ``real(n)``, ``real(q)``, ``deg(n)``, or ``deg(q)``."""
   match _call(t):
     case ('rat', [n]):
       v = _int_value(n)
@@ -89,7 +89,7 @@ def _literal(t: Term) -> Fraction | None:
       if a is None or b is None:
         return None
       return Fraction(0) if b == 0 else Fraction(a, b)
-    case ('real', [x]):
+    case ('real' | 'deg', [x]):
       v = _int_value(x)
       return Fraction(v) if v is not None else _literal(x)
   return None
@@ -340,7 +340,7 @@ def check_algebra(proof: AlgebraGoal, goal: Formula, env: Env,
                proof.models, loc)
   except UserError:
     user_error(loc, 'algebra works at the types that model LinearArith'
-               ' (such as Rat and Real), not ' + str(ty))
+               ' (such as Rat, Real, and Angle), not ' + str(ty))
 
   reifier = _Reifier()
   hyps = [(rel, reifier.lin(a), reifier.lin(b))

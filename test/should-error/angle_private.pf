@@ -1,0 +1,8 @@
+// The representation of Angle (lib/Angle.pf) is private.
+
+import Angle
+
+theorem peek: all a:Angle. some x:Real. a = angle_of(x)
+proof
+  ?
+end
