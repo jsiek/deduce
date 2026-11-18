@@ -131,6 +131,14 @@ def _implies_context(frm1: Formula, frm2: Formula) -> str:
       + '\nimplies\n' + '\t' + str(frm2)
 
 def check_implies(loc: Meta, frm1: Formula, frm2: Formula) -> None:
+  """Whether a proof of ``frm1`` is accepted as a proof of ``frm2``.
+
+  Design goal: fill in only the steps most students would take for
+  granted and not write down in a proof on paper, never the steps an
+  exercise is about (`assume`, `cases`, `arbitrary`). The rules are
+  listed for users under "Implicit Reasoning" in
+  gh_pages/doc/Reference.md; keep that list in step with this function.
+  """
   if get_verbose():
     print('check_implies? ' + str(frm1) + ' => ' + str(frm2))
   match (frm1, frm2):

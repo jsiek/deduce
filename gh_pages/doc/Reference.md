@@ -83,6 +83,7 @@ forms are parser/AST only today and most require
 - [If and only if (iff)](#if-and-only-if-iff)
 - [If Then (Conditional Formula)](#if-then-conditional-formula)
 - [If Then Else (Term)](#if-then-else-term)
+- [Implicit Reasoning](#implicit-reasoning)
 - [Import (Statement)](#import-statement)
 - [In (Set Membership)](#in-set-membership)
 - [Induction](#induction)
@@ -1537,6 +1538,52 @@ proof
   }
 end
 ```
+
+## Implicit Reasoning
+
+In many places, Deduce accepts a proof of one formula where a different
+formula is needed: in a `conclude`, a `have`, an `apply`-`to`, or as the
+last step of a proof. It accepts the proof when the gap between the two
+formulas is a step that most students would take for granted, one they
+would not bother to write down in a proof on paper. For example, having
+proved `P and Q`, nobody writes a separate step to conclude `Q`.
+
+Steps that are the point of an exercise are not filled in. To prove
+an `if`-`then`, use `assume`. To use an `or`, split it into cases with
+`cases`. To prove an `all` formula, use `arbitrary`. Implicit reasoning
+lets a proof skip the bookkeeping, not the reasoning.
+
+A proof of the formula on the left is accepted as a proof of the
+formula on the right in the following cases.
+
+* Anything proves `true`, and `false` proves anything.
+* `P` proves `Q₁ and Q₂` when `P` proves `Q₁` and proves `Q₂`.
+* `P₁ and P₂` proves `Q` when `P₁` or `P₂` proves `Q`, or when the
+  whole conjunction proves one side of `Q` when `Q` is an `or`.
+* `P₁ or P₂` proves `Q` when `P₁` proves `Q` and `P₂` proves `Q`.
+* `P` proves `Q₁ or Q₂` when `P` proves `Q₁` or `P` proves `Q₂`.
+* `(if P then Q) and R` proves whatever `Q` proves, when `R` proves `P`
+  (modus ponens).
+* `if P₁ then Q₁` proves `if P₂ then Q₂` when `P₂` proves `P₁` and
+  `Q₁` proves `Q₂`.
+* `all x:T. P` proves any instance of `P`, such as `P` with `x`
+  replaced by `5`, and proves `all y:T. Q` when `P` proves `Q` with `y`
+  renamed to `x`.
+* Two formulas that differ only in how a number is written,
+  such as `ℕ1` and `suc(zero)`.
+
+```{.deduce^#implicit_reasoning_example}
+theorem implicit_reasoning_example: all P:bool, Q:bool, R:bool.
+  if P and (if P then Q) and R then (R and Q) or not P
+proof
+  arbitrary P:bool, Q:bool, R:bool
+  assume h
+  h
+end
+```
+
+(See also [Auto](#auto-auto-automatic-reduction), which rewrites formulas
+automatically using equations marked `auto`.)
 
 ## Import (Statement)
 
