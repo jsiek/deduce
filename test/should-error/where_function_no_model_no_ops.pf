@@ -1,0 +1,10 @@
+// A where clause (#1282) whose concept has no operations passes
+// nothing, but a call still needs a model of it.
+
+concept Marker<T> {
+  theorem refl: all x:T. x = x
+}
+
+fun pick<T> where { Marker<T> } (x:T) { x }
+
+assert pick(true) = true

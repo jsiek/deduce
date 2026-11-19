@@ -1,0 +1,13 @@
+// Two instances of msum (#1282) at the same type but with different
+// models' operations (Int with + and Int with *) are different
+// functions, so they are not equal.
+
+import IntSumModel
+import IntProdModel
+import Int
+import List
+
+theorem bad: int_sum([+2, +3]) = int_prod([+2, +3])
+proof
+  expand int_sum | int_prod.
+end

@@ -1,0 +1,17 @@
+// Two models of Monoid<Int>, Int with + and Int with *, each private to
+// its own module (test/test-imports/IntSumModel.pf and IntProdModel.pf),
+// used through the same where function msum (#1282) in one program.
+
+import IntSumModel
+import IntProdModel
+import Int
+import List
+
+assert int_sum([+2, +3, +4]) = +9
+assert int_prod([+2, +3, +4]) = +24
+
+theorem sum_prod_single: all x:Int. int_sum([x]) = int_prod([x])
+proof
+  arbitrary x:Int
+  replace int_sum_single[x] | int_prod_single[x].
+end

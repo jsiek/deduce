@@ -82,3 +82,24 @@ proof
   expand mtriple
   replace add_zero[@Monoid<T>.zero] | add_zero[@Monoid<T>.zero].
 end
+
+// A concept with no operations passes nothing, but instantiating still
+// needs a model of it.
+concept Marker<T> {
+  theorem refl: all x:T. x = x
+}
+
+theorem bool_refl: all x:bool. x = x
+proof
+  arbitrary x:bool
+  .
+end
+
+model Marker<bool> {
+  theorem refl = bool_refl
+}
+
+fun pick<T> where { Marker<T> } (x:T) { x }
+
+assert pick(true) = true
+assert map([false], @pick<bool>) = [false]

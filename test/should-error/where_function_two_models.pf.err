@@ -1,0 +1,5 @@
+./test/should-error/where_function_two_models.pf:12.28-12.29: 
+You provided a proof of:
+	true
+but that is different from what you need to prove:
+	msum([+2, +3]) = msum([+2, +3])
