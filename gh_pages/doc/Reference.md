@@ -1549,9 +1549,11 @@ would not bother to write down in a proof on paper. For example, having
 proved `P and Q`, nobody writes a separate step to conclude `Q`.
 
 Steps that are the point of an exercise are not filled in. To prove
-an `if`-`then`, use `assume`. To use an `or`, split it into cases with
-`cases`. To prove an `all` formula, use `arbitrary`. Implicit reasoning
-lets a proof skip the bookkeeping, not the reasoning.
+an `if`-`then` from its parts, use `assume`, and to prove an `all`
+formula, use `arbitrary`. An `or` is split into cases implicitly only
+when each side proves the goal by itself, without help from other
+givens, as `(R and P) or (R and Q)` proves `R`. Otherwise, use `cases`.
+Implicit reasoning lets a proof skip the bookkeeping, not the reasoning.
 
 A proof of the formula on the left is accepted as a proof of the
 formula on the right in the following cases.

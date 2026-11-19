@@ -135,7 +135,8 @@ def check_implies(loc: Meta, frm1: Formula, frm2: Formula) -> None:
 
   Design goal: fill in only the steps most students would take for
   granted and not write down in a proof on paper, never the steps an
-  exercise is about (`assume`, `cases`, `arbitrary`). The rules are
+  exercise is about (`assume`, `arbitrary`, and `cases` beyond an `or`
+  each of whose sides proves the goal by itself). The rules are
   listed for users under "Implicit Reasoning" in
   gh_pages/doc/Reference.md; keep that list in step with this function.
   """
