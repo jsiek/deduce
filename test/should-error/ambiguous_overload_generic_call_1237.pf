@@ -1,0 +1,6 @@
+import Nat
+import UInt
+import Pair
+// zero is both Nat's and UIntView's constructor, and nothing in
+// pair(zero, suc(zero)) fixes the type of the first zero (#1237).
+assert pair(zero, suc(zero)) = pair(zero, suc(zero))

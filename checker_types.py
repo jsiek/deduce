@@ -287,6 +287,19 @@ def _has_overload_type(ty: TypeExpr | None) -> bool:
   context rather than impose one on it (issues #1232, #1236)."""
   return any(isinstance(n, OverloadType) for n in _walk_ast_descendants(ty))
 
+def _ambiguous_overload_error(loc: Meta, term: Term, ty: TypeExpr | None) -> None:
+  """Report that ``term``, whose type ``ty`` contains an overloaded
+  constant's type, could not be given a single type by its context, e.g.
+  ``zero`` in ``pair(zero, suc(zero))`` (issue #1237)."""
+  over = next(n for n in _walk_ast_descendants(ty) if isinstance(n, OverloadType))
+  name = base_name(over.types[0][0])
+  user_error(loc, str(term) + ' is ambiguous here: '
+             + ('it' if str(term) == name else name)
+             + ' could have any of these types:\n\t'
+             + '\n\t'.join(str(t) for (_, t) in over.types)
+             + '\nAdd a type annotation to disambiguate, e.g. ('
+             + name + ' : ' + str(over.types[0][1]) + ')')
+
 def _is_generic_unknown_argument(arg: Term, env: Env) -> bool:
   match arg:
     case Mark(_, _, subject):
@@ -397,9 +410,13 @@ def type_check_call_funty(
     except (UserError, MatchFailed) as e:
         context = '\n\n\t' + 'in context of call ' + str(call) + '\n' \
             + '\tfunction type: ' + str(FunctionType(loc, typarams, param_types,
-                                                     return_type)) + '\n' \
-            + '\tinferred type arguments: ' \
-            + ', '.join([base_name(x) + ' := ' + str(ty) for (x,ty) in matching.items()])
+                                                     return_type))
+        # A type argument bound to an overloaded constant's type is not a
+        # real type, so leave it out (issue #1237).
+        inferred = [base_name(x) + ' := ' + str(ty)
+                    for (x, ty) in matching.items() if not _has_overload_type(ty)]
+        if inferred:
+          context += '\n\tinferred type arguments: ' + ', '.join(inferred)
         raise wrap_user_error(e, context) from e
     
     # Were all the type parameters deduced?
@@ -1333,6 +1350,8 @@ def type_check_term(
         user_error(loc, 'variable ' + str(term) + ' is not defined')
       match (var_typ, typ):
         case (OverloadType(loc2, overloads), _):
+          if _has_overload_type(typ):
+            _ambiguous_overload_error(loc, term, var_typ)
           for (x, ty) in overloads:
               if ty == typ:
                   if get_verbose():
