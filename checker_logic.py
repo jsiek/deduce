@@ -139,130 +139,161 @@ def check_implies(loc: Meta, frm1: Formula, frm2: Formula) -> None:
   each of whose sides proves the goal by itself). The rules are
   listed for users under "Implicit Reasoning" in
   gh_pages/doc/Reference.md; keep that list in step with this function.
+
+  ``frm1`` is split into a set of hypotheses (``_assume``) and ``frm2``
+  is searched for from them (``_prove``), so that what is accepted does
+  not depend on the order the rules are tried in (#1290).
   """
   if get_verbose():
     print('check_implies? ' + str(frm1) + ' => ' + str(frm2))
-  match (frm1, frm2):
-    case (_, Bool(loc2, tyof2, True)):
-      return
-  
-    case (_, And(loc2, tyof2, args)):
-      try:
-        for arg2 in args:
-          check_implies(loc, frm1, arg2)
-      except UserError as e:
-          raise wrap_user_error(e, _implies_context(frm1, frm2)) from e
+  try:
+    _prove(loc, _assume(loc, [frm1]), frm2)
+  except _Unproved as e:
+    if e.goal == frm2:
+      raise e.error() from None
+    raise wrap_user_error(e.error(), _implies_context(frm1, frm2)) from None
 
-    case(Or(_, _, args1), _):
-      for arg1 in args1:
+class _Unproved(Exception):
+  """``goal`` does not follow from ``hyps``. The search fails often, so
+  the error saying why is built only when it is reported."""
+  def __init__(self, loc: Meta, hyps: list[Formula], goal: Formula):
+    super().__init__()
+    self.loc, self.hyps, self.goal = loc, hyps, goal
+
+  def error(self) -> UserError:
+    if len(self.hyps) == 1 and not isinstance(self.goal, (And, Or)):
+      return _mismatch(self.loc, self.hyps[0], self.goal)
+    goals = self.goal.args if isinstance(self.goal, Or) else [self.goal]
+    return _error(self.loc, '\nCould not prove' + (' any of' if len(goals) > 1 else '')
+                  + '\n' + '\n'.join('\t' + str(g) for g in goals)
+                  + '\nfrom\n' + '\n'.join('\t' + str(h) for h in self.hyps))
+
+def _error(loc: Meta, msg: str) -> UserError:
+  try:
+    user_error(loc, msg)
+  except UserError as e:
+    return e
+
+def _assume(loc: Meta, frms: list[Formula]) -> list[Formula]:
+  """The hypotheses ``frms`` gives: each `and` split into its parts,
+  plus the conclusion of each `if`-`then` whose premise the other
+  hypotheses prove (modus ponens)."""
+  hyps: list[Formula] = []
+  def add(frm: Formula) -> None:
+    if isinstance(frm, And):
+      for arg in frm.args:
+        add(arg)
+    elif frm not in hyps:
+      hyps.append(frm)
+  for frm in frms:
+    add(frm)
+  # Each implication fires at most once; one whose premise does not
+  # follow yet is retried after the others have added their conclusions.
+  used: list[Formula] = []
+  progress = True
+  while progress:
+    progress = False
+    for hyp in hyps:
+      if isinstance(hyp, IfThen) and hyp not in used:
         try:
-          check_implies(loc, arg1, frm2)
-        except UserError as e:
-          raise wrap_user_error(e, _implies_context(frm1, frm2)) from e
-      
-    case (Bool(loc2, tyof2, False), _):
-      return
-  
-    case (And(loc2, tyof2, args1), _):
-      for arg1 in args1:
-        try:
-          check_implies(loc, arg1, frm2)
-          return
-        except UserError:
-          # implicit modus ponens
-          match arg1:
-            case IfThen(_, _, prem, conc):
-              try:
-                  check_implies(loc, conc, frm2)
-                  remaining = [arg for arg in args1 if arg != arg1]
-                  if not remaining:
-                    continue # no premises left for modus ponens
-                  if len(remaining) == 1:
-                    rest = remaining[0]
-                  else:
-                    rest = And(loc2, tyof2, remaining)
-                  check_implies(loc, rest, prem)
-                  return
-              except UserError:
-                  pass
-            case _:
-              pass
+          _prove(loc, [h for h in hyps if h != hyp], hyp.premise)
+        except _Unproved:
           continue
-      # No conjunct alone proves the goal, but the whole conjunction may
-      # prove one of its disjuncts, as `Q and R` proves `P or (Q and R)`.
-      if isinstance(frm2, Or):
-        for arg2 in frm2.args:
-          try:
-            check_implies(loc, frm1, arg2)
-            return
-          except UserError:
-            continue
-      user_error(loc, '\nCould not prove that\n\t' + str(frm1) + '\n' \
-                 + 'implies\n\t' + str(frm2) + '\n' \
-                 + 'because we could not prove at least one of\n'
-                 + '\n'.join(['\t' + str(arg1) + '   implies   ' + str(frm2)\
-                              for arg1 in args1]))
-            
-    case (_, Or(loc2, tyof2, args2)):
-      for arg2 in args2:
+        used.append(hyp)
+        add(hyp.conclusion)
+        progress = True
+  return hyps
+
+def _prove(loc: Meta, hyps: list[Formula], goal: Formula) -> None:
+  """Prove ``goal`` from ``hyps``, or raise ``_Unproved``."""
+  if is_true(goal) or any(isinstance(hyp, Bool) and not hyp.value for hyp in hyps) \
+     or any(_closes(loc, hyp, goal) for hyp in hyps):
+    return
+  match goal:
+    case And(_, _, args):
+      for arg in args:
+        _prove(loc, hyps, arg)
+      return
+    case Or(_, _, args):
+      for arg in args:
         try:
-          check_implies(loc, frm1, arg2)
+          _prove(loc, hyps, arg)
           return
-        except UserError:
-          continue
-      user_error(loc, '\nCould not prove that\n\t' + str(frm1) + '\n' \
-                 + 'implies\n\t' + str(frm2) + '\n' \
-                 + 'because we could not prove at least one of\n'
-                 + '\n'.join(['\t' + str(frm1) + '   implies   ' + str(arg2)\
-                              for arg2 in args2]))
-      
-    case (IfThen(_, _, prem1, conc1), IfThen(loc2, tyof2, prem2, conc2)):
+        except _Unproved:
+          pass
+  # An `or` whose every side proves the goal by itself.
+  for hyp in hyps:
+    if isinstance(hyp, Or):
       try:
-        check_implies(loc, prem2, prem1)
-        check_implies(loc, conc1, conc2)
-      except UserError as e:
-        raise wrap_user_error(e, _implies_context(frm1, frm2)) from e
+        for arg in hyp.args:
+          _prove(loc, _assume(loc, [arg]), goal)
+        return
+      except _Unproved:
+        pass
+  raise _Unproved(loc, hyps, goal)
 
-    case (All(_, _, var1, _, body1), All(loc2, tyof2, var2, _, body2)):
+def _closes(loc: Meta, hyp: Formula, goal: Formula) -> bool:
+  """Whether ``hyp`` proves ``goal`` directly."""
+  match (hyp, goal):
+    case (IfThen() | All(), IfThen() | All()) if type(hyp) is type(goal):
       try:
-          sub = { var2[0]: OverloadedVar(loc2, var1[1], [var1[0]]) }
-          body2a = cast(Formula, body2.substitute(sub))
-          check_implies(loc, body1, body2a)
-      except UserError as e:
-        raise wrap_user_error(e, _implies_context(frm1, frm2)) from e
+        for (h, g) in _parts(hyp, goal):
+          _prove(loc, _assume(loc, [h]), g)
+        return True
+      except _Unproved:
+        return False
+    case (All(), _):
+      vars, body = collect_all(hyp)
+      try:
+        formula_match(loc, vars, body, goal, {}, Env(), numeric_literals=True)
+        return True
+      except MatchFailed:
+        return False
+  return bool(formulas_equal_modulo_numeric_literals(hyp, goal))
 
-    case (All(_, _, _, _, body1), _):
-       matching:dict[str, Term] = {}
-       try:
-         vars, body = collect_all(frm1)
-         formula_match(loc, vars, body, frm2, matching, Env(),
-                       numeric_literals=True)
-       except MatchFailed as e:
-         user_error(loc, '\nCould not prove that\n\t' + str(frm1) \
-                    + '\ninstantiates to\n\t' + str(frm2) \
+def _parts(hyp: Formula, goal: Formula) -> list[tuple[Formula, Formula]]:
+  """For two implications or two `all`s, the pairs of parts where the
+  first must prove the second."""
+  match (hyp, goal):
+    case (IfThen(_, _, prem1, conc1), IfThen(_, _, prem2, conc2)):
+      return [(prem2, prem1), (conc1, conc2)]
+    case (All(_, _, var1, _, body1), All(loc2, _, var2, _, body2)):
+      sub = { var2[0]: OverloadedVar(loc2, var1[1], [var1[0]]) }
+      return [(body1, cast(Formula, body2.substitute(sub)))]
+  return []
+
+def _mismatch(loc: Meta, hyp: Formula, goal: Formula) -> UserError:
+  """Why ``hyp`` does not prove ``goal``, pointing at where they differ."""
+  for (h, g) in _parts(hyp, goal):
+    try:
+      _prove(loc, _assume(loc, [h]), g)
+    except _Unproved as e:
+      return wrap_user_error(e.error(), _implies_context(hyp, goal))
+  if isinstance(hyp, All):
+    try:
+      vars, body = collect_all(hyp)
+      formula_match(loc, vars, body, goal, {}, Env(), numeric_literals=True)
+    except MatchFailed as e:
+      return _error(loc, '\nCould not prove that\n\t' + str(hyp) \
+                    + '\ninstantiates to\n\t' + str(goal) \
                     + '\nbecause\n' + str(e))
-       
-    case _:
-      if not formulas_equal_modulo_numeric_literals(frm1, frm2):
-        diff = isolate_difference(frm1, frm2)
-        if diff:
-          (small_frm1, small_frm2) = diff
-          hint = commute_diff_hint(frm2)
-          if small_frm1 != frm1:
-              msg = 'error, the proved formula:\n' \
-                  + '\t' + str(frm1) + '\n' \
-              + 'does not match the goal:\n' \
-              + '\t' + str(frm2) + '\n' \
-              + 'because\n\t' + str(small_frm1) + '\n\t≠ ' + str(small_frm2) + '\n' 
-              user_error(loc, msg + hint)
-          else:
-              user_error(loc, '\nYou provided a proof of:\n\t' + str(frm1) \
-                    + '\nbut that is different from what you need to prove:\n\t' + str(frm2) \
-                    + hint)
-        else:
-            internal_error(loc, 'internal error, could not isolate difference for\n\t' \
-                           + str(frm1) + '\nand\n\t' + str(frm2))
-                    
+  diff = isolate_difference(hyp, goal)
+  if not diff:
+    internal_error(loc, 'internal error, could not isolate difference for\n\t' \
+                   + str(hyp) + '\nand\n\t' + str(goal))
+  (small_hyp, small_goal) = diff
+  hint = commute_diff_hint(goal)
+  if small_hyp != hyp:
+    return _error(loc, 'error, the proved formula:\n' \
+                  + '\t' + str(hyp) + '\n' \
+                  + 'does not match the goal:\n' \
+                  + '\t' + str(goal) + '\n' \
+                  + 'because\n\t' + str(small_hyp) + '\n\t=\u0338 ' + str(small_goal) + '\n' \
+                  + hint)
+  return _error(loc, '\nYou provided a proof of:\n\t' + str(hyp) \
+                + '\nbut that is different from what you need to prove:\n\t' + str(goal) \
+                + hint)
+
 def instantiate(loc: Meta, allfrm: Formula, arg: SubstitutionValue) -> Formula:
   match allfrm:
     case All(_, _, (var, _), (s, _), frm):

@@ -1,0 +1,9 @@
+// Distributing `and` over `or` is a case analysis, which a proof
+// writes out with `cases` (#1290).
+theorem distribute: all A:bool, B:bool, C:bool.
+  if (A or B) and C then (A and C) or (B and C)
+proof
+  arbitrary A:bool, B:bool, C:bool
+  assume h
+  h
+end

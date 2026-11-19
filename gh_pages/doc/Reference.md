@@ -1555,24 +1555,24 @@ when each side proves the goal by itself, without help from other
 givens, as `(R and P) or (R and Q)` proves `R`. Otherwise, use `cases`.
 Implicit reasoning lets a proof skip the bookkeeping, not the reasoning.
 
-A proof of the formula on the left is accepted as a proof of the
-formula on the right in the following cases.
+Deduce treats the proved formula as a set of hypotheses and searches
+for a proof of the goal from them, using the following steps.
 
-* Anything proves `true`, and `false` proves anything.
-* `P` proves `Q₁ and Q₂` when `P` proves `Q₁` and proves `Q₂`.
-* `P₁ and P₂` proves `Q` when `P₁` or `P₂` proves `Q`, or when the
-  whole conjunction proves one side of `Q` when `Q` is an `or`.
-* `P₁ or P₂` proves `Q` when `P₁` proves `Q` and `P₂` proves `Q`.
-* `P` proves `Q₁ or Q₂` when `P` proves `Q₁` or `P` proves `Q₂`.
-* `(if P then Q) and R` proves whatever `Q` proves, when `R` proves `P`
-  (modus ponens).
-* `if P₁ then Q₁` proves `if P₂ then Q₂` when `P₂` proves `P₁` and
-  `Q₁` proves `Q₂`.
+* The parts of an `and` are separate hypotheses.
+* Modus ponens: if `if P then Q` is a hypothesis and the other
+  hypotheses prove `P`, then `Q` becomes a hypothesis too.
+* A hypothesis proves the goal when they are the same formula, up to
+  how numbers are written (such as `ℕ1` and `suc(zero)`).
 * `all x:T. P` proves any instance of `P`, such as `P` with `x`
   replaced by `5`, and proves `all y:T. Q` when `P` proves `Q` with `y`
   renamed to `x`.
-* Two formulas that differ only in how a number is written,
-  such as `ℕ1` and `suc(zero)`.
+* `if P₁ then Q₁` proves `if P₂ then Q₂` when `P₂` proves `P₁` and
+  `Q₁` proves `Q₂`.
+* `true` needs no proof, and `false` proves anything.
+* An `and` goal is proved by proving each of its parts.
+* An `or` goal is proved by proving one of its sides.
+* An `or` hypothesis proves the goal when each of its sides proves the
+  goal by itself.
 
 ```{.deduce^#implicit_reasoning_example}
 theorem implicit_reasoning_example: all P:bool, Q:bool, R:bool.

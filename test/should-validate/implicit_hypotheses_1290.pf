@@ -1,0 +1,48 @@
+// Implicit reasoning as a search over a set of hypotheses (#1290):
+// what is accepted does not depend on the order of the rules.
+
+// The parts of an `and` are separate hypotheses, so parts of
+// different conjuncts combine to prove one side of an `or`.
+theorem hyp_and_parts_or: all P:bool, Q:bool, R:bool.
+  if Q and R and P then (R and Q) or not P
+proof
+  arbitrary P:bool, Q:bool, R:bool
+  assume h
+  h
+end
+
+// Modus ponens adds a conclusion that later steps can use.
+theorem hyp_modus_ponens_chain: all A:bool, B:bool, C:bool, D:bool.
+  if A and (if A then B) and (if B then C) then D or (B and C)
+proof
+  arbitrary A:bool, B:bool, C:bool, D:bool
+  assume h
+  h
+end
+
+// An implication used by modus ponens can still prove an implication.
+theorem hyp_implication_kept: all A:bool, B:bool.
+  if A and (if A then B) then (if A then B) and B
+proof
+  arbitrary A:bool, B:bool
+  assume h
+  h
+end
+
+// An `or` whose every side proves the goal by itself.
+theorem hyp_or_branchwise: all A:bool, B:bool, C:bool.
+  if (A or B) and C then B or A
+proof
+  arbitrary A:bool, B:bool, C:bool
+  assume h
+  h
+end
+
+// An `all` hypothesis proves an instance of the whole goal.
+theorem hyp_all_instance: all f:fn bool -> bool, g:fn bool -> bool.
+  if (all x:bool. f(x) and g(x)) then f(true) and g(true)
+proof
+  arbitrary f:fn bool -> bool, g:fn bool -> bool
+  assume h
+  h
+end

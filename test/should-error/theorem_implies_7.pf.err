@@ -1,11 +1,9 @@
 ./test/should-error/theorem_implies_7.pf:18.3-18.21: 
-Could not prove that
-	Q and R
-implies
+Could not prove
 	P
-because we could not prove at least one of
-	Q   implies   P
-	R   implies   P
+from
+	Q
+	R
 
 While trying to prove that
 	Q and R
