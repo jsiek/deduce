@@ -143,13 +143,13 @@ def isUInt(t: Term) -> bool:
   # to a unary-minus AST rather than the original constructor and breaks
   # the round-trip (see int1.pf).
   match t:
-    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'bzero':
+    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if _is_uint_ctor(n, 'bzero'):
       return True
     case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
-      if base_name(n) == 'inc_dub':
+      if _is_uint_ctor(n, 'inc_dub'):
         return isUInt(arg)
     case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
-      if base_name(n) == 'dub_inc':
+      if _is_uint_ctor(n, 'dub_inc'):
         return isUInt(arg)
     case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
       if base_name(n) == 'fromNat':
@@ -178,6 +178,11 @@ def register_library_name(module: str, name: str) -> None:
 def _is_library_name(module: str, name: str) -> bool:
   return library_names.get((module, base_name(name))) == name
 
+def _is_uint_ctor(name: str, ctor: str) -> bool:
+  # Whether ``name`` is UInt's own ``Binary`` constructor ``ctor``, not
+  # a same-named constructor of a user's union (#1254).
+  return library_names.get(('UInt', ctor)) == name
+
 def _uint_name(name: str, env: Env) -> str | None:
   # The unique name of UInt's ``name``, if it is in scope in ``env``.
   unique = library_names.get(('UInt', name))
@@ -185,7 +190,7 @@ def _uint_name(name: str, env: Env) -> str | None:
 
 def isBZero(t: Term) -> bool:
   match t:
-    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'bzero':
+    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if _is_uint_ctor(n, 'bzero'):
       return True
     case _:
       return False
@@ -193,7 +198,7 @@ def isBZero(t: Term) -> bool:
 def isDubInc(t: Term) -> bool:
   match t:
     case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [_]) \
-      if base_name(n) == 'dub_inc':
+      if _is_uint_ctor(n, 'dub_inc'):
         return True
     case _:
       return False
@@ -201,7 +206,7 @@ def isDubInc(t: Term) -> bool:
 def isIncDub(t: Term) -> bool:
   match t:
     case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [_]) \
-      if base_name(n) == 'inc_dub':
+      if _is_uint_ctor(n, 'inc_dub'):
         return True
     case _:
       return False
@@ -213,14 +218,14 @@ def get_arg(t: Term) -> Term:
     case _:
       raise InternalError('get_arg')
   
-def mkBZero(loc: Meta, zname: str = 'bzero', ty: Type | None = None) -> ResolvedVar:
+def mkBZero(loc: Meta, zname: str, ty: Type | None = None) -> ResolvedVar:
   return ResolvedVar(loc, ty, zname)
 
-def mkIncDub(loc: Meta, arg: Term, cname: str = 'inc_dub',
+def mkIncDub(loc: Meta, arg: Term, cname: str,
              ty: Type | None = None) -> Call:
   return Call(loc, ty, ResolvedVar(loc, None, cname), [arg])
 
-def mkDubInc(loc: Meta, arg: Term, cname: str = 'dub_inc',
+def mkDubInc(loc: Meta, arg: Term, cname: str,
              ty: Type | None = None) -> Call:
   return Call(loc, ty, ResolvedVar(loc, None, cname), [arg])
 
@@ -321,9 +326,7 @@ def _uint_double(loc: Meta, x: Term, env: Env) -> Term | None:
 # cannot name them and literals go through ``mkUIntLit`` (``fromNat``
 # of a unary ``Nat``) instead. Switching literals to this compact form
 # is the end-to-end fix tracked in issue #1021.
-def intToUInt(loc: Meta, n: int, bzero: str = 'bzero',
-              dubinc: str = 'dub_inc',
-              incdub: str = 'inc_dub',
+def intToUInt(loc: Meta, n: int, bzero: str, dubinc: str, incdub: str,
               uint_ty: Type | None = None) -> Term:
     if n <= 0:
         return mkBZero(loc, bzero, uint_ty)
@@ -458,13 +461,13 @@ def natToInt(t: Term) -> int:
 
 def uintToInt(t: Term) -> int:
   match t:
-    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)) if base_name(n) == 'bzero':
+    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if _is_uint_ctor(n, 'bzero'):
       return 0
-    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)), [arg]) \
-      if base_name(n) == 'dub_inc':
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
+      if _is_uint_ctor(n, 'dub_inc'):
       return 2 * (1 + uintToInt(arg))
-    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)), [arg]) \
-      if base_name(n) == 'inc_dub':
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
+      if _is_uint_ctor(n, 'inc_dub'):
       return 1 + 2 * uintToInt(arg)
     case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)), [arg]) \
       if base_name(n) == 'fromNat':
