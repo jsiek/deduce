@@ -1,0 +1,60 @@
+// Functions with a where clause (#1282): `msum` and `mdouble` take the
+// operations of Monoid<T> from the models in scope where they are
+// called (lib: test/test-imports/ConceptMonoidSum.pf).
+
+import ConceptMonoidSum
+import ConceptBoolModel
+import ConceptOpaqueModel
+import List
+
+// At a model's type, the call computes with the model's operations.
+assert msum([false, true, false]) = true
+assert msum(@empty<bool>) = false
+assert mdouble(true) = true
+assert @msum<bool>([true]) = true
+
+theorem msum_bools: msum([false, false]) = false
+proof
+  evaluate
+end
+
+// A where theorem about msum, used at a model's type.
+theorem msum_single_bool: all x:bool. msum([x]) = x
+proof
+  msum_single<bool>
+end
+
+// Inside a where clause, the clause's operations are passed.
+theorem msum_pair: all T:type where { Monoid<T> }. all x:T, y:T.
+  msum(node(x, node(y, empty))) = x + y
+proof
+  arbitrary T:type where { Monoid<T> }
+  arbitrary x:T, y:T
+  expand 3*msum
+  replace add_zero[y].
+end
+
+// A where function calling another, with the operations of its own
+// clause, and using a concept member qualified by its instance.
+recursive msum_double<T> where { Monoid<T> } (List<T>) -> T {
+  msum_double(empty) = @Monoid<T>.zero
+  msum_double(node(x, xs)) = mdouble(x) + msum_double(xs)
+}
+
+assert msum_double([true, false]) = true
+
+theorem msum_double_single: all T:type where { Monoid<T> }. all x:T.
+  msum_double(node(x, empty)) = mdouble(x)
+proof
+  arbitrary T:type where { Monoid<T> }
+  arbitrary x:T
+  expand 2*msum_double
+  add_zero[mdouble(x)]
+end
+
+// An opaque model's operations stay folded outside its module, so a
+// call at its type does not compute; its theorems still apply.
+theorem msum_bit: msum([b1]) = b1
+proof
+  msum_single<Bit>[b1]
+end

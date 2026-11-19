@@ -1576,6 +1576,7 @@ def parse_function(visibility: str) -> Statement:
     advance()
     name = parse_identifier()
     typarams = parse_type_parameters()
+    where = parse_where_clause_opt() if typarams else None
 
     if current_token().type == 'LPAR':
       advance()
@@ -1588,7 +1589,7 @@ def parse_function(visibility: str) -> Statement:
     meta = meta_from_tokens(start_token, previous_token())
     lam = Lambda(meta, None, params, body)
     if len(typarams) > 0:
-      fun = Generic(meta, None, typarams, lam)
+      fun = Generic(meta, None, typarams, lam, where=where)
     else:
       fun = lam
     return Define(meta, name, None, fun, visibility=visibility)
@@ -1749,6 +1750,7 @@ def parse_recursive_function(visibility: str) -> Statement:
     advance()
     name = parse_identifier()
     type_params = parse_type_parameters()
+    where = parse_where_clause_opt() if type_params else None
 
     if current_token().type == 'LPAR':
       advance()
@@ -1766,7 +1768,7 @@ def parse_recursive_function(visibility: str) -> Statement:
     advance()
     return RecFun(meta_from_tokens(start_token, previous_token()),
                   name, type_params, param_types, return_type, cases,
-                  visibility=visibility)
+                  visibility=visibility, where=where)
 
 def parse_define(visibility: str) -> Statement:
   while_parsing = 'while parsing\n' \

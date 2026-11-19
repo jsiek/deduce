@@ -78,6 +78,8 @@ from abstract_syntax import (
     is_associative,
     type_match,
     type_names,
+    where_fun_hidden,
+    where_funs,
 )
 from checker_common import *
 from error import MatchFailed, UserError, internal_error, user_error, wrap_user_error, error_header
@@ -307,6 +309,10 @@ def type_check_call_funty(
     param_types: list[Type],
     return_type: Type,
 ) -> Call:
+  hidden = where_fun_hidden(new_rator)
+  if hidden and len(args) == len(param_types) - hidden:
+    return _where_call(loc, new_rator, args, env, recfun, subterms, ret_ty,
+                       call, typarams, param_types, return_type, hidden)
   assoc_name = callable_name(new_rator)
   is_assoc = assoc_name is not None and is_associative(loc, assoc_name,
                                                        return_type, env)
@@ -427,6 +433,45 @@ def type_check_call_funty(
     # print('env:\n' + env.term_vars_str())
     # print('}}}')
     return ret
+
+def _where_call(
+    loc: Meta,
+    new_rator: Term,
+    args: list[Term],
+    env: Env,
+    recfun: RecursiveName,
+    subterms: SubtermNames,
+    ret_ty: TypeExpr | None,
+    call: Call,
+    typarams: list[str],
+    param_types: list[Type],
+    return_type: Type,
+    hidden: int,
+) -> Call:
+  """A call to a function with a where clause (#1282): check the
+  arguments the programmer wrote, then pass the operations of the models
+  of the clause's concepts at the call's types."""
+  from checker_concepts import where_arguments
+  user_call = type_check_call_funty(
+      loc, new_rator, args, env, recfun, subterms, ret_ty, call, typarams,
+      param_types[:-hidden], return_type)
+  rator = user_call.rator
+  if not isinstance(rator, TermInst):
+    internal_error(loc, 'expected the type arguments of ' + str(call))
+  name = callable_name(new_rator)
+  assert name is not None
+  where_typarams, where = where_funs[name]
+  type_args = rator.type_args
+  where = where.substitute(dict(zip(where_typarams, type_args)))
+  ops = where_arguments(loc, where, call.models, env)
+  if typarams:
+    sub = dict(zip(typarams, type_args))
+    param_types = [p.substitute(sub) for p in param_types]
+  funty = cast(FunctionType, rator.typeof)
+  inst_rator = TermInst(rator.location,
+                        FunctionType(loc, [], param_types, funty.return_type),
+                        rator.subject, type_args, rator.inferred)
+  return Call(loc, user_call.typeof, inst_rator, user_call.args + ops)
 
 def overload_mismatch_annotation(
     loc: Meta,
@@ -916,6 +961,15 @@ def type_check_term_inst_var(
                       tyargs, inferred)
   internal_error(loc, 'internal error, expected variable, not ' + str(subject_var))
 
+def _generic_env(term: Generic, env: Env) -> Env:
+  """The environment of a generic's body: its type parameters and the
+  models its where clause provides (#1282)."""
+  from checker_concepts import add_where_models
+  body_env = env.declare_type_vars(term.location, term.type_params)
+  if term.where is not None:
+    body_env = add_where_models(term.location, term.where, body_env)
+  return body_env
+
 def type_synth_term(
     term: Term, env: Env, recfun: RecursiveName, subterms: SubtermNames
 ) -> Term:
@@ -959,12 +1013,12 @@ def type_synth_term(
       ret = ResolvedVar(loc, ty, name)
       
     case Generic(loc, _, type_params, body):
-      body_env = env.declare_type_vars(loc, type_params)
+      body_env = _generic_env(term, env)
       new_body = type_synth_term(body, body_env, recfun, subterms)
       match new_body.typeof:
         case FunctionType(loc2, [], param_types, return_type):
           ty = FunctionType(loc, type_params, param_types, return_type)
-          ret = Generic(loc, ty, type_params, new_body)
+          ret = Generic(loc, ty, type_params, new_body, where=term.where)
         case _:
           user_error(loc, 'body of generic must be a function, not ' \
                 + str(new_body.typeof))
@@ -1231,10 +1285,10 @@ def type_check_term(
                  for (T,U) in zip(type_params, type_params2) }
           new_param_types = [ty.substitute(sub) for ty in param_types2]
           new_return_type = return_type2.substitute(sub)
-          body_env = env.declare_type_vars(loc, type_params)
+          body_env = _generic_env(term, env)
           funty = FunctionType(loc2, [], new_param_types, new_return_type)
           new_body = type_check_term(body, funty, body_env, recfun, subterms)
-          return Generic(loc, typ, type_params, new_body)
+          return Generic(loc, typ, type_params, new_body, where=term.where)
         case _:
           user_error(loc, 'unexpected generic term, expected ' + str(typ))
         

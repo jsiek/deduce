@@ -1260,6 +1260,7 @@ To add type parameters to a function (to make it generic), see
 
 ```deduce-grammar
 statement ::= visibility "fun" identifier type_params_opt "(" variable_list ")" "{" term "}"
+statement ::= visibility "fun" identifier "<" identifier_list ">" "where" "{" concept_ref_list "}" "(" variable_list ")" "{" term "}"
 ```
 
 The `fun` statement is for defining a function (non-recursive).
@@ -1268,6 +1269,8 @@ then the `fun` keyword, followed by
 the type parameters enclosed in `<` and `>` (if generic),
 then the parameter list enclosed in `(` and `)`, and finally
 the body of the function enclosed in `{` and `}`.
+A generic function may have a [where clause](#where-clause) after its
+type parameters.
 
 ```{.deduce^#fun_interchange_example}
 fun interchange(p : Pair<UInt,UInt>) {
@@ -2565,6 +2568,7 @@ is a proof of the formula `P1 and ... and Pn`. The formulas
 
 ```deduce-grammar
 statement ::= visibility "recursive" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}"
+statement ::= visibility "recursive" identifier "<" identifier_list ">" "where" "{" concept_ref_list "}" "(" type_list ")" "->" type "{" fun_case_list "}"
 fun_case ::= identifier "(" pattern_list ")" "=" term
 fun_case_list ::= fun_case
 fun_case_list ::= fun_case fun_case_list
@@ -3644,6 +3648,41 @@ operation unfolds to the model's definition (unless the model is
 opaque), and a theorem is the concept's theorem at the model's
 operations, e.g. `@Monoid<bool>.add_zero` proves
 `all x:bool. bor(x, false) = x`.
+
+**Functions.** A generic `fun` or `recursive` function may have a
+where clause after its type parameters. In its body, the operations of
+the concepts can be used at the type parameters:
+
+```
+recursive msum<T> where { Monoid<T> } (List<T>) -> T {
+  msum(empty) = zero
+  msum(node(x, xs)) = x + msum(xs)
+}
+```
+
+A call such as `msum([false, true])` passes the operations of the
+models in scope at the call's types (here `Monoid<bool>`), so it
+computes with them; it is an error if there is no such model. Inside a
+where formula or proof, or the body of a function with a where clause,
+the clause provides the models, so theorems about the function are
+stated under a matching where clause:
+
+```
+theorem msum_single: all T:type where { Monoid<T> }. all x:T.
+  msum(node(x, empty)) = x
+proof
+  arbitrary T:type where { Monoid<T> }
+  arbitrary x:T
+  expand 2*msum
+  add_zero[x]
+end
+```
+
+The operations are extra arguments of the call that goals and error
+messages don't show. As for where theorems, `expand` and evaluation
+unfold the operations of a model only where the model is not opaque.
+A call depends only on the function's signature and the models in
+scope, not on the function's body.
 
 A where formula means `all T:type. all ops. if axioms then P`, where
 `ops` are the concepts' operations and `axioms` their theorems, so it

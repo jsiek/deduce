@@ -525,7 +525,9 @@ imp_block: "{" imp_stmt_list "}"                   -> imp_block
  | visibility "predicate" identifier type_params_opt ":" type "{" predicate_rule_list "}" -> predicate_declaration
  | visibility "relation"  identifier type_params_opt ":" type "{" predicate_rule_list "}" -> relation_declaration
  | visibility "recursive" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> recursive_function
+ | visibility "recursive" identifier "<" identifier_list ">" "where" "{" concept_ref_list "}" "(" type_list ")" "->" type "{" fun_case_list "}" -> recursive_function_where
  | visibility "fun" identifier type_params_opt "(" variable_list ")" "{" term "}" -> fun
+ | visibility "fun" identifier "<" identifier_list ">" "where" "{" concept_ref_list "}" "(" variable_list ")" "{" term "}" -> fun_where
  | visibility "recfun" identifier type_params_opt "(" variable_list ")" "->" type "measure" term "of" type "{" term "}" "terminates" proof -> general_recursive_function
  | visibility "proc" identifier type_params_opt "(" proc_param_list ")" proc_return_opt proc_spec_list imp_block proc_proof_opt -> proc_decl
  | visibility "observer" identifier type_params_opt "(" proc_param_list ")" "->" type observer_reads_list observer_body_opt -> observer_decl

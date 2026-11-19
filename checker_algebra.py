@@ -33,7 +33,7 @@ from abstract_syntax import (
     ResolvedVar, Term, TermInst, Var, VarRef, base_name,
     get_dont_reduce_opaque, get_reduce_only, intToNat, isUInt, mkIntLit,
     mkUIntLit, remove_mark, set_dont_reduce_opaque, set_reduce_only,
-    uintToInt,
+    callable_name, uintToInt, where_funs,
 )
 from checker_concepts import find_model
 from error import UserError, user_error
@@ -420,10 +420,14 @@ def _reduce_linear(loc: Meta, frm: Formula, names: dict[str, list[str]],
 
 
 def _scale_op(frm: Term) -> list[Term]:
-  """The `scale` operation passed to `linops` in ``frm``."""
+  """The `scale` operation passed for the where clause of a function of
+  lib/Linear.pf (say, `lin_holds`) in ``frm``."""
   match frm:
-    case Call(_, _, rator, args) if _name(rator) == 'linops':
-      return [args[3]] if isinstance(args[3], VarRef) else []
+    case Call(_, _, rator, args) if (name := callable_name(rator)) in where_funs:
+      ops = where_funs[name][1].operations()
+      i = next(i for i, wm in enumerate(ops) if base_name(wm.member) == 'scale')
+      op = args[len(args) - len(ops) + i]
+      return [op] if isinstance(op, VarRef) else []
     case Call(_, _, rator, args):
       return [v for a in [rator] + args for v in _scale_op(a)][:1]
     case And(_, _, args):

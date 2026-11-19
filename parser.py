@@ -1176,15 +1176,19 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
         return FunCase(e.meta, Var(e.meta, None, rator), pp[0], pp[1:],
                        parse_tree_to_ast(e.children[2], e))
     # functions
-    elif e.data == 'fun':
+    elif e.data in ('fun', 'fun_where'):
+        # `fun_where` has a where clause after the type parameters.
+        w = 1 if e.data == 'fun_where' else 0
         visibility = parse_tree_to_ast(e.children[0], e)
         name = parse_tree_to_ast(e.children[1], e)
         typarams = parse_tree_to_list(e.children[2], e)
-        params = parse_tree_to_list(e.children[3], e)
-        body = parse_tree_to_ast(e.children[4], e)
+        params = parse_tree_to_list(e.children[3 + w], e)
+        body = parse_tree_to_ast(e.children[4 + w], e)
         lam = Lambda(e.meta, None, params, body)
         if len(typarams) > 0:
-            fun = Generic(e.meta, None, typarams, lam)
+            fun = Generic(e.meta, None, typarams, lam,
+                          where=WhereClause(e.meta, parse_tree_to_list(e.children[3], e))
+                          if w else None)
         else:
             fun = lam
         statement = Define(e.meta, name, None, fun)
@@ -1192,13 +1196,16 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
         return statement
     
     # structurally recursive functions
-    elif e.data == 'recursive_function':
+    elif e.data in ('recursive_function', 'recursive_function_where'):
+        w = 1 if e.data == 'recursive_function_where' else 0
         visibility = parse_tree_to_ast(e.children[0], e)
         statement = RecFun(e.meta, parse_tree_to_ast(e.children[1], e),
                            parse_tree_to_list(e.children[2], e),
-                           parse_tree_to_list(e.children[3], e),
-                           parse_tree_to_ast(e.children[4], e),
-                           parse_tree_to_list(e.children[5], e))
+                           parse_tree_to_list(e.children[3 + w], e),
+                           parse_tree_to_ast(e.children[4 + w], e),
+                           parse_tree_to_list(e.children[5 + w], e),
+                           where=WhereClause(e.meta, parse_tree_to_list(e.children[3], e))
+                           if w else None)
         set_visibility(statement, visibility)
         return statement
 

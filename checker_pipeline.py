@@ -24,7 +24,8 @@ if TYPE_CHECKING:
     from imperative_verifier import ImperativeObligation
 
 from checker_concepts import (
-    collect_model, model_obligations, process_concept, process_model,
+    add_where_models, collect_model, model_obligations, process_concept,
+    process_model,
 )
 from abstract_syntax import (
     All, And, ConceptDecl, ModelDecl, Array, ArrayGet, ArraySet, Assert, AST, Associative, Auto, Binding, Bool,
@@ -1703,6 +1704,8 @@ def _type_check_stmt(stmt: Statement, env: Env,
       body_env = env.declare_type_vars(loc, typarams)
       checked_params = [check_type(p, body_env) for p in params]
       checked_returns = check_type(returns, body_env)
+      if stmt.where is not None:
+        body_env = add_where_models(loc, stmt.where, body_env)
 
       fun_type = _alpha_renamed_function_type(
           loc, typarams, checked_params, checked_returns)
@@ -1725,7 +1728,7 @@ def _type_check_stmt(stmt: Statement, env: Env,
           user_error(loc, 'missing function case for ' + base_name(c.name))
 
       return RecFun(loc, name, typarams, checked_params, checked_returns,
-                    new_cases, visibility=stmt.visibility)
+                    new_cases, visibility=stmt.visibility, where=stmt.where)
 
     case GenRecFun(loc, name, typarams, param_pairs, returns, measure, measure_ty,
                    body, terminates):

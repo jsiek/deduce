@@ -242,6 +242,32 @@ class ConceptMemberProof(Proof):
                               models=env.get(MODELS_KEY, []))
 
 
+# The functions with a where clause (#1282), by unique name: their type
+# parameters and the where clause, whose operations they take as extra
+# parameters after the ones the programmer wrote.
+where_funs: dict[str, Tuple[List[str], "WhereClause"]] = {}
+
+
+def where_params(where: WhereClause) -> List[Tuple[str, Type]]:
+  """The extra parameters of a function with the where clause ``where``:
+  the binders of its operations, with their types."""
+  params = []
+  for wm in where.operations():
+    decl = concept_decls[wm.instance.concept]
+    sub = {p: t for (p, t) in zip(decl.type_params, wm.instance.type_args)}
+    params.append((wm.binder, dict(decl.funs)[wm.member].substitute(sub)))
+  return params
+
+
+def where_fun_hidden(rator: Term) -> int:
+  """How many trailing arguments of a call to ``rator`` are the operations
+  of a where clause (zero if ``rator`` has none)."""
+  name = callable_name(rator)
+  if name is None or name not in where_funs:
+    return 0
+  return len(where_funs[name][1].operations())
+
+
 def member_str(name: str) -> str:
   return ('operator ' if is_operator_name(name) else '') + name2str(name)
 

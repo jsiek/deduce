@@ -34,7 +34,7 @@ from typing import TYPE_CHECKING
 from .core import *
 
 if TYPE_CHECKING:
-    from .concepts import WhereClause, where_body
+    from .concepts import WhereClause, where_body, where_fun_hidden, where_params
     from .declarations import FunCase, GenRecFun, RecFun, Union, overwrite
     from .env import Env, TermBinding
     from .literals import (
@@ -357,6 +357,10 @@ class PatternTerm(Pattern):
 class Generic(Term):
   type_params: List[str]
   body: Term
+  # A where clause on the type parameters of a `fun` (#1282). Uniquify
+  # adds the operations of its refinement closure as extra parameters of
+  # the body (a `Lambda`).
+  where: Optional[WhereClause] = field(default=None, kw_only=True)
 
   def free_vars(self) -> Set[str]:
     return self.body.free_vars() - set(self.type_params)
@@ -384,8 +388,17 @@ class Generic(Term):
   def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> Generic:
     body_env, new_type_params = uniquify_type_params(
         env, self.type_params, ctx, self.location, overwrite)
-    return Generic(self.location, self.typeof, new_type_params,
-                   self.body.uniquify(body_env, ctx))
+    where = self.where.bind(body_env, ctx) if self.where else None
+    body = self.body.uniquify(body_env, ctx)
+    if where is not None:
+      if not isinstance(body, Lambda):
+        static_error(self.location, 'a where clause needs a function')
+      body = Lambda(body.location, body.typeof,
+                    body.vars + cast(List[Tuple[str, Optional[Type]]],
+                                     where_params(where)),
+                    body.body)
+    return Generic(self.location, self.typeof, new_type_params, body,
+                   where=where)
 
 
 @dataclass
@@ -1199,7 +1212,8 @@ def do_function_call(loc: Meta, name: str, type_params: list[str],
           env = env.define_type(loc, k, cast(Type, subst_value))
         else:
           trm = cast(Term, subst_value)
-          env = env.define_term_var(loc, k, trm.typeof, trm)
+          # A recursive function passed as an argument has no `typeof`.
+          env = env.define_term_var(loc, k, getattr(trm, 'typeof', None), trm)
 
       ret = body.reduce(env)
     else:
@@ -1241,9 +1255,19 @@ def do_function_call(loc: Meta, name: str, type_params: list[str],
 class Call(Term):
   rator: Term
   args: list[Term]
+  # The models in scope, recorded by uniquify: a call to a function with
+  # a where clause passes the operations of their models (#1282).
+  models: List[str] = field(default_factory=list, kw_only=True)
+
+  _NON_STRUCTURAL_FIELDS = frozenset({'location', 'typeof', 'models'})
 
   def __str__(self) -> str:
     return show(self)
+
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> Call:
+    ret = super().uniquify(env, ctx)
+    ret.models = env.get(MODELS_KEY, [])
+    return ret
 
   def _atomic_str(self) -> str:
     if is_infix_operator(self.rator) and len(self.args) >= 2:
@@ -1276,8 +1300,10 @@ class Call(Term):
       # `Call(∘, f, Call(g, [args]))`.
       if _level(self.rator) < ATOM or _open_ended(self.rator):
         rator_str = "(" + rator_str + ")"
+      # The operations passed for a where clause are not shown (#1282).
+      shown = self.args[:len(self.args) - where_fun_hidden(self.rator)]
       return rator_str + "(" \
-        + ", ".join([str(arg) for arg in self.args])\
+        + ", ".join([str(arg) for arg in shown])\
         + ")"
 
   def __eq__(self, other: object) -> bool:

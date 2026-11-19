@@ -1,0 +1,23 @@
+module ConceptMonoidSum
+
+// Functions with a where clause (#1282). A client depends only on their
+// signatures: it passes the operations of the models in its own scope.
+
+public import ConceptMonoid
+import List
+
+recursive msum<T> where { Monoid<T> } (List<T>) -> T {
+  msum(empty) = zero
+  msum(node(x, xs)) = x + msum(xs)
+}
+
+fun mdouble<T> where { Monoid<T> } (x:T) { x + x }
+
+theorem msum_single: all T:type where { Monoid<T> }. all x:T.
+  msum(node(x, empty)) = x
+proof
+  arbitrary T:type where { Monoid<T> }
+  arbitrary x:T
+  expand 2*msum
+  add_zero[x]
+end

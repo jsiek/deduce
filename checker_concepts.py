@@ -144,7 +144,7 @@ def check_where_all(frm: All, env: Env,
   assert frm.where is not None
   where = check_where(frm.where, body_env)
   body_env = declare_where_operations(where, body_env, loc)
-  body = check_body(where_body(frm), body_env)
+  body = check_body(where_body(frm), add_where_models(loc, where, body_env))
   lookup = _binder_lookup(body_env, where, loc)
   premise = _premise(body_env, where, lookup, loc)
   if premise is not None:
@@ -204,10 +204,10 @@ def intro_where(loc: Meta, goal: All, x: str, where: WhereClause,
   for wm in where.theorems():
     body_env = body_env.declare_local_proof_var(
         loc, wm.binder, axiom(body_env, wm.instance, wm.member, lookup, loc))
-  return frm, _where_models(loc, where, body_env)
+  return frm, add_where_models(loc, where, body_env)
 
 
-def _where_models(loc: Meta, where: WhereClause, env: Env) -> Env:
+def add_where_models(loc: Meta, where: WhereClause, env: Env) -> Env:
   """Add a model for each concept instance of ``where`` (its refinement
   closure), whose operations are the where clause's binders: in its
   scope, a where clause models its concepts (F^G's where clauses add
@@ -250,6 +250,17 @@ def find_model(env: Env, inst: ConceptRef, models: list[str],
   if len(found) > 1:
     user_error(loc, 'more than one model of ' + str(inst) + ' in scope')
   return found[0]
+
+
+def where_arguments(loc: Meta, where: WhereClause, in_scope: list[str],
+                    env: Env) -> list[Term]:
+  """The operations to pass to a function with the where clause
+  ``where`` (instantiated at the call's types): those of the models in
+  scope, unfolded where they are visible (F^G's dictionary passing)."""
+  models = _models_in_scope(loc, where.constraints, in_scope, env)
+  lookup = _model_lookup(env, models, False, loc)
+  return [_unfold(lookup(wm.instance, wm.member), [m for (_, m) in models], env)
+          for wm in where.operations()]
 
 
 def _match_type(pattern: Type, ty: Type, tyvars: list[str],
