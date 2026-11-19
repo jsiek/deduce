@@ -1,0 +1,7 @@
+./test/should-error/implicit_distribute_1290.pf:8.3-8.4: 
+Could not prove any of
+	A and C
+	B and C
+from
+	A or B
+	C

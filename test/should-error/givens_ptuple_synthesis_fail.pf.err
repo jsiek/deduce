@@ -3,12 +3,9 @@
 ./test/should-error/givens_ptuple_synthesis_fail.pf:5.3-5.7: comma proves logical-and, not if Q then P
 	then tried synthesis mode, but:
 ./test/should-error/givens_ptuple_synthesis_fail.pf:5.3-5.7: 
-Could not prove that
-	P and P
-implies
+You provided a proof of:
+	P
+but that is different from what you need to prove:
 	if Q then P
-because we could not prove at least one of
-	P   implies   if Q then P
-	P   implies   if Q then P
 Givens:
 	p: P
