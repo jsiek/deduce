@@ -24,8 +24,8 @@ if TYPE_CHECKING:
     from imperative_verifier import ImperativeObligation
 
 from checker_concepts import (
-    add_where_models, collect_model, model_obligations, process_concept,
-    process_model,
+    add_where_models, check_where, collect_model, model_obligations,
+    process_concept, process_model,
 )
 from abstract_syntax import (
     All, And, ConceptDecl, ModelDecl, Array, ArrayGet, ArraySet, Assert, AST, Associative, Auto, Binding, Bool,
@@ -40,7 +40,7 @@ from abstract_syntax import (
     ProcSpec, Proof, ProofBinding, RecFun, ResolvedVar, ResourceDecl, Rule, Some,
     Statement, Switch, SwitchCase, TAnnote, TermBinding, TLet, Term, TermInst, Theorem,
     Trace, Type, TypeAlias, TypeInst, TypeType, Union, Var, VarRef, VerboseLevel,
-    ViewDecl, ViewRecFun, alpha_equiv, base_name, callable_name,
+    ViewDecl, ViewRecFun, WhereClause, alpha_equiv, base_name, callable_name,
     check_post_typecheck_invariants, find_file, first_non_value, full_reduce, is_function_value, mkEqual,
     print_theorems, register_library_name, type_match, type_names,
 )
@@ -63,7 +63,7 @@ from checker_types import (
     check_no_recfun_escape, check_pattern, check_strict_positivity, check_type,
     dirty_files, get_recursive_call_count, infer_param_polarities, is_modified,
     lookup_union, reset_recursive_call_count, type_check_formula,
-    type_check_term, type_synth_term,
+    type_check_term, type_synth_term, where_fun_type,
 )
 from error import (
     Diagnostic, ErrorSink, MatchFailed, error_header, get_active_sink,
@@ -990,7 +990,9 @@ def process_declaration_visibility(decl: Declaration, env: Env,
         _, source_ty, _ = view_info
         checked_params = [source_ty] + [check_type(t, body_env)
                                        for t in params[1:]]
-      fun_type = FunctionType(loc, typarams, checked_params, checked_returns)
+      where = check_where(decl.where, body_env) if decl.where else None
+      fun_type = where_fun_type(loc, typarams, checked_params, checked_returns,
+                                where)
       register_library_name(env.get_current_module(), name)
       return decl, env.declare_term_var(loc, name, fun_type,
                                         visibility=decl.visibility)
@@ -1466,14 +1468,16 @@ def type_check_view_recursive_fun(stmt: RecFun, env: Env,
 
 def _alpha_renamed_function_type(loc: Meta, typarams: list[str],
                                  param_types: list[Type],
-                                 returns: Type) -> FunctionType:
+                                 returns: Type,
+                                 where: WhereClause | None = None) -> FunctionType:
   new_typarams = [generate_proof_name(t) for t in typarams]
   sub: Substitution = {
       x: ResolvedVar(loc, None, y) for (x, y) in zip(typarams, new_typarams)
   }
-  return FunctionType(loc, new_typarams,
-                      [t.substitute(sub) for t in param_types],
-                      returns.substitute(sub))
+  return where_fun_type(loc, new_typarams,
+                        [t.substitute(sub) for t in param_types],
+                        returns.substitute(sub),
+                        where.substitute(sub) if where else None)
 
 def _view_type_head_and_args(typ: Type | VarRef) -> tuple[VarRef | None, list[Type]]:
   if isinstance(typ, VarRef):
@@ -1704,11 +1708,12 @@ def _type_check_stmt(stmt: Statement, env: Env,
       body_env = env.declare_type_vars(loc, typarams)
       checked_params = [check_type(p, body_env) for p in params]
       checked_returns = check_type(returns, body_env)
-      if stmt.where is not None:
-        body_env = add_where_models(loc, stmt.where, body_env)
+      where = check_where(stmt.where, body_env) if stmt.where else None
+      if where is not None:
+        body_env = add_where_models(loc, where, body_env)
 
       fun_type = _alpha_renamed_function_type(
-          loc, typarams, checked_params, checked_returns)
+          loc, typarams, checked_params, checked_returns, where)
 
       env = env.define_term_var(loc, name, fun_type, stmt.reduce(env),
                                 stmt.visibility)
@@ -1728,7 +1733,7 @@ def _type_check_stmt(stmt: Statement, env: Env,
           user_error(loc, 'missing function case for ' + base_name(c.name))
 
       return RecFun(loc, name, typarams, checked_params, checked_returns,
-                    new_cases, visibility=stmt.visibility, where=stmt.where)
+                    new_cases, visibility=stmt.visibility, where=where)
 
     case GenRecFun(loc, name, typarams, param_pairs, returns, measure, measure_ty,
                    body, terminates):
@@ -1854,7 +1859,7 @@ def collect_env(stmt: Statement, env: Env) -> Env:
       return env.define_term_var(loc, name, ty, body, stmt.visibility)
       
     case RecFun(loc, name, typarams, params, returns, _):
-      fun_type = FunctionType(loc, typarams, params, returns)
+      fun_type = where_fun_type(loc, typarams, params, returns, stmt.where)
       return env.define_term_var(loc, name, fun_type, stmt,
                                  stmt.visibility)
 

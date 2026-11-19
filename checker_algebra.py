@@ -29,11 +29,11 @@ from typing import Any, Callable, cast
 
 from abstract_syntax import (
     LINEAR_DEFS, AlgebraGoal, AllElim, AllElimTypes, And, Bool, Call,
-    ConceptRef, Env, Formula, IfThen, OverloadedVar, PVar, Proof,
+    ConceptRef, Env, Formula, FunctionType, IfThen, OverloadedVar, PVar, Proof,
     ResolvedVar, Term, TermInst, Var, VarRef, base_name,
     get_dont_reduce_opaque, get_reduce_only, intToNat, isUInt, mkIntLit,
     mkUIntLit, remove_mark, set_dont_reduce_opaque, set_reduce_only,
-    callable_name, uintToInt, where_funs,
+    uintToInt,
 )
 from checker_concepts import find_model
 from error import UserError, user_error
@@ -423,11 +423,12 @@ def _scale_op(frm: Term) -> list[Term]:
   """The `scale` operation passed for the where clause of a function of
   lib/Linear.pf (say, `lin_holds`) in ``frm``."""
   match frm:
-    case Call(_, _, rator, args) if (name := callable_name(rator)) in where_funs:
-      ops = where_funs[name][1].operations()
+    case Call(_, _, TermInst(_, _, subject, _, _, dicts=dicts), _) if dicts:
+      funty = subject.typeof
+      assert isinstance(funty, FunctionType) and funty.where is not None
+      ops = funty.where.operations()
       i = next(i for i, wm in enumerate(ops) if base_name(wm.member) == 'scale')
-      op = args[len(args) - len(ops) + i]
-      return [op] if isinstance(op, VarRef) else []
+      return [dicts[i]] if isinstance(dicts[i], VarRef) else []
     case Call(_, _, rator, args):
       return [v for a in [rator] + args for v in _scale_op(a)][:1]
     case And(_, _, args):

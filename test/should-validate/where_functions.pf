@@ -58,3 +58,27 @@ theorem msum_bit: msum([b1]) = b1
 proof
   msum_single<Bit>[b1]
 end
+
+// A where function is a value once instantiated (F^G's type
+// application): `@mdouble<bool>` passes Monoid<bool>'s operations.
+assert map([true, false], @mdouble<bool>) = [true, false]
+assert map([[false, true], [false]], @msum<bool>) = [true, false]
+
+// Where the expected type is known, the instantiation is inferred.
+fun apply_bool(f : fn bool -> bool, b : bool) { f(b) }
+assert apply_bool(mdouble, true) = true
+assert apply_bool(fun b:bool { msum([b, b]) }, false) = false
+
+// Its type has the where clause, so it can be written in a `define`,
+// with a `generic` that has the same where clause.
+define mtriple : fn <T> where { Monoid<T> } T -> T =
+  generic T where { Monoid<T> } { fun x:T { x + (x + x) } }
+
+assert mtriple(true) = true
+
+theorem mtriple_zero: all T:type where { Monoid<T> }. mtriple(@Monoid<T>.zero) = zero
+proof
+  arbitrary T:type where { Monoid<T> }
+  expand mtriple
+  replace add_zero[@Monoid<T>.zero] | add_zero[@Monoid<T>.zero].
+end

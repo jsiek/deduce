@@ -353,7 +353,8 @@ def explicit_term_inst(term: SwitchCase) -> SwitchCase: ...
 def explicit_term_inst(term: Term | SwitchCase) -> Term | SwitchCase:
   match term:
     case TermInst(loc2, tyof, subject, tyargs, _):
-      return TermInst(loc2, tyof, subject, tyargs, False)
+      return TermInst(loc2, tyof, subject, tyargs, False, dicts=term.dicts,
+                      models=term.models)
     case Switch(loc2, tyof, subject, cases):
       return Switch(loc2, tyof, explicit_term_inst(subject),
                     [explicit_term_inst(c) for c in cases])
@@ -406,6 +407,14 @@ def _alpha_equiv(t1: object, t2: object,
   # TermInst / TAnnote are transparent for equality -- existing
   # __eq__ methods unwrap them. Unwrap on both sides so the rest of
   # this function only deals with the wrapped term.
+  # A type application that passes the operations of models (#1282) is
+  # not transparent: different operations make different functions.
+  dicts1 = t1.dicts if isinstance(t1, TermInst) else []
+  dicts2 = t2.dicts if isinstance(t2, TermInst) else []
+  if len(dicts1) != len(dicts2) \
+     or not all(_alpha_equiv(d1, d2, env1, env2)
+                for (d1, d2) in zip(dicts1, dicts2)):
+    return False
   while isinstance(t1, (TermInst, TAnnote)):
     t1 = t1.subject
   while isinstance(t2, (TermInst, TAnnote)):
@@ -581,6 +590,16 @@ def _alpha_equiv_function_type(t1: FunctionType, t2: object,
   tags = [object() for _ in t1.type_params]
   new_env1 = _bind_all(env1, list(zip(t1.type_params, tags)))
   new_env2 = _bind_all(env2, list(zip(t2.type_params, tags)))
+  # The where clauses (#1282): the same concepts at the same types.
+  c1 = t1.where.constraints if t1.where else []
+  c2 = t2.where.constraints if t2.where else []
+  if len(c1) != len(c2):
+    return False
+  for (r1, r2) in zip(c1, c2):
+    if r1.concept != r2.concept or len(r1.type_args) != len(r2.type_args) \
+       or not all(_alpha_equiv(a1, a2, new_env1, new_env2)
+                  for (a1, a2) in zip(r1.type_args, r2.type_args)):
+      return False
   for (p1, p2) in zip(t1.param_types, t2.param_types):
     if not _alpha_equiv(p1, p2, new_env1, new_env2):
       return False

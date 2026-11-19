@@ -202,7 +202,8 @@ def replace_mark(formula: Term | SwitchCase, replacement: Term) -> Term | Switch
     case Mark(loc2, tyof, subject):
       return replacement
     case TermInst(loc2, tyof, subject, tyargs, inferred):
-      return TermInst(loc2, tyof, replace_mark(subject, replacement), tyargs, inferred)
+      return TermInst(loc2, tyof, replace_mark(subject, replacement), tyargs, inferred,
+                      dicts=formula.dicts, models=formula.models)
     case Var() | OverloadedVar() | ResolvedVar():
       return formula
     case Bool(loc2, tyof, _):
@@ -356,7 +357,8 @@ def rewrite_aux(loc: Meta, formula: Term | SwitchCase, equation: Formula | AutoR
   match formula:
     case TermInst(loc2, tyof, subject, tyargs, inferred):
       return TermInst(loc2, tyof, rewrite_aux(loc, subject, equation, env, depth - 1),
-                      tyargs, inferred)
+                      tyargs, inferred, dicts=formula.dicts,
+                      models=formula.models)
     case OverloadedVar() | ResolvedVar() | Var():
       return formula
     case Bool(loc2, tyof, _):
@@ -549,6 +551,15 @@ def formula_match(
     print("\tin  " + ','.join([str(x) for x in vars]))
     print("\twith " + ','.join([x + ' := ' + str(f) for (x,f) in matching.items()]))
   match (pattern_frm, frm):
+    # The operations a type application passes for a where clause
+    # (#1282) must match too: instances with different operations are
+    # different functions.
+    case (TermInst(_, _, _, _, _, dicts=d1), _) \
+        if d1 and not (isinstance(frm, TermInst) and len(frm.dicts) == len(d1)):
+      match_failed(loc, lambda: str(frm) + " does not match " + str(pattern_frm))
+    case (_, TermInst(_, _, _, _, _, dicts=d2)) \
+        if d2 and not isinstance(pattern_frm, TermInst):
+      match_failed(loc, lambda: str(frm) + " does not match " + str(pattern_frm))
     case (TermInst(_, _, subject1, tyargs1, _),
           TermInst(_, _, subject2, tyargs2, _)) \
           if len(tyargs1) == len(tyargs2):
@@ -556,6 +567,9 @@ def formula_match(
         matching2 = dict(matching)
         for (t1,t2) in zip(tyargs1, tyargs2):
           formula_match(loc, vars, t1, t2, matching2, env,
+                        numeric_literals, outer_env=outer_env)
+        for (u1, u2) in zip(pattern_frm.dicts, frm.dicts):
+          formula_match(loc, vars, u1, u2, matching2, env,
                         numeric_literals, outer_env=outer_env)
         formula_match(loc, vars, subject1, subject2, matching2, env,
                       numeric_literals, outer_env=outer_env)

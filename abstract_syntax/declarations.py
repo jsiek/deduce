@@ -39,7 +39,7 @@ from .proofs import *
 if TYPE_CHECKING:
     from .env import Env
     from .ops import uniquify_deduce
-    from .concepts import WhereClause, where_funs, where_params
+    from .concepts import WhereClause, where_params
 
 @dataclass
 class Declaration(Statement):
@@ -1282,7 +1282,6 @@ class RecFun(Declaration):
       new_params += [ty for (_, ty) in ops]
       for c in new_cases:
         c.parameters = c.parameters + [x for (x, _) in ops]
-      where_funs[new_name] = (new_type_params, where)
 
     return RecFun(self.location, new_name, new_type_params,
                   new_params, new_returns, new_cases,
@@ -1658,8 +1657,6 @@ class Define(Declaration):
     overloads = list(env.get(self.name, []))
     new_name = generate_name(self.name, ctx)
     extend(env, self.name, new_name, self.location)
-    if isinstance(new_body, Generic) and new_body.where is not None:
-      where_funs[new_name] = (new_body.type_params, new_body.where)
     return Define(self.location, new_name, new_typ, new_body,
                   visibility=self.visibility, overloads=overloads)
 

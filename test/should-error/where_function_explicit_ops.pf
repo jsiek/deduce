@@ -1,0 +1,10 @@
+// The operations of a where clause (#1282) come from the models in
+// scope; a call can't pass them by hand.
+
+import ConceptMonoidSum
+import ConceptBoolModel
+import List
+
+fun band(a:bool, b:bool) { a and b }
+
+assert msum([true], band, true) = true

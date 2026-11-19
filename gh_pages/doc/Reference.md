@@ -1285,12 +1285,15 @@ assert interchange(pair(1,2)) = pair(2,1)
 ```deduce-grammar
 type ::= "fn" type_params_opt type_list "->" type
 type ::= "fn" type_params_opt "(" type "," type_list ")" "->" type
+type ::= "fn" "<" identifier_list ">" "where" "{" concept_ref_list "}" type_list "->" type
+type ::= "fn" "<" identifier_list ">" "where" "{" concept_ref_list "}" "(" type "," type_list ")" "->" type
 ```
 
 A function type classifies a function. This includes both recursive
 functions (`recursive`) and non-recursive functions (`fun` or `λ`).
 If the function is generic, its function type includes type parameters
-enclosed in `<` and `>`.
+enclosed in `<` and `>`, and the [where clause](#where-clause) of the
+function, if it has one, as in `fn <T> where { Monoid<T> } List<T> -> T`.
 
 Multi-argument parameter lists may be written bare (`fn A, B -> C`) or
 wrapped in parentheses (`fn (A, B) -> C`); both forms are equivalent.
@@ -1320,6 +1323,7 @@ this formula applies to lists with any element type.
 
 ```deduce-grammar
 atomic_term ::= "generic" identifier_list "{" term "}"
+atomic_term ::= "generic" identifier_list "where" "{" concept_ref_list "}" "{" term "}"
 ```
 
 A term of the form
@@ -1330,7 +1334,8 @@ generic T1, ..., Tn { X }
 
 produces a generic function with type parameters 
 `T1`, ..., `Tn`, if term `X` produces a function
-(e.g., using `fun`).
+(e.g., using `fun`). It may have a [where clause](#where-clause) after
+the type parameters, as in `generic T where { Monoid<T> } { fun x:T { x + x } }`.
 
 An example use of `generic` is in `Maps.pf`, in the
 definition of function composition.
@@ -3270,6 +3275,7 @@ type ::= "[" type "]"                                  // type of an array
 type ::= "[" type "]" "!"                              // experimental mutable-array type
 type ::= "fn" type_params_opt type_list "->" type      // type of a function 
 type ::= "fn" type_params_opt "(" type "," type_list ")" "->" type   // parenthesized multi-arg form
+type ::= "fn" "<" identifier_list ">" "where" "{" concept_ref_list "}" type_list "->" type  // with a where clause
 type ::= "(" type ")"
 ```
 
@@ -3660,12 +3666,16 @@ recursive msum<T> where { Monoid<T> } (List<T>) -> T {
 }
 ```
 
-A call such as `msum([false, true])` passes the operations of the
-models in scope at the call's types (here `Monoid<bool>`), so it
-computes with them; it is an error if there is no such model. Inside a
-where formula or proof, or the body of a function with a where clause,
-the clause provides the models, so theorems about the function are
-stated under a matching where clause:
+The where clause is part of the function's type,
+`fn <T> where { Monoid<T> } List<T> -> T`. Instantiating the type
+parameters, explicitly as in `@msum<bool>` or implicitly as in the call
+`msum([false, true])`, passes the operations of the models in scope at
+those types (here `Monoid<bool>`); it is an error if there is no such
+model. The result is an ordinary function, of type
+`fn List<bool> -> bool`, so `@msum<bool>` can be passed to `map`. Inside
+a where formula or proof, or the body of a function with a where
+clause, the clause provides the models, so theorems about the function
+are stated under a matching where clause:
 
 ```
 theorem msum_single: all T:type where { Monoid<T> }. all x:T.
@@ -3678,11 +3688,12 @@ proof
 end
 ```
 
-The operations are extra arguments of the call that goals and error
-messages don't show. As for where theorems, `expand` and evaluation
-unfold the operations of a model only where the model is not opaque.
-A call depends only on the function's signature and the models in
-scope, not on the function's body.
+This follows System F^G: a generic function with a where clause takes
+the concepts' operations as extra parameters, and instantiating it
+passes them, so goals and error messages don't show them. As for where
+theorems, `expand` and evaluation unfold the operations of a model only
+where the model is not opaque. Using the function depends only on its
+type and the models in scope, not on its body.
 
 A where formula means `all T:type. all ops. if axioms then P`, where
 `ops` are the concepts' operations and `axioms` their theorems, so it
