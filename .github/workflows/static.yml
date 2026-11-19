@@ -23,15 +23,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Single deploy job since we're just deploying
-  deploy:
-    permissions:
-        contents: write
-        pages: write
-        id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  # Build the site and upload it as the run's Pages artifact. Deploying in
+  # a separate job gives GitHub time to list the artifact (a deploy in the
+  # same job right after the upload sometimes found none), and a failed
+  # deploy can be re-run without uploading a second artifact.
+  build:
     runs-on: ubuntu-latest
     steps:
       # Check out the repository
@@ -70,7 +66,7 @@ jobs:
         run: python ./gh_pages/scripts/lib_generate.py
 
         # Run the Python code block syntax generate script
-      - name: Run lib generate script
+      - name: Run code block syntax generate script
         run: python ./gh_pages/scripts/code_block_syntax_generator.py
 
       # Convert scss to css
@@ -88,7 +84,13 @@ jobs:
           # Upload entire repository
           path: './gh_pages'
 
-      # Deploy to gh pages
+  deploy:
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
