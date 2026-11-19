@@ -857,12 +857,10 @@ class SimplifyGoal(Proof):
 # and the literals of Nat, UInt, Int, and Rat).
 # The definitions of lib/Linear.pf that checking a certificate unfolds.
 LINEAR_DEFS = (
-  'lin_get', 'lin_denote', 'lin_ops_add', 'lin_ops_neg', 'lin_ops_sub',
-  'lin_ops_scale', 'lin_ops_zero', 'lin_ops_le', 'lin_ops_lt',
-  'lin_ops_unit', 'lin_vadd', 'lin_vscale', 'lin_vunit', 'lin_coeffs',
-  'lin_all_zero', 'lin_holds', 'lin_all_hold', 'lin_diff', 'lin_combine',
-  'lin_sign_ok', 'lin_strict_pos', 'lin_signs_ok', 'lin_some_strict',
-  'lin_unit_fact', 'lin_check', 'lin_check_goal',
+  'lin_get', 'lin_denote', 'lin_vadd', 'lin_vscale', 'lin_vunit',
+  'lin_coeffs', 'lin_all_zero', 'lin_holds', 'lin_all_hold', 'lin_diff',
+  'lin_combine', 'lin_sign_ok', 'lin_strict_pos', 'lin_signs_ok',
+  'lin_some_strict', 'lin_unit_fact', 'lin_check', 'lin_check_goal',
 )
 ALGEBRA_NAMES = (
   'LinearArith', 'lin_prove', 'lin_disprove', 'lin_refute',

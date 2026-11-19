@@ -1,0 +1,8 @@
+// A call to a function with a where clause (#1282) needs a model of the
+// clause's concepts at the call's types.
+
+import ConceptMonoidSum
+import List
+import UInt
+
+assert msum([1, 2]) = 3

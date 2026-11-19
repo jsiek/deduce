@@ -670,16 +670,19 @@ def formulas_equal_modulo_numeric_literals(frm1: AST, frm2: AST) -> bool:
     case (Some(_, _, vars1, body1), Some(_, _, vars2, body2)) \
          if len(vars1) == len(vars2):
       return formulas_equal_modulo_numeric_literals(body1, body2)
-    case (TermInst(_, _, subject1, tyargs1, _),
-          TermInst(_, _, subject2, tyargs2, _)) \
+    case (TermInst(_, _, subject1, tyargs1, _, dicts=dicts1),
+          TermInst(_, _, subject2, tyargs2, _, dicts=dicts2)) \
          if len(tyargs1) == len(tyargs2):
-      return formulas_equal_modulo_numeric_literals(subject1, subject2) \
+      # The operations passed for a where clause (#1282) must agree.
+      return len(dicts1) == len(dicts2) \
+          and all(d1 == d2 for (d1, d2) in zip(dicts1, dicts2)) \
+          and formulas_equal_modulo_numeric_literals(subject1, subject2) \
           and all(formulas_equal_modulo_numeric_literals(tyarg1, tyarg2)
                   for (tyarg1, tyarg2) in zip(tyargs1, tyargs2))
-    case (TermInst(_, _, subject, _, _), _):
-      return formulas_equal_modulo_numeric_literals(subject, frm2)
-    case (_, TermInst(_, _, subject, _, _)):
-      return formulas_equal_modulo_numeric_literals(frm1, subject)
+    case (TermInst(_, _, subject, _, _, dicts=dicts1), _):
+      return not dicts1 and formulas_equal_modulo_numeric_literals(subject, frm2)
+    case (_, TermInst(_, _, subject, _, _, dicts=dicts2)):
+      return not dicts2 and formulas_equal_modulo_numeric_literals(frm1, subject)
     case (TAnnote(_, _, subject1, _), _):
       return formulas_equal_modulo_numeric_literals(subject1, frm2)
     case (_, TAnnote(_, _, subject2, _)):

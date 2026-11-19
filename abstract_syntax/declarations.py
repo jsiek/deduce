@@ -39,6 +39,7 @@ from .proofs import *
 if TYPE_CHECKING:
     from .env import Env
     from .ops import uniquify_deduce
+    from .concepts import WhereClause, where_params
 
 @dataclass
 class Declaration(Statement):
@@ -1257,6 +1258,10 @@ class RecFun(Declaration):
   params: List[Type]
   returns: Type
   cases: List[FunCase]
+  # A where clause on the type parameters (#1282). Uniquify passes the
+  # operations of its refinement closure as extra parameters, after
+  # ``params`` (F^G's dictionary passing).
+  where: Optional[WhereClause] = field(default=None, kw_only=True)
 
   def uniquify(self, env: object, ctx: object) -> RecFun:
     env_map = cast(UniquifyEnv, env)
@@ -1267,14 +1272,20 @@ class RecFun(Declaration):
 
     body_env, new_type_params = uniquify_type_params(
         env_map, self.type_params, uniq_ctx, self.location, extend)
+    where = self.where.bind(body_env, uniq_ctx) if self.where else None
 
     new_params = [ty.uniquify(body_env, uniq_ctx) for ty in self.params]
     new_returns = self.returns.uniquify(body_env, uniq_ctx)
     new_cases = [c.uniquify(body_env, old_name, uniq_ctx) for c in self.cases]
+    if where is not None:
+      ops = where_params(where)
+      new_params += [ty for (_, ty) in ops]
+      for c in new_cases:
+        c.parameters = c.parameters + [x for (x, _) in ops]
 
     return RecFun(self.location, new_name, new_type_params,
                   new_params, new_returns, new_cases,
-                  visibility=self.visibility)
+                  visibility=self.visibility, where=where)
       
   _exports_overload = True
 
@@ -1291,11 +1302,18 @@ class RecFun(Declaration):
       + '\n'.join([str(c) for c in self.cases]) \
       + '\n}'
 
+  def _hidden(self) -> int:
+    """How many of ``params`` are the operations of the where clause
+    (added by uniquify)."""
+    return len(self.where.operations()) if self.where else 0
+
   def _header(self) -> str:
+    params = self.params[:len(self.params) - self._hidden()]
     return complete_name(self.name) \
         + ('<' + ','.join([name2str(t) for t in self.type_params]) + '>' \
            if len(self.type_params) > 0 else '') \
-      + '(' + ','.join([str(ty) for ty in self.params]) + ')' \
+      + (' ' + str(self.where) + ' ' if self.where else '') \
+      + '(' + ','.join([str(ty) for ty in params]) + ')' \
       + ' -> ' + str(self.returns)
 
   def opaque_signature(self) -> str | None:
@@ -1303,8 +1321,12 @@ class RecFun(Declaration):
 
   def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
     header = self._header()
+    k = self._hidden()
+    cases = [FunCase(c.location, c.rator, c.pattern,
+                     c.parameters[:len(c.parameters) - k], c.body)
+             for c in self.cases]
     ret = self.visibility_prefix() + 'recursive ' + header + '{\n' \
-      + '\n'.join([c.pretty_print(indent+2) for c in self.cases]) + '\n' \
+      + '\n'.join([c.pretty_print(indent+2) for c in cases]) + '\n' \
       + '}\n'
 
     return indent*' ' + ret
@@ -1331,10 +1353,12 @@ def pretty_print_function(
     type_params: list[str],
     params: list[tuple[str, Type | None]],
     body: Term,
+    where: Optional[WhereClause] = None,
 ) -> str:
     return 'fun ' + complete_name(name) \
         + ('<' + ', '.join([base_name(t) for t in type_params]) + '>' \
            if len(type_params) > 0 else '') \
+        + (' ' + str(where) + ' ' if where else '') \
         + '(' + ', '.join([x + ':' + str(t) if t else x \
                            for (x,t) in params]) + ')' \
         + " {\n" + body.pretty_print(2, True) + "\n}\n"
@@ -1613,9 +1637,12 @@ class Define(Declaration):
     elif self._can_use_fun_form() and isinstance(self.body, Generic):
         assert isinstance(self.body.body, Lambda)
         typarams = self.body.type_params
-        params = [(base_name(x), t) for (x,t) in self.body.body.vars]
+        where = self.body.where
+        k = len(where.operations()) if where else 0
+        vars = self.body.body.vars
+        params = [(base_name(x), t) for (x,t) in vars[:len(vars) - k]]
         return prefix + pretty_print_function(self.name, typarams, params,
-                                              self.body.body.body)
+                                              self.body.body.body, where)
     else:
         return prefix + 'define ' + complete_name(self.name) \
             + (' : ' + str(self.typ) if self.typ else '') \

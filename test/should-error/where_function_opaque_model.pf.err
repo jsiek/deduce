@@ -1,0 +1,2 @@
+./test/should-error/where_function_opaque_model.pf:11.3-11.11: the goal did not evaluate to `true`, but instead:
+	b1 + zero = b1

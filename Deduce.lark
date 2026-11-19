@@ -158,6 +158,7 @@ identifier: IDENT              -> identifier
     | "λ" type_params_opt ne_variable_list "{" term "}"    -> lambda
     | "fun" type_params_opt ne_variable_list "{" term "}"  -> lambda
     | "generic" identifier_list "{" term "}"            -> generic
+    | "generic" identifier_list "where" "{" concept_ref_list "}" "{" term "}" -> generic_where
     | "switch" term "{" switch_list "}"            -> switch
     | "all" type_annotation_list "." term               -> all_formula
     | "all" type_annotation_list "where" "{" concept_ref_list "}" "." term -> all_where_formula
@@ -351,6 +352,8 @@ identifier: IDENT              -> identifier
 
 ?type: "fn" type_params_opt type_list "->" type        -> function_type
  | "fn" type_params_opt "(" type "," type_list ")" "->" type   -> function_type_paren
+ | "fn" "<" identifier_list ">" "where" "{" concept_ref_list "}" type_list "->" type -> function_type_where
+ | "fn" "<" identifier_list ">" "where" "{" concept_ref_list "}" "(" type "," type_list ")" "->" type -> function_type_where_paren
  | IDENT "<" type_list ">"                             -> type_inst
  | atomic_type
 
@@ -525,7 +528,9 @@ imp_block: "{" imp_stmt_list "}"                   -> imp_block
  | visibility "predicate" identifier type_params_opt ":" type "{" predicate_rule_list "}" -> predicate_declaration
  | visibility "relation"  identifier type_params_opt ":" type "{" predicate_rule_list "}" -> relation_declaration
  | visibility "recursive" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> recursive_function
+ | visibility "recursive" identifier "<" identifier_list ">" "where" "{" concept_ref_list "}" "(" type_list ")" "->" type "{" fun_case_list "}" -> recursive_function_where
  | visibility "fun" identifier type_params_opt "(" variable_list ")" "{" term "}" -> fun
+ | visibility "fun" identifier "<" identifier_list ">" "where" "{" concept_ref_list "}" "(" variable_list ")" "{" term "}" -> fun_where
  | visibility "recfun" identifier type_params_opt "(" variable_list ")" "->" type "measure" term "of" type "{" term "}" "terminates" proof -> general_recursive_function
  | visibility "proc" identifier type_params_opt "(" proc_param_list ")" proc_return_opt proc_spec_list imp_block proc_proof_opt -> proc_decl
  | visibility "observer" identifier type_params_opt "(" proc_param_list ")" "->" type observer_reads_list observer_body_opt -> observer_decl

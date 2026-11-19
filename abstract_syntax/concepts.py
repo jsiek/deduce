@@ -242,6 +242,19 @@ class ConceptMemberProof(Proof):
                               models=env.get(MODELS_KEY, []))
 
 
+def where_params(where: WhereClause) -> List[Tuple[str, Type]]:
+  """The extra parameters of a function with the where clause ``where``
+  (#1282): the binders of its operations, with their types. They are the
+  dictionary of F^G's translation of ``Λt̄ where c̄. e``; a type
+  application passes the models' operations for them."""
+  params = []
+  for wm in where.operations():
+    decl = concept_decls[wm.instance.concept]
+    sub = {p: t for (p, t) in zip(decl.type_params, wm.instance.type_args)}
+    params.append((wm.binder, dict(decl.funs)[wm.member].substitute(sub)))
+  return params
+
+
 def member_str(name: str) -> str:
   return ('operator ' if is_operator_name(name) else '') + name2str(name)
 

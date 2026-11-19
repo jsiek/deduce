@@ -1,0 +1,23 @@
+module IntProdModel
+
+// Int with * is a Monoid, privately: only this module sees the model.
+
+import ConceptMonoidSum
+import Int
+import List
+
+private model Monoid<Int> {
+  fun operator+ = operator*
+  fun zero = +1
+  theorem add_zero = int_mult_one
+  theorem zero_add = int_one_mult
+}
+
+fun int_prod(xs : List<Int>) { msum(xs) }
+
+theorem int_prod_single: all x:Int. int_prod([x]) = x
+proof
+  arbitrary x:Int
+  expand int_prod
+  msum_single<Int>[x]
+end

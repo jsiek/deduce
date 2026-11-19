@@ -1,0 +1,1 @@
+./test/should-error/where_function_no_model_no_ops.pf:10.8-10.18: no model of Marker<bool> in scope

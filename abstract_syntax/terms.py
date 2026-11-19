@@ -34,7 +34,7 @@ from typing import TYPE_CHECKING
 from .core import *
 
 if TYPE_CHECKING:
-    from .concepts import WhereClause, where_body
+    from .concepts import WhereClause, where_body, where_params
     from .declarations import FunCase, GenRecFun, RecFun, Union, overwrite
     from .env import Env, TermBinding
     from .literals import (
@@ -142,12 +142,18 @@ class FunctionType(Type):
   type_params: List[str]
   param_types: List[Type]
   return_type: Type
+  # F^G's `∀t̄ where c̄. fn(τ̄) -> τ` (#1282): the concepts the type
+  # parameters must model. A type application looks up their models and
+  # passes their operations (see `TermInst.dicts`).
+  where: Optional[WhereClause] = field(default=None, kw_only=True)
 
   def __str__(self) -> str:
     if len(self.type_params) > 0:
       typarams = '<' + ','.join([(x if get_verbose() else base_name(x)) for x in self.type_params]) + '> '
     else:
       typarams = ''
+    if self.where is not None:
+      typarams += str(self.where) + ' '
     params_str = ', '.join([str(ty) for ty in self.param_types])
     if len(self.param_types) >= 2:
       params_str = '(' + params_str + ')'
@@ -167,10 +173,11 @@ class FunctionType(Type):
   def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> FunctionType:
     body_env, new_type_params = uniquify_type_params(
         env, self.type_params, ctx, self.location, overwrite)
+    where = self.where.bind(body_env, ctx) if self.where else None
     new_param_types = [p.uniquify(body_env, ctx) for p in self.param_types]
     new_return_type = self.return_type.uniquify(body_env, ctx)
     return FunctionType(self.location, new_type_params,
-                        new_param_types, new_return_type)
+                        new_param_types, new_return_type, where=where)
 
   def instantiate(self, tyargs: List[Type]) -> FunctionType:
     """Replace this function type's `type_params` with `tyargs`, returning a
@@ -357,18 +364,34 @@ class PatternTerm(Pattern):
 class Generic(Term):
   type_params: List[str]
   body: Term
+  # A where clause on the type parameters of a `fun` (#1282). Uniquify
+  # adds the operations of its refinement closure as extra parameters of
+  # the body (a `Lambda`).
+  where: Optional[WhereClause] = field(default=None, kw_only=True)
 
   def free_vars(self) -> Set[str]:
     return self.body.free_vars() - set(self.type_params)
 
+  def _shown_body(self) -> Term:
+    """The body as written: without the operations of the where clause,
+    which uniquify added as parameters of the body (#1282)."""
+    k = len(self.where.operations()) if self.where else 0
+    if k and isinstance(self.body, Lambda):
+      return Lambda(self.body.location, self.body.typeof,
+                    self.body.vars[:len(self.body.vars) - k], self.body.body)
+    return self.body
+
+  def _head(self) -> str:
+    return 'generic ' + ', '.join([(t if get_verbose() else base_name(t))
+                                   for t in self.type_params]) \
+      + (' ' + str(self.where) if self.where else '')
+
   def __str__(self) -> str:
-    return "generic " + ",".join([(t if get_verbose() else base_name(t)) for t in self.type_params]) \
-      + " { " + str(self.body) + " }"
+    return self._head() + " { " + str(self._shown_body()) + " }"
 
   def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
-    return (indent*' ' if afterNewline else '') \
-        + 'generic ' + ', '.join([(t if get_verbose() else base_name(t)) for t in self.type_params]) \
-      + ' {\n' + self.body.pretty_print(indent+2, True) + '\n' \
+    return (indent*' ' if afterNewline else '') + self._head() \
+      + ' {\n' + self._shown_body().pretty_print(indent+2, True) + '\n' \
       + indent*' ' + '}'
 
   def __eq__(self, other: object) -> bool:
@@ -384,8 +407,17 @@ class Generic(Term):
   def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> Generic:
     body_env, new_type_params = uniquify_type_params(
         env, self.type_params, ctx, self.location, overwrite)
-    return Generic(self.location, self.typeof, new_type_params,
-                   self.body.uniquify(body_env, ctx))
+    where = self.where.bind(body_env, ctx) if self.where else None
+    body = self.body.uniquify(body_env, ctx)
+    if where is not None:
+      if not isinstance(body, Lambda):
+        static_error(self.location, 'a where clause needs a function')
+      body = Lambda(body.location, body.typeof,
+                    body.vars + cast(List[Tuple[str, Optional[Type]]],
+                                     where_params(where)),
+                    body.body)
+    return Generic(self.location, self.typeof, new_type_params, body,
+                   where=where)
 
 
 @dataclass
@@ -466,6 +498,14 @@ class VarRef(Term):
   # hooks — `_rebuild` (reconstruct with a new `typeof`),
   # `_unique_names_str` (the `--unique-names` brace form), and
   # `_special_str` (optional literal rendering, e.g. UInt `bzero` as `0`).
+  #
+  # The models in scope, recorded by uniquify: using a function with a
+  # where clause as a value instantiates it, passing their operations
+  # (#1282).
+  models: List[str] = field(default_factory=list, kw_only=True)
+
+  _NON_STRUCTURAL_FIELDS = frozenset({'location', 'typeof', 'models'})
+
   def get_name(self) -> str:
     internal_error(self.location, 'get_name not implemented on VarRef base')
 
@@ -627,7 +667,8 @@ class Var(VarRef):
       static_error(self.location, 'undefined variable: ' + self.name
                    + mispell_advice + env_str)
 
-    return OverloadedVar(self.location, self.typeof, env[self.name])
+    return OverloadedVar(self.location, self.typeof, env[self.name],
+                         models=env.get(MODELS_KEY, []))
 
 
 @dataclass
@@ -657,7 +698,8 @@ class OverloadedVar(VarRef):
     return self.resolved_names[0]
 
   def _rebuild(self, typeof: Optional[Type]) -> OverloadedVar:
-    return OverloadedVar(self.location, typeof, list(self.resolved_names))
+    return OverloadedVar(self.location, typeof, list(self.resolved_names),
+                         models=self.models)
 
   def _unique_names_str(self) -> str:
     return name2str(self.resolved_names[0]) \
@@ -697,7 +739,7 @@ class ResolvedVar(VarRef):
     return self.name
 
   def _rebuild(self, typeof: Optional[Type]) -> ResolvedVar:
-    return ResolvedVar(self.location, typeof, self.name)
+    return ResolvedVar(self.location, typeof, self.name, models=self.models)
 
   def _unique_names_str(self) -> str:
     return name2str(self.name) + '{' + self.name + '}'
@@ -1199,7 +1241,8 @@ def do_function_call(loc: Meta, name: str, type_params: list[str],
           env = env.define_type(loc, k, cast(Type, subst_value))
         else:
           trm = cast(Term, subst_value)
-          env = env.define_term_var(loc, k, trm.typeof, trm)
+          # A recursive function passed as an argument has no `typeof`.
+          env = env.define_term_var(loc, k, getattr(trm, 'typeof', None), trm)
 
       ret = body.reduce(env)
     else:
@@ -1241,9 +1284,19 @@ def do_function_call(loc: Meta, name: str, type_params: list[str],
 class Call(Term):
   rator: Term
   args: list[Term]
+  # The models in scope, recorded by uniquify: a call that instantiates a
+  # function with a where clause passes their operations (#1282).
+  models: List[str] = field(default_factory=list, kw_only=True)
+
+  _NON_STRUCTURAL_FIELDS = frozenset({'location', 'typeof', 'models'})
 
   def __str__(self) -> str:
     return show(self)
+
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> Call:
+    ret = super().uniquify(env, ctx)
+    ret.models = env.get(MODELS_KEY, [])
+    return ret
 
   def _atomic_str(self) -> str:
     if is_infix_operator(self.rator) and len(self.args) >= 2:
@@ -1385,9 +1438,15 @@ class Call(Term):
         params = rec_fun.params
         returns = rec_fun.returns
         cases = rec_fun.cases
+        # The operations for a where clause come after the arguments
+        # (#1282); a call that doesn't reduce keeps them in `fun`.
+        dicts = fun.dicts
         ret = self.do_recursive_call(loc, name, cast(Term | RecFun, fun), typarams, type_args,
-                                     params, args, returns, cases, is_assoc,
-                                     env)
+                                     params, args + dicts, returns, cases,
+                                     is_assoc and not dicts, env)
+        if dicts and isinstance(ret, Call) and ret.rator is fun:
+          ret = Call(self.location, self.typeof, ret.rator,
+                     ret.args[:len(ret.args) - len(dicts)])
       case Generic(_, _, typarams, body):
         internal_error(self.location, 'in reduction, call to generic\n\t' + str(self))
       case _:
@@ -1623,8 +1682,27 @@ class TermInst(Term):
   subject: Term
   type_args: List[Type]
   inferred : bool = True
+  # F^G's type application to a function with a where clause (#1282):
+  # the operations of the models of its concepts at ``type_args``, which
+  # the checker looks up among ``models`` (the models in scope, recorded
+  # by uniquify) and passes after the function's own arguments.
+  dicts: List[Term] = field(default_factory=list, kw_only=True)
+  models: List[str] = field(default_factory=list, kw_only=True)
+
+  _NON_STRUCTURAL_FIELDS = frozenset({'location', 'typeof', 'models'})
 
   def __eq__(self, other: object) -> bool:
+    if self.dicts:
+      # Instances that pass different operations are different
+      # functions, even at the same types.
+      return isinstance(other, TermInst) \
+        and len(self.dicts) == len(other.dicts) \
+        and all(d1 == d2 for (d1, d2) in zip(self.dicts, other.dicts)) \
+        and self.subject == other.subject \
+        and len(self.type_args) == len(other.type_args) \
+        and all([t1 == t2 for (t1,t2) in zip(self.type_args, other.type_args)])
+    if isinstance(other, TermInst) and other.dicts:
+      return False
     if isinstance(other, RecFun):
       return self.subject == other
     elif isinstance(other, TermInst):
@@ -1633,6 +1711,11 @@ class TermInst(Term):
         and all([t1 == t2 for (t1,t2) in zip(self.type_args, other.type_args)])
     else:
       return self.subject == other
+
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> TermInst:
+    ret = super().uniquify(env, ctx)
+    ret.models = env.get(MODELS_KEY, [])
+    return ret
 
   def __str__(self) -> str:
     if self.inferred and not get_verbose():
@@ -1643,16 +1726,22 @@ class TermInst(Term):
   def reduce(self, env: Env) -> Term:
     subject_red = self.subject.reduce(env)
     type_args_red = [t.reduce(env) for t in self.type_args]
+    dicts_red = [d.reduce(env) for d in self.dicts]
     match subject_red:
       case Generic(_, _, typarams, body):
-        # sub = {x:t for (x,t) in zip(typarams, self.type_args)}
-        sub = {x:t for (x,t) in zip(typarams, type_args_red)}
+        sub: dict[str, Term | Type] = {x:t for (x,t) in zip(typarams, type_args_red)}
+        if dicts_red and isinstance(body, Lambda):
+          # Pass the operations for the where clause's parameters, which
+          # come after the function's own (#1282).
+          n = len(body.vars) - len(dicts_red)
+          sub.update({x: d for ((x, _), d) in zip(body.vars[n:], dicts_red)})
+          return Lambda(body.location, self.typeof, body.vars[:n],
+                        cast(Term, body.body.substitute(sub)))
         return cast(Term, body.substitute(sub))
       case _:
-        # return TermInst(self.location, self.typeof, subject_red,
-        #                self.type_args, self.inferred)
         return TermInst(self.location, self.typeof, subject_red,
-                        type_args_red, self.inferred)
+                        type_args_red, self.inferred, dicts=dicts_red,
+                        models=self.models)
 
 @dataclass
 class Array(Term):

@@ -1,0 +1,23 @@
+module IntSumModel
+
+// Int with + is a Monoid, privately: only this module sees the model.
+
+import ConceptMonoidSum
+import Int
+import List
+
+private model Monoid<Int> {
+  fun operator+ = operator+
+  fun zero = +0
+  theorem add_zero = int_add_zero
+  theorem zero_add = int_zero_add
+}
+
+fun int_sum(xs : List<Int>) { msum(xs) }
+
+theorem int_sum_single: all x:Int. int_sum([x]) = x
+proof
+  arbitrary x:Int
+  expand int_sum
+  msum_single<Int>[x]
+end

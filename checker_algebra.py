@@ -29,7 +29,7 @@ from typing import Any, Callable, cast
 
 from abstract_syntax import (
     LINEAR_DEFS, AlgebraGoal, AllElim, AllElimTypes, And, Bool, Call,
-    ConceptRef, Env, Formula, IfThen, OverloadedVar, PVar, Proof,
+    ConceptRef, Env, Formula, FunctionType, IfThen, OverloadedVar, PVar, Proof,
     ResolvedVar, Term, TermInst, Var, VarRef, base_name,
     get_dont_reduce_opaque, get_reduce_only, intToNat, isUInt, mkIntLit,
     mkUIntLit, remove_mark, set_dont_reduce_opaque, set_reduce_only,
@@ -420,10 +420,15 @@ def _reduce_linear(loc: Meta, frm: Formula, names: dict[str, list[str]],
 
 
 def _scale_op(frm: Term) -> list[Term]:
-  """The `scale` operation passed to `linops` in ``frm``."""
+  """The `scale` operation passed for the where clause of a function of
+  lib/Linear.pf (say, `lin_holds`) in ``frm``."""
   match frm:
-    case Call(_, _, rator, args) if _name(rator) == 'linops':
-      return [args[3]] if isinstance(args[3], VarRef) else []
+    case Call(_, _, TermInst(_, _, subject, _, _, dicts=dicts), _) if dicts:
+      funty = subject.typeof
+      assert isinstance(funty, FunctionType) and funty.where is not None
+      ops = funty.where.operations()
+      i = next(i for i, wm in enumerate(ops) if base_name(wm.member) == 'scale')
+      return [dicts[i]] if isinstance(dicts[i], VarRef) else []
     case Call(_, _, rator, args):
       return [v for a in [rator] + args for v in _scale_op(a)][:1]
     case And(_, _, args):

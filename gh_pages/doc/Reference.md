@@ -1261,6 +1261,7 @@ To add type parameters to a function (to make it generic), see
 
 ```deduce-grammar
 statement ::= visibility "fun" identifier type_params_opt "(" variable_list ")" "{" term "}"
+statement ::= visibility "fun" identifier "<" identifier_list ">" "where" "{" concept_ref_list "}" "(" variable_list ")" "{" term "}"
 ```
 
 The `fun` statement is for defining a function (non-recursive).
@@ -1269,6 +1270,8 @@ then the `fun` keyword, followed by
 the type parameters enclosed in `<` and `>` (if generic),
 then the parameter list enclosed in `(` and `)`, and finally
 the body of the function enclosed in `{` and `}`.
+A generic function may have a [where clause](#where-clause) after its
+type parameters.
 
 ```{.deduce^#fun_interchange_example}
 fun interchange(p : Pair<UInt,UInt>) {
@@ -1283,12 +1286,15 @@ assert interchange(pair(1,2)) = pair(2,1)
 ```deduce-grammar
 type ::= "fn" type_params_opt type_list "->" type
 type ::= "fn" type_params_opt "(" type "," type_list ")" "->" type
+type ::= "fn" "<" identifier_list ">" "where" "{" concept_ref_list "}" type_list "->" type
+type ::= "fn" "<" identifier_list ">" "where" "{" concept_ref_list "}" "(" type "," type_list ")" "->" type
 ```
 
 A function type classifies a function. This includes both recursive
 functions (`recursive`) and non-recursive functions (`fun` or `λ`).
 If the function is generic, its function type includes type parameters
-enclosed in `<` and `>`.
+enclosed in `<` and `>`, and the [where clause](#where-clause) of the
+function, if it has one, as in `fn <T> where { Monoid<T> } List<T> -> T`.
 
 Multi-argument parameter lists may be written bare (`fn A, B -> C`) or
 wrapped in parentheses (`fn (A, B) -> C`); both forms are equivalent.
@@ -1318,6 +1324,7 @@ this formula applies to lists with any element type.
 
 ```deduce-grammar
 atomic_term ::= "generic" identifier_list "{" term "}"
+atomic_term ::= "generic" identifier_list "where" "{" concept_ref_list "}" "{" term "}"
 ```
 
 A term of the form
@@ -1328,7 +1335,8 @@ generic T1, ..., Tn { X }
 
 produces a generic function with type parameters 
 `T1`, ..., `Tn`, if term `X` produces a function
-(e.g., using `fun`).
+(e.g., using `fun`). It may have a [where clause](#where-clause) after
+the type parameters, as in `generic T where { Monoid<T> } { fun x:T { x + x } }`.
 
 An example use of `generic` is in `Maps.pf`, in the
 definition of function composition.
@@ -2614,6 +2622,7 @@ is a proof of the formula `P1 and ... and Pn`. The formulas
 
 ```deduce-grammar
 statement ::= visibility "recursive" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}"
+statement ::= visibility "recursive" identifier "<" identifier_list ">" "where" "{" concept_ref_list "}" "(" type_list ")" "->" type "{" fun_case_list "}"
 fun_case ::= identifier "(" pattern_list ")" "=" term
 fun_case_list ::= fun_case
 fun_case_list ::= fun_case fun_case_list
@@ -3315,6 +3324,7 @@ type ::= "[" type "]"                                  // type of an array
 type ::= "[" type "]" "!"                              // experimental mutable-array type
 type ::= "fn" type_params_opt type_list "->" type      // type of a function 
 type ::= "fn" type_params_opt "(" type "," type_list ")" "->" type   // parenthesized multi-arg form
+type ::= "fn" "<" identifier_list ">" "where" "{" concept_ref_list "}" type_list "->" type  // with a where clause
 type ::= "(" type ")"
 ```
 
@@ -3693,6 +3703,46 @@ operation unfolds to the model's definition (unless the model is
 opaque), and a theorem is the concept's theorem at the model's
 operations, e.g. `@Monoid<bool>.add_zero` proves
 `all x:bool. bor(x, false) = x`.
+
+**Functions.** A generic `fun` or `recursive` function may have a
+where clause after its type parameters. In its body, the operations of
+the concepts can be used at the type parameters:
+
+```
+recursive msum<T> where { Monoid<T> } (List<T>) -> T {
+  msum(empty) = zero
+  msum(node(x, xs)) = x + msum(xs)
+}
+```
+
+The where clause is part of the function's type,
+`fn <T> where { Monoid<T> } List<T> -> T`. Instantiating the type
+parameters, explicitly as in `@msum<bool>` or implicitly as in the call
+`msum([false, true])`, passes the operations of the models in scope at
+those types (here `Monoid<bool>`); it is an error if there is no such
+model. The result is an ordinary function, of type
+`fn List<bool> -> bool`, so `@msum<bool>` can be passed to `map`. Inside
+a where formula or proof, or the body of a function with a where
+clause, the clause provides the models, so theorems about the function
+are stated under a matching where clause:
+
+```
+theorem msum_single: all T:type where { Monoid<T> }. all x:T.
+  msum(node(x, empty)) = x
+proof
+  arbitrary T:type where { Monoid<T> }
+  arbitrary x:T
+  expand 2*msum
+  add_zero[x]
+end
+```
+
+This follows System F^G: a generic function with a where clause takes
+the concepts' operations as extra parameters, and instantiating it
+passes them, so goals and error messages don't show them. As for where
+theorems, `expand` and evaluation unfold the operations of a model only
+where the model is not opaque. Using the function depends only on its
+type and the models in scope, not on its body.
 
 A where formula means `all T:type. all ops. if axioms then P`, where
 `ops` are the concepts' operations and `axioms` their theorems, so it

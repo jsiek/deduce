@@ -1,0 +1,1 @@
+./test/should-error/where_function_no_model.pf:8.8-8.20: no model of Monoid<UInt> in scope

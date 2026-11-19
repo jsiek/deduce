@@ -78,6 +78,8 @@ from abstract_syntax import (
     is_associative,
     type_match,
     type_names,
+    WhereClause,
+    where_params,
 )
 from checker_common import *
 from error import MatchFailed, UserError, internal_error, user_error, wrap_user_error, error_header
@@ -306,6 +308,7 @@ def type_check_call_funty(
     typarams: list[str],
     param_types: list[Type],
     return_type: Type,
+    where: WhereClause | None = None,
 ) -> Call:
   assoc_name = callable_name(new_rator)
   is_assoc = assoc_name is not None and is_associative(loc, assoc_name,
@@ -415,10 +418,11 @@ def type_check_call_funty(
                      + ', '.join(missing_args))
     new_checked_args = [arg for arg in checked_args if arg is not None]
     type_args = [cast(Type, matching[x]) for x in typarams]
-    inst_params = [p.substitute(matching) for p in param_types]
     inst_return_type = return_type.substitute(matching)
-    inst_funty = FunctionType(loc, [], inst_params, inst_return_type)
-    inst_rator = TermInst(loc, inst_funty, new_rator, type_args, True)
+    inst_rator = instantiate_term(
+        loc, new_rator, FunctionType(loc, typarams, param_types, return_type,
+                                     where=where),
+        type_args, True, call.models, env)
     ret = Call(loc, inst_return_type, inst_rator, new_checked_args)
     # print('{{{ type deduction for call: ' + str(ret))
     # print('arg_types: ' + ', '.join([str(arg.typeof) for arg in new_args]))
@@ -427,6 +431,31 @@ def type_check_call_funty(
     # print('env:\n' + env.term_vars_str())
     # print('}}}')
     return ret
+
+def instantiate_term(loc: Meta, subject: Term, funty: Type, type_args: list[Type],
+                inferred: bool, models: list[str], env: Env) -> TermInst:
+  """``subject<type_args>``. For a function type with a where clause,
+  this is F^G's type application (#1282): look up the models of its
+  concepts at ``type_args`` among ``models`` (or the where clauses in
+  scope) and pass their operations."""
+  retty = _instantiation_result_type(loc, funty, type_args,
+                                     'cannot instantiate a term of type ')
+  dicts: list[Term] = []
+  if isinstance(funty, FunctionType) and funty.where is not None:
+    from checker_concepts import where_arguments
+    where = funty.where.substitute(dict(zip(funty.type_params, type_args)))
+    dicts = where_arguments(loc, where, models, env)
+  return TermInst(loc, retty, subject, type_args, inferred, dicts=dicts,
+                  models=models)
+
+def where_fun_type(loc: Meta, typarams: list[str], params: list[Type],
+                   returns: Type, where: WhereClause | None) -> FunctionType:
+  """The type of a function whose parameters ``params`` end with the
+  operations of its where clause (#1282): `∀typarams where {...}` over
+  the parameters the programmer wrote."""
+  k = len(where.operations()) if where else 0
+  return FunctionType(loc, typarams, params[:len(params) - k], returns,
+                      where=where)
 
 def overload_mismatch_annotation(
     loc: Meta,
@@ -510,7 +539,7 @@ def type_check_call_helper(
       trial_uses: dict[str, set[str]] = {}
       for (x, funty) in overloads:
           match funty:
-            case FunctionType(_, typarams, param_types, return_type):
+            case FunctionType(_, typarams, param_types, return_type, where=where):
               # Preserve the rator's use-site location (e.g. the `+'
               # token in `x + y') on the resolved variable.  Using
               # `loc2' (the FunctionType's declaration site) here
@@ -525,7 +554,8 @@ def type_check_call_helper(
               try:
                 new_call = type_check_call_funty(loc, ResolvedVar(new_rator.location, funty, x), args, env, recfun,
                                                  subterms, ret_ty, call,
-                                                 typarams, param_types, return_type)
+                                                 typarams, param_types, return_type,
+                                                 where)
                 matches.append((x, funty, new_call))
               except (UserError, MatchFailed):
                 pass
@@ -562,9 +592,9 @@ def type_check_call_helper(
           for name in trial_uses[matches[0][0]]:
             record_implicit_use(name)
           return matches[0][2]
-    case FunctionType(_, typarams, param_types, return_type):
+    case FunctionType(_, typarams, param_types, return_type, where=where):
       return type_check_call_funty(loc, new_rator, args, env, recfun, subterms, ret_ty, call,
-                                   typarams, param_types, return_type)
+                                   typarams, param_types, return_type, where)
     case _:
       user_error(loc, 'expected operator to have function type, not ' + str(funty))
       
@@ -809,11 +839,13 @@ def check_type(typ: TypeExpr, env: Env, arity_required: bool = True) -> TypeExpr
       return _resolve_type_var_ref(loc, typ, typ, env, arity_required)
     case IntType(loc) | BoolType(loc) | TypeType(loc):
       return typ
-    case FunctionType(loc, typarams, param_types, return_type):
+    case FunctionType(loc, typarams, param_types, return_type, where=where):
+      from checker_concepts import check_where
       body_env = env.declare_type_vars(loc, typarams)
       new_param_types = [check_type(ty, body_env) for ty in param_types]
       new_return_type = check_type(return_type, body_env)
-      return FunctionType(loc, typarams, new_param_types, new_return_type)
+      return FunctionType(loc, typarams, new_param_types, new_return_type,
+                          where=check_where(where, body_env) if where else None)
     case TypeInst(loc, inner_typ, arg_types):
       view_info = _instantiate_view_type(loc, typ, env)
       if view_info is not None:
@@ -887,34 +919,44 @@ def _instantiation_result_type(
       user_error(loc, not_instantiable_msg + str(ty))
 
 def type_check_term_inst(
-    loc: Meta,
-    subject: Term,
-    tyargs: list[Type],
-    inferred: bool,
+    term: TermInst,
     recfun: RecursiveName,
     subterms: SubtermNames,
     env: Env,
 ) -> TermInst:
-  tyargs = [check_type(ty, env) for ty in tyargs]
-  new_subject = type_synth_term(subject, env, recfun, subterms)
-  retty = _instantiation_result_type(
-      loc, new_subject.typeof, tyargs, 'expected a type name, not ')
-  return TermInst(loc, retty, new_subject, tyargs, inferred)
+  tyargs = [check_type(ty, env) for ty in term.type_args]
+  new_subject = type_synth_term(term.subject, env, recfun, subterms)
+  assert new_subject.typeof is not None
+  return instantiate_term(term.location, new_subject, new_subject.typeof, tyargs,
+                     term.inferred, term.models, env)
 
-def type_check_term_inst_var(
-    loc: Meta, subject_var: VarRef, tyargs: list[Type], inferred: bool, env: Env
-) -> TermInst:
+def type_check_term_inst_var(term: TermInst, env: Env) -> TermInst:
+  subject_var = term.subject
   if isinstance(subject_var, VarRef):
-      tyargs = [check_type(ty, env) for ty in tyargs]
-      retty = _instantiation_result_type(
-          loc, env.get_type_of_term_var(subject_var), tyargs,
-          'cannot instantiate a term of type ')
+      tyargs = [check_type(ty, env) for ty in term.type_args]
       # Subject is now resolved (we've narrowed to its single typed name).
-      return TermInst(loc, retty,
-                      ResolvedVar(subject_var.location, subject_var.typeof,
-                                  subject_var.get_name()),
-                      tyargs, inferred)
-  internal_error(loc, 'internal error, expected variable, not ' + str(subject_var))
+      subject = ResolvedVar(subject_var.location, subject_var.typeof,
+                            subject_var.get_name())
+      return instantiate_term(term.location, subject,
+                         env.get_type_of_term_var(subject_var), tyargs,
+                         term.inferred, term.models, env)
+  internal_error(term.location, 'internal error, expected variable, not ' + str(subject_var))
+
+def _checked_where(term: Generic, env: Env) -> WhereClause | None:
+  from checker_concepts import check_where
+  if term.where is None:
+    return None
+  return check_where(term.where, env.declare_type_vars(term.location,
+                                                       term.type_params))
+
+def _generic_env(term: Generic, env: Env) -> Env:
+  """The environment of a generic's body: its type parameters and the
+  models its where clause provides (#1282)."""
+  from checker_concepts import add_where_models
+  body_env = env.declare_type_vars(term.location, term.type_params)
+  if term.where is not None:
+    body_env = add_where_models(term.location, term.where, body_env)
+  return body_env
 
 def type_synth_term(
     term: Term, env: Env, recfun: RecursiveName, subterms: SubtermNames
@@ -959,12 +1001,13 @@ def type_synth_term(
       ret = ResolvedVar(loc, ty, name)
       
     case Generic(loc, _, type_params, body):
-      body_env = env.declare_type_vars(loc, type_params)
+      body_env = _generic_env(term, env)
       new_body = type_synth_term(body, body_env, recfun, subterms)
       match new_body.typeof:
         case FunctionType(loc2, [], param_types, return_type):
-          ty = FunctionType(loc, type_params, param_types, return_type)
-          ret = Generic(loc, ty, type_params, new_body)
+          ty = where_fun_type(loc, type_params, param_types, return_type,
+                              _checked_where(term, env))
+          ret = Generic(loc, ty, type_params, new_body, where=term.where)
         case _:
           user_error(loc, 'body of generic must be a function, not ' \
                 + str(new_body.typeof))
@@ -1177,18 +1220,18 @@ def type_synth_term(
               + 'Add a type annotation, e.g. "(switch ' + str(subject) \
               + ' { } : T)".')
 
-    case TermInst(loc, _, subject, tyargs, inferred) if isinstance(subject, VarRef):
-      ret = type_check_term_inst_var(loc, subject, tyargs, inferred, env)
+    case TermInst(_, _, subject, _, _) if isinstance(subject, VarRef):
+      ret = type_check_term_inst_var(term, env)
 
-    case TermInst(loc, _, subject, tyargs, inferred):
-      ret = type_check_term_inst(loc, subject, tyargs, inferred, recfun, subterms, env)
+    case TermInst():
+      ret = type_check_term_inst(term, recfun, subterms, env)
 
     case TAnnote(loc, _, subject, typ):
       checked_typ = check_type(typ, env)
       ret = type_check_term(subject, checked_typ, env, recfun, subterms)
 
     case RecFun(loc, name, typarams, params, returns, cases):
-      fun_type = FunctionType(loc, typarams, params, returns)
+      fun_type = where_fun_type(loc, typarams, params, returns, term.where)
       ret = term
       term.typeof = fun_type
       
@@ -1231,10 +1274,24 @@ def type_check_term(
                  for (T,U) in zip(type_params, type_params2) }
           new_param_types = [ty.substitute(sub) for ty in param_types2]
           new_return_type = return_type2.substitute(sub)
-          body_env = env.declare_type_vars(loc, type_params)
+          # The where clauses must agree (#1282); the body also takes the
+          # operations of the generic's clause.
+          expected_where = typ.where.substitute(sub) if typ.where else None
+          actual_where = _checked_where(term, env)
+          if (expected_where is None) != (actual_where is None) \
+             or (actual_where is not None and expected_where is not None
+                 and actual_where.constraints != expected_where.constraints):
+            user_error(loc, 'the where clause of the generic ('
+                       + (str(term.where) if term.where else 'none')
+                       + ') does not match that of its type ('
+                       + (str(typ.where) if typ.where else 'none') + ')')
+          if term.where is not None:
+            new_param_types = new_param_types \
+              + [ty for (_, ty) in where_params(term.where)]
+          body_env = _generic_env(term, env)
           funty = FunctionType(loc2, [], new_param_types, new_return_type)
           new_body = type_check_term(body, funty, body_env, recfun, subterms)
-          return Generic(loc, typ, type_params, new_body)
+          return Generic(loc, typ, type_params, new_body, where=term.where)
         case _:
           user_error(loc, 'unexpected generic term, expected ' + str(typ))
         
@@ -1257,8 +1314,9 @@ def type_check_term(
               for (p1, p2) in zip(param_types1, param_types2):
                   type_match(loc, type_params, p1, p2, resolved_matching)
               type_args = [cast(Type, resolved_matching[x]) for x in typarams]
-              return TermInst(loc, typ, ResolvedVar(loc, var_typ, name),
-                              type_args, True)
+              return instantiate_term(loc, ResolvedVar(loc, var_typ, name),
+                                      var_typ, type_args, True, term.models,
+                                      env)
             except UserError:
               pass
       if var_typ != typ:
@@ -1296,8 +1354,9 @@ def type_check_term(
               for (p1, p2) in zip(param_types1, param_types2):
                   type_match(loc, type_params, p1, p2, overloaded_matching)
               type_args = [cast(Type, overloaded_matching[x]) for x in typarams]
-              return TermInst(loc, typ, ResolvedVar(loc, var_typ, rs[0]),
-                              type_args, True)
+              return instantiate_term(loc, ResolvedVar(loc, var_typ, rs[0]),
+                                      var_typ, type_args, True, term.models,
+                                      env)
             except UserError:
               pass
       if var_typ != typ:
@@ -1417,11 +1476,11 @@ def type_check_term(
       new_els = type_check_term(els, typ, env, recfun, subterms)
       return Conditional(loc, typ, new_cond, new_thn, new_els)
   
-    case TermInst(loc, _, subject, tyargs, inferred) if isinstance(subject, VarRef):
-      return type_check_term_inst_var(loc, subject, tyargs, inferred, env)
+    case TermInst(_, _, subject, _, _) if isinstance(subject, VarRef):
+      return type_check_term_inst_var(term, env)
 
-    case TermInst(loc, _, subject, tyargs, inferred):
-      return type_check_term_inst(loc, subject, tyargs, inferred, recfun, subterms, env)
+    case TermInst():
+      return type_check_term_inst(term, recfun, subterms, env)
 
     case _:
       if get_verbose():

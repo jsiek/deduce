@@ -356,11 +356,12 @@ def parse_term_hi() -> Term:
   elif token.type == 'GENERIC':
     advance()
     type_params = parse_ident_list()
+    where = parse_where_clause_opt()
     consume_token('LBRACE', '"{"', context='after parameters of "generic"')
     body = parse_term()
     consume_token('RBRACE', '"}"', context='after body of "generic"')
     meta = meta_from_tokens(token, previous_token())
-    return Generic(meta, None, type_params, body)
+    return Generic(meta, None, type_params, body, where=where)
 
   elif token.type == 'LESSTHAN':
     advance()
@@ -1576,6 +1577,7 @@ def parse_function(visibility: str) -> Statement:
     advance()
     name = parse_identifier()
     typarams = parse_type_parameters()
+    where = parse_where_clause_opt() if typarams else None
 
     if current_token().type == 'LPAR':
       advance()
@@ -1588,7 +1590,7 @@ def parse_function(visibility: str) -> Statement:
     meta = meta_from_tokens(start_token, previous_token())
     lam = Lambda(meta, None, params, body)
     if len(typarams) > 0:
-      fun = Generic(meta, None, typarams, lam)
+      fun = Generic(meta, None, typarams, lam, where=where)
     else:
       fun = lam
     return Define(meta, name, None, fun, visibility=visibility)
@@ -1749,6 +1751,7 @@ def parse_recursive_function(visibility: str) -> Statement:
     advance()
     name = parse_identifier()
     type_params = parse_type_parameters()
+    where = parse_where_clause_opt() if type_params else None
 
     if current_token().type == 'LPAR':
       advance()
@@ -1766,7 +1769,7 @@ def parse_recursive_function(visibility: str) -> Statement:
     advance()
     return RecFun(meta_from_tokens(start_token, previous_token()),
                   name, type_params, param_types, return_type, cases,
-                  visibility=visibility)
+                  visibility=visibility, where=where)
 
 def parse_define(visibility: str) -> Statement:
   while_parsing = 'while parsing\n' \
@@ -2417,6 +2420,7 @@ def parse_function_type() -> Type:
   with parse_region(while_parsing) as start_token:
     advance()
     type_params = parse_type_parameters()
+    where = parse_where_clause_opt() if type_params else None
     if current_token().type == 'LPAR':
       advance()
       first_type = parse_type()
@@ -2434,7 +2438,7 @@ def parse_function_type() -> Type:
     consume_token('ARROW', '"->"', context='after parameter types')
     return_type = parse_type()
     return FunctionType(meta_from_tokens(start_token, previous_token()),
-                        type_params, param_types, return_type)
+                        type_params, param_types, return_type, where=where)
 
 
 def parse_type_list() -> list[Type]:

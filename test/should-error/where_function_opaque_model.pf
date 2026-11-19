@@ -1,0 +1,12 @@
+// An opaque model's operations stay folded outside its module (#1282),
+// so a function with a where clause, called at the model's type, does
+// not compute.
+
+import ConceptMonoidSum
+import ConceptOpaqueModel
+import List
+
+theorem msum_bit: msum([b1]) = b1
+proof
+  evaluate
+end

@@ -1,0 +1,1 @@
+./test/should-error/where_function_type_mismatch.pf:7.3-7.30: the where clause of the generic (none) does not match that of its type (where { Monoid<T> })

@@ -1,0 +1,7 @@
+// The where clause of a function type (#1282) is part of the type: a
+// generic without the clause does not have it.
+
+import ConceptMonoid
+
+define twice : fn <T> where { Monoid<T> } T -> T =
+  generic T { fun x:T { x } }
