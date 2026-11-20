@@ -1307,8 +1307,12 @@ class RecFun(Declaration):
     (added by uniquify)."""
     return len(self.where.operations()) if self.where else 0
 
+  def own_params(self) -> List[Type]:
+    """``params`` without the operations of the where clause."""
+    return self.params[:len(self.params) - self._hidden()]
+
   def _header(self) -> str:
-    params = self.params[:len(self.params) - self._hidden()]
+    params = self.own_params()
     return complete_name(self.name) \
         + ('<' + ','.join([name2str(t) for t in self.type_params]) + '>' \
            if len(self.type_params) > 0 else '') \

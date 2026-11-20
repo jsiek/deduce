@@ -438,6 +438,12 @@ class LoweringCtx:
         if isinstance(t, ast.Mark):
             return self.lower_term(t.subject)
         if isinstance(t, ast.TermInst):
+            if t.dicts:
+                raise CompileError(
+                    t.location,
+                    "compiler does not yet pass the operations of a where "
+                    f"clause, in the use of {t.subject} (issue #1292)",
+                )
             return self.lower_term(t.subject)
         if isinstance(t, ast.Generic):
             return self.lower_term(t.body)

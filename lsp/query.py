@@ -1920,24 +1920,26 @@ def _symbol_info_for(stmt: "Statement", path: str) -> Optional[SymbolInfo]:
         signature = f"define {base_name(stmt.name)}{ty_text}"
     elif isinstance(stmt, RecFun):
         kind = SymbolKind.FUNCTION
-        params = ", ".join(str(p) for p in stmt.params)
+        params = ", ".join(str(p) for p in stmt.own_params())
         typarams = (
             f"<{', '.join(stmt.type_params)}>" if stmt.type_params else ""
         )
+        where = f" {stmt.where} " if stmt.where else ""
         signature = (
-            f"function {base_name(stmt.name)}{typarams}({params}) -> {stmt.returns}"
+            f"function {base_name(stmt.name)}{typarams}{where}({params}) -> {stmt.returns}"
         )
     elif isinstance(stmt, GenRecFun):
         # ``recfun'' -- the polymorphic-recursion form.  Same surface
         # as ``RecFun'' but parameter list is a list of (name, type)
         # tuples rather than parsed ``Param'' nodes.
         kind = SymbolKind.FUNCTION
-        params = ", ".join(f"{n}: {t}" for (n, t) in stmt.vars)
+        params = ", ".join(f"{base_name(n)}: {t}" for (n, t) in stmt.own_vars())
         typarams = (
             f"<{', '.join(stmt.type_params)}>" if stmt.type_params else ""
         )
+        where = f" {stmt.where} " if stmt.where else ""
         signature = (
-            f"function {base_name(stmt.name)}{typarams}({params}) -> {stmt.returns}"
+            f"function {base_name(stmt.name)}{typarams}{where}({params}) -> {stmt.returns}"
         )
     elif isinstance(stmt, Union):
         kind = SymbolKind.UNION
