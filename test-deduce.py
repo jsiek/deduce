@@ -1564,6 +1564,17 @@ def run_cli_test() -> list[tuple[str, str, str]]:
             cli_path, "cli",
             f"unexpected stdout:\n{cp.stdout[:500]}",
         ))
+    # `--verbose full` takes `full` as its level, not as a file (#1302).
+    verbose_cp = subprocess.run(
+        [sys.executable, "deduce.py", "--no-stdlib", "--verbose", "full", cli_path],
+        capture_output=True, text=True,
+    )
+    if verbose_cp.returncode != 0 or "theorem_true.pf is valid" not in verbose_cp.stdout:
+        failures.append((
+            "deduce.py --verbose full", "cli",
+            f"exit {verbose_cp.returncode}\nstderr: {verbose_cp.stderr[:500]}\n"
+            f"stdout: {verbose_cp.stdout[-500:]}",
+        ))
     help_cp = subprocess.run(
         [sys.executable, "deduce.py", "--help"],
         capture_output=True, text=True,

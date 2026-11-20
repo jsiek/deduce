@@ -242,6 +242,7 @@ if __name__ == "__main__":
             if i + 1 < len(sys.argv) and sys.argv[i+1] == 'full':
               set_verbose(VerboseLevel.FULL)
               set_unique_names(True)
+              already_processed_next = True
             else:
               set_verbose(VerboseLevel.CURR_ONLY)
         elif argument == '--dir' and i + 1 < len(sys.argv):
