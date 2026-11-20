@@ -349,9 +349,11 @@ def _metas(node: object, out: list[Meta]) -> list[Meta]:
 
 
 def statement_layout(stmt: Statement) -> int:
-    """A hash of the statement's locations, relative to where it starts
-    when they are in its own file. Two statements with the same hash
-    (``_hash_ast``) and layout differ only in where they are."""
+    """A hash of the statement's file and of its locations, relative to
+    where it starts when they are in its own file. Two statements with
+    the same hash (``_hash_ast``) and layout differ only in where they
+    are in the same file. (Two files with the same base name share a
+    module name, so the file must be part of it.)"""
     filename = getattr(stmt.location, "filename", None)
     line, pos = statement_start(stmt)
     sig: list[tuple[object, ...]] = []
@@ -365,7 +367,7 @@ def statement_layout(stmt: Statement) -> int:
         else:
             sig.append((getattr(m, "filename", None), m.line, m.column,
                         m.end_line, m.end_column))
-    return hash(tuple(sig))
+    return hash((filename, tuple(sig)))
 
 
 def _relocated(node: T, old: Statement, old_first: tuple[int, int],

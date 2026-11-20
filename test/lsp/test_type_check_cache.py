@@ -35,11 +35,11 @@ def _fresh_cache():
     proof_checker.reset_stmt_cache()
 
 
-def _recheck(content: str) -> tuple[int, int]:
+def _recheck(content: str, path: str = "test.pf") -> tuple[int, int]:
     """Check ``content`` and return the type-check (hits, misses)."""
     proof_checker._cache_stats["hits"].clear()
     proof_checker._cache_stats["misses"].clear()
-    assert check("test.pf", content) == []
+    assert check(path, content) == []
     stats = proof_checker.get_cache_stats()
     return stats["hits"].get("type_check", 0), stats["misses"].get("type_check", 0)
 
@@ -88,6 +88,12 @@ def test_moving_statements_apart_rechecks_one_carrying_anothers_location() -> No
     # `f`'s type carries the location of the alias `M`, which now moved
     # by a different amount than `f`, so `f` is checked again.
     assert _recheck("\n\n" + _FILE.replace("\n\n", "\n\n\n")) == (4, 1)
+
+
+def test_a_file_with_the_same_base_name_does_not_reuse_entries() -> None:
+    # Both are module `test`, but a checked statement names its file.
+    _recheck(_FILE, "a/test.pf")
+    assert _recheck(_FILE, "b/test.pf") == (0, 5)
 
 
 def test_editing_one_theorem_rechecks_only_it() -> None:
