@@ -1684,7 +1684,16 @@ class Switch(Term):
 shown_operations: frozenset[str] = frozenset()
 
 def _inst_key(inst: TermInst) -> str:
-  return str(inst.subject) + '<' + ','.join(str(ty) for ty in inst.type_args) + '>'
+  # How the instance prints without operations, whatever
+  # `shown_operations` is at the moment: an instance nested in this one
+  # must not change its key.
+  global shown_operations
+  shown = shown_operations
+  shown_operations = frozenset()
+  try:
+    return str(inst.subject) + '<' + ','.join(str(ty) for ty in inst.type_args) + '>'
+  finally:
+    shown_operations = shown
 
 def _insts_with_operations(t: AST) -> Iterator[TermInst]:
   if isinstance(t, TermInst) and t.dicts:
@@ -1752,7 +1761,8 @@ class TermInst(Term):
 
   def __str__(self) -> str:
     if self.dicts and _inst_key(self) in shown_operations:
-      return '@' + _inst_key(self) + '{' + ', '.join(str(d) for d in self.dicts) + '}'
+      return '@' + str(self.subject) + '<' + ','.join(str(ty) for ty in self.type_args) \
+        + '>{' + ', '.join(str(d) for d in self.dicts) + '}'
     if self.inferred and not get_verbose():
       return str(self.subject)
     else:

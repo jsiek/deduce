@@ -133,10 +133,16 @@ class Env:
   def __contains__(self, item: str) -> bool:
     return item in self.dict.keys()
     
+  def shown_proofs(self) -> list[tuple[str, ProofBinding]]:
+    """The givens that `proofs_str` shows: the local ones, or all of
+    them with `--verbose full`."""
+    return [(k, v) for (k, v) in reversed(self.dict.items())
+            if isinstance(v, ProofBinding)
+            and (v.local or get_verbose() == VerboseLevel.FULL)]
+
   def proofs_str(self) -> str:
-    return ',\n'.join(['\t' + name2str(k) + ': ' + str(v) \
-                       for (k,v) in reversed(self.dict.items()) \
-                       if isinstance(v,ProofBinding) and (v.local or get_verbose() == VerboseLevel.FULL)])
+    return ',\n'.join(['\t' + name2str(k) + ': ' + str(v)
+                       for (k, v) in self.shown_proofs()])
 
   def term_vars_str(self) -> str:
     return ',\n'.join(['\t' + base_name(k) + ': ' + str(v.typ) \

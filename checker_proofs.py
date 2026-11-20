@@ -174,7 +174,7 @@ def _check_proof_recall(proof: PRecall, env: Env) -> CheckedFormula:
     if new_fact in env.local_proofs():
         results.append(new_fact)
     else:
-        with distinct_operations([new_fact, *env.local_proofs()]):
+        with distinct_operations([new_fact, *(b.formula for (_, b) in env.shown_proofs())]):
           user_error(loc, 'Could not find a proof of\n\t' + str(new_fact) \
                 + '\nin the current scope\n' \
                 + style.orange('Givens:') + '\n' + env.proofs_str())
@@ -1513,7 +1513,7 @@ def _check_proof_of_hole(proof: PHole, formula: CheckedFormula, env: Env) -> Non
   target = get_target_hole_location()
   if target is not None and (loc.line, loc.column) != target:
     return
-  with distinct_operations([new_formula, *env.local_proofs()]):
+  with distinct_operations([new_formula, *(b.formula for (_, b) in env.shown_proofs())]):
     advice = proof_advice(new_formula, env)
     givens = givens_str(env)
     goal = str(new_formula)
