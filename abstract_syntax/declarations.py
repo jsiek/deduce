@@ -1731,7 +1731,7 @@ class Print(Statement):
 
 def find_file(loc: Meta, name: str) -> str:
   folder = get_workspace_folder()
-  for dir in ([folder] if folder else []) + list(get_import_directories()):
+  for dir in ([folder] if folder else []) + get_import_directories():
     filename = os.path.join(dir, name + ".pf")
     if os.path.isfile(filename):
       return filename

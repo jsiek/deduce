@@ -94,27 +94,31 @@ def set_expect_static_fail(b: bool) -> None:
 
 # flag for import directories
 
-import_directories: set[str] = set()
+# Searched in the order added. A directory already present under another
+# spelling (e.g. `lib` and its absolute path) is not added again, so the
+# file an import resolves to, and the path errors print, do not change
+# between runs (#1246).
+import_directories: list[str] = []
 
 def init_import_directories() -> None:
-  import_directories.add(".")
+  add_import_directory(".")
   lib_config_path = Path(os.path.expanduser("~/.config/deduce/libraries"))
   if lib_config_path.exists() and lib_config_path.is_file():
     with open(lib_config_path, 'r') as lib_config_file:
       for line in lib_config_file:
-        import_directories.add(line.strip())
+        add_import_directory(line.strip())
 
 
-def get_import_directories() -> set[str]:
-  global import_directories
+def get_import_directories() -> list[str]:
   if (get_verbose()):
     print("import directories: ", import_directories)
   return import_directories
 
 
 def add_import_directory(dir: str) -> None:
-  global import_directories
-  import_directories.add(dir)
+  real = os.path.realpath(dir)
+  if all(os.path.realpath(d) != real for d in import_directories):
+    import_directories.append(dir)
 
 # The LSP workspace folder that holds the file being checked, if any
 # (#1225). Its imports resolve there first, ahead of the import
