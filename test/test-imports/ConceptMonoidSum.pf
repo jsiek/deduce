@@ -31,7 +31,7 @@ recfun mpow<T> where { Monoid<T> } (n : UInt, x : T) -> T
   else x + mpow(n ∸ 1, x)
 }
 terminates {
-  arbitrary n:UInt, x:T
+  arbitrary n:UInt
   uint_monus_one_less[n]
 }
 

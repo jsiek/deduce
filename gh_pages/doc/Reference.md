@@ -2645,7 +2645,7 @@ recfun replicate<T>(n : UInt, x : T) -> List<T>
   else node(x, replicate(n ∸ 1, x))
 }
 terminates {
-  arbitrary n:UInt, x:T
+  arbitrary n:UInt
   uint_monus_one_less[n]
 }
 
@@ -2667,11 +2667,12 @@ assert replicate(3, 7) = [7, 7, 7]
   negation, in the `else` branch), and for each enclosing `switch`
   case, that the subject equals the case's pattern, for all the
   variables the pattern binds. The calls' facts are combined with `and`, and the
-  whole formula is quantified over the parameters. For `replicate`, the
-  call is in the `else` branch of `if n = 0`, so the proof proves
+  whole formula is quantified over the parameters that occur in it. For
+  `replicate`, the call is in the `else` branch of `if n = 0`, and `x`
+  doesn't occur, so the proof proves
 
   ```
-  all n:UInt. all x:T. if n ≠ 0 then n ∸ 1 < n
+  all n:UInt. if n ≠ 0 then n ∸ 1 < n
   ```
 
   The type parameters (`T`) are in scope in the proof.

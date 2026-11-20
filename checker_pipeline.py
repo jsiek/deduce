@@ -2231,8 +2231,11 @@ def _check_proofs(stmt: Statement, env: Env) -> None:
           formula = formulas[0]
       else:
           user_error(loc, 'There were no recursive calls in the body of this recfun')
+      # Quantify over the parameters the obligation mentions.
+      occurring = formula.free_vars()
       for (x,t) in reversed(params):
-          formula = All(loc, None, (x,t), (0,1), formula)
+          if x in occurring:
+              formula = All(loc, None, (x,t), (0,1), formula)
       formula = check_formula(formula, body_env)
 
       # check that the terminates proof proves the above formula

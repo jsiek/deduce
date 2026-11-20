@@ -126,7 +126,7 @@ recfun mtimes<T> where { Monoid<T> } (n : UInt, x : T) -> T
   else x + mtimes(n ∸ 1, x)
 }
 terminates {
-  arbitrary n:UInt, x:T
+  arbitrary n:UInt
   have az: all y:T. y + zero = y by add_zero
   uint_monus_one_less[n]
 }
