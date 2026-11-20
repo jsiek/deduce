@@ -1,3 +1,3 @@
-union MyNat.s0_0 {zero.s0_1/0, suc.s0_2/1}
-fn used.s1_0($scr0, m.s1_1) = match $scr0 { | zero.s0_1 -> m.s1_1 | suc.s0_2(n.s1_2) -> suc.s0_2(used.s1_0(n.s1_2, m.s1_1)) }
-print used.s1_0(suc.s0_2(zero.s0_1), suc.s0_2(suc.s0_2(zero.s0_1)))
+union MyNat.5MyNat_0 {zero.5MyNat_1/0, suc.5MyNat_2/1}
+fn used.4used_0($scr0, m.4used_1) = match $scr0 { | zero.5MyNat_1 -> m.4used_1 | suc.5MyNat_2(n.4used_2) -> suc.5MyNat_2(used.4used_0(n.4used_2, m.4used_1)) }
+print used.4used_0(suc.5MyNat_2(zero.5MyNat_1), suc.5MyNat_2(suc.5MyNat_2(zero.5MyNat_1)))

@@ -57,28 +57,21 @@ def _collect_unique_names(ast) -> list:
     out: list = []
 
     def looks_uniquified(s) -> bool:
-        # uniquified names contain a literal `.` followed by either a
-        # plain digit run (legacy global-counter form) or one or more
-        # ``s<idx>_<n>`` segments (per-statement scoping, Step 14).
-        if not isinstance(s, str):
+        # uniquified names contain a literal `.` followed by zero or
+        # more per-statement scope segments ``<len><key><count>_`` (see
+        # ``ops._statement_scope``) and a trailing decimal run.
+        if not isinstance(s, str) or "." not in s:
             return False
-        if "." not in s:
-            return False
-        suffix = s.rsplit(".", 1)[1]
-        if suffix.isdigit():
-            return True
-        # Per-statement scoped form: zero or more ``s<idx>_`` prefixes
-        # followed by a trailing decimal run.
-        rest = suffix
-        while True:
-            if not rest.startswith("s"):
-                break
-            tail = rest[1:]
-            digits, sep, after = tail.partition("_")
-            if not sep or not digits.isdigit():
+        rest = s.split(".", 1)[1]
+        while not rest.isdigit():
+            n = len(rest) - len(rest.lstrip("0123456789"))
+            if n == 0:
                 return False
-            rest = after
-        return rest.isdigit()
+            length = int(rest[:n])
+            count, sep, rest = rest[n + length:].partition("_")
+            if not sep or not (count == "" or count.isdigit()):
+                return False
+        return True
 
     def visit(node, seen):
         if id(node) in seen:
@@ -190,11 +183,11 @@ def test_uniquify_deduce_restores_caller_state() -> None:
 def test_uniquify_deduce_uses_per_statement_scopes() -> None:
     """Two top-level statements that share a base name (here, both
     bind the proof variable ``pP``) get *disjoint* uniquified suffixes
-    because ``uniquify_deduce`` pushes a fresh ``s<idx>_`` segment onto
-    ``ctx.scope`` per top-level statement.  This is what makes
-    structural hashing edit-invariant -- the dependency-tracking cache
-    (Step 14) needs unrelated downstream statements' hashes to stay
-    stable when an earlier statement's body changes size."""
+    because ``uniquify_deduce`` pushes a fresh segment, named after the
+    statement, onto ``ctx.scope`` per top-level statement.  This is
+    what makes structural hashing edit-invariant -- the per-statement
+    caches need unrelated statements' hashes to stay stable when
+    another statement changes size."""
     src = (
         "theorem t1: all P:bool. if P then P\n"
         "proof arbitrary P:bool suppose pP: P pP end\n"
@@ -203,12 +196,32 @@ def test_uniquify_deduce_uses_per_statement_scopes() -> None:
     )
     out = uniquify_deduce(_parse(src), UniquifyContext())
     names = _collect_unique_names(out)
-    s0_names = [n for n in names if ".s0_" in n]
-    s1_names = [n for n in names if ".s1_" in n]
-    assert s0_names, f"no s0_-scoped names found in {names}"
-    assert s1_names, f"no s1_-scoped names found in {names}"
+    t1_names = [n for n in names if ".2t1_" in n]
+    t2_names = [n for n in names if ".2t2_" in n]
+    assert t1_names, f"no t1-scoped names found in {names}"
+    assert t2_names, f"no t2-scoped names found in {names}"
     # Each top-level statement's bound names live in its own scope.
-    assert set(s0_names).isdisjoint(set(s1_names))
+    assert set(t1_names).isdisjoint(set(t2_names))
+
+
+def test_inserting_a_statement_keeps_the_others_names() -> None:
+    """A statement's names don't depend on its position (#1303), so
+    inserting a statement in front leaves the others' names, and so
+    their structural hashes, unchanged. Statements with the same name,
+    or unnamed ones of the same kind, are told apart by a count."""
+    t = (
+        "theorem t1: all P:bool. if P then P\n"
+        "proof arbitrary P:bool suppose pP: P pP end\n"
+        "assert true\n"
+    )
+    before = _collect_unique_names(uniquify_deduce(_parse(t), UniquifyContext()))
+    after = _collect_unique_names(uniquify_deduce(
+        _parse("theorem t0: true proof . end\n" + t), UniquifyContext()))
+    assert set(before) <= set(after)
+    a = "assert all P:bool. P or not P\n"
+    names = set(_collect_unique_names(uniquify_deduce(_parse(a + a),
+                                                      UniquifyContext())))
+    assert {n for n in names if n.startswith("P.")} == {"P.6assert_0", "P.6assert1_0"}
 
 
 def test_independent_ctxs_do_not_leak() -> None:

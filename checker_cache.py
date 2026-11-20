@@ -243,17 +243,28 @@ def _collect_defined_names(stmt: Statement) -> set[str]:
     return names
 
 
-def _is_global_barrier(stmt: Statement) -> bool:
-    """Statements with global side-effects on later checking.
+# Statements whose effect on checking other statements goes only
+# through the names they define. Every other kind is a barrier: views
+# and models are found by type, associativity by operator and type,
+# imports bring in whole modules, and so on.
+_NAME_ONLY_STATEMENTS = (
+    Assert, Define, GenRecFun, Postulate, PostulateFun, PostulateType,
+    Predicate, Print, RecFun, Theorem, TypeAlias, Union, ViewRecFun,
+)
 
-    ``Import`` brings a module's exports into the environment;
-    ``Auto`` registers a rewrite rule consulted by every later
-    proof. Conservatively treat both as a barrier: every later
-    statement implicitly depends on them, so editing or removing
-    one invalidates the cache for everything after. So are concepts
-    and models (#1264): a where formula names its concepts by string,
-    and a model is found by its concept and type, never by name."""
-    return isinstance(stmt, (Import, Auto, ConceptDecl, ModelDecl))
+
+def _is_global_barrier(stmt: Statement) -> bool:
+    """Statements with global side-effects on later checking: every
+    statement except those whose effect goes only through the names they
+    define (``_NAME_ONLY_STATEMENTS``). ``Import`` brings in a module's
+    exports, ``Auto`` registers a rewrite rule consulted by every later
+    proof, ``inductive`` an induction principle, concepts and models are
+    found by concept and type (#1264), views by type, and so on. Every
+    later statement implicitly depends on them, so editing or removing
+    one invalidates the cache for everything after. (Since #1303 removing
+    a statement no longer renames the ones after it, so this is what
+    invalidates them.)"""
+    return not isinstance(stmt, _NAME_ONLY_STATEMENTS)
 
 
 # ---------------------------------------------------------------------------
@@ -280,14 +291,6 @@ T = TypeVar("T")
 _TypeCheckEntry = tuple[int, tuple[int, int], Statement]
 _type_check_cache: dict[str, dict[tuple[int, int], _TypeCheckEntry]] = {}
 
-# Statements whose effect on type checking other statements goes only
-# through the names they define. Every other kind is a barrier: views
-# and models are found by type, associativity by operator and type,
-# imports bring in whole modules, and so on.
-_NAME_ONLY_STATEMENTS = (
-    Assert, Define, GenRecFun, Postulate, PostulateFun, PostulateType,
-    Predicate, Print, RecFun, Theorem, TypeAlias, Union, ViewRecFun,
-)
 
 # The statements whose type check is cached: the ones that do real
 # work in ``type_check_stmt`` and have no side effect there.
@@ -308,7 +311,7 @@ def type_check_fingerprints(stmts: list[Statement],
         for n in _collect_defined_names(s):
             defined_to_idx.setdefault(n, i)
     barriers = hash(tuple(h for s, h in zip(stmts, hashes)
-                          if not isinstance(s, _NAME_ONLY_STATEMENTS)))
+                          if _is_global_barrier(s)))
     deps_fps: list[int] = []
     full_fps: list[int] = []  # a statement's hash folded with its deps
     for i, s in enumerate(stmts):

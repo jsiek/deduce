@@ -69,8 +69,7 @@ assert g(s(z)) = s(z)
 auto uses_g
 """
 # The statements whose type check is cached: f, g, uses_f, uses_g, and
-# the assert. (Edits below keep the number of statements: inserting one
-# renames every statement after it, #1303.)
+# the assert.
 
 
 def test_unchanged_recheck_type_checks_nothing() -> None:
