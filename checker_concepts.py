@@ -201,10 +201,23 @@ def intro_where(loc: Meta, goal: All, x: str, where: WhereClause,
   frm = goal.body.substitute({goal.var[0]: ResolvedVar(loc, None, x)})
   frm = _strip_operations(loc, frm, goal_where, lookup)
   frm = _discharge(loc, frm, _premise(body_env, where, lookup, loc))
+  return frm, _assume_where(loc, where, body_env, lookup)
+
+
+def where_scope(loc: Meta, where: WhereClause, env: Env) -> Env:
+  """The scope of the (checked) where clause ``where``, as after
+  `arbitrary T:type where {...}`: its operations, its theorems as
+  givens, and its models."""
+  env = declare_where_operations(where, env, loc)
+  return _assume_where(loc, where, env, _binder_lookup(env, where, loc))
+
+
+def _assume_where(loc: Meta, where: WhereClause, env: Env,
+                  lookup: MemberLookup) -> Env:
   for wm in where.theorems():
-    body_env = body_env.declare_local_proof_var(
-        loc, wm.binder, axiom(body_env, wm.instance, wm.member, lookup, loc))
-  return frm, add_where_models(loc, where, body_env)
+    env = env.declare_local_proof_var(
+        loc, wm.binder, axiom(env, wm.instance, wm.member, lookup, loc))
+  return add_where_models(loc, where, env)
 
 
 def add_where_models(loc: Meta, where: WhereClause, env: Env) -> Env:

@@ -1255,7 +1255,7 @@ def type_synth_term(
     case GenRecFun(loc, name, typarams, params, returns, _, _,
                    body, _):
       param_types = [t for (p,t) in params]
-      fun_type = FunctionType(loc, typarams, param_types, returns)
+      fun_type = where_fun_type(loc, typarams, param_types, returns, term.where)
       ret = term
       term.typeof = fun_type
       

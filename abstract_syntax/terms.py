@@ -1424,8 +1424,11 @@ class Call(Term):
         typarams = gen_fun.type_params
         params = gen_fun.vars
         body = gen_fun.body
-        subst2: dict[str, Term | Type] = {k: v for ((k,t),v) in zip(params, args)}
-        ret = do_function_call(loc, name, typarams, type_args, [x for (x,t) in params], args,
+        # The operations for a where clause come after the arguments
+        # (#1298), as for `RecFun`.
+        all_args = args + fun.dicts
+        subst2: dict[str, Term | Type] = {k: v for ((k,t),v) in zip(params, all_args)}
+        ret = do_function_call(loc, name, typarams, type_args, [x for (x,t) in params], all_args,
                                body, subst2, env, None,
                                display_args=args)
     

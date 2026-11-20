@@ -6,6 +6,7 @@ import ConceptMonoidSum
 import ConceptBoolModel
 import ConceptOpaqueModel
 import List
+import UInt
 
 // At a model's type, the call computes with the model's operations.
 assert msum([false, true, false]) = true
@@ -103,3 +104,31 @@ fun pick<T> where { Marker<T> } (x:T) { x }
 
 assert pick(true) = true
 assert map([false], @pick<bool>) = [false]
+
+// General recursion with a where clause (#1298): `mpow` (in
+// ConceptMonoidSum) computes with Monoid<bool>'s operations, and is a
+// value once instantiated.
+assert mpow(3, true) = true
+assert mpow(0, true) = false
+assert map([0, 2], fun n:UInt { @mpow<bool>(n, true) }) = [false, true]
+
+theorem mpow_one_bool: all x:bool. mpow(1, x) = x
+proof
+  mpow_one<bool>
+end
+
+// The `terminates` proof is in the scope of the where clause: its
+// theorems are givens there.
+recfun mtimes<T> where { Monoid<T> } (n : UInt, x : T) -> T
+  measure n of UInt
+{
+  if n = 0 then zero
+  else x + mtimes(n ∸ 1, x)
+}
+terminates {
+  arbitrary n:UInt, x:T
+  have az: all y:T. y + zero = y by add_zero
+  uint_monus_one_less[n]
+}
+
+assert mtimes(2, true) = true

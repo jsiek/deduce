@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 
 from checker_concepts import (
     add_where_models, check_where, collect_model, model_obligations,
+    where_scope,
     process_concept, process_model,
 )
 from abstract_syntax import (
@@ -1009,7 +1010,9 @@ def process_declaration_visibility(decl: Declaration, env: Env,
           user_error(loc, 'Add type annotations to the parameters.')
       checked_param_types: List[Type] = [cast(Type, t) for t in param_types]
 
-      fun_type = FunctionType(loc, typarams, checked_param_types, checked_returns)
+      where = check_where(decl.where, body_env) if decl.where else None
+      fun_type = where_fun_type(loc, typarams, checked_param_types,
+                                checked_returns, where)
       # print('process declaration:')
       # print(decl.pretty_print(4))
       check_type(measure_ty, env)
@@ -1742,16 +1745,19 @@ def _type_check_stmt(stmt: Statement, env: Env,
                              for (x, p) in param_pairs]
       checked_returns = check_type(returns, body_env)
       checked_measure_ty = check_type(measure_ty, body_env)
+      where = check_where(stmt.where, body_env) if stmt.where else None
 
       fun_type = _alpha_renamed_function_type(
           loc, typarams, [t for (_, t) in checked_param_pairs],
-          checked_returns)
+          checked_returns, where)
 
       env = env.define_term_var(loc, name, fun_type, stmt.reduce(env),
                                 stmt.visibility)
 
       body_env = env.declare_type_vars(loc, typarams)
       body_env = body_env.declare_term_vars(loc, checked_param_pairs)
+      if where is not None:
+        body_env = add_where_models(loc, where, body_env)
       new_measure = type_check_term(measure, checked_measure_ty, body_env, None, [])
 
       new_body = type_check_term(body, checked_returns, body_env, None, [])
@@ -1760,7 +1766,8 @@ def _type_check_stmt(stmt: Statement, env: Env,
                              checked_returns, new_measure, checked_measure_ty,
                              new_body, terminates,
                              stmt.trusted_terminates,
-                             visibility=stmt.visibility, less=stmt.less)
+                             visibility=stmt.visibility, less=stmt.less,
+                             where=where)
       # print('type check stmt:')
       # print(new_recfun.pretty_print(4))
       return new_recfun
@@ -1865,7 +1872,8 @@ def collect_env(stmt: Statement, env: Env) -> Env:
 
     case GenRecFun(loc, name, typarams, params, returns, _, _,
                   body, _):
-      fun_type = FunctionType(loc, typarams, [t for (x,t) in params], returns)
+      fun_type = where_fun_type(loc, typarams, [t for (x,t) in params],
+                                returns, stmt.where)
       return env.define_term_var(loc, name, fun_type, stmt,
                                  stmt.visibility)
 
@@ -2186,7 +2194,12 @@ def _check_proofs(stmt: Statement, env: Env) -> None:
       if stmt.trusted_terminates:
         return
       body_env = env.declare_type_vars(loc, typarams)
-      
+      # The obligation quantifies over the function's own parameters; the
+      # where clause's operations and theorems are in scope (#1298).
+      params = stmt.own_vars()
+      if stmt.where is not None:
+        body_env = where_scope(loc, stmt.where, body_env)
+
       # find recursive calls in the body
       calls = find_rec_calls(name, body, body_env)
       formulas: list[Formula] = []

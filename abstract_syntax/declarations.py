@@ -1377,6 +1377,11 @@ class GenRecFun(Declaration):
   # recorded by ``uniquify``: the termination conditions compare the
   # measure with it (#1250).
   less: List[str] = field(default_factory=list, kw_only=True)
+  # A where clause on the type parameters (#1298), as for `RecFun`
+  # (#1282): uniquify adds the operations of its refinement closure to
+  # ``vars``, after the function's own parameters. The `terminates`
+  # proof is in the clause's scope.
+  where: Optional[WhereClause] = field(default=None, kw_only=True)
 
   def uniquify(self, env: object, ctx: object) -> GenRecFun:
     env_map = cast(UniquifyEnv, env)
@@ -1386,9 +1391,8 @@ class GenRecFun(Declaration):
 
     body_env, new_type_params = uniquify_type_params(
         env_map, self.type_params, uniq_ctx, self.location, extend)
-    terminates_env = copy_dict(env_map)
-    for (old, new) in zip(self.type_params, new_type_params):
-      extend(terminates_env, old, new, self.location)
+    where = self.where.bind(body_env, uniq_ctx) if self.where else None
+    terminates_env = copy_dict(body_env)
 
     new_returns = self.returns.uniquify(body_env, uniq_ctx)
 
@@ -1406,12 +1410,14 @@ class GenRecFun(Declaration):
     new_measure_ty = self.measure_ty.uniquify(env_map, uniq_ctx)
     new_terminates = self.terminates.uniquify(terminates_env, uniq_ctx)
     new_body = self.body.uniquify(body_env, uniq_ctx)
+    if where is not None:
+      new_vars += where_params(where)
 
     return GenRecFun(self.location, new_name, new_type_params,
                      new_vars, new_returns, new_measure,
                      new_measure_ty, new_body, new_terminates,
                      self.trusted_terminates, visibility=self.visibility,
-                     less=list(env_map.get('<', [])))
+                     less=list(env_map.get('<', [])), where=where)
     
   _exports_overload = True
 
@@ -1423,18 +1429,26 @@ class GenRecFun(Declaration):
     
   def to_string(self) -> str:
     return 'recfun ' + self.name + '<' + ','.join(self.type_params) + '>' \
+        + (' ' + str(self.where) + ' ' if self.where else '') \
         + '(' + ', '.join([x + ':' + str(t) if t else x\
-                           for (x,t) in self.vars]) + ')' \
+                           for (x,t) in self.own_vars()]) + ')' \
         + ' -> ' + str(self.returns) + '\n' \
         + '\tmeasure ' + str(self.measure) \
         + ' {\n' + str(self.body) + '\n}\n' \
         + 'terminates {\n' + str(self.terminates) + '\n}\n'
 
+  def own_vars(self) -> List[Tuple[str, Type]]:
+    """``vars`` without the operations of the where clause (added by
+    uniquify)."""
+    k = len(self.where.operations()) if self.where else 0
+    return self.vars[:len(self.vars) - k]
+
   def _header(self) -> str:
     return complete_name(self.name) \
         + ('<' + ','.join([name2str(t) for t in self.type_params]) + '>' \
            if len(self.type_params) > 0 else '') \
-      + '(' + ', '.join([base_name(x) + ':' + str(t) if t else x for (x,t) in self.vars])\
+      + (' ' + str(self.where) + ' ' if self.where else '') \
+      + '(' + ', '.join([base_name(x) + ':' + str(t) if t else x for (x,t) in self.own_vars()])\
       + ') -> ' + str(self.returns)
 
   def opaque_signature(self) -> str | None:

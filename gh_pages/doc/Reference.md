@@ -3704,9 +3704,11 @@ opaque), and a theorem is the concept's theorem at the model's
 operations, e.g. `@Monoid<bool>.add_zero` proves
 `all x:bool. bor(x, false) = x`.
 
-**Functions.** A generic `fun` or `recursive` function may have a
-where clause after its type parameters. In its body, the operations of
-the concepts can be used at the type parameters:
+**Functions.** A generic `fun`, `recursive`, or `recfun` function may
+have a where clause after its type parameters (a `recfun`'s
+`terminates` proof is also in the scope of the where clause, so the
+concepts' theorems are among its givens). In its body, the operations
+of the concepts can be used at the type parameters:
 
 ```
 recursive msum<T> where { Monoid<T> } (List<T>) -> T {
