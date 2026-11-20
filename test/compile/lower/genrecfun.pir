@@ -1,5 +1,5 @@
 union MyNat.s0_0 {zero.s0_1/0, suc.s0_2/1}
 fn iszero.s1_2(n.s1_0) = match n.s1_0 { | zero.s0_1 -> true | suc.s0_2(n'.s1_1) -> false }
 fn pred.s2_2(n.s2_0) = match n.s2_0 { | zero.s0_1 -> zero.s0_1 | suc.s0_2(n'.s2_1) -> n'.s2_1 }
-fn count_down.s6_0(n.s6_1) = if iszero.s1_2(n.s6_1) then zero.s0_1 else count_down.s6_0(pred.s2_2(n.s6_1))
-print count_down.s6_0(suc.s0_2(suc.s0_2(suc.s0_2(zero.s0_1))))
+fn count_down.s9_0(n.s9_1) = if iszero.s1_2(n.s9_1) then zero.s0_1 else count_down.s9_0(pred.s2_2(n.s9_1))
+print count_down.s9_0(suc.s0_2(suc.s0_2(suc.s0_2(zero.s0_1))))

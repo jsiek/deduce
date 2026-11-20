@@ -1,0 +1,14 @@
+module WellFounded
+
+// Well-founded orders (#1308). The measure of a `recfun` must have a
+// type with a model of `WellFounded`: its `<` is the order the measure
+// decreases along, and `strong_induction` proves that the order has no
+// infinite descending chain, so the recursion terminates. The standard
+// library has models for `Nat` and `UInt`.
+
+concept WellFounded<T> {
+  fun operator < : fn (T, T) -> bool
+  theorem strong_induction: all P: fn T -> bool, n:T.
+    if (all j:T. if (all i:T. if i < j then P(i)) then P(j))
+    then P(n)
+}

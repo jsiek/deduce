@@ -1,0 +1,24 @@
+// A concept named WellFounded that doesn't state strong induction for
+// its `<` can't order a recfun's measure (#1308): otherwise any model
+// of it could make a non-terminating recfun pass.
+
+concept WellFounded<T> {
+  fun operator < : fn (T, T) -> bool
+}
+
+union Tick { tick }
+
+fun always(a : Tick, b : Tick) { true }
+
+model WellFounded<Tick> {
+  fun operator < = always
+}
+
+recfun loop(n : Tick) -> Tick
+  measure n of Tick
+{
+  loop(n)
+}
+terminates {
+  evaluate
+}

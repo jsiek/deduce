@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 from checker_concepts import (
     add_where_models, check_where, collect_model, model_obligations,
-    where_scope,
+    well_founded_less, where_scope,
     process_concept, process_model,
 )
 from abstract_syntax import (
@@ -1013,11 +1013,7 @@ def process_declaration_visibility(decl: Declaration, env: Env,
       where = check_where(decl.where, body_env) if decl.where else None
       fun_type = where_fun_type(loc, typarams, checked_param_types,
                                 checked_returns, where)
-      # print('process declaration:')
-      # print(decl.pretty_print(4))
-      check_type(measure_ty, env)
-      # return? GenRecFun(loc, name, typarams, params, returns, measure, measure_ty, body, terminates)
-      # changed to decl
+      check_type(measure_ty, body_env)
       return (decl, env.declare_term_var(loc, name, fun_type,
                                          visibility=decl.visibility))
 
@@ -2200,6 +2196,11 @@ def _check_proofs(stmt: Statement, env: Env) -> None:
       if stmt.where is not None:
         body_env = where_scope(loc, stmt.where, body_env)
 
+      # The measure decreases along the `<` of the model of WellFounded at
+      # its type (#1308).
+      assert stmt.less is not None
+      less = well_founded_less(stmt.less, body_env)
+
       # find recursive calls in the body
       calls = find_rec_calls(name, body, body_env)
       formulas: list[Formula] = []
@@ -2208,9 +2209,8 @@ def _check_proofs(stmt: Statement, env: Env) -> None:
       for call in calls:
         lhs = cast(Term, measure.substitute({x: arg for ((x,t),arg) in zip(params,call.args)}))
         rhs = measure.copy()
-        less = OverloadedVar(loc, None, stmt.less)
         # `Call` is a Term in the class hierarchy but acts as a Formula
-        # when its return type is Bool (here: `<` overloads).
+        # when its return type is Bool.
         less_frm = cast(Formula, Call(loc, None, less, [lhs,rhs]))
         condition = And(loc, None, call.conditions) \
             if len(call.conditions) > 0 else None

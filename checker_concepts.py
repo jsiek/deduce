@@ -28,14 +28,14 @@ import itertools
 from typing import Callable, cast
 
 from abstract_syntax import (
-    All, AllElimTypes, And, BoolType, ConceptBinding, ConceptDecl,
+    All, AllElimTypes, And, BoolType, Call, ConceptBinding, ConceptDecl,
     ConceptMember, ConceptMemberProof, ConceptRef, Env,
     Formula, IfThen, ModelBinding, ModelDecl, Proof, ResolvedVar, Term, Type,
     FunctionType, TypeInst, TypeType, VarRef, WhereClause, WhereMember, base_name, concept_closure,
     where_body,
 )
 from checker_types import check_formula, check_type, type_check_term
-from error import user_error
+from error import UserError, user_error, wrap_user_error
 from lark.tree import Meta
 
 # The term that stands for a member of a concept instance: a where
@@ -409,6 +409,57 @@ def check_concept_member(term: ConceptMember, env: Env) -> Term:
   (m, define) = found[0]
   var = ResolvedVar(loc, member_type(env, ref, m, loc), define)
   return _unfold(var, [model], env)
+
+
+def well_founded_less(less: ConceptMember, env: Env) -> Term:
+  """The `<` that a recfun's measure decreases along (#1308): the
+  operation of the model of ``WellFounded<τ>`` in scope. The concept must
+  be the concept of well-founded orders: one operation `<` and the
+  theorem that `<` admits strong induction, which every model proves."""
+  loc = less.location
+  decl = concept_of(env, less.ref.concept, loc)
+  if not _is_well_founded(decl):
+    user_error(loc, 'the concept ' + base_name(decl.name) + ' in scope is not'
+               + ' the concept of well-founded orders (lib/WellFounded.pf):'
+               + ' it needs one operation `<` and the theorem\n\t'
+               + 'all P: fn T -> bool, n:T. if (all j:T. if (all i:T.'
+               + ' if i < j then P(i)) then P(j)) then P(n)')
+  try:
+    return check_concept_member(less, env)
+  except UserError as e:
+    raise wrap_user_error(e, '\nA recfun\'s measure decreases along the `<`'
+                          + ' of a model of WellFounded at its type, which'
+                          + ' proves that `<` is well-founded.')
+
+
+def _is_well_founded(decl: ConceptDecl) -> bool:
+  if len(decl.type_params) != 1 or len(decl.funs) != 1:
+    return False
+  (lt, lt_ty) = decl.funs[0]
+  if base_name(lt) != '<' or not isinstance(lt_ty, FunctionType) \
+     or lt_ty.type_params or len(lt_ty.param_types) != 2 \
+     or not isinstance(lt_ty.return_type, BoolType):
+    return False
+  t = lt_ty.param_types[0]
+  if not (isinstance(t, VarRef) and t.get_name() == decl.type_params[0]
+          and lt_ty.param_types[1] == t):
+    return False
+  loc = decl.location
+  bool_ty = BoolType(loc)
+  pred_ty = FunctionType(loc, [], [t], bool_ty)
+  def var(x: str, ty: Type) -> Term:
+    return ResolvedVar(loc, ty, x)
+  def call(f: Term, args: list[Term]) -> Formula:
+    return Call(loc, bool_ty, f, args)
+  p, n, j, i = var('P', pred_ty), var('n', t), var('j', t), var('i', t)
+  smaller = All(loc, bool_ty, ('i', t), (0, 1),
+                IfThen(loc, bool_ty, call(var(lt, lt_ty), [i, j]), call(p, [i])))
+  step = All(loc, bool_ty, ('j', t), (0, 1),
+             IfThen(loc, bool_ty, smaller, call(p, [j])))
+  strong = All(loc, bool_ty, ('P', pred_ty), (1, 2),
+               All(loc, bool_ty, ('n', t), (0, 2),
+                   IfThen(loc, bool_ty, step, call(p, [n]))))
+  return any(frm == strong for (_, frm) in decl.theorems)
 
 
 def concept_member_formula(proof: ConceptMemberProof, env: Env) -> Formula:

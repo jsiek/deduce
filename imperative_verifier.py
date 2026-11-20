@@ -34,8 +34,8 @@ from lark.tree import Meta
 
 import style
 from abstract_syntax import (
-    And, ArrayGet, Bool, Call, Env, Formula, OverloadedVar, Proof, Term,
-    base_name, is_true,
+    And, ArrayGet, Bool, Call, Env, Formula, ModelBinding, OverloadedVar,
+    Proof, Term, base_name, is_true,
 )
 
 
@@ -174,8 +174,12 @@ def index_in_bounds_goal(loc: Meta, handle: Term, index: Term,
   writes in the symbolic state)."""
   from checker_types import type_check_formula
   from error import user_error
+  # A model's operations are reached through the model, not by name: the
+  # model of WellFounded<UInt> defines a `<` at UInt too (#1308).
+  model_ops = {define for b in env.dict.values() if isinstance(b, ModelBinding)
+               for (_, define, _) in b.model.funs}
   length_names = [n for n in env.dict if base_name(n) == 'length']
-  lt_names = [n for n in env.dict if base_name(n) == '<']
+  lt_names = [n for n in env.dict if base_name(n) == '<' and n not in model_ops]
   if not length_names or not lt_names:
     user_error(loc, 'a mutable-array bounds check needs `length` and `<` in '
                'scope; add `import List` and `import UInt`')

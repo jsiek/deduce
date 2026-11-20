@@ -1,0 +1,27 @@
+// A recfun's measure must decrease along a well-founded `<` (#1308):
+// here `<` on Tick is always true, so without the check `loop` would
+// be accepted and its equation `loop(0) = 1 + loop(0)` would prove
+// false. There is no model of WellFounded<Tick>.
+
+import UInt
+
+union Tick { tick }
+
+fun operator < (a : Tick, b : Tick) { true }
+
+recfun loop(n : UInt) -> UInt
+  measure tick of Tick
+{
+  1 + loop(n)
+}
+terminates {
+  arbitrary n:UInt
+  evaluate
+}
+
+theorem oops: false
+proof
+  have eq: # loop(0) # = 1 + loop(0) by expand loop.
+  have bad: loop(0) < # loop(0) # by replace eq.
+  apply uint_less_irreflexive[loop(0)] to bad
+end

@@ -8,6 +8,7 @@ import NatMonus
 import NatMult
 import NatLess
 import NatEvenOdd
+public import WellFounded
 
 /*
   Theorems about Nat division, modulo, and divisibility.
@@ -236,39 +237,6 @@ proof
   div2_aux_mono
 end
 
-/*
- Properties of Division and Modulo
- */
-
-// Division by iterated subtraction.
-recfun operator /(n : Nat, m : Nat) -> Nat
-  measure n of Nat
-{
-  if n < m then zero
-  else if m = zero then zero
-  else suc(zero) + (n ∸ m) / m
-}
-terminates {
-  arbitrary n:Nat, m:Nat
-  assume cond: not (n < m) and not (m = zero)
-  suffices m + (n ∸ m) < m + n by add_both_sides_of_less[m,n∸m,n]
-  suffices n < m + n by {
-    have m_n: m ≤ n by apply not_less_implies_less_equal to conjunct 0 of cond
-    replace apply monus_add_identity[n,m] to m_n.
-  }
-  obtain m' where m_sm: m = suc(m') from apply not_zero_suc to conjunct 1 of cond
-  suffices n < suc(m') + n by replace m_sm.
-  suffices n ≤ m' + n by expand operator+ | operator< | operator≤.
-  replace add_commute
-  show n ≤ n + m'
-  less_equal_add
-}
-
-// Modulo: the remainder left after dividing n by m.
-fun operator % (n:Nat, m:Nat) {
-  n ∸ (n / m) * m
-}
-
 // Helper for strong_induction: P holds for every k below an arbitrary bound j.
 lemma strong_induction_aux: all P: fn Nat -> bool.
   if (all n:Nat. if (all k:Nat. if k < n then P(k)) then P(n))
@@ -323,6 +291,45 @@ proof
   }
   conclude P(n) by apply X[suc(n),n] to recall n < suc(n)
 end
+
+// `<` on Nat is well-founded, so it can order a recfun's measure (#1308).
+model WellFounded<Nat> {
+  theorem strong_induction = strong_induction
+}
+
+/*
+ Properties of Division and Modulo
+ */
+
+// Division by iterated subtraction.
+recfun operator /(n : Nat, m : Nat) -> Nat
+  measure n of Nat
+{
+  if n < m then zero
+  else if m = zero then zero
+  else suc(zero) + (n ∸ m) / m
+}
+terminates {
+  arbitrary n:Nat, m:Nat
+  assume cond: not (n < m) and not (m = zero)
+  suffices m + (n ∸ m) < m + n by add_both_sides_of_less[m,n∸m,n]
+  suffices n < m + n by {
+    have m_n: m ≤ n by apply not_less_implies_less_equal to conjunct 0 of cond
+    replace apply monus_add_identity[n,m] to m_n.
+  }
+  obtain m' where m_sm: m = suc(m') from apply not_zero_suc to conjunct 1 of cond
+  suffices n < suc(m') + n by replace m_sm.
+  suffices n ≤ m' + n by expand operator+ | operator< | operator≤.
+  replace add_commute
+  show n ≤ n + m'
+  less_equal_add
+}
+
+// Modulo: the remainder left after dividing n by m.
+fun operator % (n:Nat, m:Nat) {
+  n ∸ (n / m) * m
+}
+
 
 // Internal predicate used to prove `division` by strong induction on the dividend.
 private fun DivPred(n:Nat) {

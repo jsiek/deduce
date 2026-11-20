@@ -1,0 +1,2 @@
+./test/should-error/recfun_measure_int.pf:6.1-13.2: no model of WellFounded<Int> in scope
+A recfun's measure decreases along the `<` of a model of WellFounded at its type, which proves that `<` is well-founded.

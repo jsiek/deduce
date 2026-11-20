@@ -39,7 +39,7 @@ from .proofs import *
 if TYPE_CHECKING:
     from .env import Env
     from .ops import uniquify_deduce
-    from .concepts import WhereClause, where_params
+    from .concepts import ConceptMember, ConceptRef, WhereClause, where_params
 
 @dataclass
 class Declaration(Statement):
@@ -1373,10 +1373,11 @@ class GenRecFun(Declaration):
   body: Term
   terminates: Proof
   trusted_terminates: bool = False
-  # The unique names of the `<` visible where this function is defined,
-  # recorded by ``uniquify``: the termination conditions compare the
-  # measure with it (#1250).
-  less: List[str] = field(default_factory=list, kw_only=True)
+  # `@WellFounded<measure_ty>.<`, recorded by ``uniquify`` with the
+  # models in scope: the termination conditions compare the measure with
+  # the `<` of the model of WellFounded at the measure's type, whose
+  # theorem proves that `<` is well-founded (#1308).
+  less: Optional[ConceptMember] = field(default=None, kw_only=True)
   # A where clause on the type parameters (#1298), as for `RecFun`
   # (#1282): uniquify adds the operations of its refinement closure to
   # ``vars``, after the function's own parameters. The `terminates`
@@ -1407,7 +1408,15 @@ class GenRecFun(Declaration):
       overwrite(body_env, old, new, self.location)
 
     new_measure = self.measure.uniquify(body_env, uniq_ctx)
-    new_measure_ty = self.measure_ty.uniquify(env_map, uniq_ctx)
+    new_measure_ty = self.measure_ty.uniquify(body_env, uniq_ctx)
+    if 'WellFounded' not in body_env:
+      static_error(self.location, 'a recfun needs the concept WellFounded'
+                   + ' (lib/WellFounded.pf) in scope: its measure decreases'
+                   + ' along the `<` of a model of WellFounded')
+    less = ConceptMember(self.location, None,
+                         ConceptRef(self.location, 'WellFounded',
+                                    [self.measure_ty]).uniquify(body_env, uniq_ctx),
+                         '<', models=list(body_env.get(MODELS_KEY, [])))
     new_terminates = self.terminates.uniquify(terminates_env, uniq_ctx)
     new_body = self.body.uniquify(body_env, uniq_ctx)
     if where is not None:
@@ -1417,7 +1426,7 @@ class GenRecFun(Declaration):
                      new_vars, new_returns, new_measure,
                      new_measure_ty, new_body, new_terminates,
                      self.trusted_terminates, visibility=self.visibility,
-                     less=list(env_map.get('<', [])), where=where)
+                     less=less, where=where)
     
   _exports_overload = True
 

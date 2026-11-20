@@ -1,0 +1,85 @@
+// A recfun's measure decreases along the `<` of a model of WellFounded
+// (#1308). A new type can be a measure once its `<` is proved
+// well-founded in a model, and a generic recfun can be measured by its
+// type parameter under a where clause.
+
+import UInt
+
+// A count of steps, ordered by the count.
+union Steps { steps(UInt) }
+
+fun count(s : Steps) {
+  switch s { case steps(n) { n } }
+}
+
+fun operator < (a : Steps, b : Steps) { count(a) < count(b) }
+
+theorem steps_strong_induction: all P: fn Steps -> bool, n:Steps.
+  if (all j:Steps. if (all i:Steps. if i < j then P(i)) then P(j))
+  then P(n)
+proof
+  arbitrary P: fn Steps -> bool, n:Steps
+  assume step
+  define Q = fun k:UInt { P(steps(k)) }
+  have q_step: all j:UInt. if (all i:UInt. if i < j then Q(i)) then Q(j) by {
+    arbitrary j:UInt
+    assume IH: all i:UInt. if i < j then Q(i)
+    have smaller: all i:Steps. if i < steps(j) then P(i) by {
+      arbitrary i:Steps
+      switch i {
+        case steps(k) {
+          assume lt
+          have k_lt: k < j by expand operator< | count in lt
+          expand Q in apply IH[k] to k_lt
+        }
+      }
+    }
+    expand Q
+    apply step[steps(j)] to smaller
+  }
+  switch n {
+    case steps(k) {
+      expand Q in apply uint_strong_induction[Q, k] to q_step
+    }
+  }
+end
+
+model WellFounded<Steps> {
+  theorem strong_induction = steps_strong_induction
+}
+
+recfun countdown(s : Steps) -> UInt
+  measure s of Steps
+{
+  switch s {
+    case steps(n) {
+      if n = 0 then 0
+      else 1 + countdown(steps(n ∸ 1))
+    }
+  }
+}
+terminates {
+  arbitrary s:Steps, n:UInt
+  assume prem: s = steps(n) and n ≠ 0
+  replace conjunct 0 of prem
+  expand operator< | count
+  apply uint_monus_one_less[n] to conjunct 1 of prem
+}
+
+assert countdown(steps(3)) = 3
+
+// A generic recfun measured by its type parameter: the where clause
+// provides the well-founded `<`.
+recfun down<T> where { WellFounded<T> } (x : T, y : T) -> UInt
+  measure x of T
+{
+  if y < x then 1 + down(y, y) else 0
+}
+terminates {
+  arbitrary x:T, y:T
+  assume lt: y < x
+  lt
+}
+
+assert down(3, 1) = 1
+assert down(1, 3) = 0
