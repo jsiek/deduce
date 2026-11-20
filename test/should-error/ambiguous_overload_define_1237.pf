@@ -1,0 +1,5 @@
+import Nat
+import UInt
+import List
+// The element type of the list is ambiguous (#1237).
+define d = node(zero, empty)

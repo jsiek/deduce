@@ -1,0 +1,8 @@
+./test/should-error/ambiguous_overload_generic_call_1237.pf:6.37-6.41: zero is ambiguous here: it could have any of these types:
+	Nat
+	UIntView
+Add a type annotation to disambiguate, e.g. (zero : Nat)
+
+	in context of call pair(zero, suc(zero))
+	function type: (fn <T,U> (T, U) -> Pair<T,U>)
+	inferred type arguments: U := Nat

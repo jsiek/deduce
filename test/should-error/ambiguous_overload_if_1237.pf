@@ -1,0 +1,4 @@
+import Nat
+import UInt
+// Neither branch fixes which zero is meant (#1237).
+assert (if true then zero else zero) = zero

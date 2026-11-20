@@ -1,0 +1,4 @@
+./test/should-error/ambiguous_overload_if_1237.pf:4.40-4.44: zero is ambiguous here: it could have any of these types:
+	Nat
+	UIntView
+Add a type annotation to disambiguate, e.g. (zero : Nat)
