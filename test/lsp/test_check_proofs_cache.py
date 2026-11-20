@@ -34,12 +34,8 @@ What this file pins:
   reference it as hits (Step 14's deps-fingerprint kicking in),
 - editing T1 invalidates T2 that uses it (Step 14 acceptance).
 
-The earlier two loops (``process_declaration``, ``type_check_stmt``)
-are deliberately *not* cached -- their AST output carries
-``Meta`` locations that interact with the
-``target_hole_location`` flag used by ``goal_at`` and friends, so
-caching them across calls would surface as stale-location bugs.
-``check_proofs`` is where the bulk of the time goes anyway.
+``type_check_stmt`` has a cache of its own (#1301), tested in
+``test_type_check_cache.py``.
 """
 
 from __future__ import annotations

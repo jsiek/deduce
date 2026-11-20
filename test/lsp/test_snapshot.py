@@ -91,7 +91,8 @@ def test_second_start_loads_the_snapshot_instead_of_checking_the_prelude(
     # The statement cache saw only the user file's two statements (the
     # prelude's `import Mini` and the theorem): Mini's own statements,
     # checked in the first run, were never checked in this "process".
-    assert get_cache_stats()["misses"] == {"check_proofs": 2}
+    # (The type-check cache, #1301, saw only the theorem.)
+    assert get_cache_stats()["misses"] == {"check_proofs": 2, "type_check": 1}
     assert first_misses > 2
     assert list((tmp_path / "snapshots").glob("prelude-*.pickle")) == [snapshot]
 
