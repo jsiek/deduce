@@ -1,2 +1,2 @@
-union N.s0_0 {z.s0_1/0, s.s0_2/1}
-print s.s0_2(z.s0_1)
+union N.1N_0 {z.1N_1/0, s.1N_2/1}
+print s.1N_2(z.1N_1)

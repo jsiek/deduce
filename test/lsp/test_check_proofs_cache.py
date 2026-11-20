@@ -489,3 +489,19 @@ def test_predicate_re_check_is_all_hits() -> None:
         f"post-decl AST; called {len(calls)} times: "
         f"{[type(c).__name__ for c in calls]}"
     )
+
+
+@pytest.mark.parametrize("edit", ["insert", "delete"])
+def test_inserting_or_deleting_a_statement_keeps_the_others_hits(edit: str) -> None:
+    """A statement's uniquified names don't depend on its position
+    (#1303), so adding a theorem in front of the others, or deleting
+    one, leaves the rest cache hits."""
+    new = "theorem t0: true\nproof\n  .\nend\n\n"
+    before, after = (_THREE_THEOREMS, new + _THREE_THEOREMS) if edit == "insert" \
+        else (new + _THREE_THEOREMS, _THREE_THEOREMS)
+    check("test.pf", before)
+    proof_checker._cache_stats["hits"].clear()
+    proof_checker._cache_stats["misses"].clear()
+    assert check("test.pf", after) == []
+    assert _hits() == 3
+    assert _misses() == (1 if edit == "insert" else 0)

@@ -1,8 +1,8 @@
-union MyNat.s0_0 {zero.s0_1/0, suc.s0_2/1}
-union List.s1_0 {empty.s1_2/0, node.s1_3/2}
-global ns.s2_0 = node.s1_3(zero.s0_1, node.s1_3(suc.s0_2(zero.s0_1), node.s1_3(suc.s0_2(suc.s0_2(zero.s0_1)), empty.s1_2)))
-global A.s3_0 = array(ns.s2_0)
-print A.s3_0
-print A.s3_0[zero.s0_1]
-print A.s3_0[suc.s0_2(zero.s0_1)]
-print A.s3_0[suc.s0_2(suc.s0_2(zero.s0_1))]
+union MyNat.5MyNat_0 {zero.5MyNat_1/0, suc.5MyNat_2/1}
+union List.4List_0 {empty.4List_2/0, node.4List_3/2}
+global ns.2ns_0 = node.4List_3(zero.5MyNat_1, node.4List_3(suc.5MyNat_2(zero.5MyNat_1), node.4List_3(suc.5MyNat_2(suc.5MyNat_2(zero.5MyNat_1)), empty.4List_2)))
+global A.1A_0 = array(ns.2ns_0)
+print A.1A_0
+print A.1A_0[zero.5MyNat_1]
+print A.1A_0[suc.5MyNat_2(zero.5MyNat_1)]
+print A.1A_0[suc.5MyNat_2(suc.5MyNat_2(zero.5MyNat_1))]

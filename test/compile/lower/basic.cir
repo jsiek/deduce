@@ -1,7 +1,7 @@
-union MyNat.s0_0 {zero.s0_1/0, suc.s0_2/1}
-fn add.s1_0($scr0, m.s1_1) = match $scr0 { | zero.s0_1 -> m.s1_1 | suc.s0_2(n.s1_2) -> suc.s0_2(add.s1_0(n.s1_2, m.s1_1)) }
-global two.s2_0 = suc.s0_2(suc.s0_2(zero.s0_1))
-fn add_two.s3_1(x.s3_0) = add.s1_0(two.s2_0, x.s3_0)
-fn pick.s4_3(b.s4_0, x.s4_1, y.s4_2) = if b.s4_0 then x.s4_1 else y.s4_2
-print add_two.s3_1(suc.s0_2(zero.s0_1))
-print pick.s4_3(true, two.s2_0, zero.s0_1)
+union MyNat.5MyNat_0 {zero.5MyNat_1/0, suc.5MyNat_2/1}
+fn add.3add_0($scr0, m.3add_1) = match $scr0 { | zero.5MyNat_1 -> m.3add_1 | suc.5MyNat_2(n.3add_2) -> suc.5MyNat_2(add.3add_0(n.3add_2, m.3add_1)) }
+global two.3two_0 = suc.5MyNat_2(suc.5MyNat_2(zero.5MyNat_1))
+fn add_two.7add_two_1(x.7add_two_0) = add.3add_0(two.3two_0, x.7add_two_0)
+fn pick.4pick_3(b.4pick_0, x.4pick_1, y.4pick_2) = if b.4pick_0 then x.4pick_1 else y.4pick_2
+print add_two.7add_two_1(suc.5MyNat_2(zero.5MyNat_1))
+print pick.4pick_3(true, two.3two_0, zero.5MyNat_1)
