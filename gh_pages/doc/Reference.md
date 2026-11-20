@@ -127,6 +127,7 @@ forms are parser/AST only today and most require
 - [Real Number](#real-number)
 - [Reason](#reason)
 - [Recall (Proof)](#recall-proof)
+- [Recfun (Statement)](#recfun-statement)
 - [Recursive Function (Statement)](#recursive-function-statement)
 - [Relation (Statement)](#relation-statement)
 - [Reflexive (Proof)](#reflexive-proof)
@@ -2618,6 +2619,70 @@ is a proof of the formula `P1 and ... and Pn`. The formulas
 `P1`,...,`Pn` must be in the givens at the current point in the proof.
 
 
+## Recfun (Statement)
+
+```deduce-grammar
+statement ::= visibility "recfun" identifier type_params_opt "(" variable_list ")" "->" type "measure" term "of" type "{" term "}" "terminates" proof
+statement ::= visibility "recfun" identifier "<" identifier_list ">" "where" "{" concept_ref_list "}" "(" variable_list ")" "->" type "measure" term "of" type "{" term "}" "terminates" proof
+```
+
+The `recfun` statement defines a function by general recursion: the
+recursive calls may pass any arguments, not only a part of a union
+constructor as in a [`recursive` function](#recursive-function-statement).
+Instead, the definition gives a *measure*, a term over the parameters,
+and a proof, after `terminates`, that the measure gets smaller at every
+recursive call. So every call terminates.
+
+For example, `replicate(n, x)` makes a list of `n` copies of `x`. It
+recurses on `n ∸ 1`, which isn't part of a constructor of `UInt`, so it
+is a `recfun` with measure `n`:
+
+```{.deduce^#recfun_replicate_example}
+recfun replicate<T>(n : UInt, x : T) -> List<T>
+  measure n of UInt
+{
+  if n = 0 then []
+  else node(x, replicate(n ∸ 1, x))
+}
+terminates {
+  arbitrary n:UInt, x:T
+  uint_monus_one_less[n]
+}
+
+assert replicate(3, 7) = [7, 7, 7]
+```
+
+* The parameters are written with their types, as for `fun`, followed
+  by `->` and the return type.
+* `measure m of τ` gives the measure `m`, a term over the parameters,
+  and its type `τ`. The measure decreases by `<` on `τ`, which must be
+  well-founded, so use `UInt` or `Nat`. Deduce doesn't check this yet
+  (issue #1308).
+* The body is a term, which can use `if`-`then`-`else` and `switch` to
+  decide when to recurse.
+* The proof after `terminates` proves that the measure decreases. For
+  each recursive call, the measure with the call's arguments in place of
+  the parameters is less than the measure, under the conditions that
+  lead to the call: the condition of each enclosing `if` (or its
+  negation, in the `else` branch), and for each enclosing `switch`
+  case, that the subject equals the case's pattern, for all the
+  variables the pattern binds. The calls' facts are combined with `and`, and the
+  whole formula is quantified over the parameters. For `replicate`, the
+  call is in the `else` branch of `if n = 0`, so the proof proves
+
+  ```
+  all n:UInt. all x:T. if n ≠ 0 then n ∸ 1 < n
+  ```
+
+  The type parameters (`T`) are in scope in the proof.
+
+Use `expand` to unfold a `recfun` in a proof, as for other functions.
+
+A generic `recfun` may have a [where clause](#where-clause) after its
+type parameters, as in `recfun mpow<T> where { Monoid<T> } (n : UInt, x : T) -> T`.
+The where clause is in scope in the body and in the `terminates` proof,
+so the proof can use the concepts' operations and theorems.
+
 ## Recursive Function (Statement)
 
 ```deduce-grammar
@@ -2663,7 +2728,8 @@ recursive call `length(next)` because `next` is part of `Node(n, next)`.
 Recursive functions may have more than one parameter but pattern
 matching is only supported for the first parameter. 
 If you need to pattern match on a parameter that is not the first, you
-can use a `switch` statement. 
+can use a `switch` statement. For recursion that doesn't follow the
+structure of a union, use [`recfun`](#recfun-statement).
 
 
 ## Relation (Statement)
