@@ -2,4 +2,4 @@
 You provided a proof of:
 	true
 but that is different from what you need to prove:
-	msum([+2, +3]) = msum([+2, +3])
+	@msum<Int>{operator +, +0}([+2, +3]) = @msum<Int>{operator *, +1}([+2, +3])

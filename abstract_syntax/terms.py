@@ -29,6 +29,7 @@ Does NOT go here:
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 from .core import *
@@ -1677,6 +1678,38 @@ class Switch(Term):
       and all([c1 == c2 for (c1,c2) in zip(self.cases, other.cases)])
     return eq_subject and eq_cases
 
+# The instances (by `_inst_key`) of where functions whose operations
+# print: those that would otherwise print alike in the formulas being
+# shown, but pass different operations (#1294).
+shown_operations: frozenset[str] = frozenset()
+
+def _inst_key(inst: TermInst) -> str:
+  return str(inst.subject) + '<' + ','.join(str(ty) for ty in inst.type_args) + '>'
+
+def _insts_with_operations(t: AST) -> Iterator[TermInst]:
+  if isinstance(t, TermInst) and t.dicts:
+    yield t
+  for c in t._children():
+    yield from _insts_with_operations(c)
+
+@contextmanager
+def distinct_operations(terms: Iterable[AST]) -> Iterator[None]:
+  """While printing ``terms``, print the operations of the instances of
+  a where function that differ only in their operations, such as
+  ``@msum<Int>{operator+, +0}`` and ``@msum<Int>{operator*, +1}``."""
+  global shown_operations
+  ops: dict[str, list[TermInst]] = {}
+  for t in terms:
+    for inst in _insts_with_operations(t):
+      ops.setdefault(_inst_key(inst), []).append(inst)
+  old = shown_operations
+  shown_operations = old | {k for (k, insts) in ops.items()
+                            if any(i.dicts != insts[0].dicts for i in insts)}
+  try:
+    yield
+  finally:
+    shown_operations = old
+
 @dataclass
 class TermInst(Term):
   subject: Term
@@ -1718,6 +1751,8 @@ class TermInst(Term):
     return ret
 
   def __str__(self) -> str:
+    if self.dicts and _inst_key(self) in shown_operations:
+      return '@' + _inst_key(self) + '{' + ', '.join(str(d) for d in self.dicts) + '}'
     if self.inferred and not get_verbose():
       return str(self.subject)
     else:

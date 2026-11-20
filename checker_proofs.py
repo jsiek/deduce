@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Callable, Optional, TypeAlias, cast
 from lark.tree import Meta
 
 from abstract_syntax import (
+    distinct_operations,
     All, AllElim, AllElimTypes, AllIntro, And, ApplyDefsFact, ConceptMemberProof,
     ApplyDefsGoal, Bool, BoolType, Call, Cases,
     AlgebraGoal, Constructor, Env, EvaluateFact, EvaluateGoal, Formula,
@@ -173,9 +174,10 @@ def _check_proof_recall(proof: PRecall, env: Env) -> CheckedFormula:
     if new_fact in env.local_proofs():
         results.append(new_fact)
     else:
-        user_error(loc, 'Could not find a proof of\n\t' + str(new_fact) \
-              + '\nin the current scope\n' \
-              + style.orange('Givens:') + '\n' + env.proofs_str())
+        with distinct_operations([new_fact, *env.local_proofs()]):
+          user_error(loc, 'Could not find a proof of\n\t' + str(new_fact) \
+                + '\nin the current scope\n' \
+                + style.orange('Givens:') + '\n' + env.proofs_str())
   if len(results) > 1:
       return And(loc, BoolType(loc), results)
   if len(results) == 1:
@@ -1511,12 +1513,14 @@ def _check_proof_of_hole(proof: PHole, formula: CheckedFormula, env: Env) -> Non
   target = get_target_hole_location()
   if target is not None and (loc.line, loc.column) != target:
     return
-  advice = proof_advice(new_formula, env)
-  givens = givens_str(env)
+  with distinct_operations([new_formula, *env.local_proofs()]):
+    advice = proof_advice(new_formula, env)
+    givens = givens_str(env)
+    goal = str(new_formula)
   if not givens:
     advice = advice.rstrip('\n')
   add_incomplete(loc, style.bold_red('incomplete proof') + '\n' \
-                   + style.orange('Goal:') + '\n\t' + str(new_formula) + '\n'\
+                   + style.orange('Goal:') + '\n\t' + goal + '\n'\
                    + advice \
                    + givens,
                    formula=new_formula, env=env)
