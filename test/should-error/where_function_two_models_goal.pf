@@ -1,0 +1,20 @@
+// The goal at a hole shows the operations of two instances of msum
+// (#1282) that would otherwise print alike (#1294); one instance of it
+// alone prints as usual.
+
+import IntSumModel
+import IntProdModel
+import Int
+import List
+
+theorem single_ok: all x:Int. int_sum([x]) = x
+proof
+  int_sum_single
+end
+
+theorem bad: all x:Int. int_sum([x]) = int_prod([x])
+proof
+  arbitrary x:Int
+  expand int_sum | int_prod
+  ?
+end

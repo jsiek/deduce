@@ -1,0 +1,8 @@
+./test/should-error/where_function_two_models_goal.pf:19.3-19.4: incomplete proof
+Goal:
+	@msum<Int>{operator +, +0}([x]) = @msum<Int>{operator *, +1}([x])
+Advice:
+	To prove this equality, one of these statements might help:
+		expand
+		replace
+		equations

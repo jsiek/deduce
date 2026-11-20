@@ -22,6 +22,7 @@ from abstract_syntax import (
     AST,
     AutoRewriteRule,
     Bool,
+    distinct_operations,
     Call,
     Env,
     Formula,
@@ -264,6 +265,10 @@ def _parts(hyp: Formula, goal: Formula) -> list[tuple[Formula, Formula]]:
 
 def _mismatch(loc: Meta, hyp: Formula, goal: Formula) -> UserError:
   """Why ``hyp`` does not prove ``goal``, pointing at where they differ."""
+  with distinct_operations([hyp, goal]):
+    return _mismatch_shown(loc, hyp, goal)
+
+def _mismatch_shown(loc: Meta, hyp: Formula, goal: Formula) -> UserError:
   for (h, g) in _parts(hyp, goal):
     try:
       _prove(loc, _assume(loc, [h]), g)
