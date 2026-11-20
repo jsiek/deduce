@@ -307,6 +307,11 @@ class LoweringCtx:
            or isinstance(s, ast.Export) or isinstance(s, ast.Associative) \
            or isinstance(s, ast.Trace):
             return None
+        if isinstance(s, (ast.ConceptDecl, ast.ModelDecl)):
+            # No code of their own: the standard library's models of
+            # WellFounded only order recfun measures, in proofs (#1308).
+            # Passing a model's operations at run time is #1292.
+            return None
         if isinstance(s, ast.Import):
             # Imports are lowered to a flat statement list upstream
             # (the proof checker walks them via `Import.ast`); the

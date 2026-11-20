@@ -2655,9 +2655,28 @@ assert replicate(3, 7) = [7, 7, 7]
 * The parameters are written with their types, as for `fun`, followed
   by `->` and the return type.
 * `measure m of τ` gives the measure `m`, a term over the parameters,
-  and its type `τ`. The measure decreases by `<` on `τ`, which must be
-  well-founded, so use `UInt` or `Nat`. Deduce doesn't check this yet
-  (issue #1308).
+  and its type `τ`. The measure decreases along the `<` of the
+  [model](#model-statement) of `WellFounded<τ>` in scope, the concept
+  of well-founded orders (lib/WellFounded.pf):
+
+  ```
+  concept WellFounded<T> {
+    fun operator < : fn (T, T) -> bool
+    theorem strong_induction: all P: fn T -> bool, n:T.
+      if (all j:T. if (all i:T. if i < j then P(i)) then P(j))
+      then P(n)
+  }
+  ```
+
+  Its theorem says that `<` admits strong induction, so a measure can't
+  decrease forever, and every call of the `recfun` terminates. The
+  standard library has models for `Nat` and `UInt`. For another type,
+  prove strong induction for its `<` and give a model, e.g.
+  `model WellFounded<Steps> { theorem strong_induction = steps_strong_induction }`.
+  It is an error if there is no model of `WellFounded<τ>` in scope; for
+  example, `Int` has none, because `<` on `Int` has no least element. A
+  generic `recfun` can be measured by a type parameter `T` under
+  `where { WellFounded<T> }`.
 * The body is a term, which can use `if`-`then`-`else` and `switch` to
   decide when to recurse.
 * The proof after `terminates` proves that the measure decreases. For
