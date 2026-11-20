@@ -47,7 +47,7 @@ def prelude_dir(tmp_path, monkeypatch):
     lib = tmp_path / "lib"
     lib.mkdir()
     (lib / "Mini.pf").write_text(MINI)
-    monkeypatch.setattr(flags, "import_directories", flags.import_directories | {str(lib)})
+    monkeypatch.setattr(flags, "import_directories", [*flags.import_directories, str(lib)])
     library.set_snapshot_dir(str(tmp_path / "snapshots"))
     library.reset_prelude_cache()
     yield lib
@@ -119,7 +119,7 @@ def test_editing_a_dependency_in_another_directory_invalidates_the_snapshot(
     (prelude_dir / "Mini.pf").write_text(
         "public import Dep\n" + MINI.replace("union Bit { o  i }\n", "")
     )
-    monkeypatch.setattr(flags, "import_directories", flags.import_directories | {str(deps)})
+    monkeypatch.setattr(flags, "import_directories", [*flags.import_directories, str(deps)])
     bootstraps = _bootstraps(monkeypatch)
     assert library.check_file("user.pf", content=USER, prelude=("Mini",)).ok
 

@@ -82,7 +82,7 @@ def test_a_check_of_an_import_refreshes_its_importers(tmp_path, monkeypatch):
     import flags
 
     monkeypatch.setattr(
-        flags, "import_directories", flags.import_directories | {str(tmp_path)}
+        flags, "import_directories", [*flags.import_directories, str(tmp_path)]
     )
     dep = tmp_path / "HoleCheckDep.pf"
     dep.write_text("union Color {\n  red\n  green\n}\n")

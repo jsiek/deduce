@@ -49,7 +49,7 @@ def mini_prelude(tmp_path, monkeypatch):
     a fresh prelude state."""
     (tmp_path / "Mini.pf").write_text(MINI)
     monkeypatch.setattr(
-        flags, "import_directories", flags.import_directories | {str(tmp_path)}
+        flags, "import_directories", [*flags.import_directories, str(tmp_path)]
     )
     library.reset_prelude_cache()
     yield
@@ -131,7 +131,7 @@ def test_user_inductive_does_not_leak_into_later_checks(tmp_path, monkeypatch):
     does in a fresh process (issue #1249 review)."""
     (tmp_path / "MiniInd.pf").write_text(MINI_IND)
     monkeypatch.setattr(
-        flags, "import_directories", flags.import_directories | {str(tmp_path)}
+        flags, "import_directories", [*flags.import_directories, str(tmp_path)]
     )
     full = (REPO_ROOT / "test" / "should-validate" / "custom_induction.pf").read_text()
     without = full.replace("inductive TwoList by tl_induction\n", "")
