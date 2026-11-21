@@ -1,8 +1,9 @@
 // Step 14: an array out-of-bounds at runtime panics with a message
-// that includes the original `.pf:line`. Type-checks fine; the
-// interpreter happily leaves the OOB ArrayGet un-reduced (printing
-// `array(zero)[suc(zero)]`), so the compiled binary's behavior
-// diverges. The harness compares only the panic substring.
+// that includes the original `.pf:line`. The out-of-bounds `A[suc(zero)]`
+// is an argument that `ignore` doesn't use: the interpreter leaves it
+// un-reduced and prints `true`, but the compiled binary evaluates
+// arguments first, so it panics. The harness compares only the panic
+// substring.
 //
 // expected-runtime-error: source_map.pf:
 
@@ -18,4 +19,6 @@ union List<T> {
 
 define A = array(node(zero, empty))
 
-print A[suc(zero)]
+fun ignore(x : MyNat) { true }
+
+print ignore(A[suc(zero)])
