@@ -55,7 +55,7 @@ class PVar(Proof):
       return str(self)
   
   def __str__(self) -> str:
-      return base_name(self.name)
+      return name2str(self.name)
 
   def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> PVar:
     if self.name not in env.keys():
@@ -96,13 +96,13 @@ class PLet(Proof):
       return '(' + proved + ')' if isinstance(self.proved, TLet) else proved
 
   def pretty_print(self, indent: int, afterNewline: bool = False) -> str:
-      return indent*' ' + 'have ' + base_name(self.label) + ': ' + self._proved_str() + ' by {\n' \
+      return indent*' ' + 'have ' + name2str(self.label) + ': ' + self._proved_str() + ' by {\n' \
           + self.because.pretty_print(indent+2) + '\n' \
           + indent*' ' + '}\n' \
           + maybe_pretty_print(self.body, indent)
   
   def __str__(self) -> str:
-      return 'have ' + base_name(self.label) + ': ' + self._proved_str() \
+      return 'have ' + name2str(self.label) + ': ' + self._proved_str() \
         + ' by ' + str(self.because) + (' ' + str(self.body) if self.body else '')
 
   def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> PLet:
@@ -121,11 +121,11 @@ class PTLetNew(Proof):
   body: Proof
 
   def pretty_print(self, indent: int) -> str:
-      return indent*' ' + 'define ' + base_name(self.var) + ' = ' + str(self.rhs) + '\n' \
+      return indent*' ' + 'define ' + name2str(self.var) + ' = ' + str(self.rhs) + '\n' \
           + self.body.pretty_print(indent)
   
   def __str__(self) -> str:
-      return 'define ' + base_name(self.var) + ' = ' + str(self.rhs) + '\n' \
+      return 'define ' + name2str(self.var) + ' = ' + str(self.rhs) + '\n' \
          + str(self.body)
 
   def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> PTLetNew:
@@ -179,7 +179,7 @@ class Cases(Proof):
   cases: List[Tuple[str,Optional[Formula],Proof]]
 
   def _case_header(self, label: str, frm: Optional[Formula]) -> str:
-    label_str = base_name(label)
+    label_str = name2str(label)
     if frm is None:
       return 'case ' + label_str
     return 'case ' + label_str + ': ' + str(frm)
@@ -259,12 +259,12 @@ class ImpIntro(Proof):
   body: Proof
 
   def pretty_print(self, indent: int) -> str:
-    return indent*' ' + 'assume ' + base_name(self.label) + \
+    return indent*' ' + 'assume ' + name2str(self.label) + \
       (': ' + str(self.premise) if self.premise else '') + '\n'\
       + maybe_pretty_print(self.body, indent)
   
   def __str__(self) -> str:
-    return 'assume ' + base_name(self.label) + \
+    return 'assume ' + name2str(self.label) + \
       (': ' + str(self.premise) if self.premise else '') + \
       ('{' + str(self.body) + '}' if self.body else '')
 
@@ -294,7 +294,7 @@ class AllIntro(Proof):
     res = ''
     if s + 1 == e:
       res += 'arbitrary '
-    res += f"{base_name(x)} : {str(t)}"
+    res += f"{name2str(x)} : {str(t)}"
     if self.where is not None:
       res += ' ' + str(self.where)
     if s != 0:
@@ -415,15 +415,15 @@ class SomeElim(Proof):
   body: Proof
 
   def pretty_print(self, indent: int) -> str:
-    return indent*' ' + 'obtain ' + ",".join(base_name(w) for w in self.witnesses) \
-      + ' where ' + base_name(self.label) \
+    return indent*' ' + 'obtain ' + ",".join(name2str(w) for w in self.witnesses) \
+      + ' where ' + name2str(self.label) \
       + (' : ' + str(self.prop) if self.prop else '') \
       + ' from ' + str(self.some)  + '\n'\
       + maybe_pretty_print(self.body, indent)
 
   def __str__(self) -> str:
-    return 'obtain ' + ",".join(base_name(w) for w in self.witnesses) \
-      + ' where ' + base_name(self.label) \
+    return 'obtain ' + ",".join(name2str(w) for w in self.witnesses) \
+      + ' where ' + name2str(self.label) \
       + (' : ' + str(self.prop) if self.prop else '') \
       + ' from ' + str(self.some) \
       + '; ' + maybe_str(self.body)
@@ -641,11 +641,11 @@ class RuleInductionCase(AST):
   body: Proof
 
   def pretty_print(self, indent: int) -> str:
-    return indent*' ' + 'case ' + base_name(self.rule_name) + ' {\n' \
+    return indent*' ' + 'case ' + name2str(self.rule_name) + ' {\n' \
         + self.body.pretty_print(indent+2) + '\n' + indent*' ' + '}'
 
   def __str__(self) -> str:
-    return 'case ' + base_name(self.rule_name) + ' { ' \
+    return 'case ' + name2str(self.rule_name) + ' { ' \
         + str(self.body) + ' }'
 
   def uniquify(self, env: object, ctx: object) -> RuleInductionCase:
@@ -670,11 +670,11 @@ class RuleInduction(Proof):
   cases: List[RuleInductionCase]
 
   def pretty_print(self, indent: int) -> str:
-    return indent*' ' + 'rule induction ' + base_name(self.hyp_name) + '\n' \
+    return indent*' ' + 'rule induction ' + name2str(self.hyp_name) + '\n' \
         + '\n'.join([c.pretty_print(indent) for c in self.cases])
 
   def __str__(self) -> str:
-    return 'rule induction ' + base_name(self.hyp_name) + ' ' \
+    return 'rule induction ' + name2str(self.hyp_name) + ' ' \
         + ' '.join([str(c) for c in self.cases])
 
   def uniquify(self, env: object, ctx: object) -> RuleInduction:
@@ -696,11 +696,11 @@ class RuleInversion(Proof):
   cases: List[RuleInductionCase]
 
   def pretty_print(self, indent: int) -> str:
-    return indent*' ' + 'rule inversion ' + base_name(self.hyp_name) + '\n' \
+    return indent*' ' + 'rule inversion ' + name2str(self.hyp_name) + '\n' \
         + '\n'.join([c.pretty_print(indent) for c in self.cases])
 
   def __str__(self) -> str:
-    return 'rule inversion ' + base_name(self.hyp_name) + ' ' \
+    return 'rule inversion ' + name2str(self.hyp_name) + ' ' \
         + ' '.join([str(c) for c in self.cases])
 
   def uniquify(self, env: object, ctx: object) -> RuleInversion:
@@ -725,7 +725,7 @@ class SwitchProofCase(AST):
       return ''
     parts = []
     for (label, formula) in self.assumptions:
-      shown = base_name(label) if label else '_'
+      shown = name2str(label) if label else '_'
       if formula is not None:
         parts.append(shown + ': ' + str(formula))
       else:
