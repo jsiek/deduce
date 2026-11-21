@@ -1,8 +1,19 @@
-"""The `algebra` tactic (#1189): linear arithmetic over the types that
-model ``LinearArith`` (lib/Linear.pf).
+"""The `algebra` tactic: ring normalization (#1190) over the types that
+model ``CommRing`` (lib/Ring.pf), and linear arithmetic (#1189) over
+the types that model ``LinearArith`` (lib/Linear.pf).
 
 The tactic is untrusted search; the checker's own instantiation and
-reduction do the proof:
+reduction do the proof.
+
+An equation whose sides are equal polynomials is proved by ring
+normalization: read each side as an ``RExpr`` over atoms (the maximal
+subterms that are not sums, differences, negations, products, or
+integer constants), instantiate ``ring_prove`` at the goal's type, and
+reduce it, unfolding only the definitions of lib/Ring.pf. The premise,
+that the two normal forms are equal, reduces to ``true``, and the
+conclusion to the goal.
+
+Otherwise, linear arithmetic:
 
 1. Read the goal and the givens (with any ``with`` facts) as linear
    facts ``a ≤ b``, ``a < b``, ``a = b`` over the goal's type, writing
@@ -28,9 +39,9 @@ from math import gcd, lcm
 from typing import Any, Callable, cast
 
 from abstract_syntax import (
-    LINEAR_DEFS, AlgebraGoal, AllElim, AllElimTypes, And, Bool, Call,
+    LINEAR_DEFS, RING_DEFS, AlgebraGoal, AllElim, AllElimTypes, And, Bool, Call,
     ConceptRef, Env, Formula, FunctionType, IfThen, OverloadedVar, PVar, Proof,
-    ResolvedVar, Term, TermInst, Var, VarRef, base_name,
+    ResolvedVar, Term, TermInst, Type, Var, VarRef, base_name, full_reduce,
     get_dont_reduce_opaque, get_reduce_only, intToNat, isUInt, mkIntLit,
     mkUIntLit, remove_mark, set_dont_reduce_opaque, set_reduce_only,
     uintToInt,
@@ -99,8 +110,34 @@ def _is_rat(t: Term) -> bool:
   return isinstance(t.typeof, VarRef) and base_name(t.typeof.get_name()) == 'Rat'
 
 
+def _int_lit(t: Term) -> int | None:
+  """The value of an Int literal (not a UInt one)."""
+  match _call(t):
+    case ('pos' | 'negsuc', [_]):
+      return _int_value(t)
+  return None
+
+
+def _ring_const(t: Term) -> tuple[int, Term | None] | None:
+  """The value of an integer constant of a ring, and the Int literal for
+  it if there is one: ``+2``, ``rat(+2)``, ``real(+2)``, or the ring's
+  ``zero`` or ``one``."""
+  if (v := _int_lit(t)) is not None:
+    return v, t
+  match _call(t):
+    case ('rat' | 'real', [n]) if (v := _int_lit(n)) is not None:
+      return v, n
+  match _name(t):
+    case 'zero':
+      return 0, None
+    case 'one':
+      return 1, None
+  return None
+
+
 class _Reifier:
-  """Reads terms as ``Lin`` expressions, numbering the atoms."""
+  """Reads terms as ``Lin`` or ``RExpr`` expressions, numbering the
+  atoms."""
 
   def __init__(self) -> None:
     self.atoms: list[Term] = []
@@ -127,6 +164,62 @@ class _Reifier:
         return ('scale', q, c if _is_rat(c) else None, self.lin(a))
     return self.atom(t)
 
+  def ring(self, t: Term) -> Lin:
+    """``t`` as an ``RExpr`` of lib/Ring.pf: ('var', i), ('const', c,
+    term), ('add', a, b), ('sub', a, b), ('neg', a), or ('mul', a, b).
+    Sums and products may be flattened by associativity."""
+    if (c := _ring_const(t)) is not None:
+      return ('const', *c)
+    match _call(t):
+      case ("+" | "*" as op, [a, *bs]) if bs:
+        e = self.ring(a)
+        for b in bs:
+          e = ('add' if op == '+' else 'mul', e, self.ring(b))
+        return e
+      case ("-", [a, b]):
+        return ('sub', self.ring(a), self.ring(b))
+      case ("-", [a]):
+        return ('neg', self.ring(a))
+    return self.atom(t)
+
+
+# A polynomial: the coefficient of each monomial, a monomial being the
+# exponents of the atoms (without trailing zeros), as in lib/Ring.pf.
+Poly = dict[tuple[int, ...], Fraction]
+
+
+def _poly(e: Lin) -> Poly:
+  match e:
+    case ('var', i):
+      return {(0,) * i + (1,): Fraction(1)}
+    case ('const', c, _):
+      return {(): Fraction(c)} if c else {}
+    case ('add', a, b):
+      return _plus(_poly(a), _poly(b), 1)
+    case ('sub', a, b):
+      return _plus(_poly(a), _poly(b), -1)
+    case ('neg', a):
+      return _plus({}, _poly(a), -1)
+    case ('mul', a, b):
+      out: Poly = {}
+      for (m, c), (n, d) in itertools.product(_poly(a).items(), _poly(b).items()):
+        mn = tuple(i + j for i, j in itertools.zip_longest(m, n, fillvalue=0))
+        out = _plus(out, {mn: c * d}, 1)
+      return out
+  raise ValueError(e)
+
+
+def _show_poly(p: Poly, atoms: list[Term]) -> str:
+  out = ''
+  for m in sorted(p, key=lambda m: (-sum(m), [-k for k in m])):
+    factors = [str(atoms[i]) + ('^' + str(k) if k > 1 else '')
+               for i, k in enumerate(m) if k]
+    c = abs(p[m])
+    term = '·'.join(([str(c)] if c != 1 or not factors else []) + factors)
+    out += (' - ' if p[m] < 0 else ' + ') + term if out \
+        else ('-' if p[m] < 0 else '') + term
+  return out or '0'
+
 
 def form(e: Lin) -> Form:
   """The linear form of ``e``."""
@@ -148,7 +241,8 @@ def form(e: Lin) -> Form:
   raise ValueError(e)
 
 
-def _plus(f: Form, g: Form, c: Fraction | int) -> Form:
+def _plus[K](f: dict[K, Fraction], g: dict[K, Fraction],
+             c: Fraction | int) -> dict[K, Fraction]:
   out = dict(f)
   for (k, v) in g.items():
     out[k] = out.get(k, Fraction(0)) + c * v
@@ -244,9 +338,11 @@ class _Builder:
                   [self._resolve(a) for a in t.args])
     return t
 
+  def int(self, n: int) -> Term:
+    return self._resolve(mkIntLit(self.loc, abs(n), 'PLUS' if n >= 0 else 'MINUS'))
+
   def rat(self, q: Fraction) -> Term:
-    num = self._resolve(mkIntLit(self.loc, abs(q.numerator),
-                                 'PLUS' if q >= 0 else 'MINUS'))
+    num = self.int(q.numerator)
     if q.denominator == 1:
       return self.call('rat', num)
     return self.call('frac', num,
@@ -269,6 +365,16 @@ class _Builder:
       case ('scale', q, t, a):
         return self.call('lscale', t if t is not None else self.rat(q),
                          self.lin(a))
+    raise ValueError(e)
+
+  def rexpr(self, e: Lin) -> Term:
+    match e:
+      case ('var', i):
+        return self.call('rvar', self.nat(i))
+      case ('const', c, t):
+        return self.call('rconst', t if t is not None else self.int(c))
+      case (op, *args):
+        return self.call('r' + op, *[self.rexpr(a) for a in args])
     raise ValueError(e)
 
   def fact(self, f: tuple[str, Lin, Lin]) -> Term:
@@ -315,6 +421,9 @@ def check_algebra(proof: AlgebraGoal, goal: Formula, env: Env,
                   check_proof: Callable[[Proof, Env], Formula]) -> None:
   loc = proof.location
   goal = remove_mark(goal)
+  ring_note = _check_ring(proof, goal, env, check_proof)
+  if ring_note is None:
+    return
   negated = _negation(goal)
   target = _relation(negated if negated is not None else goal)
   is_false = isinstance(goal, Bool) and goal.value is False
@@ -333,14 +442,15 @@ def check_algebra(proof: AlgebraGoal, goal: Formula, env: Env,
     user_error(loc, 'algebra found no equations or inequalities among the'
                ' givens')
   assert ty is not None
-  if 'LinearArith' not in proof.names:
-    user_error(loc, 'algebra needs lib/Linear.pf; add `import Linear`')
-  try:
-    find_model(env, ConceptRef(loc, proof.names['LinearArith'][0], [ty]),
-               proof.models, loc)
-  except UserError:
-    user_error(loc, 'algebra works at the types that model LinearArith'
-               ' (such as Rat, Real, and Angle), not ' + str(ty))
+  if not _has_model(proof, env, 'LinearArith', ty):
+    if ring_note:
+      user_error(loc, 'algebra could not prove\n\t' + str(goal) + '\n' + ring_note)
+    if 'LinearArith' not in proof.names:
+      user_error(loc, 'algebra needs lib/Linear.pf; add `import Linear`')
+    ring = 'CommRing (such as Int, Rat, and Real) or ' \
+        if target is not None and target[0] == 'eq' and negated is None else ''
+    user_error(loc, 'algebra works at the types that model ' + ring
+               + 'LinearArith (such as Rat, Real, and Angle), not ' + str(ty))
 
   reifier = _Reifier()
   hyps = [(rel, reifier.lin(a), reifier.lin(b))
@@ -350,7 +460,7 @@ def check_algebra(proof: AlgebraGoal, goal: Formula, env: Env,
   def refute(extra: list[tuple[str, Lin, Lin]]) -> list[Fraction]:
     cert = certificate([unit_fact] + extra + hyps)
     if cert is None:
-      _fail(loc, target, hyps, reifier)
+      _fail(loc, target, hyps, reifier, ring_note)
     assert cert is not None
     return _integral(cert)
 
@@ -380,16 +490,9 @@ def check_algebra(proof: AlgebraGoal, goal: Formula, env: Env,
     cs = refute([])
     theorem, args = 'lin_refute', [b.list([b.fact(h) for h in hyps]),
                                    b.list([b.rat(c) for c in cs])]
-  args = [b.list(reifier.atoms)] + args
-
-  # The proof uses the theorem, though the source doesn't name it
-  # (for `--postulates`).
-  record_implicit_use(proof.names[theorem][0])
-  inst: Proof = AllElimTypes(loc, PVar(loc, proof.names[theorem][0]), ty,
-                             (0, 1), models=proof.models)
-  for i, arg in enumerate(args):
-    inst = AllElim(loc, inst, arg, (i, len(args)))
-  frm = _reduce_linear(loc, check_proof(inst, env), proof.names, env)
+  frm = _instance(proof, theorem, ty, [b.list(reifier.atoms)] + args, env,
+                  check_proof)
+  frm = _reduce(loc, frm, proof.names, LINEAR_DEFS, _scale_op(frm), env)
   if not isinstance(frm, IfThen):
     user_error(loc, 'algebra: unexpected instance\n\t' + str(frm))
   # The premises are the certificate's check, which reduces to `true`,
@@ -404,13 +507,77 @@ def check_algebra(proof: AlgebraGoal, goal: Formula, env: Env,
                + '\ninstead of\n\t' + str(goal))
 
 
-def _reduce_linear(loc: Meta, frm: Formula, names: dict[str, list[str]],
-                   env: Env) -> Formula:
-  """Unfold the definitions of lib/Linear.pf in ``frm``, and the model's
-  `scale` (say, Real's `real_scale` to `real(q) * x`)."""
+def _check_ring(proof: AlgebraGoal, goal: Formula, env: Env,
+                check_proof: Callable[[Proof, Env], Formula]) -> str | None:
+  """Prove ``goal`` by ring normalization, returning None. If it is not
+  an equation at a type that models CommRing, return ''; if the sides
+  are different polynomials, return their normal forms."""
+  match _call(goal):
+    case ('=', [lhs, rhs]):
+      pass
+    case _:
+      return ''
+  ty = lhs.typeof
+  assert ty is not None
+  if 'ring_prove' not in proof.names or not _has_model(proof, env, 'CommRing', ty):
+    return ''
+  reifier = _Reifier()
+  a, b = reifier.ring(lhs), reifier.ring(rhs)
+  pa, pb = _poly(a), _poly(b)
+  if pa != pb:
+    return ('as polynomials, the two sides are\n\t'
+            + _show_poly(pa, reifier.atoms) + '\nand\n\t'
+            + _show_poly(pb, reifier.atoms))
+  loc = proof.location
+  bld = _Builder(loc, proof.names)
+  frm = _instance(proof, 'ring_prove', ty,
+                  [bld.list(reifier.atoms), bld.rexpr(a), bld.rexpr(b)],
+                  env, check_proof)
+  assert isinstance(frm, IfThen)
+  # The premise, that the normal forms are equal, is about closed
+  # expressions, so it evaluates (fast) to `true`.
+  premise = full_reduce(frm.premise, env)
+  if not (isinstance(premise, Bool) and premise.value is True):
+    user_error(loc, 'algebra: the normal forms are not equal\n\t' + str(premise))
+  frm = _reduce(loc, frm.conclusion, proof.names, RING_DEFS, [], env)
+  if frm not in _forms(goal, env):
+    user_error(loc, 'algebra proved\n\t' + str(frm)
+               + '\ninstead of\n\t' + str(goal))
+  return None
+
+
+def _has_model(proof: AlgebraGoal, env: Env, concept: str, ty: Type) -> bool:
+  if concept not in proof.names:
+    return False
+  try:
+    find_model(env, ConceptRef(proof.location, proof.names[concept][0], [ty]),
+               proof.models, proof.location)
+    return True
+  except UserError:
+    return False
+
+
+def _instance(proof: AlgebraGoal, theorem: str, ty: Type, args: list[Term],
+              env: Env, check_proof: Callable[[Proof, Env], Formula]) -> Formula:
+  """The formula of ``theorem`` instantiated at ``ty`` and ``args``."""
+  loc = proof.location
+  # The proof uses the theorem, though the source doesn't name it
+  # (for `--postulates`).
+  record_implicit_use(proof.names[theorem][0])
+  inst: Proof = AllElimTypes(loc, PVar(loc, proof.names[theorem][0]), ty,
+                             (0, 1), models=proof.models)
+  for i, arg in enumerate(args):
+    inst = AllElim(loc, inst, arg, (i, len(args)))
+  return check_proof(inst, env)
+
+
+def _reduce(loc: Meta, frm: Formula, names: dict[str, list[str]],
+            def_names: tuple[str, ...], ops: list[Term], env: Env) -> Formula:
+  """Unfold the definitions ``def_names`` and the operations ``ops`` in
+  ``frm``."""
   defs: list[Term] = [ResolvedVar(loc, None, n)
-                      for name in LINEAR_DEFS for n in names.get(name, [])]
-  defs += _scale_op(frm)
+                      for name in def_names for n in names.get(name, [])]
+  defs += ops
   # A pass unfolds each recursive call once, so repeat to a fixed point.
   while True:
     new_frm = _with_reduce(defs, frm, env)
@@ -421,7 +588,8 @@ def _reduce_linear(loc: Meta, frm: Formula, names: dict[str, list[str]],
 
 def _scale_op(frm: Term) -> list[Term]:
   """The `scale` operation passed for the where clause of a function of
-  lib/Linear.pf (say, `lin_holds`) in ``frm``."""
+  lib/Linear.pf (say, `lin_holds`) in ``frm``, to unfold it (say, Real's
+  `real_scale` to `real(q) * x`)."""
   match frm:
     case Call(_, _, TermInst(_, _, subject, _, _, dicts=dicts), _) if dicts:
       funty = subject.typeof
@@ -479,7 +647,8 @@ def _show(e: Lin, atoms: list[Term]) -> str:
 
 
 def _fail(loc: Meta, target: tuple[str, Term, Term] | None,
-          hyps: list[tuple[str, Lin, Lin]], reifier: _Reifier) -> None:
+          hyps: list[tuple[str, Lin, Lin]], reifier: _Reifier,
+          ring_note: str) -> None:
   sym = {'le': '≤', 'lt': '<', 'eq': '='}
   lines = ['\t' + _show(a, reifier.atoms) + ' ' + sym[r] + ' '
            + _show(b, reifier.atoms) for (r, a, b) in hyps]
@@ -487,4 +656,5 @@ def _fail(loc: Meta, target: tuple[str, Term, Term] | None,
       str(target[1]) + ' ' + sym[target[0]] + ' ' + str(target[2])
   user_error(loc, 'algebra could not prove\n\t' + goal
              + '\nby a linear combination of the givens'
-             + (':\n' + '\n'.join(lines) if lines else ' (there are none)'))
+             + (':\n' + '\n'.join(lines) if lines else ' (there are none)')
+             + ('\n' + ring_note if ring_note else ''))

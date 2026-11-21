@@ -188,8 +188,37 @@ assert 2 + 3 = 5
 conclusion ::= "algebra" optional_proof_list
 ```
 
-The proof `algebra` proves a linear equation or inequality from the
-givens: a goal `a = b`, `a ≤ b`, `a < b`, `a ≥ b`, or `a > b`, its
+The proof `algebra` proves an equation whose two sides are equal as
+polynomials, or a linear equation or inequality that follows from the
+givens.
+
+**Polynomial identities.** If the goal is an equation `a = b` and the
+two sides are equal after multiplying out, collecting like terms, and
+adding up integer constants, `algebra` proves it. No givens are used.
+
+```
+theorem square_sum: all x:Real, y:Real.
+  (x + y) * (x + y) = x * x + real(+2) * x * y + y * y
+proof
+  arbitrary x:Real, y:Real
+  algebra
+end
+```
+
+The sides may use `+`, `-` (subtraction and negation), `*`, and integer
+constants: Int literals such as `+2`, `rat(+2)`, `real(+2)`, and the
+ring's `zero` and `one`. Any other subterm, such as `f(x)`,
+`frac(+1, 2)`, or `x / y`, is treated as an unknown of its own.
+This works at the types that model the concept `CommRing`
+(lib/Algebra.pf), a commutative ring with a map `from_int` that reads
+integer constants: `Int`, `Rat`, `Real`, and, inside a proof under
+`where { CommRing<T> }`, the type `T`. The proof is checked: `algebra`
+instantiates the theorem `ring_prove` of lib/Ring.pf, whose premise,
+that the two sides have the same normal form, Deduce evaluates. When
+the sides differ, `algebra` shows the two normal forms.
+
+**Linear arithmetic.** Otherwise, `algebra` proves a linear equation
+or inequality from the givens: a goal `a = b`, `a ≤ b`, `a < b`, `a ≥ b`, or `a > b`, its
 negation (such as `not (a = b)`), or `false`. It combines the givens
 that are equations and inequalities (`=`, `≤`, `<`, `≥`, `>`, also
 inside `and`) at the goal's type, multiplying each by a constant and

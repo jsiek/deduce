@@ -1,7 +1,7 @@
 module Algebra
 
 /*
-  Algebraic concepts (#1264) and their models for Rat and Real.
+  Algebraic concepts (#1264) and their models for Int, Rat, and Real.
 
   OrderedQVectorSpace is the interface of the linear-arithmetic tactic
   (#1189): an ordered abelian group with scaling by rationals. Rat and
@@ -53,6 +53,53 @@ concept OrderedQVectorSpace<T> {
     if rat(+0) < q and zero < x then zero < scale(q, x)
 }
 
+// The interface of ring normalization in the `algebra` tactic (#1190,
+// lib/Ring.pf). `from_int` reads integer constants, such as `+2`,
+// `rat(+2)`, and `real(+2)`, in the ring.
+concept CommRing<T> {
+  refines AddCommGroup<T>
+  fun operator* : fn (T, T) -> T
+  fun one : T
+  fun from_int : fn Int -> T
+  theorem mult_commute: all x:T, y:T. x * y = y * x
+  theorem mult_assoc: all x:T, y:T, z:T. (x * y) * z = x * (y * z)
+  theorem mult_one: all x:T. x * one = x
+  theorem dist_mult_add: all x:T, y:T, z:T. x * (y + z) = x * y + x * z
+  theorem from_int_zero: from_int(+0) = zero
+  theorem from_int_one: from_int(+1) = one
+  theorem from_int_add: all a:Int, b:Int. from_int(a + b) = from_int(a) + from_int(b)
+  theorem from_int_mult: all a:Int, b:Int. from_int(a * b) = from_int(a) * from_int(b)
+  theorem from_int_neg: all a:Int. from_int(- a) = - from_int(a)
+}
+
+// Int
+
+model AddCommGroup<Int> {
+  fun zero = +0
+  theorem add_commute = int_add_commute
+  theorem add_assoc = int_add_assoc
+  theorem add_zero = int_add_zero
+  theorem add_inverse = int_add_inverse
+  theorem sub_def = {
+    arbitrary x:Int, y:Int
+    expand operator-.
+  }
+}
+
+model CommRing<Int> {
+  fun one = +1
+  fun from_int = fun n:Int { n }
+  theorem mult_commute = int_mult_commute
+  theorem mult_assoc = int_mult_assoc
+  theorem mult_one = int_mult_one
+  theorem dist_mult_add = int_dist_mult_add
+  theorem from_int_zero = .
+  theorem from_int_one = .
+  theorem from_int_add = { arbitrary a:Int, b:Int . }
+  theorem from_int_mult = { arbitrary a:Int, b:Int . }
+  theorem from_int_neg = { arbitrary a:Int . }
+}
+
 // Rat
 
 model AddCommGroup<Rat> {
@@ -82,6 +129,20 @@ model OrderedQVectorSpace<Rat> {
   }
   theorem scale_add_right = rat_dist_mult_add
   theorem scale_pos = rat_mult_pos
+}
+
+model CommRing<Rat> {
+  fun one = rat(+1)
+  fun from_int = rat
+  theorem mult_commute = rat_mult_commute
+  theorem mult_assoc = rat_mult_assoc
+  theorem mult_one = rat_mult_one
+  theorem dist_mult_add = rat_dist_mult_add
+  theorem from_int_zero = .
+  theorem from_int_one = .
+  theorem from_int_add = symmetric rat_int_add
+  theorem from_int_mult = symmetric rat_int_mult
+  theorem from_int_neg = symmetric rat_int_neg
 }
 
 // Real
@@ -154,4 +215,18 @@ model OrderedQVectorSpace<Real> {
   theorem scale_add_left = real_scale_add_left
   theorem scale_add_right = real_scale_add_right
   theorem scale_pos = real_scale_pos
+}
+
+model CommRing<Real> {
+  fun one = real(+1)
+  fun from_int = real
+  theorem mult_commute = real_mult_commute
+  theorem mult_assoc = real_mult_assoc
+  theorem mult_one = real_mult_one
+  theorem dist_mult_add = real_dist_mult_add
+  theorem from_int_zero = .
+  theorem from_int_one = .
+  theorem from_int_add = real_int_add
+  theorem from_int_mult = real_int_mult
+  theorem from_int_neg = real_int_neg
 }

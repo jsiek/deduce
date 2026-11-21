@@ -1,0 +1,6 @@
+./test/should-error/algebra_ring_not_identity.pf:9.3-9.10: algebra could not prove
+	(x + y) * (x + y) = x * x + y * y
+as polynomials, the two sides are
+	x^2 + 2·x·y + y^2
+and
+	x^2 + y^2

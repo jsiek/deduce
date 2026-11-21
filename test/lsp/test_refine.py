@@ -222,6 +222,25 @@ CASES = [
             end=Position(line=7, column=4),
         ),
     ),
+    RefineCase(
+        name="ring_int_equation",
+        # Goal at hole: a polynomial identity over Int, which models
+        # CommRing but not LinearArith. Template: ``algebra`` (#1190).
+        source=(
+            "import Ring\n"
+            "theorem t: all x:Int, y:Int. (x + y) * (x - y) = x * x - y * y\n"
+            "proof\n"
+            "  arbitrary x:Int, y:Int\n"
+            "  ?\n"
+            "end\n"
+        ),
+        cursor=Position(line=5, column=3),
+        expected_text="algebra",
+        expected_range=Range(
+            start=Position(line=5, column=3),
+            end=Position(line=5, column=4),
+        ),
+    ),
 ]
 
 

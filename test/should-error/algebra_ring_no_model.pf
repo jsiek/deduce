@@ -1,0 +1,11 @@
+// `algebra` proves equations at the types that model CommRing or
+// LinearArith; Nat models neither.
+
+import Ring
+import Linear
+
+theorem nat_commute: all x:Nat, y:Nat. x * y = y * x
+proof
+  arbitrary x:Nat, y:Nat
+  algebra
+end

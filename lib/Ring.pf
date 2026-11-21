@@ -1,0 +1,552 @@
+module Ring
+
+/*
+  Ring normalization for the `algebra` tactic (#1190).
+
+  `algebra` proves an equation `a = b` whose sides are equal as
+  polynomials. It writes each side as an expression (`RExpr`) over
+  atoms, the maximal subterms that are not sums, differences,
+  negations, products, or integer constants, and instantiates
+  `ring_prove` at the goal's type. The checker evaluates `ring_norm` on
+  both expressions and `ring_denote` on each, so the premise becomes
+  `true` and the conclusion the goal as the user wrote it; nothing about
+  the tactic is trusted.
+
+  A normal form is a list of monomials `mono(c, es)`, the coefficient
+  `c` times the product of the atoms raised to the exponents `es`
+  (atom 0 first). The list is sorted by `ring_mono_less` and has no
+  zero coefficients, so equal polynomials have equal normal forms.
+*/
+
+// The tactic builds expressions from lists, Nat indices, and Int
+// literals, so their names must be in scope wherever this is.
+public import UInt
+public import Nat
+public import Int
+import Base
+public import List
+public import Algebra
+
+union RExpr {
+  rvar(Nat)
+  rconst(Int)
+  radd(RExpr, RExpr)
+  rsub(RExpr, RExpr)
+  rneg(RExpr)
+  rmul(RExpr, RExpr)
+}
+
+recursive ring_get<T> where { CommRing<T> } (List<T>, Nat) -> T {
+  ring_get(empty, i) = zero
+  ring_get(node(x, xs), i) =
+    switch i { case zero { x } case suc(j) { ring_get(xs, j) } }
+}
+
+fun ring_tail<T>(xs : List<T>) {
+  switch xs { case empty { xs } case node(y, ys) { ys } }
+}
+
+// Constants, with 0 and 1 as the ring's own `zero` and `one`.
+fun ring_const<T> where { CommRing<T> } (c : Int) {
+  if c = +0 then zero else if c = +1 then one else from_int(c)
+}
+
+recursive ring_denote<T> where { CommRing<T> } (RExpr, List<T>) -> T {
+  ring_denote(rvar(i), env) = ring_get(env, i)
+  ring_denote(rconst(c), env) = @ring_const<T>(c)
+  ring_denote(radd(a, b), env) = ring_denote(a, env) + ring_denote(b, env)
+  ring_denote(rsub(a, b), env) = ring_denote(a, env) - ring_denote(b, env)
+  ring_denote(rneg(a), env) = - ring_denote(a, env)
+  ring_denote(rmul(a, b), env) = ring_denote(a, env) * ring_denote(b, env)
+}
+
+/********************** Normal forms **********************/
+
+union Mono { mono(Int, List<Nat>) }
+
+recursive ring_nat_add(Nat, Nat) -> Nat {
+  ring_nat_add(zero, n) = n
+  ring_nat_add(suc(m), n) = suc(ring_nat_add(m, n))
+}
+
+recursive ring_nat_less(Nat, Nat) -> bool {
+  ring_nat_less(zero, n) = switch n { case zero { false } case suc(n2) { true } }
+  ring_nat_less(suc(m), n) =
+    switch n { case zero { false } case suc(n2) { ring_nat_less(m, n2) } }
+}
+
+// The product of two monomials adds their exponents.
+recursive ring_vadd(List<Nat>, List<Nat>) -> List<Nat> {
+  ring_vadd(empty, ys) = ys
+  ring_vadd(node(x, xs), ys) =
+    switch ys {
+      case empty { node(x, xs) }
+      case node(y, ys2) { node(ring_nat_add(x, y), ring_vadd(xs, ys2)) }
+    }
+}
+
+recursive ring_vunit(Nat) -> List<Nat> {
+  ring_vunit(zero) = [suc(zero)]
+  ring_vunit(suc(i)) = node(zero, ring_vunit(i))
+}
+
+recursive ring_mono_less(List<Nat>, List<Nat>) -> bool {
+  ring_mono_less(empty, ys) = switch ys { case empty { false } case node(y, ys2) { true } }
+  ring_mono_less(node(x, xs), ys) =
+    switch ys {
+      case empty { false }
+      case node(y, ys2) {
+        if x = y then ring_mono_less(xs, ys2) else ring_nat_less(x, y)
+      }
+    }
+}
+
+// Add the monomial `c` times `m`.
+recursive ring_insert(List<Mono>, Int, List<Nat>) -> List<Mono> {
+  ring_insert(empty, c, m) = if c = +0 then empty else [mono(c, m)]
+  ring_insert(node(t, ps), c, m) =
+    switch t {
+      case mono(d, m2) {
+        if m = m2 then (if c + d = +0 then ps else node(mono(c + d, m), ps))
+        else if ring_mono_less(m, m2) then node(mono(c, m), node(t, ps))
+        else node(t, ring_insert(ps, c, m))
+      }
+    }
+}
+
+recursive ring_add(List<Mono>, List<Mono>) -> List<Mono> {
+  ring_add(empty, qs) = qs
+  ring_add(node(t, ps), qs) =
+    switch t { case mono(c, m) { ring_insert(ring_add(ps, qs), c, m) } }
+}
+
+// Multiply by the monomial `c` times `m`.
+recursive ring_scale(List<Mono>, Int, List<Nat>) -> List<Mono> {
+  ring_scale(empty, c, m) = empty
+  ring_scale(node(t, ps), c, m) =
+    switch t {
+      case mono(d, m2) { node(mono(c * d, ring_vadd(m, m2)), ring_scale(ps, c, m)) }
+    }
+}
+
+recursive ring_mul(List<Mono>, List<Mono>) -> List<Mono> {
+  ring_mul(empty, qs) = empty
+  ring_mul(node(t, ps), qs) =
+    switch t { case mono(c, m) { ring_add(ring_scale(qs, c, m), ring_mul(ps, qs)) } }
+}
+
+recursive ring_norm(RExpr) -> List<Mono> {
+  ring_norm(rvar(i)) = [mono(+1, ring_vunit(i))]
+  ring_norm(rconst(c)) = ring_insert(empty, c, empty)
+  ring_norm(radd(a, b)) = ring_add(ring_norm(a), ring_norm(b))
+  ring_norm(rsub(a, b)) = ring_add(ring_norm(a), ring_scale(ring_norm(b), -1, empty))
+  ring_norm(rneg(a)) = ring_scale(ring_norm(a), -1, empty)
+  ring_norm(rmul(a, b)) = ring_mul(ring_norm(a), ring_norm(b))
+}
+
+recursive ring_pow<T> where { CommRing<T> } (Nat, T) -> T {
+  ring_pow(zero, x) = one
+  ring_pow(suc(n), x) = x * ring_pow(n, x)
+}
+
+recursive ring_mdenote<T> where { CommRing<T> } (List<Nat>, List<T>) -> T {
+  ring_mdenote(empty, env) = one
+  ring_mdenote(node(e, es), env) =
+    ring_pow(e, ring_get(env, zero)) * ring_mdenote(es, ring_tail(env))
+}
+
+recursive ring_pdenote<T> where { CommRing<T> } (List<Mono>, List<T>) -> T {
+  ring_pdenote(empty, env) = zero
+  ring_pdenote(node(t, ps), env) =
+    switch t {
+      case mono(c, m) { from_int(c) * ring_mdenote(m, env) + ring_pdenote(ps, env) }
+    }
+}
+
+/********************** Ring lemmas **********************/
+
+lemma ring_zero_add: all T:type where { CommRing<T> }. all x:T. zero + x = x
+proof
+  arbitrary T:type where { CommRing<T> }
+  arbitrary x:T
+  replace add_commute[zero, x]
+  add_zero[x]
+end
+
+lemma ring_one_mult: all T:type where { CommRing<T> }. all x:T. one * x = x
+proof
+  arbitrary T:type where { CommRing<T> }
+  arbitrary x:T
+  replace mult_commute[one, x]
+  mult_one[x]
+end
+
+lemma ring_dist_right: all T:type where { CommRing<T> }.
+  all x:T, y:T, z:T. (x + y) * z = x * z + y * z
+proof
+  arbitrary T:type where { CommRing<T> }
+  arbitrary x:T, y:T, z:T
+  replace mult_commute[x + y, z] | dist_mult_add[z, x, y]
+        | mult_commute[z, x] | mult_commute[z, y].
+end
+
+lemma ring_zero_mult: all T:type where { CommRing<T> }. all x:T. zero * x = zero
+proof
+  arbitrary T:type where { CommRing<T> }
+  arbitrary x:T
+  equations
+        zero * x = zero * x + zero                          by symmetric add_zero[zero * x]
+      ... = zero * x + #zero * x + - (zero * x)#            by replace add_inverse[zero * x].
+      ... = (zero * x + zero * x) + - (zero * x)            by symmetric add_assoc[zero * x, zero * x, - (zero * x)]
+      ... = #(zero + zero) * x# + - (zero * x)              by replace ring_dist_right<T>[zero, zero, x].
+      ... = zero                                            by replace add_zero[zero] | add_inverse[zero * x].
+end
+
+lemma ring_mult_zero: all T:type where { CommRing<T> }. all x:T. x * zero = zero
+proof
+  arbitrary T:type where { CommRing<T> }
+  arbitrary x:T
+  replace mult_commute[x, zero]
+  ring_zero_mult<T>[x]
+end
+
+lemma ring_neg_unique: all T:type where { CommRing<T> }.
+  all x:T, y:T. if x + y = zero then x = - y
+proof
+  arbitrary T:type where { CommRing<T> }
+  arbitrary x:T, y:T
+  assume eq
+  equations
+        x = x + zero               by symmetric add_zero[x]
+      ... = x + #y + - y#          by replace add_inverse[y].
+      ... = (x + y) + - y          by symmetric add_assoc[x, y, - y]
+      ... = zero + - y             by replace eq.
+      ... = - y                    by ring_zero_add<T>[- y]
+end
+
+lemma ring_neg_one_mult: all T:type where { CommRing<T> }.
+  all x:T. from_int(-1) * x = - x
+proof
+  arbitrary T:type where { CommRing<T> }
+  arbitrary x:T
+  apply ring_neg_unique<T>[from_int(-1) * x, x] to
+    equations
+          from_int(-1) * x + x
+        = from_int(-1) * x + #one * x#              by replace ring_one_mult<T>[x].
+    ... = from_int(-1) * x + #from_int(+1)# * x     by replace from_int_one.
+    ... = (from_int(-1) + from_int(+1)) * x         by symmetric ring_dist_right<T>[from_int(-1), from_int(+1), x]
+    ... = from_int(+0) * x                          by replace symmetric from_int_add[-1, +1].
+    ... = zero                                      by replace from_int_zero | ring_zero_mult<T>.
+end
+
+lemma ring_add_left_comm: all T:type where { CommRing<T> }.
+  all x:T, y:T, z:T. x + (y + z) = y + (x + z)
+proof
+  arbitrary T:type where { CommRing<T> }
+  arbitrary x:T, y:T, z:T
+  replace symmetric add_assoc[x, y, z] | add_commute[x, y] | add_assoc[y, x, z].
+end
+
+lemma ring_mult_shuffle: all T:type where { CommRing<T> }.
+  all a:T, b:T, c:T, d:T. (a * b) * (c * d) = (a * c) * (b * d)
+proof
+  arbitrary T:type where { CommRing<T> }
+  arbitrary a:T, b:T, c:T, d:T
+  equations
+        (a * b) * (c * d) = a * (b * (c * d))   by mult_assoc[a, b, c * d]
+      ... = a * ((b * c) * d)   by replace symmetric mult_assoc[b, c, d].
+      ... = a * ((c * b) * d)   by replace mult_commute[b, c].
+      ... = a * (c * (b * d))   by replace mult_assoc[c, b, d].
+      ... = (a * c) * (b * d)   by symmetric mult_assoc[a, c, b * d]
+end
+
+/********************** Soundness **********************/
+
+lemma ring_const_from_int: all T:type where { CommRing<T> }.
+  all c:Int. @ring_const<T>(c) = from_int(c)
+proof
+  arbitrary T:type where { CommRing<T> }
+  arbitrary c:Int
+  expand ring_const
+  switch c = +0 {
+    case true assume c0 { replace c0 | from_int_zero. }
+    case false assume c0 {
+      switch c = +1 {
+        case true assume c1 { replace c1 | from_int_one. }
+        case false assume c1 { . }
+      }
+    }
+  }
+end
+
+lemma ring_pow_add: all T:type where { CommRing<T> }.
+  all a:Nat. all b:Nat, x:T.
+  ring_pow(ring_nat_add(a, b), x) = ring_pow(a, x) * ring_pow(b, x)
+proof
+  arbitrary T:type where { CommRing<T> }
+  induction Nat
+  case zero {
+    arbitrary b:Nat, x:T
+    expand ring_nat_add | ring_pow
+    symmetric ring_one_mult<T>
+  }
+  case suc(a) assume IH {
+    arbitrary b:Nat, x:T
+    expand ring_nat_add | ring_pow
+    replace IH[b, x]
+    symmetric mult_assoc
+  }
+end
+
+lemma ring_mdenote_vadd: all T:type where { CommRing<T> }.
+  all m1:List<Nat>. all m2:List<Nat>, env:List<T>.
+  ring_mdenote(ring_vadd(m1, m2), env)
+  = ring_mdenote(m1, env) * ring_mdenote(m2, env)
+proof
+  arbitrary T:type where { CommRing<T> }
+  induction List<Nat>
+  case empty {
+    arbitrary m2:List<Nat>, env:List<T>
+    expand ring_vadd | ring_mdenote
+    symmetric ring_one_mult<T>
+  }
+  case node(e, es) assume IH {
+    arbitrary m2:List<Nat>, env:List<T>
+    switch m2 {
+      case empty {
+        expand ring_vadd | ring_mdenote
+        symmetric mult_one
+      }
+      case node(f, fs) {
+        expand ring_vadd | ring_mdenote
+        replace ring_pow_add<T> | IH[fs, ring_tail(env)]
+        ring_mult_shuffle<T>
+      }
+    }
+  }
+end
+
+lemma ring_mdenote_vunit: all T:type where { CommRing<T> }.
+  all i:Nat. all env:List<T>.
+  ring_mdenote(ring_vunit(i), env) = ring_get(env, i)
+proof
+  arbitrary T:type where { CommRing<T> }
+  induction Nat
+  case zero {
+    arbitrary env:List<T>
+    expand ring_vunit | 2 * ring_mdenote | 2 * ring_pow
+    replace mult_one | mult_one.
+  }
+  case suc(j) assume IH {
+    arbitrary env:List<T>
+    expand ring_vunit | ring_mdenote | ring_pow
+    replace IH[ring_tail(env)] | ring_one_mult<T>
+    switch env {
+      case empty { evaluate }
+      case node(x, xs) { evaluate }
+    }
+  }
+end
+
+lemma ring_pdenote_insert: all T:type where { CommRing<T> }.
+  all ps:List<Mono>. all c:Int, m:List<Nat>, env:List<T>.
+  ring_pdenote(ring_insert(ps, c, m), env)
+  = from_int(c) * ring_mdenote(m, env) + ring_pdenote(ps, env)
+proof
+  arbitrary T:type where { CommRing<T> }
+  induction List<Mono>
+  case empty {
+    arbitrary c:Int, m:List<Nat>, env:List<T>
+    expand ring_insert
+    switch c = +0 {
+      case true assume c0 {
+        replace c0
+        expand ring_pdenote
+        replace from_int_zero | ring_zero_mult<T> | add_zero.
+      }
+      case false {
+        expand 2*ring_pdenote.
+      }
+    }
+  }
+  case node(t, ps) assume IH {
+    arbitrary c:Int, m:List<Nat>, env:List<T>
+    switch t {
+      case mono(d, m2) {
+        expand ring_insert
+        switch m = m2 {
+          case true assume e {
+            replace e
+            switch c + d = +0 {
+              case true assume cd {
+                expand ring_pdenote
+                replace symmetric add_assoc[from_int(c) * ring_mdenote(m2, env),
+                                            from_int(d) * ring_mdenote(m2, env),
+                                            ring_pdenote(ps, env)]
+                      | symmetric ring_dist_right<T>[from_int(c), from_int(d), ring_mdenote(m2, env)]
+                      | symmetric from_int_add[c, d] | cd | from_int_zero
+                      | ring_zero_mult<T> | ring_zero_add<T>.
+              }
+              case false {
+                expand ring_pdenote
+                replace from_int_add[c, d] | ring_dist_right<T> | add_assoc.
+              }
+            }
+          }
+          case false {
+            switch ring_mono_less(m, m2) {
+              case true {
+                expand 2*ring_pdenote.
+              }
+              case false {
+                expand ring_pdenote
+                replace IH[c, m, env]
+                ring_add_left_comm<T>
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+end
+
+lemma ring_pdenote_add: all T:type where { CommRing<T> }.
+  all ps:List<Mono>. all qs:List<Mono>, env:List<T>.
+  ring_pdenote(ring_add(ps, qs), env)
+  = ring_pdenote(ps, env) + ring_pdenote(qs, env)
+proof
+  arbitrary T:type where { CommRing<T> }
+  induction List<Mono>
+  case empty {
+    arbitrary qs:List<Mono>, env:List<T>
+    expand ring_add | ring_pdenote
+    symmetric ring_zero_add<T>
+  }
+  case node(t, ps) assume IH {
+    arbitrary qs:List<Mono>, env:List<T>
+    switch t {
+      case mono(c, m) {
+        expand ring_add | ring_pdenote
+        replace ring_pdenote_insert<T> | IH[qs, env]
+        symmetric add_assoc
+      }
+    }
+  }
+end
+
+lemma ring_pdenote_scale: all T:type where { CommRing<T> }.
+  all ps:List<Mono>. all c:Int, m:List<Nat>, env:List<T>.
+  ring_pdenote(ring_scale(ps, c, m), env)
+  = (from_int(c) * ring_mdenote(m, env)) * ring_pdenote(ps, env)
+proof
+  arbitrary T:type where { CommRing<T> }
+  induction List<Mono>
+  case empty {
+    arbitrary c:Int, m:List<Nat>, env:List<T>
+    expand ring_scale | ring_pdenote
+    symmetric ring_mult_zero<T>
+  }
+  case node(t, ps) assume IH {
+    arbitrary c:Int, m:List<Nat>, env:List<T>
+    switch t {
+      case mono(d, m2) {
+        expand ring_scale | ring_pdenote
+        replace IH[c, m, env] | from_int_mult[c, d] | ring_mdenote_vadd<T>
+              | dist_mult_add
+              | ring_mult_shuffle<T>[from_int(c), from_int(d), ring_mdenote(m, env),
+                                     ring_mdenote(m2, env)].
+      }
+    }
+  }
+end
+
+lemma ring_pdenote_mul: all T:type where { CommRing<T> }.
+  all ps:List<Mono>. all qs:List<Mono>, env:List<T>.
+  ring_pdenote(ring_mul(ps, qs), env)
+  = ring_pdenote(ps, env) * ring_pdenote(qs, env)
+proof
+  arbitrary T:type where { CommRing<T> }
+  induction List<Mono>
+  case empty {
+    arbitrary qs:List<Mono>, env:List<T>
+    expand ring_mul | ring_pdenote
+    symmetric ring_zero_mult<T>
+  }
+  case node(t, ps) assume IH {
+    arbitrary qs:List<Mono>, env:List<T>
+    switch t {
+      case mono(c, m) {
+        expand ring_mul | ring_pdenote
+        replace ring_pdenote_add<T> | ring_pdenote_scale<T> | IH[qs, env]
+        symmetric ring_dist_right<T>
+      }
+    }
+  }
+end
+
+lemma ring_pdenote_neg: all T:type where { CommRing<T> }.
+  all ps:List<Mono>, env:List<T>.
+  ring_pdenote(ring_scale(ps, -1, empty), env) = - ring_pdenote(ps, env)
+proof
+  arbitrary T:type where { CommRing<T> }
+  arbitrary ps:List<Mono>, env:List<T>
+  replace ring_pdenote_scale<T>
+  expand ring_mdenote
+  replace mult_one
+  ring_neg_one_mult<T>
+end
+
+// The normal form denotes the expression.
+lemma ring_norm_sound: all T:type where { CommRing<T> }.
+  all e:RExpr. all env:List<T>.
+  ring_pdenote(ring_norm(e), env) = ring_denote(e, env)
+proof
+  arbitrary T:type where { CommRing<T> }
+  induction RExpr
+  case rvar(i) {
+    arbitrary env:List<T>
+    expand ring_norm | ring_denote | 2*ring_pdenote
+    replace ring_mdenote_vunit<T> | from_int_one | ring_one_mult<T> | add_zero.
+  }
+  case rconst(c) {
+    arbitrary env:List<T>
+    expand ring_norm | ring_denote
+    replace ring_pdenote_insert<T> | ring_const_from_int<T>
+    expand ring_mdenote | ring_pdenote
+    replace mult_one | add_zero.
+  }
+  case radd(a, b) assume IHa, IHb {
+    arbitrary env:List<T>
+    expand ring_norm | ring_denote
+    replace ring_pdenote_add<T> | IHa[env] | IHb[env].
+  }
+  case rsub(a, b) assume IHa, IHb {
+    arbitrary env:List<T>
+    expand ring_norm | ring_denote
+    replace ring_pdenote_add<T> | ring_pdenote_neg<T> | IHa[env] | IHb[env]
+    symmetric sub_def
+  }
+  case rneg(a) assume IHa {
+    arbitrary env:List<T>
+    expand ring_norm | ring_denote
+    replace ring_pdenote_neg<T> | IHa[env].
+  }
+  case rmul(a, b) assume IHa, IHb {
+    arbitrary env:List<T>
+    expand ring_norm | ring_denote
+    replace ring_pdenote_mul<T> | IHa[env] | IHb[env].
+  }
+end
+
+theorem ring_prove: all T:type where { CommRing<T> }.
+  all env:List<T>, a:RExpr, b:RExpr.
+  if ring_norm(a) = ring_norm(b)
+  then ring_denote(a, env) = ring_denote(b, env)
+proof
+  arbitrary T:type where { CommRing<T> }
+  arbitrary env:List<T>, a:RExpr, b:RExpr
+  assume eq
+  replace symmetric ring_norm_sound<T>[a, env] | symmetric ring_norm_sound<T>[b, env]
+        | eq.
+end
