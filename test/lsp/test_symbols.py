@@ -135,6 +135,42 @@ def test_list_symbols_includes_imperative_declarations() -> None:
     assert by_name["cell"].location.range.start.line == 16
 
 
+def test_list_symbols_hides_where_operations() -> None:
+    # The operations of a where clause become extra parameters after
+    # uniquify (#1282, #1298); a signature shows only the source's own.
+    src = (
+        "import UInt\n"
+        "\n"
+        "concept Monoid<T> {\n"
+        "  fun operator+ : fn (T, T) -> T\n"
+        "  fun zero : T\n"
+        "}\n"
+        "\n"
+        "recursive msum<T> where { Monoid<T> } (List<T>) -> T {\n"
+        "  msum([]) = zero\n"
+        "  msum(node(x, xs)) = x + msum(xs)\n"
+        "}\n"
+        "\n"
+        "recfun replicate<T> where { Monoid<T> } (n:UInt, x:T) -> List<T>\n"
+        "  measure n of UInt\n"
+        "{\n"
+        "  if n = 0 then [] else node(x, replicate(n ∸ 1, x))\n"
+        "}\n"
+        "terminates {\n"
+        "  arbitrary n:UInt\n"
+        "  assume: not (n = 0)\n"
+        "  uint_monus_one_less[n]\n"
+        "}\n"
+    )
+    by_name = {s.name: s for s in list_symbols("test.pf", src)}
+    msum = by_name["msum"].signature
+    replicate = by_name["replicate"].signature
+    assert msum == "function msum<T> where { Monoid<T> } (List<T>) -> T"
+    assert replicate == (
+        "function replicate<T> where { Monoid<T> } (n: UInt, x: T) -> List<T>"
+    )
+
+
 def test_list_symbols_returns_empty_on_parse_error() -> None:
     # Truncated source: parser error before any declaration is built.
     src = "theorem t: true\nproof\n"

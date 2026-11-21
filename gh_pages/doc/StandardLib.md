@@ -49,3 +49,8 @@ Only the top-level module files (such as `UInt.pf`) are listed below. Each modul
   axioms a file depends on.
 - ([`Set.thm`](../lib/Set.thm), [`Set.pf`](../lib/Set.pf)): Sets
 - ([`UInt.thm`](../lib/UInt.thm), [`UInt.pf`](../lib/UInt.pf)): Unsigned integers
+- ([`WellFounded.thm`](../lib/WellFounded.thm), [`WellFounded.pf`](../lib/WellFounded.pf)):
+  The concept `WellFounded` of well-founded orders, whose `<` admits
+  strong induction. A [`recfun`](./Reference.md#recfun-statement)'s
+  measure decreases along the `<` of a model of it; `Nat` and `UInt`
+  have models.

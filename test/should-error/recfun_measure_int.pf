@@ -1,0 +1,13 @@
+// `<` on Int is not well-founded, so Int can't be a recfun's measure
+// (#1308): `h` never terminates, although each call decreases `n`.
+
+import Int
+
+recfun h(n : Int) -> UInt
+  measure n of Int
+{
+  1 + h(n - +1)
+}
+terminates {
+  ?
+}

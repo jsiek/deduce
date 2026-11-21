@@ -5,6 +5,7 @@ import Nat
 import UIntDefs
 import UIntToFrom
 import UIntLess
+public import WellFounded
 
 /*
   Theorems about UInt addition.
@@ -773,3 +774,8 @@ proof
   have Pn: P(fromNat(toNat(n))) by expand Q in Qn
   conclude P(n) by replace uint_fromNat_toNat in Pn
 end
+
+// `<` on UInt is well-founded, so it can order a recfun's measure (#1308).
+model WellFounded<UInt> {
+  theorem strong_induction = uint_strong_induction
+}

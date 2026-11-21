@@ -1603,6 +1603,7 @@ def parse_gen_rec_function(visibility: str) -> Statement:
     advance()
     name = parse_identifier()
     typarams = parse_type_parameters()
+    where = parse_where_clause_opt() if typarams else None
 
     if current_token().type == 'LPAR':
       advance()
@@ -1625,7 +1626,8 @@ def parse_gen_rec_function(visibility: str) -> Statement:
     meta = meta_from_tokens(start_token, previous_token())
     return GenRecFun(meta, name,
                      typarams, params, return_type,
-                     measure, measure_ty, body, terminates, visibility=visibility)
+                     measure, measure_ty, body, terminates, visibility=visibility,
+                     where=where)
 
 
 def parse_concept_ref() -> ConceptRef:

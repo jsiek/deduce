@@ -1,0 +1,2 @@
+./test/should-error/recfun_fake_well_founded.pf:17.1-24.2: the concept WellFounded in scope is not the concept of well-founded orders (lib/WellFounded.pf): it needs one operation `<` and the theorem
+	all P: fn T -> bool, n:T. if (all j:T. if (all i:T. if i < j then P(i)) then P(j)) then P(n)

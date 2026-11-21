@@ -50,6 +50,24 @@ proof
   less_suc[n]
 end
 
+// A recfun's measure needs a model of WellFounded (#1308). This test
+// runs without the standard library, so it declares the concept, and
+// postulates strong induction for MyNat (the lowering doesn't use it).
+concept WellFounded<T> {
+  fun operator < : fn (T, T) -> bool
+  theorem strong_induction: all P: fn T -> bool, n:T.
+    if (all j:T. if (all i:T. if i < j then P(i)) then P(j))
+    then P(n)
+}
+
+postulate mynat_strong_induction: all P: fn MyNat -> bool, n:MyNat.
+  if (all j:MyNat. if (all i:MyNat. if i < j then P(i)) then P(j))
+  then P(n)
+
+model WellFounded<MyNat> {
+  theorem strong_induction = mynat_strong_induction
+}
+
 recfun count_down(n : MyNat) -> MyNat
   measure n of MyNat
 {

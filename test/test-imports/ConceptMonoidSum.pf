@@ -5,6 +5,7 @@ module ConceptMonoidSum
 
 public import ConceptMonoid
 import List
+import UInt
 
 recursive msum<T> where { Monoid<T> } (List<T>) -> T {
   msum(empty) = zero
@@ -19,5 +20,25 @@ proof
   arbitrary T:type where { Monoid<T> }
   arbitrary x:T
   expand 2*msum
+  add_zero[x]
+end
+
+// General recursion with a where clause (#1298): x + (x + ... + zero).
+recfun mpow<T> where { Monoid<T> } (n : UInt, x : T) -> T
+  measure n of UInt
+{
+  if n = 0 then zero
+  else x + mpow(n ∸ 1, x)
+}
+terminates {
+  arbitrary n:UInt
+  uint_monus_one_less[n]
+}
+
+theorem mpow_one: all T:type where { Monoid<T> }. all x:T. mpow(1, x) = x
+proof
+  arbitrary T:type where { Monoid<T> }
+  arbitrary x:T
+  expand 2*mpow
   add_zero[x]
 end

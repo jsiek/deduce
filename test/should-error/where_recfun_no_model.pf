@@ -1,0 +1,7 @@
+// A call to a recfun with a where clause (#1298) needs a model of the
+// clause's concepts at the call's types.
+
+import ConceptMonoidSum
+import UInt
+
+assert mpow(2, 3) = 6

@@ -1223,17 +1223,20 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
         return statement
 
     # general recursion
-    elif e.data == 'general_recursive_function':
+    elif e.data in ('general_recursive_function', 'general_recursive_function_where'):
+        w = 1 if e.data == 'general_recursive_function_where' else 0
         visibility = parse_tree_to_ast(e.children[0], e)
         statement = GenRecFun(e.meta,
                               parse_tree_to_ast(e.children[1], e),
                               parse_tree_to_list(e.children[2], e),
-                              parse_tree_to_list(e.children[3], e),
-                              parse_tree_to_ast(e.children[4], e),
-                              parse_tree_to_ast(e.children[5], e),
-                              parse_tree_to_ast(e.children[6], e),
-                              parse_tree_to_ast(e.children[7], e),
-                              parse_tree_to_ast(e.children[8], e))
+                              parse_tree_to_list(e.children[3 + w], e),
+                              parse_tree_to_ast(e.children[4 + w], e),
+                              parse_tree_to_ast(e.children[5 + w], e),
+                              parse_tree_to_ast(e.children[6 + w], e),
+                              parse_tree_to_ast(e.children[7 + w], e),
+                              parse_tree_to_ast(e.children[8 + w], e),
+                              where=WhereClause(e.meta, parse_tree_to_list(e.children[3], e))
+                              if w else None)
         set_visibility(statement, visibility)
         return statement
 
