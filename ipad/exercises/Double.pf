@@ -1,0 +1,13 @@
+// Doubling a number is adding it to itself. Tap n for induction, expand
+// the definitions in each case, then use the induction hypothesis and the
+// lemma add_suc (m + suc(n) = suc(m + n)).
+
+recursive double(Nat) -> Nat {
+  double(zero) = zero
+  double(suc(n)) = suc(suc(double(n)))
+}
+
+theorem double_add: all n:Nat. double(n) = n + n
+proof
+  ?
+end

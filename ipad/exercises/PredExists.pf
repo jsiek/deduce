@@ -1,0 +1,8 @@
+// If n is the successor of some m, then suc(n) is the successor of a
+// successor. Tap the "some" assumption to name its m, then choose a k.
+
+theorem pred_exists: all n:Nat.
+  if (some m:Nat. n = suc(m)) then (some k:Nat. suc(n) = suc(suc(k)))
+proof
+  ?
+end

@@ -1,0 +1,8 @@
+// If P or Q is true, and P gives Q, then Q is true. Take the assumption
+// apart, then tap the "or": it splits the proof into one case for each
+// side, and each case needs its own reason for Q.
+
+theorem or_cases: all P:bool, Q:bool. if (P or Q) and (if P then Q) then Q
+proof
+  ?
+end
