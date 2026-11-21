@@ -1,0 +1,27 @@
+// A use of a `postulate fun` that the compiled program reaches panics
+// with its location. The checker rejects a `print` that evaluates a
+// postulate, so this one hides it in an argument that `ignore` doesn't
+// use: the interpreter leaves it un-reduced and prints `true`, but the
+// compiled binary evaluates arguments first. The postulate is reached
+// through a where function, at an opaque model whose operation is the
+// postulate (#1316 review).
+//
+// expected-runtime-error: is declared with `postulate fun`
+
+union N { z  s(N) }
+
+concept Pointed<T> {
+  fun point : T
+}
+
+postulate fun p : N
+
+opaque model Pointed<N> {
+  fun point = p
+}
+
+fun get<T> where { Pointed<T> } (x:T) { point }
+
+fun ignore(x : N) { true }
+
+print ignore(get(z))

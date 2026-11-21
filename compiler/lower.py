@@ -325,9 +325,22 @@ class LoweringCtx:
             # A model's operations are definitions under their hidden
             # names (see `collect_model`): calls to where functions pass
             # them, and an opaque model's stay folded in other modules.
-            # Its theorems are erased.
-            return [self.lower_define(define, body, s.location, module)
-                    for (_m, define, body) in s.funs]
+            # Its theorems are erased. An operation that is just a
+            # `postulate fun` is postulated too: using it is an error,
+            # but a model that merely has it is not.
+            defs: List[ir.TopLevel] = []
+            for (_m, define, body) in s.funs:
+                alias = body
+                while isinstance(alias, (ast.TAnnote, ast.TermInst)) \
+                      and not getattr(alias, "dicts", None):
+                    alias = alias.subject
+                if isinstance(alias, ast.VarRef) \
+                   and self._resolve(alias) in self.postulated_funs:
+                    self.postulated_funs.add(define)
+                else:
+                    defs.append(self.lower_define(define, body, s.location,
+                                                  module))
+            return defs
         if isinstance(s, ast.Import):
             # Imports are lowered to a flat statement list upstream
             # (the proof checker walks them via `Import.ast`); the
@@ -476,10 +489,14 @@ class LoweringCtx:
         if isinstance(t, ast.VarRef):
             name = self._resolve(t)
             if name in self.postulated_funs:
-                raise CompileError(
-                    t.location,
-                    f"cannot compile a use of {ast.base_name(name)}: it is "
-                    "declared with `postulate fun`, so it has no definition",
+                # Like a quantifier: the standard library's Real is
+                # postulated, so definitions over it lower to a stub
+                # that pruning drops. A `print` can't reach it (the
+                # checker rejects printing what doesn't evaluate).
+                return ir.Panic(
+                    f"{ast.base_name(name)} is declared with "
+                    "`postulate fun`, so it has no definition",
+                    loc=_ast_loc(t.location),
                 )
             if name in self.ctors and self.ctor_arities.get(name, 0) == 0:
                 # Nullary constructor used as a value.
