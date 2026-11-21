@@ -29,6 +29,7 @@ Does NOT go here:
 from __future__ import annotations
 
 import math
+import dataclasses
 from typing import TYPE_CHECKING
 
 from .core import *
@@ -853,6 +854,21 @@ def first_non_value(term: Term, env: Env) -> Term | None:
                    if (bad := first_non_value(a, env)) is not None), None)
     case _:
       return term
+
+def erase_type_args(value: Term) -> Term:
+  """`value` (as accepted by `first_non_value`) without its type
+  instantiations, so `print` shows `cons(false, nil)` whether evaluation
+  produced `nil` or `@nil<bool>`, as the compiled program does (#1315)."""
+  match value:
+    case TermInst(subject=subject, dicts=[]):
+      return erase_type_args(subject)
+    case Array(_, _, elements):
+      return dataclasses.replace(value, elements=[erase_type_args(e) for e in elements])
+    case Call(_, _, rator, args):
+      return dataclasses.replace(value, rator=erase_type_args(rator),
+                     args=[erase_type_args(a) for a in args])
+    case _:
+      return value
 
 def is_constr_term(term: Term, env: Env) -> bool:
   if isinstance(term, VarRef):

@@ -1,0 +1,14 @@
+// The interpreter prints an instantiated nullary constructor without
+// its type arguments, as the compiled program does (#1315).
+
+union L<T> { nil  cons(T, L<T>) }
+
+print cons(true, nil)
+print @nil<bool>
+
+recursive map<A,B>(L<A>, fn A -> B) -> L<B> {
+  map(nil, f) = nil
+  map(cons(x, xs), f) = cons(f(x), map(xs, f))
+}
+
+print map(cons(true, nil), fun b:bool { not b })
