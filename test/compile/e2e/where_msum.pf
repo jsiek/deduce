@@ -1,0 +1,55 @@
+// Where functions compiled with dictionary passing (#1292): a recursive
+// where function at two models of one concept, a where function that
+// calls another with its own clause's operations, a where function
+// passed as a value, and `@C<τ>.m`.
+
+union N { z  s(N) }
+
+union L<T> { nil  cons(T, L<T>) }
+
+recursive add(N, N) -> N {
+  add(z, m) = m
+  add(s(n), m) = s(add(n, m))
+}
+
+fun bor(a:bool, b:bool) { a or b }
+
+concept Monoid<T> {
+  fun operator+ : fn (T, T) -> T
+  fun zero : T
+}
+
+model Monoid<bool> {
+  fun operator+ = bor
+  fun zero = false
+}
+
+model Monoid<N> {
+  fun operator+ = add
+  fun zero = z
+}
+
+recursive msum<T> where { Monoid<T> } (L<T>) -> T {
+  msum(nil) = zero
+  msum(cons(x, xs)) = x + msum(xs)
+}
+
+fun twice<T> where { Monoid<T> } (x:T) { x + x }
+
+// Calls msum and twice with this function's own operations.
+fun msum_twice<T> where { Monoid<T> } (xs:L<T>) { twice(msum(xs)) }
+
+recursive map<A, B>(L<A>, fn A -> B) -> L<B> {
+  map(nil, f) = nil
+  map(cons(x, xs), f) = cons(f(x), map(xs, f))
+}
+
+define three : N = s(s(s(z)))
+
+print msum(cons(s(z), cons(s(s(z)), nil)))
+print msum(cons(false, cons(true, nil)))
+print msum(@nil<bool>)
+print msum_twice(cons(three, cons(s(z), nil)))
+print msum_twice(cons(false, nil))
+print msum(map(cons(three, cons(s(z), nil)), @twice<N>))
+print @Monoid<N>.zero

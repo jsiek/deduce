@@ -33,6 +33,7 @@ import re
 import shutil
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from graphlib import TopologicalSorter
 from pathlib import Path
 from typing import Dict, List
@@ -200,10 +201,13 @@ def main() -> int:
         for p in order:
             print(f"  {p.name}")
 
-    for pf in order:
-        if args.verbose:
+    # Each module is compiled from source (its imports are re-checked),
+    # so the compiles are independent: run them in parallel.
+    if args.verbose:
+        for pf in order:
             print(f"deduce {pf.name}")
-        compile_pf_to_c(pf)
+    with ThreadPoolExecutor(max_workers=os.cpu_count()) as pool:
+        list(pool.map(compile_pf_to_c, order))
 
     objects: List[Path] = []
     for pf in order:

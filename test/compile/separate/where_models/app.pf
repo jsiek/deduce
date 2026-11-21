@@ -1,0 +1,11 @@
+import monoid
+import nsum
+import nprod
+import boolor
+
+define xs : L<N> = cons(s(s(z)), cons(s(s(s(z))), nil))
+
+print nsum(xs)
+print nprod(xs)
+print msum(cons(false, cons(true, nil)))
+print msum(@nil<bool>)

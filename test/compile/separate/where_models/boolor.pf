@@ -1,0 +1,13 @@
+module boolor
+
+// An opaque model: other modules don't see its operations' bodies, so
+// their calls pass the model's hidden definitions, defined here.
+
+import monoid
+
+fun bor(a:bool, b:bool) { a or b }
+
+opaque model Monoid<bool> {
+  fun operator+ = bor
+  fun zero = false
+}

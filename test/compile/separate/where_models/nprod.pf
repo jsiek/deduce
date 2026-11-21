@@ -1,0 +1,13 @@
+module nprod
+
+// N with multiplication is a Monoid too, privately: a second model of
+// the same concept at the same type.
+
+import monoid
+
+private model Monoid<N> {
+  fun operator+ = mult
+  fun zero = s(z)
+}
+
+fun nprod(xs : L<N>) { msum(xs) }

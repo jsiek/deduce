@@ -21,6 +21,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -29,6 +30,9 @@ E2E_DIR = ROOT / "test" / "compile" / "e2e"
 PRELUDE_DIR = ROOT / "test" / "compile" / "prelude"
 ALLOWLIST = ROOT / "test" / "compile-allowlist.txt"
 RUNTIME_DIR = ROOT / "compiler" / "runtime"
+# The auxiliary modules that should-validate tests import, so a fixture
+# can import them too.
+IMPORTS_DIR = ROOT / "test" / "test-imports"
 
 
 def needs_prelude(pf: Path) -> bool:
@@ -76,6 +80,7 @@ def run_interpreter(pf: Path) -> str:
     """Returns the interpreter's stdout (excluding the trailing
     `... is valid` line)."""
     cmd = [sys.executable, str(ROOT / "deduce.py"),
+           "--dir", str(IMPORTS_DIR),
            "--suppress-theorems", "--quiet", str(pf)]
     if not needs_prelude(pf):
         cmd.insert(2, "--no-stdlib")
@@ -95,6 +100,7 @@ def run_compiled(pf: Path, cc: str, tmp: Path) -> str:
     c_path = tmp / (pf.stem + ".c")
     bin_path = tmp / pf.stem
     cmd = [sys.executable, str(ROOT / "deduce.py"),
+           "--dir", str(IMPORTS_DIR),
            "--suppress-theorems", "--quiet", "--compile",
            "-o", str(c_path), str(pf)]
     if not needs_prelude(pf):
@@ -195,8 +201,9 @@ def main() -> int:
         return 1
 
     tmp = Path(tempfile.mkdtemp(prefix="deduce-e2e-"))
-    failures: list[str] = []
-    for pf in fixtures:
+
+    def check(pf: Path) -> str | None:
+        """The failure message for `pf`, or None if it passes."""
         try:
             compiled_out = run_compiled(pf, cc, tmp)
             # Fixtures that deliberately panic at runtime aren't
@@ -204,20 +211,27 @@ def main() -> int:
             # cuts the program short and the interpreter would have
             # printed more.
             if expected_runtime_error(pf) is not None:
-                print(f"ok {pf.relative_to(ROOT)}")
-                continue
+                return None
             interp_out = run_interpreter(pf)
         except Exception as e:
-            failures.append(f"{pf.name}: {e}")
-            continue
+            return f"{pf.name}: {e}"
         if interp_out != compiled_out:
-            failures.append(
+            return (
                 f"{pf.name}: stdout mismatch\n"
                 f"--- interpreter ({len(interp_out)} bytes)\n{interp_out}"
                 f"--- compiled ({len(compiled_out)} bytes)\n{compiled_out}"
             )
-            continue
-        print(f"ok {pf.relative_to(ROOT)}")
+        return None
+
+    # Each fixture runs deduce.py (and cc) in subprocesses with its own
+    # output files, so the fixtures run in parallel.
+    failures: list[str] = []
+    with ThreadPoolExecutor(max_workers=os.cpu_count()) as pool:
+        for pf, failure in zip(fixtures, pool.map(check, fixtures)):
+            if failure is None:
+                print(f"ok {pf.relative_to(ROOT)}")
+            else:
+                failures.append(failure)
 
     if args.keep_tmp:
         print(f"workdir: {tmp}")

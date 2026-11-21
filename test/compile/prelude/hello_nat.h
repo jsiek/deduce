@@ -32,8 +32,8 @@ deduce_value F_NatDefs__lit_27(deduce_value* env, deduce_value* args);
 #define DEDUCE_NatDiv_H
 #include "deduce.h"
 
-deduce_value F_NatDiv___x2f_0(deduce_value* env, deduce_value* args);
-deduce_value F_NatDiv___x25_1(deduce_value* env, deduce_value* args);
+deduce_value F_NatDiv___x2f_1(deduce_value* env, deduce_value* args);
+deduce_value F_NatDiv___x25_2(deduce_value* env, deduce_value* args);
 
 #endif
 

@@ -10,8 +10,9 @@ explicitly — there is no silent fallthrough.
 
 Phase 1 supports: Bool, Int literals; Var; Conditional; TLet; Lambda;
 Generic; TermInst; TAnnote; Mark; Call (function or constructor);
-Switch (PatternCons / PatternBool); Define; RecFun; Union; Print;
-Assert. MakeArray/ArrayGet/GenRecFun/Array etc. raise CompileError.
+Switch (PatternCons / PatternBool); Define; RecFun; GenRecFun; Union;
+Print; Assert; ModelDecl (its operations, #1292). Anything else raises
+CompileError.
 """
 
 from __future__ import annotations
@@ -205,19 +206,29 @@ def _flatten_imports(
             for c in s.alternatives:
                 name_to_module[c.name] = module
                 assign_seq(c.name, module)
+        elif isinstance(s, ast.ModelDecl):
+            for (_m, define, _body) in s.funs:
+                name_to_module[define] = module
+                assign_seq(define, module)
+
+    def record_imported_define(name: str, body: ast.Term) -> None:
+        unwrapped = body
+        if isinstance(unwrapped, ast.Generic):
+            unwrapped = unwrapped.body
+        if isinstance(unwrapped, ast.Lambda):
+            import_funcs[name] = len(unwrapped.vars)
+        else:
+            import_globals.add(name)
 
     def record_imported_kind(s: ast.Statement) -> None:
         """In per-module mode we additionally need the kind/arity of
         every imported decl so emit_c can pick the right call shape
         and look up ctor macros via the imported `.h`."""
         if isinstance(s, ast.Define):
-            unwrapped = s.body
-            if isinstance(unwrapped, ast.Generic):
-                unwrapped = unwrapped.body
-            if isinstance(unwrapped, ast.Lambda):
-                import_funcs[s.name] = len(unwrapped.vars)
-            else:
-                import_globals.add(s.name)
+            record_imported_define(s.name, s.body)
+        elif isinstance(s, ast.ModelDecl):
+            for (_m, define, body) in s.funs:
+                record_imported_define(define, body)
         elif isinstance(s, ast.RecFun):
             import_funcs[s.name] = len(s.params)
         elif isinstance(s, ast.GenRecFun):
@@ -296,7 +307,8 @@ class LoweringCtx:
 
     # ---- statements --------------------------------------------------
 
-    def lower_stmt(self, s: ast.Statement, module: str) -> Optional[ir.TopLevel]:
+    def lower_stmt(self, s: ast.Statement,
+                   module: str) -> ir.TopLevel | List[ir.TopLevel] | None:
         if isinstance(s, ast.PostulateFun):
             self.postulated_funs.add(s.name)
             return None
@@ -307,11 +319,31 @@ class LoweringCtx:
            or isinstance(s, ast.Export) or isinstance(s, ast.Associative) \
            or isinstance(s, ast.Trace):
             return None
-        if isinstance(s, (ast.ConceptDecl, ast.ModelDecl)):
-            # No code of their own: the standard library's models of
-            # WellFounded only order recfun measures, in proofs (#1308).
-            # Passing a model's operations at run time is #1292.
+        if isinstance(s, (ast.ConceptDecl, ast.ViewDecl)):
+            # A view has no code of its own: its `into` and `out` are
+            # ordinary functions, and the checker turns recursion
+            # through it into calls of `into`.
             return None
+        if isinstance(s, ast.ModelDecl):
+            # A model's operations are definitions under their hidden
+            # names (see `collect_model`): calls to where functions pass
+            # them, and an opaque model's stay folded in other modules.
+            # Its theorems are erased. An operation that is just a
+            # `postulate fun` is postulated too: using it is an error,
+            # but a model that merely has it is not.
+            defs: List[ir.TopLevel] = []
+            for (_m, define, body) in s.funs:
+                alias = body
+                while isinstance(alias, (ast.TAnnote, ast.TermInst)) \
+                      and not getattr(alias, "dicts", None):
+                    alias = alias.subject
+                if isinstance(alias, ast.VarRef) \
+                   and self._resolve(alias) in self.postulated_funs:
+                    self.postulated_funs.add(define)
+                else:
+                    defs.append(self.lower_define(define, body, s.location,
+                                                  module))
+            return defs
         if isinstance(s, ast.Import):
             # Imports are lowered to a flat statement list upstream
             # (the proof checker walks them via `Import.ast`); the
@@ -330,7 +362,7 @@ class LoweringCtx:
                 module=module,
             )
         if isinstance(s, ast.Define):
-            return self.lower_define(s, module)
+            return self.lower_define(s.name, s.body, s.location, module)
         if isinstance(s, ast.RecFun):
             return self.lower_recfun(s, module)
         if isinstance(s, ast.GenRecFun):
@@ -349,8 +381,8 @@ class LoweringCtx:
             f"compiler does not yet support top-level: {type(s).__name__}",
         )
 
-    def lower_define(self, d: ast.Define, module: str) -> ir.TopLevel:
-        body = d.body
+    def lower_define(self, name: str, body: ast.Term, location: Meta,
+                     module: str) -> ir.TopLevel:
         # `define f = generic <T> { fun x { ... } }` and
         # `define f = fun x { ... }` should both become a top-level
         # function rather than a global pointing at a closure. This
@@ -361,13 +393,13 @@ class LoweringCtx:
         if isinstance(unwrapped, ast.Lambda):
             params = [x for (x, _t) in unwrapped.vars]
             return ir.Function(
-                name=d.name,
+                name=name,
                 params=params,
                 body=self.lower_term(unwrapped.body),
-                loc=_ast_loc(d.location),
+                loc=_ast_loc(location),
                 module=module,
             )
-        return ir.Global(name=d.name, body=self.lower_term(body),
+        return ir.Global(name=name, body=self.lower_term(body),
                          module=module)
 
     def lower_recfun(self, r: ast.RecFun, module: str) -> ir.Function:
@@ -439,11 +471,16 @@ class LoweringCtx:
             return self.lower_term(t.subject)
         if isinstance(t, ast.TermInst):
             if t.dicts:
-                raise CompileError(
-                    t.location,
-                    "compiler does not yet pass the operations of a where "
-                    f"clause, in the use of {t.subject} (issue #1292)",
-                )
+                # A where function used as a value: a closure that passes
+                # the operations after the function's own arguments.
+                ty = t.typeof
+                if not isinstance(ty, ast.FunctionType):
+                    raise CompileError(
+                        t.location, f"expected a function type for {t}, "
+                        f"not {ty}")
+                params = [self.fresh("arg") for _ in ty.param_types]
+                return ir.Lam(params, self.apply_inst(
+                    t, [ir.Var(x) for x in params]))
             return self.lower_term(t.subject)
         if isinstance(t, ast.Generic):
             return self.lower_term(t.body)
@@ -455,10 +492,14 @@ class LoweringCtx:
         if isinstance(t, ast.VarRef):
             name = self._resolve(t)
             if name in self.postulated_funs:
-                raise CompileError(
-                    t.location,
-                    f"cannot compile a use of {ast.base_name(name)}: it is "
-                    "declared with `postulate fun`, so it has no definition",
+                # Like a quantifier: the standard library's Real is
+                # postulated, so definitions over it lower to a stub
+                # that pruning drops. A `print` can't reach it (the
+                # checker rejects printing what doesn't evaluate).
+                return ir.Panic(
+                    f"{ast.base_name(name)} is declared with "
+                    "`postulate fun`, so it has no definition",
+                    loc=_ast_loc(t.location),
                 )
             if name in self.ctors and self.ctor_arities.get(name, 0) == 0:
                 # Nullary constructor used as a value.
@@ -565,10 +606,18 @@ class LoweringCtx:
                 )
             if name in self.ctors:
                 return ir.Con(name, [self.lower_term(a) for a in c.args])
-        return ir.App(
-            self.lower_term(c.rator),
-            [self.lower_term(a) for a in c.args],
-        )
+        args = [self.lower_term(a) for a in c.args]
+        if isinstance(c.rator, ast.TermInst) and c.rator.dicts:
+            return self.apply_inst(c.rator, args)
+        return ir.App(self.lower_term(c.rator), args)
+
+    def apply_inst(self, inst: ast.TermInst, args: List[ir.Term]) -> ir.Term:
+        """Call a function with a where clause (#1282): its operations
+        are extra parameters after its own (``where_params``), and the
+        instance carries the operations of the models to pass for them
+        (``TermInst.dicts``, in the same order)."""
+        return ir.App(self.lower_term(inst.subject),
+                      args + [self.lower_term(d) for d in inst.dicts])
 
     def lower_switch(self, sw: ast.Switch) -> ir.Term:
         arms: List[ir.MatchArm] = []

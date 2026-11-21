@@ -1,0 +1,19 @@
+// A where function called at a model's type (#1292): the call passes
+// the model's operations after the function's own argument.
+
+concept Monoid<T> {
+  fun operator+ : fn (T, T) -> T
+  fun zero : T
+}
+
+fun bor(a:bool, b:bool) { a or b }
+
+model Monoid<bool> {
+  fun operator+ = bor
+  fun zero = false
+}
+
+fun twice<T> where { Monoid<T> } (x:T) { x + x }
+
+print twice(true)
+print twice(false)

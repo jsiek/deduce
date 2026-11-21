@@ -11,6 +11,8 @@
 extern deduce_value C_source_map__zero_1;
 extern deduce_value C_source_map__empty_4;
 
+deduce_value F_source_map__ignore_7(deduce_value* env, deduce_value* args);
+
 extern deduce_value G_source_map__A_6;
 
 #endif

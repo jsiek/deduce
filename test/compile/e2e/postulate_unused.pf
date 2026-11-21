@@ -1,0 +1,22 @@
+// A `postulate fun` has no definition, so a definition that uses it
+// lowers to a stub that panics; pruning drops it when nothing reachable
+// from a `print` uses it. That includes a model whose operation is a
+// postulated function (#1316 review): the program compiles and prints.
+
+union N { z  s(N) }
+
+postulate fun f : fn N -> N
+
+fun g(x : N) { f(x) }
+
+concept Pointed<T> {
+  fun point : T
+}
+
+postulate fun p : N
+
+model Pointed<N> {
+  fun point = p
+}
+
+print true

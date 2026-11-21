@@ -1,4 +1,5 @@
-union MyNat.s0_0 {zero.s0_1/0, suc.s0_2/1}
-union List.s1_0 {empty.s1_2/0, node.s1_3/2}
-global A.s2_0 = array(node.s1_3(zero.s0_1, empty.s1_2))
-print A.s2_0[suc.s0_2(zero.s0_1)]
+union MyNat.5MyNat_0 {zero.5MyNat_1/0, suc.5MyNat_2/1}
+union List.4List_0 {empty.4List_2/0, node.4List_3/2}
+global A.1A_0 = array(node.4List_3(zero.5MyNat_1, empty.4List_2))
+fn ignore.6ignore_1(x.6ignore_0) = true
+print ignore.6ignore_1(A.1A_0[suc.5MyNat_2(zero.5MyNat_1)])

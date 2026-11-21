@@ -1,0 +1,12 @@
+module nsum
+
+// N with addition is a Monoid, privately.
+
+import monoid
+
+private model Monoid<N> {
+  fun operator+ = add
+  fun zero = z
+}
+
+fun nsum(xs : L<N>) { msum(xs) }
