@@ -1,4 +1,4 @@
 ./test/should-error/givens_assume_no_prem_not_ifthen.pf:5.3-5.11: expected proof of P
-	not a proof of if-then: assume q.1T_3{?}
+	not a proof of if-then: assume q{?}
 Givens:
 	p: P
