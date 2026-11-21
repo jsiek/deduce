@@ -239,6 +239,21 @@ proof
   @Monoid<bool>.add_zero
 end
 
+// An operator member is named with `operator` (#1317).
+theorem qualified_operator_in_where: all T:type, U:type where { Monoid<T>, Monoid<U> }.
+  @Monoid<U>.operator+(@Monoid<U>.zero, @Monoid<U>.zero) = @Monoid<U>.zero
+proof
+  arbitrary T:type, U:type where { Monoid<T>, Monoid<U> }
+  @Monoid<U>.add_zero[@Monoid<U>.zero]
+end
+
+theorem qualified_model_operator: @Monoid<bool>.operator+(true, false) = true
+proof
+  evaluate
+end
+
+print @Monoid<bool>.operator+(false, false)
+
 // Nested where clauses binding the same instance: `@C<τ>.m` names the
 // innermost clause's member.
 theorem nested_qualified: all T:type where { Pointed<T> }.

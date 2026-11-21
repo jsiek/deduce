@@ -69,6 +69,7 @@ INTERNAL_UNDOCUMENTED_RULES = {
     "term",                 # passthrough to iff_term (documented as `formula`)
     "atomic_type",          # passthrough helper inlined into `type`
     "identifier",           # lexical wrapper around the IDENT terminal
+    "operator_name",        # the operator after `operator`, part of `identifier`
     "type_annotation_list",  # `id : type, ...` binding-list container
     "equation_side",        # entry to the equations-block precedence chain
     "eqs_iff_term",         # equations-block `iff` precedence helper

@@ -192,16 +192,20 @@ def parse_identifier() -> str:
     return '__'
   elif current_token().value == 'operator':
     advance()
-    rator_token = current_token()
-    rator = cast(str, rator_token.value)
-    if rator not in operator_names:
-      raise ParseError(meta_from_tokens(rator_token, rator_token),
-            'expected an operator after "operator", not\n\t' + quote(rator))
-    advance()
-    return to_unicode.get(rator, rator)
+    return parse_operator_name()
   else:
     raise ParseError(meta_from_tokens(token, token),
           'expected an identifier, not\n\t' + quote(token.value))
+
+def parse_operator_name() -> str:
+  """The operator after `operator`, as in `operator+`."""
+  rator_token = current_token()
+  rator = cast(str, rator_token.value)
+  if rator not in operator_names:
+    raise ParseError(meta_from_tokens(rator_token, rator_token),
+          'expected an operator after "operator", not\n\t' + quote(rator))
+  advance()
+  return to_unicode.get(rator, rator)
 
 def require_token_position(value: int | None, name: str) -> int:
     assert value is not None, f"missing token {name}"
@@ -532,11 +536,14 @@ def parse_postfix_chain(term: Term, start_token: Token) -> Term:
         consume_token('RSQB', 'closing bracket "]"')
         term = ArrayGet(meta_from_tokens(bracket_token, previous_token()),
                         None, term, index)
-    elif tt == 'FIELDACCESS' and isinstance(term, TermInst) \
-         and isinstance(term.subject, Var):
-      # `@C<τ>.m`: a member of a concept instance (#1264).
+    elif tt in ('FIELDACCESS', 'MEMBER_OPERATOR') \
+         and isinstance(term, TermInst) and isinstance(term.subject, Var):
+      # `@C<τ>.m` or `@C<τ>.operator+`: a member of a concept instance
+      # (#1264, #1317).
       member = current_token().value[1:]
       advance()
+      if tt == 'MEMBER_OPERATOR':
+        member = parse_operator_name()
       term = ConceptMember(meta_from_tokens(start_token, previous_token()), None,
                            ConceptRef(term.location, term.subject.name,
                                       term.type_args),
@@ -550,6 +557,11 @@ def parse_postfix_chain(term: Term, start_token: Token) -> Term:
       advance()
       term = FieldAccess(meta_from_tokens(start_token, previous_token()),
                          None, term, field)
+    elif tt == 'MEMBER_OPERATOR':
+      token = current_token()
+      raise ParseError(meta_from_tokens(token, token),
+                       'only a concept instance `@C<τ>` has operator members, '
+                       'as in `@Monoid<T>.operator+`')
     else:
       break
   return term

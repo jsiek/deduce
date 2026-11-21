@@ -1,0 +1,2 @@
+// Only a concept instance `@C<τ>` has operator members (#1317).
+fun f(x:bool) { x.operator+ }

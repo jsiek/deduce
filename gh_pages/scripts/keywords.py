@@ -60,6 +60,7 @@ known_tokens = {
     'EXTENSIONALITY': 'keyword',
     'FALSE': 'prim',
     'FIELDACCESS': 'operator',
+    'MEMBER_OPERATOR': 'keyword',
     'FN': 'type',
     'FOR': 'keyword',
     'FOOTPRINT': 'keyword',

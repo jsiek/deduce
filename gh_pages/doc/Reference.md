@@ -3790,6 +3790,9 @@ opaque), and a theorem is the concept's theorem at the model's
 operations, e.g. `@Monoid<bool>.add_zero` proves
 `all x:bool. bor(x, false) = x`.
 
+An operator member is named with `operator`, as elsewhere:
+`@Monoid<bool>.operator+(true, false)` is `bor(true, false)`.
+
 **Functions.** A generic `fun`, `recursive`, or `recfun` function may
 have a where clause after its type parameters (a `recfun`'s
 `terminates` proof is also in the scope of the where clause, so the
