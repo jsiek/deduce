@@ -307,11 +307,17 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
     elif e.data == 'field_access':
         subject = parse_tree_to_ast(e.children[0], e)
         if isinstance(subject, TermInst) and isinstance(subject.subject, Var):
-            # `@C<τ>.m`: a member of a concept instance (#1264).
+            # `@C<τ>.m` or `@C<τ>.operator+`: a member of a concept
+            # instance (#1264, #1317).
+            member = (parse_tree_to_ast(e.children[2], e) if len(e.children) == 3
+                      else _field_name(e, 1))
             return ConceptMember(e.meta, None,
                                  ConceptRef(subject.location, subject.subject.name,
                                             subject.type_args),
-                                 _field_name(e, 1))
+                                 member)
+        if len(e.children) == 3:
+            raise ParseError(e.meta, 'only a concept instance `@C<τ>` has '
+                             'operator members, as in `@Monoid<T>.operator+`')
         _require_experimental_imperative(e.meta)
         return FieldAccess(e.meta, None, subject, _field_name(e, 1))
     elif e.data == 'rejected_new_term' \

@@ -21,6 +21,10 @@ IDENT: /[^\W\dλ₀₁₂₃₄₅₆₇₈₉]/ /([^\Wλ]|[₀₁₂₃₄₅�
 // refs, and points-to addresses (#854). The trailing `(?!\.)` keeps the ASCII
 // circ operator `.o.` from being mis-lexed as the field access `.o` + `.`.
 FIELDACCESS.2: "." /[^\W\dλ₀₁₂₃₄₅₆₇₈₉]/ /([^\Wλ]|[₀₁₂₃₄₅₆₇₈₉!?'])*/ /(?!\.)/
+// `.operator` names an operator member, as in `@Monoid<T>.operator+` (#1317).
+// It outranks FIELDACCESS, which would otherwise read it as a field named
+// `operator`.
+MEMBER_OPERATOR.3: /\.operator(?![\w!?'])/
 NEWLINE: (/\r/? /\n/)+
 WS: /[ \t\f\r\n]/+
 LINECOMMENT: "//" /[^\n]*/ 
@@ -119,23 +123,25 @@ _OMINUS: "~-"
 ?switch_list:                                       -> empty
     | switch_case switch_list                       -> push
 
-identifier: IDENT              -> identifier
-    | "operator" OPERATOR -> identifier
-    | "operator" "++"     -> identifier_append
-    | "operator" "/"      -> identifier_div
-    | "operator" "|"      -> identifier_union
-    | "operator" "&"      -> identifier_intersect
-    | "operator" "in"      -> identifier_member
-    | "operator" ".+."      -> identifier_multiset_sum
-    | "operator" ".-."      -> identifier_nat_sub
-    | "operator" ".o."      -> identifier_circ
-    | "operator" "(="      -> identifier_subset_equal
-    | "operator" "<="      -> identifier_less_equal
-    | "operator" ">="      -> identifier_greater_equal
-    | "operator" "/="      -> identifier_not_equal
-    | "operator" _APPROXEQ  -> identifier_approx_equal
-    | "operator" _APPROXLE  -> identifier_approx_less_equal
-    | "operator" _OMINUS    -> identifier_o_sub
+?identifier: IDENT    -> identifier
+    | "operator" operator_name
+
+operator_name: OPERATOR -> identifier
+    | "++"     -> identifier_append
+    | "/"      -> identifier_div
+    | "|"      -> identifier_union
+    | "&"      -> identifier_intersect
+    | "in"      -> identifier_member
+    | ".+."      -> identifier_multiset_sum
+    | ".-."      -> identifier_nat_sub
+    | ".o."      -> identifier_circ
+    | "(="      -> identifier_subset_equal
+    | "<="      -> identifier_less_equal
+    | ">="      -> identifier_greater_equal
+    | "/="      -> identifier_not_equal
+    | _APPROXEQ  -> identifier_approx_equal
+    | _APPROXLE  -> identifier_approx_less_equal
+    | _OMINUS    -> identifier_o_sub
 
 ?atomic_term: INT                                      -> int
     | NAT                                          -> nat
@@ -155,6 +161,7 @@ identifier: IDENT              -> identifier
     | atomic_term "(" term_list ")"                    -> call
     | atomic_term "[" term "]"                         -> array_get
     | atomic_term FIELDACCESS                          -> field_access
+    | atomic_term MEMBER_OPERATOR operator_name        -> field_access
     | "λ" type_params_opt ne_variable_list "{" term "}"    -> lambda
     | "fun" type_params_opt ne_variable_list "{" term "}"  -> lambda
     | "generic" identifier_list "{" term "}"            -> generic

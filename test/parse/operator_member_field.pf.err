@@ -1,0 +1,8 @@
+./test/parse/operator_member_field.pf:2.1-2.18: while parsing
+	statement ::= "fun" identifier type_params_opt "(" variable_list ")" "{" term "}"
+
+
+fun f(x:bool) { x.operator+ }
+                 ^^^^^^^^^
+
+./test/parse/operator_member_field.pf:2.18-2.27: only a concept instance `@C<τ>` has operator members, as in `@Monoid<T>.operator+`
