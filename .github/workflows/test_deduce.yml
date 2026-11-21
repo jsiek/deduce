@@ -139,11 +139,14 @@ jobs:
         run: python test-deduce.py ${{ matrix.args }}
 
       # The scripts skip when there is no C compiler; `cc --version`
-      # makes a missing one fail the leg instead.
+      # makes a missing one fail the leg instead. They run deduce.py with
+      # --suppress-theorems, so checking one stdlib program first writes
+      # lib/*.thm (gitignored), and they don't each re-check the stdlib.
       - name: Run compiler tests
         if: ${{ matrix.compile }}
         run: |
           cc --version
+          python deduce.py --quiet test/compile/prelude/hello_nat.pf
           for t in ${{ matrix.compile }}; do
             python test/compile/$t.py
           done
