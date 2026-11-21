@@ -1,0 +1,9 @@
+theorem T: all P:bool. if P then P
+proof
+  arbitrary P:bool
+  assume p: P
+  assume q
+  arbitrary x:bool
+  obtain y where h: y = y from ?
+  ?
+end

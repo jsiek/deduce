@@ -1,0 +1,4 @@
+./test/should-error/assume_body_binders_base_names_1311.pf:5.3-5.11: expected proof of P
+	not a proof of if-then: assume q{arbitrary x : bool obtain y where h : y = y from ?; ?}
+Givens:
+	p: P
