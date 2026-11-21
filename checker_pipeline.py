@@ -46,9 +46,11 @@ from abstract_syntax import (
     print_theorems, register_library_name, type_match, type_names,
 )
 from checker_cache import (
-    _collect_defined_names, _collect_referenced_names, _hash_ast,
-    _is_global_barrier, _prelude_imports_cache, _record_hit, _record_miss,
-    _stmt_cache,
+    TYPE_CHECK_CACHED_STATEMENTS, _TypeCheckEntry, _collect_defined_names,
+    _collect_referenced_names, _hash_ast, _is_global_barrier,
+    _prelude_imports_cache, _record_hit, _record_miss, _stmt_cache,
+    lookup_type_check, statement_layout, statement_start, store_type_checks,
+    type_check_fingerprints,
 )
 from checker_common import *
 from checker_predicates import (
@@ -2533,17 +2535,52 @@ def _check_deduce_body(ast: list[Statement], module_name: str, modified: bool,
   ast3_hashes = []
 
   error_on_next_import : dict[str, bool] = {}
-  for s, sh in ast2_pairs:
+  # Per-statement type-check cache (#1301). The postulate report records
+  # what each type check uses, so it needs every one to run.
+  use_type_check_cache = not get_postulate_report()
+  fingerprints = type_check_fingerprints(
+    [s for s, _ in ast2_pairs], [sh for _, sh in ast2_pairs]) \
+    if use_type_check_cache else []
+  type_checks: dict[tuple[int, int], _TypeCheckEntry] = {}
+  for i, (s, sh) in enumerate(ast2_pairs):
+    cacheable = use_type_check_cache \
+      and isinstance(s, TYPE_CHECK_CACHED_STATEMENTS) and not s.location.empty
+    if cacheable:
+      tc_key = (sh, fingerprints[i])
+      layout = statement_layout(s)
+      start = statement_start(s)
+      new_s = lookup_type_check(module_name, tc_key, layout, s)
+      if new_s is not None:
+        _record_hit("type_check")
+        type_checks[tc_key] = (layout, start, new_s)
+        ast3.append(new_s)
+        ast3_hashes.append(sh)
+        continue
+      _sink = get_active_sink()
+      _wsink = get_active_warning_sink()
+      pre_n = len(_sink) if _sink is not None else 0
+      pre_wn = len(_wsink) if _wsink is not None else 0
     try:
       new_s = type_check_stmt(s, env, error_on_next_import)
     except Diagnostic as e:
       _collect_diagnostic(e)
       continue
+    if cacheable and new_s is not None:
+      _record_miss("type_check")
+      # As for ``check_proofs`` below: a statement whose check reported
+      # an error or a warning must be checked again to report it again.
+      _sink = get_active_sink()
+      _wsink = get_active_warning_sink()
+      if (_sink is None or len(_sink) == pre_n) \
+         and (_wsink is None or len(_wsink) == pre_wn):
+        type_checks[tc_key] = (layout, start, new_s)
     # If None gets returned we want to remove the current statement
     # Which is represented by not appending it to the new ast
     if new_s != None:
       ast3.append(new_s)
       ast3_hashes.append(sh)
+  if use_type_check_cache:
+    store_type_checks(module_name, type_checks)
   if get_verbose():
     for s in ast3:
       print(s)
@@ -2554,14 +2591,10 @@ def _check_deduce_body(ast: list[Statement], module_name: str, modified: bool,
     if get_verbose() and needs_checking[0]:
         print('checking ' + module_name)
     # Per-statement cache for ``check_proofs`` (Steps 13 + 14).
-    # Earlier loops (``process_declaration``, ``type_check_stmt``)
-    # emit AST nodes whose ``Meta`` locations participate in
-    # side-effecting behaviour (e.g. the ``target_hole_location``
-    # flag used by ``goal_at`` to single out which `?` raises), so
-    # caching their outputs across calls would let stale locations
-    # leak into a new run.  ``check_proofs`` itself is the bulk of
-    # the time and its only persistent effect is "verified" -- safe
-    # to cache.
+    # Its only persistent effect is "verified", so the cache stores
+    # just that. (The type-check cache above stores checked
+    # statements, so it has to move their locations; see
+    # ``checker_cache``.)
     #
     # Step 14: the cache key is ``(stmt_hash, deps_fingerprint,
     # target, module_name)`` where ``deps_fingerprint`` folds in

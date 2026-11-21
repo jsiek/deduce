@@ -10,16 +10,30 @@ File charter:
   a Deduce program is valid except by reporting cache hits and misses.
 """
 
-from typing import cast
+import copy
+from typing import TypeVar, cast
+
+from lark.tree import Meta
 
 from abstract_syntax import (
+    Assert,
     Auto,
     ConceptDecl,
+    Define,
+    GenRecFun,
     Import,
     ModelDecl,
+    OverloadedVar,
+    Postulate,
+    PostulateFun,
+    PostulateType,
     Predicate,
+    Print,
     PVar,
+    RecFun,
     Statement,
+    Theorem,
+    TypeAlias,
     Union,
     VarRef,
     ViewDecl,
@@ -75,6 +89,7 @@ def reset_stmt_cache() -> None:
     global _stmt_cache
     _stmt_cache.clear()
     _prelude_imports_cache.clear()
+    _type_check_cache.clear()
     _cache_stats["hits"].clear()
     _cache_stats["misses"].clear()
 
@@ -168,6 +183,11 @@ def _collect_referenced_names(
         for v in cast(dict[object, object], node).values():
             _collect_referenced_names(v, out)
         return out
+    if isinstance(node, OverloadedVar):
+        # Before type checking, any of the candidates may be the one
+        # chosen, so the statement depends on all of them (#1301).
+        out.update(node.resolved_names)
+        return out
     if isinstance(node, VarRef):
         out.add(node.get_name())
         return out
@@ -223,14 +243,181 @@ def _collect_defined_names(stmt: Statement) -> set[str]:
     return names
 
 
-def _is_global_barrier(stmt: Statement) -> bool:
-    """Statements with global side-effects on later checking.
+# Statements whose effect on checking other statements goes only
+# through the names they define. Every other kind is a barrier: views
+# and models are found by type, associativity by operator and type,
+# imports bring in whole modules, and so on.
+_NAME_ONLY_STATEMENTS = (
+    Assert, Define, GenRecFun, Postulate, PostulateFun, PostulateType,
+    Predicate, Print, RecFun, Theorem, TypeAlias, Union, ViewRecFun,
+)
 
-    ``Import`` brings a module's exports into the environment;
-    ``Auto`` registers a rewrite rule consulted by every later
-    proof. Conservatively treat both as a barrier: every later
-    statement implicitly depends on them, so editing or removing
-    one invalidates the cache for everything after. So are concepts
-    and models (#1264): a where formula names its concepts by string,
-    and a model is found by its concept and type, never by name."""
-    return isinstance(stmt, (Import, Auto, ConceptDecl, ModelDecl))
+
+def _is_global_barrier(stmt: Statement) -> bool:
+    """Statements with global side-effects on later checking: every
+    statement except those whose effect goes only through the names they
+    define (``_NAME_ONLY_STATEMENTS``). ``Import`` brings in a module's
+    exports, ``Auto`` registers a rewrite rule consulted by every later
+    proof, ``inductive`` an induction principle, concepts and models are
+    found by concept and type (#1264), views by type, and so on. Every
+    later statement implicitly depends on them, so editing or removing
+    one invalidates the cache for everything after. (Since #1303 removing
+    a statement no longer renames the ones after it, so this is what
+    invalidates them.)"""
+    return not isinstance(stmt, _NAME_ONLY_STATEMENTS)
+
+
+# ---------------------------------------------------------------------------
+# Per-statement type-check cache (#1301)
+# ---------------------------------------------------------------------------
+#
+# ``type_check_stmt`` checks each statement against the env that
+# ``process_declaration`` built from the whole file, and returns the
+# checked statement. For each module, ``_type_check_cache`` holds the
+# checked statements of its last check, keyed by ``(stmt_hash,
+# deps_fingerprint)`` (see ``type_check_fingerprints``), with the
+# statement's layout (``statement_layout``) and first position. Each check
+# replaces the module's entries with the ones it used or created, so
+# the cache holds one file's worth per module.
+#
+# A checked statement carries its source locations, which later phases
+# report and ``goal_at`` matches against. On a hit for a statement that
+# only moved, ``_relocated`` shifts the cached statement's locations to
+# where it now is. Locations it embeds from other statements (say, the
+# type of a function it calls) are left as they were.
+
+# (layout, (first line, first position), checked statement)
+T = TypeVar("T")
+_TypeCheckEntry = tuple[int, tuple[int, int], Statement]
+_type_check_cache: dict[str, dict[tuple[int, int], _TypeCheckEntry]] = {}
+
+
+# The statements whose type check is cached: the ones that do real
+# work in ``type_check_stmt`` and have no side effect there.
+TYPE_CHECK_CACHED_STATEMENTS = (
+    Assert, Define, GenRecFun, Postulate, Print, RecFun, Theorem, ViewRecFun,
+)
+
+
+def type_check_fingerprints(stmts: list[Statement],
+                            hashes: list[int]) -> list[int]:
+    """For each statement, a fingerprint of the statements its type
+    check depends on: the ones defining a name it mentions, what those
+    depend on in turn (a function's type can come from a type alias it
+    mentions), and every barrier statement in the file (the env is the
+    whole file's)."""
+    defined_to_idx: dict[str, int] = {}
+    for i, s in enumerate(stmts):
+        for n in _collect_defined_names(s):
+            defined_to_idx.setdefault(n, i)
+    barriers = hash(tuple(h for s, h in zip(stmts, hashes)
+                          if _is_global_barrier(s)))
+    deps_fps: list[int] = []
+    full_fps: list[int] = []  # a statement's hash folded with its deps
+    for i, s in enumerate(stmts):
+        deps = {defined_to_idx[n] for n in _collect_referenced_names(s)
+                if n in defined_to_idx} - {i}
+        fp = hash((barriers, tuple(full_fps[j] if j < i else hashes[j]
+                                   for j in sorted(deps))))
+        deps_fps.append(fp)
+        full_fps.append(hash((hashes[i], fp)))
+    return deps_fps
+
+
+def statement_start(stmt: Statement) -> tuple[int, int]:
+    loc = stmt.location
+    return (loc.line, getattr(loc, "start_pos", 0))
+
+
+def _metas(node: object, out: list[Meta]) -> list[Meta]:
+    """Every location in ``node``, in a fixed order."""
+    if node is None or isinstance(node, (str, int, bool, float)):
+        return out
+    if isinstance(node, Meta):
+        out.append(node)
+        return out
+    if isinstance(node, (list, tuple)):
+        for x in cast(list[object] | tuple[object, ...], node):
+            _metas(x, out)
+        return out
+    if isinstance(node, dict):
+        for v in cast(dict[object, object], node).values():
+            _metas(v, out)
+        return out
+    if hasattr(node, "__dict__"):
+        for k, v in cast(dict[str, object], vars(node)).items():
+            if k != "__hash_cache__":
+                _metas(v, out)
+    return out
+
+
+def statement_layout(stmt: Statement) -> int:
+    """A hash of the statement's file and of its locations, relative to
+    where it starts when they are in its own file. Two statements with
+    the same hash (``_hash_ast``) and layout differ only in where they
+    are in the same file. (Two files with the same base name share a
+    module name, so the file must be part of it.)"""
+    filename = getattr(stmt.location, "filename", None)
+    line, pos = statement_start(stmt)
+    sig: list[tuple[object, ...]] = []
+    for m in _metas(stmt, []):
+        if m.empty:
+            sig.append(())
+        elif getattr(m, "filename", None) == filename:
+            sig.append((m.line - line, m.column, m.end_line - line,
+                        m.end_column, getattr(m, "start_pos", 0) - pos,
+                        getattr(m, "end_pos", 0) - pos))
+        else:
+            sig.append((getattr(m, "filename", None), m.line, m.column,
+                        m.end_line, m.end_column))
+    return hash((filename, tuple(sig)))
+
+
+def _relocated(node: T, old: Statement, old_first: tuple[int, int],
+               new_first: tuple[int, int]) -> T:
+    """A copy of ``node``, part of the checked statement ``old`` that
+    started at ``old_first``, with ``old``'s own locations moved so that
+    it starts at ``new_first``."""
+    filename = getattr(old.location, "filename", None)
+    start, end = old_first[1], getattr(old.location, "end_pos", 0)
+    dline, dpos = new_first[0] - old_first[0], new_first[1] - old_first[1]
+    moved = copy.deepcopy(node)
+    seen: set[int] = set()
+    for m in _metas(moved, []):
+        if id(m) in seen or m.empty \
+           or getattr(m, "filename", None) != filename \
+           or not start <= getattr(m, "start_pos", -1) <= end:
+            continue
+        seen.add(id(m))
+        m.line += dline
+        m.end_line += dline
+        m.start_pos += dpos
+        m.end_pos += dpos
+    return moved
+
+
+def lookup_type_check(module_name: str, key: tuple[int, int], layout: int,
+                      stmt: Statement) -> Statement | None:
+    """The cached type check of ``stmt``, given its key and layout,
+    moved to where ``stmt`` is now."""
+    entry = _type_check_cache.get(module_name, {}).get(key)
+    if entry is None or entry[0] != layout:
+        return None
+    _, old_first, checked = entry
+    first = statement_start(stmt)
+    if isinstance(checked, Theorem) and isinstance(stmt, Theorem):
+        # Type checking passes the proof through, so take it from
+        # ``stmt``, which is already where it belongs.
+        what = checked.what if first == old_first \
+            else _relocated(checked.what, checked, old_first, first)
+        return Theorem(stmt.location, checked.name, what, stmt.proof,
+                       checked.isLemma, visibility=checked.visibility)
+    if first != old_first:
+        checked = _relocated(checked, checked, old_first, first)
+    return checked
+
+
+def store_type_checks(module_name: str,
+                      entries: dict[tuple[int, int], _TypeCheckEntry]) -> None:
+    """Replace the module's cached type checks with ``entries``."""
+    _type_check_cache[module_name] = entries

@@ -34,12 +34,8 @@ What this file pins:
   reference it as hits (Step 14's deps-fingerprint kicking in),
 - editing T1 invalidates T2 that uses it (Step 14 acceptance).
 
-The earlier two loops (``process_declaration``, ``type_check_stmt``)
-are deliberately *not* cached -- their AST output carries
-``Meta`` locations that interact with the
-``target_hole_location`` flag used by ``goal_at`` and friends, so
-caching them across calls would surface as stale-location bugs.
-``check_proofs`` is where the bulk of the time goes anyway.
+``type_check_stmt`` has a cache of its own (#1301), tested in
+``test_type_check_cache.py``.
 """
 
 from __future__ import annotations
@@ -493,3 +489,19 @@ def test_predicate_re_check_is_all_hits() -> None:
         f"post-decl AST; called {len(calls)} times: "
         f"{[type(c).__name__ for c in calls]}"
     )
+
+
+@pytest.mark.parametrize("edit", ["insert", "delete"])
+def test_inserting_or_deleting_a_statement_keeps_the_others_hits(edit: str) -> None:
+    """A statement's uniquified names don't depend on its position
+    (#1303), so adding a theorem in front of the others, or deleting
+    one, leaves the rest cache hits."""
+    new = "theorem t0: true\nproof\n  .\nend\n\n"
+    before, after = (_THREE_THEOREMS, new + _THREE_THEOREMS) if edit == "insert" \
+        else (new + _THREE_THEOREMS, _THREE_THEOREMS)
+    check("test.pf", before)
+    proof_checker._cache_stats["hits"].clear()
+    proof_checker._cache_stats["misses"].clear()
+    assert check("test.pf", after) == []
+    assert _hits() == 3
+    assert _misses() == (1 if edit == "insert" else 0)

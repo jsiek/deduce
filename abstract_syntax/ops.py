@@ -291,6 +291,19 @@ def check_post_typecheck_invariants(ast_list: Sequence[Statement]) -> None:
       'Post-typecheck AST sanity check failed: pre-uniquify `Var` '
       'nodes still present.\n' + '\n'.join(msgs))
 
+def _statement_scope(stmt: Statement, seen: dict[str, int]) -> str:
+  """The scope segment of a top-level statement: its name (or, if it
+  has none, its keyword, e.g. ``assert``), then how many earlier
+  statements had the same, so ``theorem foo`` is ``3foo_`` and a second
+  ``foo`` is ``3foo1_``. The length prefix keeps segments, and the
+  scopes made by nesting them (an import's module inside the import),
+  distinct from each other."""
+  name = getattr(stmt, 'name', None)
+  key = name if isinstance(name, str) else type(stmt).__name__.lower()
+  k = seen.get(key, 0)
+  seen[key] = k + 1
+  return str(len(key)) + key + (str(k) if k else '') + '_'
+
 def uniquify_deduce(ast: Sequence[Statement], ctx: UniquifyContext) -> list[Statement]:
   """Uniquify ``ast`` against ``ctx``'s counter, returning the
   post-uniquify AST.
@@ -306,13 +319,14 @@ def uniquify_deduce(ast: Sequence[Statement], ctx: UniquifyContext) -> list[Stat
   prelude names.  Tests typically pass a fresh context for
   reproducibility.
 
-  Each top-level statement gets its own scope segment (``"sN_"``
-  appended to the caller's scope, ``name_id`` reset to ``0``) so
-  edits confined to statement *N* don't perturb the bound-name
-  suffixes in statement *M > N*.  That edit-invariance is what
-  Phase-3 Step 14's dependency-aware cache invalidation relies on
-  -- without it, the structural hash of every downstream statement
-  drifts on every edit and the cache is useless.
+  Each top-level statement gets its own scope segment (see
+  ``_statement_scope``, appended to the caller's scope, ``name_id``
+  reset to ``0``), named after the statement rather than its position,
+  so neither an edit inside one statement nor inserting or deleting
+  one perturbs the names in the others.  That is what the
+  per-statement caches (``checker_cache``) rely on -- without it, the
+  structural hash of every downstream statement drifts and the caches
+  miss (#1303).
   """
   env: dict[str, object] = {}
   env['≠'] = ['≠']
@@ -322,8 +336,9 @@ def uniquify_deduce(ast: Sequence[Statement], ctx: UniquifyContext) -> list[Stat
   outer_scope = ctx.scope
   outer_name_id = ctx.name_id
   result: list[Statement] = []
-  for i, stmt in enumerate(ast):
-    ctx.scope = outer_scope + 's' + str(i) + '_'
+  seen: dict[str, int] = {}
+  for stmt in ast:
+    ctx.scope = outer_scope + _statement_scope(stmt, seen)
     ctx.name_id = 0
     result.append(stmt.uniquify(env, ctx))
   # Restore the caller's scope/counter -- the per-statement reset is
