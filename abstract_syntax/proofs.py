@@ -259,12 +259,12 @@ class ImpIntro(Proof):
   body: Proof
 
   def pretty_print(self, indent: int) -> str:
-    return indent*' ' + 'assume ' + str(self.label) + \
+    return indent*' ' + 'assume ' + base_name(self.label) + \
       (': ' + str(self.premise) if self.premise else '') + '\n'\
       + maybe_pretty_print(self.body, indent)
   
   def __str__(self) -> str:
-    return 'assume ' + str(self.label) + \
+    return 'assume ' + base_name(self.label) + \
       (': ' + str(self.premise) if self.premise else '') + \
       ('{' + str(self.body) + '}' if self.body else '')
 
@@ -294,7 +294,7 @@ class AllIntro(Proof):
     res = ''
     if s + 1 == e:
       res += 'arbitrary '
-    res += f"{x} : {str(t)}"
+    res += f"{base_name(x)} : {str(t)}"
     if self.where is not None:
       res += ' ' + str(self.where)
     if s != 0:
@@ -415,15 +415,15 @@ class SomeElim(Proof):
   body: Proof
 
   def pretty_print(self, indent: int) -> str:
-    return indent*' ' + 'obtain ' + ",".join(self.witnesses) \
-      + ' where ' + self.label \
+    return indent*' ' + 'obtain ' + ",".join(base_name(w) for w in self.witnesses) \
+      + ' where ' + base_name(self.label) \
       + (' : ' + str(self.prop) if self.prop else '') \
       + ' from ' + str(self.some)  + '\n'\
       + maybe_pretty_print(self.body, indent)
 
   def __str__(self) -> str:
-    return 'obtain ' + ",".join(self.witnesses) \
-      + ' where ' + self.label \
+    return 'obtain ' + ",".join(base_name(w) for w in self.witnesses) \
+      + ' where ' + base_name(self.label) \
       + (' : ' + str(self.prop) if self.prop else '') \
       + ' from ' + str(self.some) \
       + '; ' + maybe_str(self.body)
