@@ -855,18 +855,20 @@ def first_non_value(term: Term, env: Env) -> Term | None:
     case _:
       return term
 
-def erase_type_args(value: Term) -> Term:
-  """`value` (as accepted by `first_non_value`) without its type
-  instantiations, so `print` shows `cons(false, nil)` whether evaluation
-  produced `nil` or `@nil<bool>`, as the compiled program does (#1315)."""
+def hide_type_args(value: Term) -> Term:
+  """`value` (as accepted by `first_non_value`) with every type
+  instantiation marked inferred, so `print` shows `cons(false, nil)`
+  whether evaluation produced `nil` or `@nil<bool>`, as the compiled
+  program does (#1315). The instantiations stay, because printers such
+  as `nodeListToString` recognize constructors by them."""
   match value:
     case TermInst(subject=subject, dicts=[]):
-      return erase_type_args(subject)
+      return dataclasses.replace(value, subject=hide_type_args(subject), inferred=True)
     case Array(_, _, elements):
-      return dataclasses.replace(value, elements=[erase_type_args(e) for e in elements])
+      return dataclasses.replace(value, elements=[hide_type_args(e) for e in elements])
     case Call(_, _, rator, args):
-      return dataclasses.replace(value, rator=erase_type_args(rator),
-                     args=[erase_type_args(a) for a in args])
+      return dataclasses.replace(value, rator=hide_type_args(rator),
+                     args=[hide_type_args(a) for a in args])
     case _:
       return value
 

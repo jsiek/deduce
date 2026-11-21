@@ -42,7 +42,7 @@ from abstract_syntax import (
     Statement, Switch, SwitchCase, TAnnote, TermBinding, TLet, Term, TermInst, Theorem,
     Trace, Type, TypeAlias, TypeInst, TypeType, Union, Var, VarRef, VerboseLevel,
     ViewDecl, ViewRecFun, WhereClause, alpha_equiv, base_name, callable_name,
-    check_post_typecheck_invariants, erase_type_args, find_file, first_non_value, full_reduce, is_function_value, mkEqual,
+    check_post_typecheck_invariants, find_file, first_non_value, full_reduce, hide_type_args, is_function_value, mkEqual,
     print_theorems, register_library_name, type_match, type_names,
 )
 from checker_cache import (
@@ -2274,7 +2274,7 @@ def _check_proofs(stmt: Statement, env: Env) -> None:
     case Print(loc, trm):
       result = full_reduce(trm, env)
       _require_value(loc, 'print', 'show', trm, result, env)
-      print(str(erase_type_args(result)))
+      print(str(hide_type_args(result)))
       
     case Assert(loc, frm):
       match frm:

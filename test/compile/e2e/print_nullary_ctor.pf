@@ -12,3 +12,17 @@ recursive map<A,B>(L<A>, fn A -> B) -> L<B> {
 }
 
 print map(cons(true, nil), fun b:bool { not b })
+
+// Both print a union with constructors named `node` and `empty`, like
+// the stdlib's List, in list notation.
+
+union NodeList<T> { empty  node(T, NodeList<T>) }
+
+recursive flip(NodeList<bool>) -> NodeList<bool> {
+  flip(empty) = empty
+  flip(node(b, bs)) = node(not b, flip(bs))
+}
+
+print node(true, empty)
+print @empty<bool>
+print flip(node(true, node(false, empty)))
