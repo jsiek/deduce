@@ -109,6 +109,7 @@ jobs:
             requirements: core
           - name: compile-2
             compile: run_lower run_e2e run_determinism run_headers run_separate
+            warm_stdlib: true
             requirements: core
 
     steps:
@@ -140,13 +141,17 @@ jobs:
 
       # The scripts skip when there is no C compiler; `cc --version`
       # makes a missing one fail the leg instead. They run deduce.py with
-      # --suppress-theorems, so checking one stdlib program first writes
-      # lib/*.thm (gitignored), and they don't each re-check the stdlib.
+      # --suppress-theorems, so with `warm_stdlib` checking one stdlib
+      # program first writes lib/*.thm (gitignored), and run_e2e's many
+      # invocations don't each re-check the stdlib (4m46s -> 2m in CI,
+      # for 100s). It doesn't speed up run_prelude_archive.
       - name: Run compiler tests
         if: ${{ matrix.compile }}
         run: |
           cc --version
-          python deduce.py --quiet test/compile/prelude/hello_nat.pf
+          if [ "${{ matrix.warm_stdlib }}" = true ]; then
+            python deduce.py --quiet test/compile/prelude/hello_nat.pf
+          fi
           for t in ${{ matrix.compile }}; do
             python test/compile/$t.py
           done
