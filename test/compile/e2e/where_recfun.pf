@@ -1,0 +1,72 @@
+// A recfun with a where clause (#1298) compiled with dictionary passing
+// (#1292). Without the standard library, the file declares the concept
+// of well-founded orders and a model for its measure's type; the model's
+// `<` is only used by the termination proof, but is compiled like any
+// model operation.
+
+union N { z  s(N) }
+
+union L<T> { nil  cons(T, L<T>) }
+
+recursive less(N, N) -> bool {
+  less(z, m) = switch m { case z { false } case s(m') { true } }
+  less(s(n), m) = switch m { case z { false } case s(m') { less(n, m') } }
+}
+
+theorem less_suc: all m:N. less(m, s(m))
+proof
+  induction N
+  case z { evaluate }
+  case s(m') assume IH {
+    expand less
+    IH
+  }
+end
+
+concept WellFounded<T> {
+  fun operator < : fn (T, T) -> bool
+  theorem strong_induction: all P: fn T -> bool, n:T.
+    if (all j:T. if (all i:T. if i < j then P(i)) then P(j))
+    then P(n)
+}
+
+postulate n_strong: all P: fn N -> bool, n:N.
+  if (all j:N. if (all i:N. if less(i, j) then P(i)) then P(j))
+  then P(n)
+
+model WellFounded<N> {
+  fun operator < = less
+  theorem strong_induction = n_strong
+}
+
+fun bor(a:bool, b:bool) { a or b }
+
+concept Monoid<T> {
+  fun operator+ : fn (T, T) -> T
+  fun zero : T
+}
+
+model Monoid<bool> {
+  fun operator+ = bor
+  fun zero = false
+}
+
+// x + x + ... + x, n times.
+recfun times<T> where { Monoid<T> } (n:N, x:T) -> T
+  measure n of N
+{
+  switch n {
+    case z { zero }
+    case s(m) { x + times(m, x) }
+  }
+}
+terminates {
+  arbitrary n:N, m:N
+  assume eq
+  replace eq
+  less_suc[m]
+}
+
+print times(z, true)
+print times(s(s(z)), true)
+print times(s(z), false)

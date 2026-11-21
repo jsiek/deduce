@@ -1,0 +1,28 @@
+module monoid
+
+// A concept and a where function (#1292), compiled in their own module:
+// callers in other modules pass the operations of their models.
+
+union N { z  s(N) }
+
+union L<T> { nil  cons(T, L<T>) }
+
+recursive add(N, N) -> N {
+  add(z, m) = m
+  add(s(n), m) = s(add(n, m))
+}
+
+recursive mult(N, N) -> N {
+  mult(z, m) = z
+  mult(s(n), m) = add(m, mult(n, m))
+}
+
+concept Monoid<T> {
+  fun operator+ : fn (T, T) -> T
+  fun zero : T
+}
+
+recursive msum<T> where { Monoid<T> } (L<T>) -> T {
+  msum(nil) = zero
+  msum(cons(x, xs)) = x + msum(xs)
+}

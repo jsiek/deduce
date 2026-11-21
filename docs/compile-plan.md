@@ -32,7 +32,9 @@ The executable fragment is what `Print` evaluates against. Concretely:
 | `Switch`, `SwitchCase`, `PatternCons`, `PatternBool` | C `switch` on the tag plus binders for constructor parameters. |
 | `Conditional`, `TLet`, `Var`, `Bool`, `Int` | Trivial. |
 | `MakeArray`, `ArrayGet` | Walk the `List<T>` once to fill a heap-allocated `T[]`; index check on `ArrayGet`. |
-| `TermInst`, `TAnnote`, `Mark` | Erased. |
+| `TermInst`, `TAnnote`, `Mark` | Erased, except a `TermInst` of a function with a where clause: its `dicts` (the models' operations) are passed after the call's arguments, matching the operation parameters that uniquify appended (`where_params`). Used as a value, not called, it becomes a closure that passes them. |
+| `ConceptDecl` | Erased. |
+| `ModelDecl` | Each operation is a top-level binding under its hidden name, like a `Define`; theorems are erased. Other modules pass an opaque model's hidden names, so they link like any other global. |
 | `Print` | `deduce_println` runtime helper that dispatches on tag and walks ctor fields recursively. |
 | `Assert` | **Erased.** The interpreter runs `assert` inside `check_proofs` — by the time `compile_file` gets past `check_file`, every assert has already been validated. Re-checking at the binary's startup would be wasted work and would force prelude sanity-check asserts to drag in their dependencies. |
 | `Hole`, `Omitted`, `PHole`, `Sorry` | Should not appear in a checked program; emitter aborts if it sees one. |
