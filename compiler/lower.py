@@ -319,7 +319,10 @@ class LoweringCtx:
            or isinstance(s, ast.Export) or isinstance(s, ast.Associative) \
            or isinstance(s, ast.Trace):
             return None
-        if isinstance(s, ast.ConceptDecl):
+        if isinstance(s, (ast.ConceptDecl, ast.ViewDecl)):
+            # A view has no code of its own: its `into` and `out` are
+            # ordinary functions, and the checker turns recursion
+            # through it into calls of `into`.
             return None
         if isinstance(s, ast.ModelDecl):
             # A model's operations are definitions under their hidden

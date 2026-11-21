@@ -29,6 +29,9 @@ E2E_DIR = ROOT / "test" / "compile" / "e2e"
 PRELUDE_DIR = ROOT / "test" / "compile" / "prelude"
 ALLOWLIST = ROOT / "test" / "compile-allowlist.txt"
 RUNTIME_DIR = ROOT / "compiler" / "runtime"
+# The auxiliary modules that should-validate tests import, so a fixture
+# can import them too.
+IMPORTS_DIR = ROOT / "test" / "test-imports"
 
 
 def needs_prelude(pf: Path) -> bool:
@@ -76,6 +79,7 @@ def run_interpreter(pf: Path) -> str:
     """Returns the interpreter's stdout (excluding the trailing
     `... is valid` line)."""
     cmd = [sys.executable, str(ROOT / "deduce.py"),
+           "--dir", str(IMPORTS_DIR),
            "--suppress-theorems", "--quiet", str(pf)]
     if not needs_prelude(pf):
         cmd.insert(2, "--no-stdlib")
@@ -95,6 +99,7 @@ def run_compiled(pf: Path, cc: str, tmp: Path) -> str:
     c_path = tmp / (pf.stem + ".c")
     bin_path = tmp / pf.stem
     cmd = [sys.executable, str(ROOT / "deduce.py"),
+           "--dir", str(IMPORTS_DIR),
            "--suppress-theorems", "--quiet", "--compile",
            "-o", str(c_path), str(pf)]
     if not needs_prelude(pf):

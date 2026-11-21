@@ -1,0 +1,23 @@
+// Where functions with the standard library (#1292), from
+// test/test-imports: `msum`, `mdouble` and the recfun `mpow`
+// (ConceptMonoidSum.pf) at a model in another module, at an opaque model
+// (whose operations are passed folded, as hidden definitions), and
+// through two private models of Monoid<Int> (IntSumModel.pf and
+// IntProdModel.pf).
+
+import ConceptMonoidSum
+import ConceptBoolModel
+import ConceptOpaqueModel
+import IntSumModel
+import IntProdModel
+import Int
+import List
+import UInt
+
+print msum([false, true, false])
+print mdouble(true)
+print mpow(3, false)
+print msum([b1, b1, b1])
+print mpow(2, b1)
+print int_sum([+2, -3, +5])
+print int_prod([+2, -3, +5])
