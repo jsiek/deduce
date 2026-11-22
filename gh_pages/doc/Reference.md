@@ -188,8 +188,55 @@ assert 2 + 3 = 5
 conclusion ::= "algebra" optional_proof_list
 ```
 
-The proof `algebra` proves a linear equation or inequality from the
-givens: a goal `a = b`, `a ≤ b`, `a < b`, `a ≥ b`, or `a > b`, its
+The proof `algebra` proves an equation whose two sides are equal as
+polynomials, or a linear equation or inequality that follows from the
+givens.
+
+**Polynomial identities.** If the goal is an equation `a = b` and the
+two sides are equal after multiplying out, collecting like terms, and
+adding up integer constants, `algebra` proves it. No givens are used.
+
+```
+theorem square_sum: all x:Real, y:Real.
+  (x + y) * (x + y) = x * x + real(+2) * x * y + y * y
+proof
+  arbitrary x:Real, y:Real
+  algebra
+end
+```
+
+The sides may use `+`, `*`, and integer constants: literals such as
+`2`, `+2`, `-2`, `rat(+2)`, and `real(+2)`, and the semiring's
+`zero` and `one`. In a ring they may also use `-` (subtraction and
+negation). Any other subterm, such as `f(x)`, `frac(+1, 2)`, or
+`x / y`, is treated as an unknown of its own.
+
+This works at the types that model the concept `CommSemiring`
+(lib/Algebra.pf), a commutative semiring with a map `from_nat` that
+reads constants: `UInt`, `Int`, `Rat`, `Real`,
+and, inside a proof under `where { CommSemiring<T> }`, the type `T`.
+At the types that also model `CommRing` (`Int`, `Rat`, `Real`),
+subtraction and negation are normalized too. In a semiring such as
+`UInt`, `x ∸ y` is an unknown, so `algebra` proves
+`(x ∸ y) * (x + y) = x * (x ∸ y) + (x ∸ y) * y` but not
+`(x + y) ∸ y = x`.
+
+```
+theorem uint_square_sum: all x:UInt, y:UInt.
+  (x + y) * (x + y) = x * x + 2 * x * y + y * y
+proof
+  arbitrary x:UInt, y:UInt
+  algebra
+end
+```
+
+The proof is checked: `algebra` instantiates the theorem
+`semiring_prove` or `ring_prove` of lib/Ring.pf, whose premise, that
+the two sides have the same normal form, Deduce evaluates. When the
+sides differ, `algebra` shows the two normal forms.
+
+**Linear arithmetic.** Otherwise, `algebra` proves a linear equation
+or inequality from the givens: a goal `a = b`, `a ≤ b`, `a < b`, `a ≥ b`, or `a > b`, its
 negation (such as `not (a = b)`), or `false`. It combines the givens
 that are equations and inequalities (`=`, `≤`, `<`, `≥`, `>`, also
 inside `and`) at the goal's type, multiplying each by a constant and

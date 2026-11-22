@@ -2040,7 +2040,8 @@ def refine_at(
     - ``some x:T. body`` -> ``choose ?\\n?``
     - reducible ``e1 = e2`` -> ``reflexive``
     - otherwise ``e1 R e2`` with R one of ``=``, ``≤``, ``<``, ``≥``, ``>``
-      over a type that models ``LinearArith`` -> ``algebra``
+      over a type that models ``LinearArith``, or ``e1 = e2`` over one
+      that models ``CommSemiring`` -> ``algebra``
 
     Returns:
 
@@ -2246,10 +2247,17 @@ def _refine_template(formula: "Formula", env: Optional["Env"]) -> Optional[str]:
                     # mid-check error), don't crash the editor request --
                     # just report "no template".
                     return None
-            # A linear goal over a type that models LinearArith, the
-            # types `algebra` works at (#1189).
+            # A linear goal over a type that models LinearArith (#1189),
+            # or an equation over one that models CommSemiring (#1190):
+            # the goals `algebra` works on, provided the theorem it
+            # instantiates (from lib/Linear.pf or lib/Ring.pf) is in scope.
+            names = {base_name(k) for k in env.dict}
+            concepts = {c for c, thm in (("LinearArith", "lin_prove"),
+                                         ("CommSemiring", "semiring_prove"))
+                        if thm in names
+                        and (c == "LinearArith" or rator.get_name() == "=")}
             if any(isinstance(b, ModelBinding)
-                   and base_name(b.model.concept.concept) == "LinearArith"
+                   and base_name(b.model.concept.concept) in concepts
                    and b.model.concept.type_args == [lhs.typeof]
                    for b in env.dict.values()):
                 return "algebra"

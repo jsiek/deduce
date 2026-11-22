@@ -1,0 +1,111 @@
+// The `algebra` tactic's ring normalization (#1190): equations whose
+// sides are equal as polynomials, over Int, Rat, Real, and any type
+// that models CommRing.
+
+import Ring
+
+theorem real_square_sum: all x:Real, y:Real.
+  (x + y) * (x + y) = x * x + real(+2) * x * y + y * y
+proof
+  arbitrary x:Real, y:Real
+  algebra
+end
+
+theorem int_square_sum: all x:Int, y:Int.
+  (x + y) * (x + y) = x * x + +2 * x * y + y * y
+proof
+  arbitrary x:Int, y:Int
+  algebra
+end
+
+theorem rat_square_sum: all x:Rat, y:Rat.
+  (x + y) * (x + y) = x * x + rat(+2) * x * y + y * y
+proof
+  arbitrary x:Rat, y:Rat
+  algebra
+end
+
+theorem int_difference_of_squares: all x:Int, y:Int.
+  (x - y) * (x + y) = x * x - y * y
+proof
+  arbitrary x:Int, y:Int
+  algebra
+end
+
+// Negative constants.
+theorem int_negative_constant: all x:Int. (x - +1) * (x + +1) = x * x + -1
+proof
+  arbitrary x:Int
+  algebra
+end
+
+theorem real_negative_constant: all x:Real. real(-2) * (x - real(+1)) = real(+2) - real(+2) * x
+proof
+  arbitrary x:Real
+  algebra
+end
+
+// The coordinate identity behind the Pythagorean theorem: for points
+// A = (x1, y1), B = (x2, y2), C = (x3, y3), the squared distance from A
+// to C is the sum of the squared distances AB and BC, minus twice the
+// dot product of BA and BC (which is zero when the angle at B is right).
+theorem pythagoras_coordinates: all x1:Real, y1:Real, x2:Real, y2:Real, x3:Real, y3:Real.
+  (x3 - x1) * (x3 - x1) + (y3 - y1) * (y3 - y1)
+  = ((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1))
+    + ((x3 - x2) * (x3 - x2) + (y3 - y2) * (y3 - y2))
+    - real(+2) * ((x1 - x2) * (x3 - x2) + (y1 - y2) * (y3 - y2))
+proof
+  arbitrary x1:Real, y1:Real, x2:Real, y2:Real, x3:Real, y3:Real
+  algebra
+end
+
+// Behind SAS: a rotation by (c, s) with c² + s² = 1 preserves squared
+// distance. As a polynomial identity, the squared length of the rotated
+// vector is (c² + s²) times the original.
+theorem rotation_squared_length: all c:Real, s:Real, x:Real, y:Real.
+  (c * x - s * y) * (c * x - s * y) + (s * x + c * y) * (s * x + c * y)
+  = (c * c + s * s) * (x * x + y * y)
+proof
+  arbitrary c:Real, s:Real, x:Real, y:Real
+  algebra
+end
+
+// Also behind SAS: the dot product, and so the cosine of the angle, is
+// unchanged by translating both vectors' common origin.
+theorem translate_dot: all a1:Real, a2:Real, b1:Real, b2:Real, c1:Real, c2:Real, d1:Real, d2:Real.
+  ((b1 + d1) - (a1 + d1)) * ((c1 + d1) - (a1 + d1))
+  + ((b2 + d2) - (a2 + d2)) * ((c2 + d2) - (a2 + d2))
+  = (b1 - a1) * (c1 - a1) + (b2 - a2) * (c2 - a2)
+proof
+  arbitrary a1:Real, a2:Real, b1:Real, b2:Real, c1:Real, c2:Real, d1:Real, d2:Real
+  algebra
+end
+
+// Other subterms are atoms.
+theorem atoms: all f:fn Real -> Real, x:Real.
+  f(x) * (f(x) - real(+1)) = f(x) * f(x) - f(x)
+proof
+  arbitrary f:fn Real -> Real, x:Real
+  algebra
+end
+
+// Proved once for every commutative ring, used at Int and at Real.
+theorem ring_square_sum: all T:type where { CommRing<T> }. all x:T, y:T.
+  (x + y) * (x + y) = x * x + (one + one) * x * y + y * y
+proof
+  arbitrary T:type where { CommRing<T> }
+  arbitrary x:T, y:T
+  algebra
+end
+
+theorem int_square_sum_again: all x:Int, y:Int.
+  (x + y) * (x + y) = x * x + (+1 + +1) * x * y + y * y
+proof
+  ring_square_sum<Int>
+end
+
+theorem real_square_sum_again: all x:Real, y:Real.
+  (x + y) * (x + y) = x * x + (real(+1) + real(+1)) * x * y + y * y
+proof
+  ring_square_sum<Real>
+end

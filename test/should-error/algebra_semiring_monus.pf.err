@@ -1,0 +1,7 @@
+./test/should-error/algebra_semiring_monus.pf:9.3-9.10: algebra could not prove
+	(x + y) ∸ y = x
+as polynomials, the two sides are
+	(x + y) ∸ y
+and
+	x
+(UInt is a semiring, so subtraction is not normalized)

@@ -1,0 +1,1 @@
+./test/should-error/algebra_ring_no_model.pf:10.3-10.10: algebra works at the types that model CommSemiring (such as UInt, Int, Rat, and Real) or LinearArith (such as Rat, Real, and Angle), not List<UInt>

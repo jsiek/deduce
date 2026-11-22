@@ -222,6 +222,25 @@ CASES = [
             end=Position(line=7, column=4),
         ),
     ),
+    RefineCase(
+        name="ring_uint_equation",
+        # Goal at hole: a polynomial identity over UInt, which models
+        # CommSemiring but not LinearArith. Template: ``algebra`` (#1190).
+        source=(
+            "import Ring\n"
+            "theorem t: all x:UInt, y:UInt. (x + y) * x = x * x + y * x\n"
+            "proof\n"
+            "  arbitrary x:UInt, y:UInt\n"
+            "  ?\n"
+            "end\n"
+        ),
+        cursor=Position(line=5, column=3),
+        expected_text="algebra",
+        expected_range=Range(
+            start=Position(line=5, column=3),
+            end=Position(line=5, column=4),
+        ),
+    ),
 ]
 
 
@@ -294,6 +313,22 @@ def test_refine_at_no_algebra_without_linear_arith_model() -> None:
         "end\n"
     )
     result = refine_at("test.pf", source, Position(line=6, column=3))
+    assert isinstance(result, UnsupportedRefineShape)
+
+
+def test_refine_at_no_algebra_without_ring_theorems() -> None:
+    """With `CommSemiring<UInt>` in scope (from Algebra) but not Ring's
+    `semiring_prove`, `algebra` can't prove the equation, so it isn't
+    suggested."""
+    source = (
+        "import Algebra\n"
+        "theorem t: all x:UInt, y:UInt. (x + y) * x = x * x + y * x\n"
+        "proof\n"
+        "  arbitrary x:UInt, y:UInt\n"
+        "  ?\n"
+        "end\n"
+    )
+    result = refine_at("test.pf", source, Position(line=5, column=3))
     assert isinstance(result, UnsupportedRefineShape)
 
 

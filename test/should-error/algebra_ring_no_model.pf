@@ -1,0 +1,11 @@
+// `algebra` proves equations at the types that model CommSemiring or
+// LinearArith; lists model neither.
+
+import Ring
+import Linear
+
+theorem append_commute: all xs:List<UInt>, ys:List<UInt>. xs ++ ys = ys ++ xs
+proof
+  arbitrary xs:List<UInt>, ys:List<UInt>
+  algebra
+end

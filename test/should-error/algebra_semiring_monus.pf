@@ -1,0 +1,10 @@
+// In a semiring, `∸` is not normalized: `(x + y) ∸ y` is an atom, so
+// `algebra` does not prove that it is `x`.
+
+import Ring
+
+theorem monus_cancel: all x:UInt, y:UInt. (x + y) ∸ y = x
+proof
+  arbitrary x:UInt, y:UInt
+  algebra
+end

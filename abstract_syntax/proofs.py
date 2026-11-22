@@ -853,8 +853,6 @@ class SimplifyGoal(Proof):
       return self._head() + '\n' + str(self.body)
 
 
-# The names the `algebra` tactic builds its certificates from (lib/Linear.pf
-# and the literals of Nat, UInt, Int, and Rat).
 # The definitions of lib/Linear.pf that checking a certificate unfolds.
 LINEAR_DEFS = (
   'lin_get', 'lin_denote', 'lin_vadd', 'lin_vscale', 'lin_vunit',
@@ -862,12 +860,19 @@ LINEAR_DEFS = (
   'lin_combine', 'lin_sign_ok', 'lin_strict_pos', 'lin_signs_ok',
   'lin_some_strict', 'lin_unit_fact', 'lin_check', 'lin_check_goal',
 )
+# The definitions of lib/Ring.pf that reducing a ring identity's
+# conclusion unfolds (its premise is evaluated).
+RING_DEFS = ('ring_get', 'ring_tail', 'ring_sdenote', 'ring_denote')
+# The names the `algebra` tactic builds its certificates from (lib/Linear.pf,
+# lib/Ring.pf, and the literals of Nat, UInt, Int, and Rat).
 ALGEBRA_NAMES = (
   'LinearArith', 'lin_prove', 'lin_disprove', 'lin_refute',
   'lvar', 'lconst', 'lzero', 'ladd', 'lsub', 'lneg', 'lscale',
   'lin_fact', 'rle', 'rlt', 'req', 'node', 'empty',
   'lit', 'suc', 'zero', 'fromNat', 'pos', 'negsuc', 'rat', 'frac',
-) + LINEAR_DEFS
+  'CommRing', 'CommSemiring', 'ring_prove', 'semiring_prove',
+  'rvar', 'rzero', 'rone', 'rconst', 'radd', 'rsub', 'rneg', 'rmul',
+) + LINEAR_DEFS + RING_DEFS
 
 @dataclass
 class AlgebraGoal(Proof):

@@ -1,0 +1,10 @@
+// `algebra` shows the normal forms of the two sides when they are
+// different polynomials.
+
+import Ring
+
+theorem wrong: all x:Int, y:Int. (x + y) * (x + y) = x * x + y * y
+proof
+  arbitrary x:Int, y:Int
+  algebra
+end

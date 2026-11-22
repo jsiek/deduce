@@ -476,11 +476,14 @@ auto deg_mult_rat
   Models
 */
 
-model AddCommGroup<Angle> {
+model AddCommMonoid<Angle> {
   fun zero = deg(+0)
   theorem add_commute = angle_add_commute
   theorem add_assoc = angle_add_assoc
   theorem add_zero = angle_add_zero
+}
+
+model AddCommGroup<Angle> {
   theorem add_inverse = angle_add_inverse
   theorem sub_def = angle_sub_def
 }

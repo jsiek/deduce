@@ -1,0 +1,48 @@
+// The `algebra` tactic's ring normalization (#1190) over commutative
+// semirings: UInt, and any type that models CommSemiring. Subtraction
+// is not a semiring operation, so `∸` is left in atoms.
+
+import Ring
+
+theorem uint_square_sum: all x:UInt, y:UInt.
+  (x + y) * (x + y) = x * x + 2 * x * y + y * y
+proof
+  arbitrary x:UInt, y:UInt
+  algebra
+end
+
+theorem uint_cube: all x:UInt.
+  (x + 1) * (x + 1) * (x + 1) = x * x * x + 3 * x * x + 3 * x + 1
+proof
+  arbitrary x:UInt
+  algebra
+end
+
+// Monus is an atom: `x ∸ y` is treated as an unknown.
+theorem uint_monus_atom: all x:UInt, y:UInt.
+  (x ∸ y) * (x + y) = x * (x ∸ y) + (x ∸ y) * y
+proof
+  arbitrary x:UInt, y:UInt
+  algebra
+end
+
+// Proved once for every commutative semiring, used at UInt and at Int.
+theorem semiring_square_sum: all T:type where { CommSemiring<T> }. all x:T, y:T.
+  (x + y) * (x + y) = x * x + (one + one) * x * y + y * y
+proof
+  arbitrary T:type where { CommSemiring<T> }
+  arbitrary x:T, y:T
+  algebra
+end
+
+theorem uint_square_sum_again: all x:UInt, y:UInt.
+  (x + y) * (x + y) = x * x + (1 + 1) * x * y + y * y
+proof
+  semiring_square_sum<UInt>
+end
+
+theorem int_square_sum_again: all x:Int, y:Int.
+  (x + y) * (x + y) = x * x + (+1 + +1) * x * y + y * y
+proof
+  semiring_square_sum<Int>
+end
