@@ -316,6 +316,22 @@ def test_refine_at_no_algebra_without_linear_arith_model() -> None:
     assert isinstance(result, UnsupportedRefineShape)
 
 
+def test_refine_at_no_algebra_without_ring_theorems() -> None:
+    """With `CommSemiring<UInt>` in scope (from Algebra) but not Ring's
+    `semiring_prove`, `algebra` can't prove the equation, so it isn't
+    suggested."""
+    source = (
+        "import Algebra\n"
+        "theorem t: all x:UInt, y:UInt. (x + y) * x = x * x + y * x\n"
+        "proof\n"
+        "  arbitrary x:UInt, y:UInt\n"
+        "  ?\n"
+        "end\n"
+    )
+    result = refine_at("test.pf", source, Position(line=5, column=3))
+    assert isinstance(result, UnsupportedRefineShape)
+
+
 def test_refine_at_returns_none_when_file_is_complete() -> None:
     """File without a hole -> nothing for refine_at to do."""
     source = (

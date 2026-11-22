@@ -2249,8 +2249,13 @@ def _refine_template(formula: "Formula", env: Optional["Env"]) -> Optional[str]:
                     return None
             # A linear goal over a type that models LinearArith (#1189),
             # or an equation over one that models CommSemiring (#1190):
-            # the goals `algebra` works on.
-            concepts = {"LinearArith"} | ({"CommSemiring"} if rator.get_name() == "=" else set())
+            # the goals `algebra` works on, provided the theorem it
+            # instantiates (from lib/Linear.pf or lib/Ring.pf) is in scope.
+            names = {base_name(k) for k in env.dict}
+            concepts = {c for c, thm in (("LinearArith", "lin_prove"),
+                                         ("CommSemiring", "semiring_prove"))
+                        if thm in names
+                        and (c == "LinearArith" or rator.get_name() == "=")}
             if any(isinstance(b, ModelBinding)
                    and base_name(b.model.concept.concept) in concepts
                    and b.model.concept.type_args == [lhs.typeof]
