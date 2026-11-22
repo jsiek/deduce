@@ -211,7 +211,8 @@ such as `2`, `+2`, `-2`, `rat(+2)`, and `real(+2)`, and the semiring's
 `zero` and `one`. In a ring they may also use `-` (subtraction and
 negation). Any other subterm, such as `f(x)`, `frac(+1, 2)`, `x / y`,
 or a power with a variable exponent `x ^ n`, is treated as an unknown
-of its own.
+of its own. So is a power whose expansion is large (an exponent above
+32 or a coefficient above 256), such as `(x + y) ^ (30:UInt)`.
 
 This works at the types that model the concept `CommSemiring`
 (lib/Algebra.pf), a commutative semiring with a map `from_nat` that

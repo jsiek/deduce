@@ -196,9 +196,19 @@ class _Reifier:
         return ('sub', self.ring(a, ring), self.ring(b, ring))
       case ("-", [a]) if ring:
         return ('neg', self.ring(a, ring))
-      case ("^", [a, k]) if isUInt(k):
-        return ('pow', self.ring(a, ring), uintToInt(k), k)
+      case ("^", [a, k]) if isUInt(k) and uintToInt(k) <= _MAX_EXPONENT:
+        e = ('pow', self.ring(a, ring), uintToInt(k), k)
+        if max(_poly(e, True).values(), default=0) <= _MAX_COEFFICIENT:
+          return e
     return self.atom(t)
+
+
+# lib/Ring.pf computes with unary Nat coefficients and exponents, so a
+# power whose expansion has a larger exponent or coefficient is left as
+# an atom: checking `(x + y) ^ 12` takes a minute, and `x ^ 200` 80
+# seconds.
+_MAX_EXPONENT = 32
+_MAX_COEFFICIENT = 256
 
 
 # A polynomial: the coefficient of each monomial, a monomial being the
@@ -206,7 +216,9 @@ class _Reifier:
 Poly = dict[tuple[int, ...], Fraction]
 
 
-def _poly(e: Lin) -> Poly:
+def _poly(e: Lin, unsigned: bool = False) -> Poly:
+  """The polynomial of ``e``; if ``unsigned``, with each `-` read as `+`,
+  which bounds the coefficients lib/Ring.pf computes along the way."""
   match e:
     case ('var', i):
       return {(0,) * i + (1,): Fraction(1)}
@@ -215,17 +227,17 @@ def _poly(e: Lin) -> Poly:
     case ('one',):
       return {(): Fraction(1)}
     case ('const', c, _):
-      return {(): Fraction(c)} if c else {}
+      return {(): Fraction(abs(c) if unsigned else c)} if c else {}
     case ('add', a, b):
-      return _plus(_poly(a), _poly(b), 1)
+      return _plus(_poly(a, unsigned), _poly(b, unsigned), 1)
     case ('sub', a, b):
-      return _plus(_poly(a), _poly(b), -1)
+      return _plus(_poly(a, unsigned), _poly(b, unsigned), 1 if unsigned else -1)
     case ('neg', a):
-      return _plus({}, _poly(a), -1)
+      return _plus({}, _poly(a, unsigned), 1 if unsigned else -1)
     case ('mul', a, b):
-      return _times(_poly(a), _poly(b))
+      return _times(_poly(a, unsigned), _poly(b, unsigned))
     case ('pow', a, k, _):
-      pa = _poly(a)
+      pa = _poly(a, unsigned)
       out: Poly = {(): Fraction(1)}
       for _ in range(k):
         out = _times(pa, out)
