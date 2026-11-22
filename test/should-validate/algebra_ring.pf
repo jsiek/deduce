@@ -32,6 +32,19 @@ proof
   algebra
 end
 
+// Negative constants.
+theorem int_negative_constant: all x:Int. (x - +1) * (x + +1) = x * x + -1
+proof
+  arbitrary x:Int
+  algebra
+end
+
+theorem real_negative_constant: all x:Real. real(-2) * (x - real(+1)) = real(+2) - real(+2) * x
+proof
+  arbitrary x:Real
+  algebra
+end
+
 // The coordinate identity behind the Pythagorean theorem: for points
 // A = (x1, y1), B = (x2, y2), C = (x3, y3), the squared distance from A
 // to C is the sum of the squared distances AB and BC, minus twice the

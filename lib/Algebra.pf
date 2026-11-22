@@ -1,7 +1,8 @@
 module Algebra
 
 /*
-  Algebraic concepts (#1264) and their models for Int, Rat, and Real.
+  Algebraic concepts (#1264) and their models for UInt, Int, Rat, and
+  Real.
 
   OrderedQVectorSpace is the interface of the linear-arithmetic tactic
   (#1189): an ordered abelian group with scaling by rationals. Rat and
@@ -11,20 +12,25 @@ module Algebra
   every model: use it at a type with `thm<Rat>` or `thm<Real>`.
 */
 
+import Nat
 import UInt
 import Int
 import Base
 public import Rat
 public import Real
 
-concept AddCommGroup<T> {
+concept AddCommMonoid<T> {
   fun operator+ : fn (T, T) -> T
-  fun operator- : fn T -> T
-  fun operator- : fn (T, T) -> T
   fun zero : T
   theorem add_commute: all x:T, y:T. x + y = y + x
   theorem add_assoc: all x:T, y:T, z:T. (x + y) + z = x + (y + z)
   theorem add_zero: all x:T. x + zero = x
+}
+
+concept AddCommGroup<T> {
+  refines AddCommMonoid<T>
+  fun operator- : fn T -> T
+  fun operator- : fn (T, T) -> T
   theorem add_inverse: all x:T. x + - x = zero
   theorem sub_def: all x:T, y:T. x - y = x + - y
 }
@@ -53,32 +59,63 @@ concept OrderedQVectorSpace<T> {
     if rat(+0) < q and zero < x then zero < scale(q, x)
 }
 
-// The interface of ring normalization in the `algebra` tactic (#1190,
-// lib/Ring.pf). `from_int` reads integer constants, such as `+2`,
-// `rat(+2)`, and `real(+2)`, in the ring.
-concept CommRing<T> {
-  refines AddCommGroup<T>
+// The interfaces of ring normalization in the `algebra` tactic (#1190,
+// lib/Ring.pf). `from_nat` reads constants in the semiring: the Nat
+// literal inside a literal such as `2`, `+2`, `rat(+2)`, or `real(+2)`.
+concept CommSemiring<T> {
+  refines AddCommMonoid<T>
   fun operator* : fn (T, T) -> T
   fun one : T
-  fun from_int : fn Int -> T
+  fun from_nat : fn Nat -> T
   theorem mult_commute: all x:T, y:T. x * y = y * x
   theorem mult_assoc: all x:T, y:T, z:T. (x * y) * z = x * (y * z)
   theorem mult_one: all x:T. x * one = x
+  theorem mult_zero: all x:T. x * zero = zero
   theorem dist_mult_add: all x:T, y:T, z:T. x * (y + z) = x * y + x * z
-  theorem from_int_zero: from_int(+0) = zero
-  theorem from_int_one: from_int(+1) = one
-  theorem from_int_add: all a:Int, b:Int. from_int(a + b) = from_int(a) + from_int(b)
-  theorem from_int_mult: all a:Int, b:Int. from_int(a * b) = from_int(a) * from_int(b)
-  theorem from_int_neg: all a:Int. from_int(- a) = - from_int(a)
+  theorem from_nat_zero: from_nat(zero) = zero
+  theorem from_nat_one: from_nat(suc(zero)) = one
+  theorem from_nat_add: all m:Nat, n:Nat. from_nat(m + n) = from_nat(m) + from_nat(n)
+  theorem from_nat_mult: all m:Nat, n:Nat. from_nat(m * n) = from_nat(m) * from_nat(n)
+}
+
+concept CommRing<T> {
+  refines CommSemiring<T>
+  refines AddCommGroup<T>
+}
+
+// UInt
+
+model AddCommMonoid<UInt> {
+  fun zero = 0
+  theorem add_commute = uint_add_commute
+  theorem add_assoc = uint_add_assoc
+  theorem add_zero = uint_add_zero
+}
+
+model CommSemiring<UInt> {
+  fun one = 1
+  fun from_nat = fromNat
+  theorem mult_commute = uint_mult_commute
+  theorem mult_assoc = uint_mult_assoc
+  theorem mult_one = uint_mult_one
+  theorem mult_zero = uint_mult_zero
+  theorem dist_mult_add = uint_dist_mult_add
+  theorem from_nat_zero = evaluate
+  theorem from_nat_one = evaluate
+  theorem from_nat_add = fromNat_add
+  theorem from_nat_mult = fromNat_mult
 }
 
 // Int
 
-model AddCommGroup<Int> {
+model AddCommMonoid<Int> {
   fun zero = +0
   theorem add_commute = int_add_commute
   theorem add_assoc = int_add_assoc
   theorem add_zero = int_add_zero
+}
+
+model AddCommGroup<Int> {
   theorem add_inverse = int_add_inverse
   theorem sub_def = {
     arbitrary x:Int, y:Int
@@ -86,27 +123,38 @@ model AddCommGroup<Int> {
   }
 }
 
-model CommRing<Int> {
+model CommSemiring<Int> {
   fun one = +1
-  fun from_int = fun n:Int { n }
+  fun from_nat = fun n:Nat { pos(fromNat(n)) }
   theorem mult_commute = int_mult_commute
   theorem mult_assoc = int_mult_assoc
   theorem mult_one = int_mult_one
+  theorem mult_zero = int_mult_zero
   theorem dist_mult_add = int_dist_mult_add
-  theorem from_int_zero = .
-  theorem from_int_one = .
-  theorem from_int_add = { arbitrary a:Int, b:Int . }
-  theorem from_int_mult = { arbitrary a:Int, b:Int . }
-  theorem from_int_neg = { arbitrary a:Int . }
+  theorem from_nat_zero = evaluate
+  theorem from_nat_one = evaluate
+  theorem from_nat_add = {
+    arbitrary m:Nat, n:Nat
+    replace fromNat_add[m, n] | add_pos_pos.
+  }
+  theorem from_nat_mult = {
+    arbitrary m:Nat, n:Nat
+    replace fromNat_mult[m, n] | mult_pos_pos.
+  }
 }
+
+model CommRing<Int> { }
 
 // Rat
 
-model AddCommGroup<Rat> {
+model AddCommMonoid<Rat> {
   fun zero = rat(+0)
   theorem add_commute = rat_add_commute
   theorem add_assoc = rat_add_assoc
   theorem add_zero = rat_add_zero
+}
+
+model AddCommGroup<Rat> {
   theorem add_inverse = rat_add_inverse
   theorem sub_def = rat_sub_def
 }
@@ -131,27 +179,38 @@ model OrderedQVectorSpace<Rat> {
   theorem scale_pos = rat_mult_pos
 }
 
-model CommRing<Rat> {
+model CommSemiring<Rat> {
   fun one = rat(+1)
-  fun from_int = rat
+  fun from_nat = fun n:Nat { rat(pos(fromNat(n))) }
   theorem mult_commute = rat_mult_commute
   theorem mult_assoc = rat_mult_assoc
   theorem mult_one = rat_mult_one
+  theorem mult_zero = rat_mult_zero
   theorem dist_mult_add = rat_dist_mult_add
-  theorem from_int_zero = .
-  theorem from_int_one = .
-  theorem from_int_add = symmetric rat_int_add
-  theorem from_int_mult = symmetric rat_int_mult
-  theorem from_int_neg = symmetric rat_int_neg
+  theorem from_nat_zero = evaluate
+  theorem from_nat_one = evaluate
+  theorem from_nat_add = {
+    arbitrary m:Nat, n:Nat
+    replace fromNat_add[m, n] | add_pos_pos.
+  }
+  theorem from_nat_mult = {
+    arbitrary m:Nat, n:Nat
+    replace fromNat_mult[m, n] | mult_pos_pos.
+  }
 }
+
+model CommRing<Rat> { }
 
 // Real
 
-model AddCommGroup<Real> {
+model AddCommMonoid<Real> {
   fun zero = real(+0)
   theorem add_commute = real_add_commute
   theorem add_assoc = real_add_assoc
   theorem add_zero = real_add_zero
+}
+
+model AddCommGroup<Real> {
   theorem add_inverse = real_add_inverse
   theorem sub_def = real_sub_def
 }
@@ -217,16 +276,24 @@ model OrderedQVectorSpace<Real> {
   theorem scale_pos = real_scale_pos
 }
 
-model CommRing<Real> {
+model CommSemiring<Real> {
   fun one = real(+1)
-  fun from_int = real
+  fun from_nat = fun n:Nat { real(pos(fromNat(n))) }
   theorem mult_commute = real_mult_commute
   theorem mult_assoc = real_mult_assoc
   theorem mult_one = real_mult_one
+  theorem mult_zero = real_mult_zero
   theorem dist_mult_add = real_dist_mult_add
-  theorem from_int_zero = .
-  theorem from_int_one = .
-  theorem from_int_add = real_int_add
-  theorem from_int_mult = real_int_mult
-  theorem from_int_neg = real_int_neg
+  theorem from_nat_zero = evaluate
+  theorem from_nat_one = evaluate
+  theorem from_nat_add = {
+    arbitrary m:Nat, n:Nat
+    replace fromNat_add[m, n] | add_pos_pos.
+  }
+  theorem from_nat_mult = {
+    arbitrary m:Nat, n:Nat
+    replace fromNat_mult[m, n] | mult_pos_pos.
+  }
 }
+
+model CommRing<Real> { }

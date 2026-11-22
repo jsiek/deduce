@@ -205,17 +205,35 @@ proof
 end
 ```
 
-The sides may use `+`, `-` (subtraction and negation), `*`, and integer
-constants: Int literals such as `+2`, `rat(+2)`, `real(+2)`, and the
-ring's `zero` and `one`. Any other subterm, such as `f(x)`,
-`frac(+1, 2)`, or `x / y`, is treated as an unknown of its own.
-This works at the types that model the concept `CommRing`
-(lib/Algebra.pf), a commutative ring with a map `from_int` that reads
-integer constants: `Int`, `Rat`, `Real`, and, inside a proof under
-`where { CommRing<T> }`, the type `T`. The proof is checked: `algebra`
-instantiates the theorem `ring_prove` of lib/Ring.pf, whose premise,
-that the two sides have the same normal form, Deduce evaluates. When
-the sides differ, `algebra` shows the two normal forms.
+The sides may use `+`, `*`, and integer constants: literals such as
+`2`, `+2`, `-2`, `rat(+2)`, and `real(+2)`, and the semiring's
+`zero` and `one`. In a ring they may also use `-` (subtraction and
+negation). Any other subterm, such as `f(x)`, `frac(+1, 2)`, or
+`x / y`, is treated as an unknown of its own.
+
+This works at the types that model the concept `CommSemiring`
+(lib/Algebra.pf), a commutative semiring with a map `from_nat` that
+reads constants: `UInt`, `Int`, `Rat`, `Real`,
+and, inside a proof under `where { CommSemiring<T> }`, the type `T`.
+At the types that also model `CommRing` (`Int`, `Rat`, `Real`),
+subtraction and negation are normalized too. In a semiring such as
+`UInt`, `x ∸ y` is an unknown, so `algebra` proves
+`(x ∸ y) * (x + y) = x * (x ∸ y) + (x ∸ y) * y` but not
+`(x + y) ∸ y = x`.
+
+```
+theorem uint_square_sum: all x:UInt, y:UInt.
+  (x + y) * (x + y) = x * x + 2 * x * y + y * y
+proof
+  arbitrary x:UInt, y:UInt
+  algebra
+end
+```
+
+The proof is checked: `algebra` instantiates the theorem
+`semiring_prove` or `ring_prove` of lib/Ring.pf, whose premise, that
+the two sides have the same normal form, Deduce evaluates. When the
+sides differ, `algebra` shows the two normal forms.
 
 **Linear arithmetic.** Otherwise, `algebra` proves a linear equation
 or inequality from the givens: a goal `a = b`, `a ≤ b`, `a < b`, `a ≥ b`, or `a > b`, its

@@ -223,14 +223,14 @@ CASES = [
         ),
     ),
     RefineCase(
-        name="ring_int_equation",
-        # Goal at hole: a polynomial identity over Int, which models
-        # CommRing but not LinearArith. Template: ``algebra`` (#1190).
+        name="ring_uint_equation",
+        # Goal at hole: a polynomial identity over UInt, which models
+        # CommSemiring but not LinearArith. Template: ``algebra`` (#1190).
         source=(
             "import Ring\n"
-            "theorem t: all x:Int, y:Int. (x + y) * (x - y) = x * x - y * y\n"
+            "theorem t: all x:UInt, y:UInt. (x + y) * x = x * x + y * x\n"
             "proof\n"
-            "  arbitrary x:Int, y:Int\n"
+            "  arbitrary x:UInt, y:UInt\n"
             "  ?\n"
             "end\n"
         ),

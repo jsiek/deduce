@@ -2041,7 +2041,7 @@ def refine_at(
     - reducible ``e1 = e2`` -> ``reflexive``
     - otherwise ``e1 R e2`` with R one of ``=``, ``≤``, ``<``, ``≥``, ``>``
       over a type that models ``LinearArith``, or ``e1 = e2`` over one
-      that models ``CommRing`` -> ``algebra``
+      that models ``CommSemiring`` -> ``algebra``
 
     Returns:
 
@@ -2248,9 +2248,9 @@ def _refine_template(formula: "Formula", env: Optional["Env"]) -> Optional[str]:
                     # just report "no template".
                     return None
             # A linear goal over a type that models LinearArith (#1189),
-            # or an equation over one that models CommRing (#1190): the
-            # goals `algebra` works on.
-            concepts = {"LinearArith"} | ({"CommRing"} if rator.get_name() == "=" else set())
+            # or an equation over one that models CommSemiring (#1190):
+            # the goals `algebra` works on.
+            concepts = {"LinearArith"} | ({"CommSemiring"} if rator.get_name() == "=" else set())
             if any(isinstance(b, ModelBinding)
                    and base_name(b.model.concept.concept) in concepts
                    and b.model.concept.type_args == [lhs.typeof]
