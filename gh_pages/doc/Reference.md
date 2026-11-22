@@ -97,6 +97,7 @@ forms are parser/AST only today and most require
 - [List (Term)](#list-term)
 - [List (Type)](#list-type)
 - [Mark](#mark)
+- [Model (Proof)](#model-proof)
 - [Model (Statement)](#model-statement)
 - [Modulo](#modulo)
 - [Modus Ponens](#modus-ponens)
@@ -1968,10 +1969,45 @@ proof
 end
 ```
 
+## Model (Proof)
+
+```deduce-grammar
+proof_stmt ::= "model" model_head "{" model_member_list "}"
+```
+
+A [model](#model-statement) inside a proof is in scope for the rest of
+that proof. There it comes before every other model of the same concept
+instance: an outer local model, a where clause's model, and the
+top-level models. So one type can model a concept in two ways, as
+`UInt` is a monoid under both `+` and `*`. With a top-level model of
+`Monoid<UInt>` under `+`, the local model below makes `msum` multiply:
+
+```
+theorem msum_234: msum([2, 3, 4]) = 2 + 3 + 4 + 0
+proof
+  model Monoid<UInt> {
+    fun operator+ = operator*
+    fun zero = 1
+    theorem add_zero = uint_mult_one
+    theorem zero_add = uint_one_mult
+  }
+  have prod: msum([2, 3, 4]) = 2 * 3 * 4 * 1 by evaluate
+  evaluate
+end
+```
+
+The formula being proved was checked outside the proof, so its `msum`
+still adds. The model's theorems are checked where the model is
+declared, and the model is not visible outside the proof, e.g. after
+the braces of a `have`.
+
 ## Model (Statement)
 
 ```deduce-grammar
-statement ::= visibility "model" concept_ref "{" model_member_list "}"
+statement ::= visibility "model" model_head "{" model_member_list "}"
+model_head ::= concept_ref
+model_head ::= "<" identifier_list ">" concept_ref
+model_head ::= "<" identifier_list ">" "where" "{" concept_ref_list "}" concept_ref
 model_member_list ::= ε
 model_member_list ::= model_member model_member_list
 model_member ::= "fun" identifier "=" term
@@ -2011,6 +2047,38 @@ where formula is used at those types, and reports an error if no model
 or more than one model is in scope. A `private` model is visible only
 in its own module. An `opaque` model can be used in other modules, but
 its operations stay folded there: other modules see only its theorems.
+
+A model can have type parameters and a where clause, to model a whole
+family of instances. Pairs of a monoid form a monoid, componentwise:
+
+```
+model <T> where { Monoid<T> } Monoid<Pair<T, T>> {
+  fun operator+ = fun p:Pair<T,T>, q:Pair<T,T> {
+    pair(first(p) + first(q), second(p) + second(q))
+  }
+  fun zero = pair(zero, zero)
+  theorem add_zero = { arbitrary p:Pair<T,T>  ... }
+  theorem zero_add = { arbitrary p:Pair<T,T>  ... }
+}
+
+assert msum([pair(true, false), pair(false, false)]) = pair(true, false)
+```
+
+* The operations and theorems are in the scope of the where clause, as
+  in the proof of a where formula: `first(p) + first(q)` adds with
+  `Monoid<T>`'s `+`, and its theorems are givens. The theorems are
+  checked once, here.
+* Each type parameter must occur in the concept's type arguments.
+* Deduce uses the model for any instance that matches it, such as
+  `Monoid<Pair<bool, bool>>`, and then finds the models that its where
+  clause needs at those types (here `Monoid<bool>`) where the instance
+  is used. It is an error if one of them is missing, or if another
+  model also matches the instance. Overlapping models may be declared
+  together; the error comes only when an instance that both match is
+  used.
+* A where theorem used without its types (`replace msum_single`) does
+  not consider parameterized models; give the types, as in
+  `msum_single<Pair<bool, bool>>`.
 
 ## Modulo
 

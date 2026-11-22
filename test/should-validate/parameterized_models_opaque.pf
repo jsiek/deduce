@@ -1,0 +1,26 @@
+// An opaque parameterized model (#1321) in another module
+// (test/test-imports/ConceptOpaquePairModel.pf): its theorems apply at
+// each instance, while its operations stay folded here.
+
+import ConceptMonoidSum
+import ConceptBoolModel
+import ConceptOpaquePairModel
+import List
+import Pair
+
+theorem pair_single: all p:Pair<bool, bool>. msum([p]) = p
+proof
+  msum_single<Pair<bool, bool>>
+end
+
+theorem pair_zero_zero:
+  @Monoid<Pair<bool, bool>>.operator+(@Monoid<Pair<bool, bool>>.zero,
+                                     @Monoid<Pair<bool, bool>>.zero)
+  = @Monoid<Pair<bool, bool>>.zero
+proof
+  @Monoid<Pair<bool, bool>>.add_zero[@Monoid<Pair<bool, bool>>.zero]
+end
+
+// The program still runs: the operations are computed by the model's
+// module, from the operations of Monoid<bool>.
+print msum([pair(true, false), pair(false, false)])

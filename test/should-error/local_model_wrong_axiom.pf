@@ -1,0 +1,15 @@
+// A local model's theorems (#1321) are checked against the concept's
+// axioms at the model's operations: `and` with `false` is no monoid.
+
+import ConceptMonoidSum
+
+theorem nope: true
+proof
+  model Monoid<bool> {
+    fun operator+ = fun a:bool, b:bool { a and b }
+    fun zero = false
+    theorem add_zero = { arbitrary x:bool  evaluate }
+    theorem zero_add = { arbitrary x:bool  evaluate }
+  }
+  .
+end

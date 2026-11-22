@@ -1,0 +1,17 @@
+// A parameterized model (#1321) and a model of one of its instances
+// overlap: two models of Monoid<Pair<bool, bool>> are in scope.
+
+import ConceptMonoidSum
+import ConceptBoolModel
+import ConceptOpaquePairModel
+import List
+import Pair
+
+model Monoid<Pair<bool, bool>> {
+  fun operator+ = fun p:Pair<bool,bool>, q:Pair<bool,bool> { p }
+  fun zero = pair(false, false)
+  theorem add_zero = sorry
+  theorem zero_add = sorry
+}
+
+assert msum([pair(true, false)]) = pair(true, false)

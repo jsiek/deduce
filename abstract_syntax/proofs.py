@@ -232,6 +232,7 @@ def _proof_arg_str(proof: Proof, indent: int) -> str:
   return str(proof)
 
 def _proof_arg_needs_block(proof: Proof) -> bool:
+  from .concepts import PModel
   return isinstance(proof, (
     AllIntro,
     ImpIntro,
@@ -239,6 +240,7 @@ def _proof_arg_needs_block(proof: Proof) -> bool:
     SomeElim,
     PLet,
     PTLetNew,
+    PModel,
     PAnnot,
     Suffices,
     Cases,

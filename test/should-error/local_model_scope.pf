@@ -1,0 +1,20 @@
+// A local model (#1321) is in scope only for the rest of its proof: it
+// doesn't escape the braces of a `have`.
+
+import ConceptMonoidSum
+import List
+
+theorem nope: true
+proof
+  have h: true by {
+    model Monoid<bool> {
+      fun operator+ = fun a:bool, b:bool { a or b }
+      fun zero = false
+      theorem add_zero = { arbitrary x:bool  evaluate }
+      theorem zero_add = { arbitrary x:bool  evaluate }
+    }
+    .
+  }
+  have s: msum([true]) = true by evaluate
+  .
+end

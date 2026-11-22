@@ -1,0 +1,65 @@
+// Local models (#1321): a `model` inside a proof is in scope for the
+// rest of the proof, where it wins over the outer models of its concept
+// instance. UInt is a monoid under both + and * (F^G's Fig. 6).
+
+import ConceptMonoidSum
+import List
+import UInt
+
+model Monoid<UInt> {
+  fun zero = 0
+  theorem add_zero = uint_add_zero
+  theorem zero_add = uint_zero_add
+}
+
+assert msum([2, 3, 4]) = 9
+
+theorem prod_of_sum: msum([2, 3, 4]) = 2 + 3 + 4 + 0
+proof
+  model Monoid<UInt> {
+    fun operator+ = operator*
+    fun zero = 1
+    theorem add_zero = uint_mult_one
+    theorem zero_add = uint_one_mult
+  }
+  // Here msum multiplies, and so do the where theorems about it.
+  have prod: msum([2, 3, 4]) = 2 * 3 * 4 * 1 by evaluate
+  have one_elem: all x:UInt. msum([x]) = x by msum_single<UInt>
+  have one: @Monoid<UInt>.zero = 1 by .
+  // The goal was stated outside, with the top-level model.
+  evaluate
+end
+
+// An inner local model wins over an outer one.
+theorem nested: msum([2, 3]) = 2 + 3 + 0
+proof
+  model Monoid<UInt> {
+    fun operator+ = operator*
+    fun zero = 1
+    theorem add_zero = uint_mult_one
+    theorem zero_add = uint_one_mult
+  }
+  have prod: msum([2, 3]) = 2 * 3 * 1 by evaluate
+  model Monoid<UInt> {
+    fun zero = 0
+    theorem add_zero = uint_add_zero
+    theorem zero_add = uint_zero_add
+  }
+  have sum: msum([2, 3]) = 2 + 3 + 0 by evaluate
+  sum
+end
+
+// A local model where there is no other model of its instance; the
+// where theorem is instantiated at it without its type.
+theorem bool_or: true
+proof
+  model Monoid<bool> {
+    fun operator+ = fun a:bool, b:bool { a or b }
+    fun zero = false
+    theorem add_zero = { arbitrary x:bool  evaluate }
+    theorem zero_add = { arbitrary x:bool  evaluate }
+  }
+  have one_elem: all x:bool. msum([x]) = x by msum_single
+  have two: msum([false, true]) = true by evaluate
+  .
+end

@@ -1,0 +1,12 @@
+module boolor
+
+// An opaque model of Monoid<bool>.
+
+import monoid
+
+fun bor(a:bool, b:bool) { a or b }
+
+opaque model Monoid<bool> {
+  fun operator+ = bor
+  fun zero = false
+}

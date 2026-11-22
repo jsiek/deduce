@@ -1,0 +1,31 @@
+// A parameterized model's theorems (#1321) are checked once, at its type
+// parameters, against the concept's axioms: an operation that ignores
+// the second component of its right argument has no right identity.
+
+import ConceptMonoid
+import Pair
+
+model <T> where { Monoid<T> } Monoid<Pair<T, T>> {
+  fun operator+ = fun p:Pair<T,T>, q:Pair<T,T> {
+    pair(first(p) + first(q), second(q))
+  }
+  fun zero = pair(zero, zero)
+  theorem add_zero = {
+    arbitrary p:Pair<T,T>
+    switch p {
+      case pair(a, b) {
+        expand first | second
+        replace add_zero[a].
+      }
+    }
+  }
+  theorem zero_add = {
+    arbitrary p:Pair<T,T>
+    switch p {
+      case pair(a, b) {
+        expand first | second
+        replace zero_add[a].
+      }
+    }
+  }
+}

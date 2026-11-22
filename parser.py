@@ -1,5 +1,5 @@
 from abstract_syntax import (
-    All, AllElim, ConceptDecl, ConceptMember, ConceptMemberProof, ConceptRef, ModelDecl, WhereClause, AllElimTypes, AllIntro, And, ApplyDefsFact,
+    All, AllElim, ConceptDecl, ConceptMember, ConceptMemberProof, ConceptRef, ModelDecl, PModel, WhereClause, AllElimTypes, AllIntro, And, ApplyDefsFact,
     ApplyDefsGoal, ArrayGet, ArrayType, Assert, Associative, Auto,
     Bool, BoolType, Call, Cases, Conditional, Constructor,
     AlgebraGoal, Define, Emp, EvaluateFact, EvaluateGoal, Export, FieldAccess, FunCase,
@@ -249,6 +249,19 @@ def _imp_rhs_to_ast(e: ParseNode, parent: ParseParent) -> Any:
                         parse_tree_to_list(e.children[1], e),
                         parse_tree_to_list(e.children[2], e))
     return parse_tree_to_ast(e, parent)
+
+def _model_decl(e: Any, children: list[Any]) -> ModelDecl:
+    head = children[0]
+    parts = head.children
+    type_params = parse_tree_to_list(parts[0], head) if len(parts) > 1 else []
+    where = WhereClause(head.meta, parse_tree_to_list(parts[1], head)) \
+        if head.data == 'model_head_where' else None
+    members = parse_tree_to_list(children[1], e)
+    return ModelDecl(
+        e.meta, 'model', parse_tree_to_ast(parts[-1], head),
+        [(m[1], '', m[2]) for m in members if m[0] == 'model_fun'],
+        [(str(m[1]), m[2]) for m in members if m[0] == 'model_theorem'],
+        type_params=type_params, where=where)
 
 # Any: the lark-tree -> AST dispatch boundary. This is dispatched on the
 # grammar rule name and so is polymorphic over every node kind the grammar
@@ -1282,14 +1295,11 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
         set_visibility(statement, visibility)
         return statement
     elif e.data == 'model_declaration':
-        visibility = parse_tree_to_ast(e.children[0], e)
-        members = parse_tree_to_list(e.children[2], e)
-        statement = ModelDecl(
-            e.meta, 'model', parse_tree_to_ast(e.children[1], e),
-            [(m[1], '', m[2]) for m in members if m[0] == 'model_fun'],
-            [(str(m[1]), m[2]) for m in members if m[0] == 'model_theorem'])
-        set_visibility(statement, visibility)
+        statement = _model_decl(e, e.children[1:])
+        set_visibility(statement, parse_tree_to_ast(e.children[0], e))
         return statement
+    elif e.data == 'model_proof':
+        return PModel(e.meta, _model_decl(e, e.children), None)
 
     # term definition
     elif e.data == 'define':

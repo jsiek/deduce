@@ -1,0 +1,1 @@
+./test/should-error/local_model_scope.pf:18.11-18.23: no model of Monoid<bool> in scope

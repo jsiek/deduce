@@ -19,7 +19,8 @@ places it matters:
 
 A model's operations are hidden definitions named by the model, so a
 client depends only on what the model's module exports: an opaque model
-leaves them folded.
+leaves them folded. A parameterized model (#1321) is found by matching
+its head, and its where clause's models are found where it is used.
 """
 
 from __future__ import annotations
@@ -28,10 +29,10 @@ import itertools
 from typing import Callable, cast
 
 from abstract_syntax import (
-    All, AllElimTypes, And, BoolType, Call, ConceptBinding, ConceptDecl,
+    All, AllElimTypes, And, ArrayType, BoolType, Call, ConceptBinding, ConceptDecl,
     ConceptMember, ConceptMemberProof, ConceptRef, Env,
-    Formula, IfThen, ModelBinding, ModelDecl, Proof, ResolvedVar, Term, Type,
-    FunctionType, TypeInst, TypeType, VarRef, WhereClause, WhereMember, base_name, concept_closure,
+    Formula, IfThen, ModelBinding, MutableArrayType, ModelDecl, ModelInstance, Proof,
+    ResolvedVar, Term, TermInst, Type, FunctionType, TypeInst, TypeType, VarRef, WhereClause, WhereMember, base_name, concept_closure,
     where_body,
 )
 from checker_types import check_formula, check_type, type_check_term
@@ -42,14 +43,18 @@ from lark.tree import Meta
 # clause's binder, or a model's operation.
 MemberLookup = Callable[[ConceptRef, str], Term]
 # The model chosen for each concept instance.
-Models = list[tuple[ConceptRef, ModelBinding]]
+Models = list[tuple[ConceptRef, ModelInstance]]
 
-# The environment key of the models that the where clauses in scope
-# provide, innermost first.
-WHERE_MODELS_KEY = ' where models'
+# The environment key of the models that the where clauses and local
+# models (`model` inside a proof) in scope provide, innermost first.
+SCOPED_MODELS_KEY = ' where models'
+
+# How deeply the where clauses of parameterized models may ask for
+# further models before model lookup gives up.
+MAX_MODEL_DEPTH = 16
 
 
-def _model_for(models: Models, inst: ConceptRef) -> ModelBinding:
+def _model_for(models: Models, inst: ConceptRef) -> ModelInstance:
   return next(m for (i, m) in models if i == inst)
 
 
@@ -229,40 +234,94 @@ def add_where_models(loc: Meta, where: WhereClause, env: Env) -> Env:
   # From the constraints, not the members: a concept may have none.
   insts = check_where(WhereClause(loc, concept_closure(where.constraints)),
                       env).constraints
-  clause = str(loc.line) + '.' + str(loc.column)
-  names = {str(inst): '<where ' + clause + '> ' + str(inst) for inst in insts}
+  bindings: dict[str, ModelBinding] = {}
   for inst in insts:
-    decl = concept_of(env, inst.concept, loc)
-    psub = _param_sub(decl, inst)
     funs = [(wm.member, wm.binder,
              ResolvedVar(loc, member_type(env, inst, wm.member, loc), wm.binder))
             for wm in where.operations() if wm.instance == inst]
-    model = ModelDecl(loc, names[str(inst)], inst, cast(list[tuple[str, str, Term]], funs), [])
-    refined = [names[str(r.substitute(psub))] for r in decl.refines.constraints]
-    env = env._with_binding(model.name, ModelBinding(
-        loc, model, refined, module=env.get_current_module()))
+    model = ModelDecl(loc, _where_prefix(loc) + str(inst), inst,
+                      cast(list[tuple[str, str, Term]], funs), [])
+    bindings[str(inst)] = ModelBinding(loc, model, [],
+                                       module=env.get_current_module())
+  for inst in insts:
+    b = bindings[str(inst)]
+    decl = concept_of(env, inst.concept, loc)
+    psub = _param_sub(decl, inst)
+    b.refined = [ModelInstance(bindings[str(r.substitute(psub))])
+                 for r in decl.refines.constraints]
+    env = env._with_binding(b.model.name, b)
+  return scope_models([b.model.name for b in bindings.values()], env)
+
+
+def _where_prefix(loc: Meta) -> str:
+  """The start of the names of the models of the where clause at
+  ``loc``."""
+  return '<where ' + str(loc.line) + '.' + str(loc.column) + '> '
+
+
+def scope_models(names: list[str], env: Env) -> Env:
+  """Put the models ``names`` in scope ahead of the outer ones: those of
+  a where clause, or a `model` inside a proof (#1321)."""
   return env._with_binding(
-      WHERE_MODELS_KEY,
-      list(names.values()) + cast(list[str], env.dict.get(WHERE_MODELS_KEY, [])))
+      SCOPED_MODELS_KEY,
+      names + cast(list[str], env.dict.get(SCOPED_MODELS_KEY, [])))
 
 
 def find_model(env: Env, inst: ConceptRef, models: list[str],
-               loc: Meta) -> ModelBinding:
-  """The model of ``inst`` that the innermost where clause in scope
-  provides, or else the one among ``models``, the models in lexical
-  scope (recorded by uniquify)."""
-  for name in cast(list[str], env.dict.get(WHERE_MODELS_KEY, [])):
+               loc: Meta, depth: int = 0) -> ModelInstance:
+  """The model of ``inst`` that the innermost where clause or local
+  model in scope provides, or else the one among ``models``, the models
+  in lexical scope (recorded by uniquify). A parameterized model fits
+  when its head matches ``inst``; the models its where clause needs are
+  then found the same way."""
+  if depth > MAX_MODEL_DEPTH:
+    user_error(loc, 'gave up looking for models: the where clauses of'
+               + ' parameterized models keep needing more models')
+  for name in cast(list[str], env.dict.get(SCOPED_MODELS_KEY, [])):
     b = env.dict[name]
-    if isinstance(b, ModelBinding) and b.model.concept == inst:
-      return b
-  found = [b for name in models
+    if isinstance(b, ModelBinding) and (sub := _head_match(b, inst)) is not None:
+      return _instance(env, b, sub, models, loc, depth)
+  found = [(b, sub) for name in models
            if isinstance(b := env.dict.get(name), ModelBinding)
-           and b.model.concept == inst]
+           and (sub := _head_match(b, inst)) is not None]
   if not found:
     user_error(loc, 'no model of ' + str(inst) + ' in scope')
   if len(found) > 1:
     user_error(loc, 'more than one model of ' + str(inst) + ' in scope')
-  return found[0]
+  (b, sub) = found[0]
+  return _instance(env, b, sub, models, loc, depth)
+
+
+def _head_match(b: ModelBinding, inst: ConceptRef) -> dict[str, Type] | None:
+  """The type arguments for which the model ``b`` models ``inst``, if
+  any."""
+  head = b.model.concept
+  sub: dict[str, Type] = {}
+  if head.concept == inst.concept \
+     and all(_match_type(p, t, b.model.type_params, sub)
+             for (p, t) in zip(head.type_args, inst.type_args)):
+    return sub
+  return None
+
+
+def _instance(env: Env, b: ModelBinding, sub: dict[str, Type],
+              models: list[str], loc: Meta, depth: int) -> ModelInstance:
+  """The model ``b`` at the type arguments ``sub``, with the models of its
+  where clause at them, found among ``models`` (F^G: models are found
+  where they are used)."""
+  model = b.model
+  type_args = [sub[p] for p in model.type_params]
+  if model.where is None:
+    return ModelInstance(b, type_args)
+  try:
+    args = _models_in_scope(loc, model.where.substitute(sub).constraints,
+                            models, env, depth + 1)
+  except UserError as e:
+    if depth > 0:
+      raise
+    raise wrap_user_error(e, '\n(needed by ' + model.head() + ' for '
+                          + str(model.concept.substitute(sub)) + ')')
+  return ModelInstance(b, type_args, args)
 
 
 def where_arguments(loc: Meta, where: WhereClause, in_scope: list[str],
@@ -271,9 +330,8 @@ def where_arguments(loc: Meta, where: WhereClause, in_scope: list[str],
   ``where`` (instantiated at the call's types): those of the models in
   scope, unfolded where they are visible (F^G's dictionary passing)."""
   models = _models_in_scope(loc, where.constraints, in_scope, env)
-  lookup = _model_lookup(env, models, False, loc)
-  return [_unfold(lookup(wm.instance, wm.member), [m for (_, m) in models], env)
-          for wm in where.operations()]
+  lookup = _model_lookup(env, models, loc)
+  return [lookup(wm.instance, wm.member) for wm in where.operations()]
 
 
 def _match_type(pattern: Type, ty: Type, tyvars: list[str],
@@ -298,6 +356,10 @@ def _match_type(pattern: Type, ty: Type, tyvars: list[str],
       and all(_match_type(p, t, tyvars, sub)
               for (p, t) in zip(pattern.param_types, ty.param_types)) \
       and _match_type(pattern.return_type, ty.return_type, tyvars, sub)
+  if isinstance(pattern, (ArrayType, MutableArrayType)) \
+     and type(ty) is type(pattern):
+    return _match_type(pattern.elt_type, cast(ArrayType, ty).elt_type,
+                       tyvars, sub)
   return bool(pattern == ty)
 
 
@@ -317,9 +379,11 @@ def where_instances(loc: Meta, frm: Formula, base: Proof, models: list[str],
   if not isinstance(frm, All) or frm.where is None:
     return None
   options: list[list[Type]] = [[] for _ in tyvars]
-  for name in cast(list[str], env.dict.get(WHERE_MODELS_KEY, [])) + models:
+  for name in cast(list[str], env.dict.get(SCOPED_MODELS_KEY, [])) + models:
     b = env.dict.get(name)
-    if not isinstance(b, ModelBinding):
+    # A parameterized model's head has type variables of its own: give
+    # the types explicitly to use it.
+    if not isinstance(b, ModelBinding) or b.model.type_params:
       continue
     for c in frm.where.constraints:
       if c.concept != b.model.concept.concept:
@@ -340,19 +404,41 @@ def where_instances(loc: Meta, frm: Formula, base: Proof, models: list[str],
   return instances
 
 
-def _model_lookup(env: Env, models: Models,
-                  use_bodies: bool, loc: Meta) -> MemberLookup:
-  """The model's operations: its hidden definitions, or (inside the
-  model's own module, to check its theorems) their bodies."""
+def _model_lookup(env: Env, models: Models, loc: Meta) -> MemberLookup:
   def lookup(inst: ConceptRef, member: str) -> Term:
-    model = _model_for(models, inst).model
-    for (m, define, body) in model.funs:
-      if m == member:
-        if use_bodies:
-          return body
-        return ResolvedVar(loc, member_type(env, inst, member, loc), define)
-    user_error(loc, 'model ' + str(inst) + ' has no ' + base_name(member))
+    return _member(env, _model_for(models, inst), member, loc)
   return lookup
+
+
+def _member(env: Env, m: ModelInstance, member: str, loc: Meta) -> Term:
+  """The operation ``member`` of the model instance ``m``: its body where
+  this module can see the model, and otherwise its hidden definition,
+  folded (F^G's dictionary projection, reduced). Only these names
+  change: the result is not otherwise reduced, so auto rules don't
+  collapse it. A parameterized model's operation is its body at the
+  instance's types and at the operations of its where clause's models."""
+  model = m.binding.model
+  sub: dict[str, Term | Type] = dict(zip(model.type_params, m.type_args))
+  inst = model.concept.substitute(sub)
+  found = [(define, body) for (mem, define, body) in model.funs if mem == member]
+  if not found:
+    user_error(loc, 'model ' + str(inst) + ' has no ' + base_name(member))
+  (define, body) = found[0]
+  where_ops = model.where.operations() if model.where else []
+  ops = [_member(env, _model_for(m.args, wm.instance.substitute(sub)),
+                 wm.member, loc) for wm in where_ops]
+  if m.binding.visibility != 'opaque' \
+     or m.binding.module == env.get_current_module():
+    sub.update({wm.binder: op for (wm, op) in zip(where_ops, ops)})
+    return body.substitute(sub)
+  ty = member_type(env, inst, member, loc)
+  if not model.type_params:
+    return ResolvedVar(loc, ty, define)
+  generic_ty = member_type(env, model.concept, member, loc)
+  fun = TermInst(loc, FunctionType(loc, [], [op.typeof for op in ops], ty),
+                 ResolvedVar(loc, model.definition_type(generic_ty), define),
+                 m.type_args, False)
+  return Call(loc, ty, fun, ops)
 
 
 def instantiate_where(loc: Meta, allfrm: All, type_arg: Type,
@@ -363,29 +449,43 @@ def instantiate_where(loc: Meta, allfrm: All, type_arg: Type,
   sub = {allfrm.var[0]: type_arg}
   where = allfrm.where.substitute(sub)
   models = _models_in_scope(loc, where.constraints, in_scope, env)
-  lookup = _model_lookup(env, models, False, loc)
+  lookup = _model_lookup(env, models, loc)
   frm = _strip_operations(loc, allfrm.body.substitute(sub), where, lookup)
-  frm = _discharge(loc, frm, _premise(env, where, lookup, loc))
-  return _unfold(frm, [m for (_, m) in models], env)
+  return _discharge(loc, frm, _premise(env, where, lookup, loc))
 
 
 def _models_in_scope(loc: Meta, refs: list[ConceptRef], in_scope: list[str],
-                     env: Env) -> Models:
+                     env: Env, depth: int = 0) -> Models:
   """The models in scope of the concept instances ``refs`` require
   (their refinement closure), checked for coherence: every refinement
   path to an instance reaches one model."""
-  models = [(inst, find_model(env, inst, in_scope, loc))
+  models = [(inst, find_model(env, inst, in_scope, loc, depth))
             for inst in concept_closure(refs)]
-  for (_, model) in models:
-    concept = concept_of(env, model.model.concept.concept, loc)
-    psub = _param_sub(concept, model.model.concept)
-    for ref, name in zip(concept.refines.constraints, model.refined):
+  for (head, m) in models:
+    concept = concept_of(env, head.concept, loc)
+    psub = _param_sub(concept, head)
+    for ref, refined in zip(concept.refines.constraints, m.binding.refined):
       inst = ref.substitute(psub)
-      if _model_for(models, inst).model.name != name:
-        user_error(loc, 'the model of ' + str(model.model.concept)
+      if _model_for(models, inst).key() != _rebase(refined, m).key():
+        user_error(loc, 'the model of ' + str(head)
                    + ' uses a different model of ' + str(inst)
                    + ' than the one in scope here')
   return models
+
+
+def _rebase(r: ModelInstance, m: ModelInstance) -> ModelInstance:
+  """The model ``r``, found where the parameterized model of ``m`` is
+  declared (in terms of its type parameters and where clause), at the
+  types and models of ``m``."""
+  model = m.binding.model
+  if not model.type_params:
+    return r
+  sub: dict[str, Term | Type] = dict(zip(model.type_params, m.type_args))
+  if model.where is not None \
+     and r.binding.model.name.startswith(_where_prefix(model.where.location)):
+    return _model_for(m.args, r.binding.model.concept.substitute(sub))
+  return ModelInstance(r.binding, [t.substitute(sub) for t in r.type_args],
+                       [(c.substitute(sub), _rebase(a, m)) for (c, a) in r.args])
 
 
 def _qualified(loc: Meta, ref: ConceptRef, in_scope: list[str],
@@ -400,15 +500,13 @@ def check_concept_member(term: ConceptMember, env: Env) -> Term:
   loc = term.location
   ref, models = _qualified(loc, term.ref, term.models, env)
   model = _model_for(models, ref)
-  found = [(m, define) for (m, define, _) in model.model.funs
+  found = [m for (m, _, _) in model.binding.model.funs
            if base_name(m) == term.member]
   if len(found) > 1:
     user_error(loc, '@' + str(ref) + '.' + term.member + ' could be any of '
                + str(len(found)) + ' operations of the model; use the'
                + ' operation unqualified, where its type tells which')
-  (m, define) = found[0]
-  var = ResolvedVar(loc, member_type(env, ref, m, loc), define)
-  return _unfold(var, [model], env)
+  return _member(env, model, found[0], loc)
 
 
 def well_founded_less(less: ConceptMember, env: Env) -> Term:
@@ -469,23 +567,7 @@ def concept_member_formula(proof: ConceptMemberProof, env: Env) -> Formula:
   ref, models = _qualified(loc, proof.ref, proof.models, env)
   decl = concept_of(env, ref.concept, loc)
   theorem = next(m for (m, _) in decl.theorems if base_name(m) == proof.member)
-  frm = axiom(env, ref, theorem, _model_lookup(env, models, False, loc), loc)
-  return _unfold(frm, [m for (_, m) in models], env)
-
-
-def _unfold(frm: Formula, models: list[ModelBinding], env: Env) -> Formula:
-  """Replace the operations of ``models`` that this module can see by
-  their definitions; an opaque model's stay folded (F^G's dictionary
-  projection, reduced). Only these names change: the formula is not
-  otherwise reduced, so auto rules don't collapse it."""
-  current = env.get_current_module()
-  sub: dict[str, Term] = {}
-  for m in models:
-    if m.visibility == 'opaque' and m.module != current:
-      continue
-    for (_, define, body) in m.model.funs:
-      sub[define] = body
-  return frm.substitute(sub)
+  return axiom(env, ref, theorem, _model_lookup(env, models, loc), loc)
 
 
 ################ Declarations ################
@@ -505,20 +587,49 @@ def process_concept(decl: ConceptDecl, env: Env) -> tuple[ConceptDecl, Env]:
                                 visibility=decl.visibility))
 
 
+def _model_scope(model: ModelDecl, env: Env) -> Env:
+  """The scope of a (checked) model's members: for a parameterized model,
+  its type parameters and its where clause, whose theorems are givens."""
+  env = env.declare_type_vars(model.location, model.type_params)
+  if model.where is not None:
+    env = where_scope(model.where.location, model.where, env)
+  return env
+
+
 def process_model(model: ModelDecl, env: Env) -> tuple[ModelDecl, Env]:
   loc = model.location
-  concept_ref = check_where(WhereClause(loc, [model.concept]), env).constraints[0]
+  where = None
+  if model.where is not None:
+    where = check_where(model.where,
+                        env.declare_type_vars(loc, model.type_params))
+  model = ModelDecl(loc, model.name, model.concept, model.funs, model.theorems,
+                    visibility=model.visibility, models=model.models,
+                    type_params=model.type_params, where=where)
+  body_env = _model_scope(model, env)
+  concept_ref = check_where(WhereClause(loc, [model.concept]),
+                            body_env).constraints[0]
+  occurs: dict[str, Type] = {}
+  for t in concept_ref.type_args:
+    _match_type(t, t, model.type_params, occurs)
+  for p in model.type_params:
+    if p not in occurs:
+      user_error(loc, 'the type parameter ' + base_name(p) + ' of the model'
+                 + ' must occur in ' + str(concept_ref))
   decl = concept_of(env, concept_ref.concept, loc)
   psub = _param_sub(decl, concept_ref)
-  refined = [find_model(env, ref.substitute(psub), model.models, loc).model.name
+  refined = [find_model(body_env, ref.substitute(psub), model.models, loc)
              for ref in decl.refines.constraints]
   funs = []
   for (m, define, body) in model.funs:
-    ty = check_type(dict(decl.funs)[m].substitute(psub), env)
-    funs.append((m, define, type_check_term(body, ty, env, None, [])))
-    env = env.declare_term_var(loc, define, ty, visibility=model.visibility)
+    ty = check_type(dict(decl.funs)[m].substitute(psub), body_env)
+    funs.append((m, define, type_check_term(body, ty, body_env, None, [])))
   new_model = ModelDecl(loc, model.name, concept_ref, funs, model.theorems,
-                        visibility=model.visibility, models=model.models)
+                        visibility=model.visibility, models=model.models,
+                        type_params=model.type_params, where=where)
+  for (m, define, _) in funs:
+    ty = member_type(body_env, concept_ref, m, loc)
+    env = env.declare_term_var(loc, define, new_model.definition_type(ty),
+                               visibility=model.visibility)
   return new_model, env._with_binding(
       model.name, ModelBinding(loc, new_model, refined,
                                module=env.get_current_module(),
@@ -527,21 +638,27 @@ def process_model(model: ModelDecl, env: Env) -> tuple[ModelDecl, Env]:
 
 def collect_model(model: ModelDecl, env: Env) -> Env:
   for (m, define, body) in model.funs:
+    ty = member_type(env, model.concept, m, model.location)
     env = env.define_term_var(model.location, define,
-                              member_type(env, model.concept, m, model.location),
-                              body, model.visibility)
+                              model.definition_type(ty),
+                              model.definition(body), model.visibility)
   return env
 
 
-def model_obligations(model: ModelDecl, env: Env) -> list[tuple[Proof, Formula]]:
-  """Each theorem of the model with the axiom it must prove: the
-  concept's, at the model's operations (and those of the models it uses
-  for the refined concepts)."""
+def model_obligations(model: ModelDecl,
+                      env: Env) -> list[tuple[Proof, Formula, Env]]:
+  """Each theorem of the model with the axiom it must prove (the
+  concept's, at the model's operations and those of the models it uses
+  for the refined concepts) and the scope to prove it in."""
   loc = model.location
   binding = cast(ModelBinding, env.dict[model.name])
+  env = _model_scope(model, env)
   models = [(inst, find_model(env, inst, model.models, loc))
             for inst in concept_closure([model.concept])[:-1]]
-  models.append((model.concept, binding))
-  lookup = _model_lookup(env, models, True, loc)
-  return [(pf, axiom(env, model.concept, m, lookup, loc))
+  sub = _head_match(binding, model.concept)
+  assert sub is not None
+  models.append((model.concept,
+                 _instance(env, binding, sub, model.models, loc, 0)))
+  lookup = _model_lookup(env, models, loc)
+  return [(pf, axiom(env, model.concept, m, lookup, loc), env)
           for (m, pf) in model.theorems]

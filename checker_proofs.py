@@ -26,7 +26,7 @@ from abstract_syntax import (
     FunctionType, Hole, IfThen, ImpIntro, IndCase, Induction,
     InductiveInfo, Lambda,
     ModusPonens, Omitted, Or, OverloadedVar, OverloadType, PAndElim, PAnnot,
-    PExtensionality, PHelpUse, PHole, PInjective, PLet, PRecall,
+    PExtensionality, PHelpUse, PHole, PInjective, PLet, PModel, PRecall,
     Pattern, PatternTerm, PReflexive, Proof, PSorry, PSymmetric, PTLetNew,
     PTransitive, PTrue,
     PTuple, PVar, PatternBool, PatternCons, ProofBinding, ResolvedVar,
@@ -46,7 +46,8 @@ from checker_logic import (
     instantiate, isolate_difference, pattern_to_term, rewrite,
 )
 from checker_concepts import (
-    concept_member_formula, instantiate_where, intro_where, where_instances,
+    collect_model, concept_member_formula, instantiate_where, intro_where,
+    model_obligations, process_model, scope_models, where_instances,
 )
 from checker_types import (
     check_formula, check_pattern, check_type, type_check_term,
@@ -419,6 +420,19 @@ def _check_proof_tlet_new(proof: PTLetNew, env: Env) -> CheckedFormula:
                                  new_rhs.typeof, new_rhs)
   return check_proof(proof.body, body_env)
 
+def _local_model_env(proof: PModel, env: Env) -> Env:
+  """The scope of a `model` inside a proof (#1321): the model's
+  operations, defined, and the model itself, ahead of the outer models
+  of its concept instance. Its theorems are checked here."""
+  model, env = process_model(proof.model, env)
+  env = collect_model(model, env)
+  for (pf, frm, thm_env) in model_obligations(model, env):
+    _try_check_proof_of(pf, frm, thm_env)
+  return scope_models([model.name], env)
+
+def _check_proof_model(proof: PModel, env: Env) -> CheckedFormula:
+  return check_proof(proof.body, _local_model_env(proof, env))
+
 def _check_proof_let(proof: PLet, env: Env) -> CheckedFormula:
   loc = proof.location
   new_frm = check_formula(proof.proved, env)
@@ -696,6 +710,7 @@ _CHECK_PROOF_HANDLERS = {
   PSorry: _check_proof_sorry,
   PHelpUse: _check_proof_help_use,
   PTLetNew: _check_proof_tlet_new,
+  PModel: _check_proof_model,
   PLet: _check_proof_let,
   PAnnot: _check_proof_annot,
   PTuple: _check_proof_tuple,
@@ -1832,6 +1847,9 @@ def _check_proof_of_tlet_new(proof: PTLetNew, formula: CheckedFormula, env: Env)
                        for (k,b) in body_env.dict.items()})
   _try_check_proof_of(proof.body, frm, new_body_env)
 
+def _check_proof_of_model(proof: PModel, formula: CheckedFormula, env: Env) -> None:
+  _try_check_proof_of(proof.body, formula, _local_model_env(proof, env))
+
 def _check_proof_of_let(proof: PLet, formula: CheckedFormula, env: Env) -> None:
   loc = proof.location
   new_frm = check_formula(proof.proved, env)
@@ -2326,6 +2344,7 @@ _CHECK_PROOF_OF_HANDLERS = {
   SomeElim: _check_proof_of_some_elim,
   ImpIntro: _check_proof_of_imp_intro,
   PTLetNew: _check_proof_of_tlet_new,
+  PModel: _check_proof_of_model,
   PLet: _check_proof_of_let,
   PAnnot: _check_proof_of_annot,
   PTuple: _check_proof_of_tuple,

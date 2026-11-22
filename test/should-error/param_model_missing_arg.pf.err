@@ -1,0 +1,2 @@
+./test/should-error/param_model_missing_arg.pf:10.8-10.26: no model of Monoid<UInt> in scope
+(needed by model <T> where { Monoid<T> } Monoid<Pair<T,T>> for Monoid<Pair<UInt,UInt>>)
