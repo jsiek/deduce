@@ -137,3 +137,14 @@ proof
     by { arbitrary x:Pair<bool,bool>, y:Pair<bool,bool>  . }
   .
 end
+
+// The type parameter of a model may occur under an array type.
+concept Sized<T> {
+  fun count : fn T -> bool
+}
+
+model <T> Sized<[T]> {
+  fun count = fun a:[T] { false }
+}
+
+assert @Sized<[bool]>.count(array([true])) = false

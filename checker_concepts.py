@@ -29,9 +29,9 @@ import itertools
 from typing import Callable, cast
 
 from abstract_syntax import (
-    All, AllElimTypes, And, BoolType, Call, ConceptBinding, ConceptDecl,
+    All, AllElimTypes, And, ArrayType, BoolType, Call, ConceptBinding, ConceptDecl,
     ConceptMember, ConceptMemberProof, ConceptRef, Env,
-    Formula, IfThen, ModelBinding, ModelDecl, ModelInstance, Proof,
+    Formula, IfThen, ModelBinding, MutableArrayType, ModelDecl, ModelInstance, Proof,
     ResolvedVar, Term, TermInst, Type, FunctionType, TypeInst, TypeType, VarRef, WhereClause, WhereMember, base_name, concept_closure,
     where_body,
 )
@@ -356,6 +356,10 @@ def _match_type(pattern: Type, ty: Type, tyvars: list[str],
       and all(_match_type(p, t, tyvars, sub)
               for (p, t) in zip(pattern.param_types, ty.param_types)) \
       and _match_type(pattern.return_type, ty.return_type, tyvars, sub)
+  if isinstance(pattern, (ArrayType, MutableArrayType)) \
+     and type(ty) is type(pattern):
+    return _match_type(pattern.elt_type, cast(ArrayType, ty).elt_type,
+                       tyvars, sub)
   return bool(pattern == ty)
 
 
