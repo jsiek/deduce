@@ -29,7 +29,7 @@ import itertools
 from typing import Callable, cast
 
 from abstract_syntax import (
-    All, AllElimTypes, And, ArrayType, BoolType, Call, ConceptBinding, ConceptDecl,
+    All, AllElimTypes, And, ArrayType, AssocType, BoolType, Call, ConceptBinding, ConceptDecl,
     ConceptMember, ConceptMemberProof, ConceptRef, Env,
     Formula, IfThen, ModelBinding, MutableArrayType, ModelDecl, ModelInstance, Proof,
     ResolvedVar, Term, TermInst, Type, FunctionType, TypeInst, TypeType, VarRef, WhereClause, WhereMember, base_name, concept_closure,
@@ -39,9 +39,9 @@ from checker_types import check_formula, check_type, type_check_term
 from error import UserError, user_error, wrap_user_error
 from lark.tree import Meta
 
-# The term that stands for a member of a concept instance: a where
-# clause's binder, or a model's operation.
-MemberLookup = Callable[[ConceptRef, str], Term]
+# What stands for a member of a concept instance: a where clause's
+# binder, or a model's operation or associated type.
+MemberLookup = Callable[[ConceptRef, str], Term | Type]
 # The model chosen for each concept instance.
 Models = list[tuple[ConceptRef, ModelInstance]]
 
@@ -69,20 +69,32 @@ def _param_sub(decl: ConceptDecl, inst: ConceptRef) -> dict[str, Type]:
   return dict(zip(decl.type_params, inst.type_args))
 
 
-def member_type(env: Env, inst: ConceptRef, member: str, loc: Meta) -> Type:
+def member_type(env: Env, inst: ConceptRef, member: str, loc: Meta,
+                types: dict[str, Type] | None = None) -> Type:
+  """The type of the operation ``member`` of ``inst``, whose associated
+  types are ``types`` (#1321)."""
   decl = concept_of(env, inst.concept, loc)
-  return dict(decl.funs)[member].substitute(_param_sub(decl, inst))
+  return dict(decl.funs)[member].substitute(_param_sub(decl, inst)
+                                            | (types or {}))
+
+
+def _model_types(m: ModelInstance) -> dict[str, Type]:
+  """The associated types of the model instance ``m``."""
+  model = m.binding.model
+  sub: dict[str, Term | Type] = dict(zip(model.type_params, m.type_args))
+  return {t: ty.substitute(sub) for (t, ty) in model.types}
 
 
 def _instance_sub(env: Env, inst: ConceptRef, lookup: MemberLookup,
                   loc: Meta) -> dict[str, Term | Type]:
   """Takes the vocabulary of ``inst``'s concept (its type parameters, its
-  operations, and the binders of the members it refines) to ``inst``'s
-  type arguments and to ``lookup``'s terms."""
+  associated types, its operations, and the binders of the members it
+  refines) to ``inst``'s type arguments and to ``lookup``'s types and
+  terms."""
   decl = concept_of(env, inst.concept, loc)
   psub = _param_sub(decl, inst)
   sub: dict[str, Term | Type] = dict(psub)
-  for (m, _) in decl.funs:
+  for m in decl.types + [f for (f, _) in decl.funs]:
     sub[m] = lookup(inst, m)
   for wm in decl.refines.operations():
     sub[wm.binder] = lookup(wm.instance.substitute(psub), wm.member)
@@ -408,8 +420,10 @@ def where_instances(loc: Meta, frm: Formula, base: Proof, models: list[str],
 
 
 def _model_lookup(env: Env, models: Models, loc: Meta) -> MemberLookup:
-  def lookup(inst: ConceptRef, member: str) -> Term:
-    return _member(env, _model_for(models, inst), member, loc)
+  def lookup(inst: ConceptRef, member: str) -> Term | Type:
+    m = _model_for(models, inst)
+    types = _model_types(m)
+    return types[member] if member in types else _member(env, m, member, loc)
   return lookup
 
 
@@ -434,10 +448,10 @@ def _member(env: Env, m: ModelInstance, member: str, loc: Meta) -> Term:
      or m.binding.module == env.get_current_module():
     sub.update({wm.binder: op for (wm, op) in zip(where_ops, ops)})
     return body.substitute(sub)
-  ty = member_type(env, inst, member, loc)
+  ty = member_type(env, inst, member, loc, _model_types(m))
   if not model.type_params:
     return ResolvedVar(loc, ty, define)
-  generic_ty = member_type(env, model.concept, member, loc)
+  generic_ty = member_type(env, model.concept, member, loc, dict(model.types))
   fun = TermInst(loc, FunctionType(loc, [], [op.typeof for op in ops], ty),
                  ResolvedVar(loc, model.definition_type(generic_ty), define),
                  m.type_args, False)
@@ -512,6 +526,14 @@ def check_concept_member(term: ConceptMember, env: Env) -> Term:
   return _member(env, model, found[0], loc)
 
 
+def check_assoc_type(typ: AssocType, env: Env) -> Type:
+  """`@C<τ>.Elem` is the type that the model of ``C<τ>`` in scope gives
+  ``Elem``. Checked types are kept in this normal form (#1321), so they
+  never contain a projection and `==` on them needs no type equations."""
+  ref, models = _qualified(typ.location, typ.ref, typ.models, env)
+  return _model_types(_model_for(models, ref))[typ.name]
+
+
 def well_founded_less(less: ConceptMember, env: Env) -> Term:
   """The `<` that a recfun's measure decreases along (#1308): the
   operation of the model of ``WellFounded<τ>`` in scope. The concept must
@@ -577,9 +599,12 @@ def concept_member_formula(proof: ConceptMemberProof, env: Env) -> Formula:
 
 def process_concept(decl: ConceptDecl, env: Env) -> tuple[ConceptDecl, Env]:
   loc = decl.location
-  if decl.types:
-    user_error(loc, 'associated types are not supported yet (#1321)')
-  body_env = env.declare_type_vars(loc, decl.type_params)
+  for ref in decl.refines.constraints:
+    if set(decl.types) & set().union(*[t.free_vars() for t in ref.type_args]):
+      user_error(ref.location, 'requirements on associated types, such as '
+                 + str(ref) + ', are not supported yet (#1321)')
+  # Inside the concept, its associated types are like type parameters.
+  body_env = env.declare_type_vars(loc, decl.type_params + decl.types)
   refines = check_where(decl.refines, body_env)
   body_env = declare_where_operations(refines, body_env, loc)
   funs = [(f, check_type(t, body_env)) for (f, t) in decl.funs]
@@ -587,7 +612,7 @@ def process_concept(decl: ConceptDecl, env: Env) -> tuple[ConceptDecl, Env]:
   theorems = [(n, check_formula(frm, body_env)) for (n, frm) in decl.theorems]
   new_decl = ConceptDecl(loc, decl.name, decl.type_params, refines, funs,
                          theorems, visibility=decl.visibility,
-                         requires=decl.requires)
+                         types=decl.types, requires=decl.requires)
   return new_decl, env._with_binding(
       decl.name, ConceptBinding(loc, new_decl, module=env.get_current_module(),
                                 visibility=decl.visibility))
@@ -610,7 +635,8 @@ def process_model(model: ModelDecl, env: Env) -> tuple[ModelDecl, Env]:
                         env.declare_type_vars(loc, model.type_params))
   model = ModelDecl(loc, model.name, model.concept, model.funs, model.theorems,
                     visibility=model.visibility, models=model.models,
-                    type_params=model.type_params, where=where)
+                    type_params=model.type_params, where=where,
+                    types=model.types)
   body_env = _model_scope(model, env)
   concept_ref = check_where(WhereClause(loc, [model.concept]),
                             body_env).constraints[0]
@@ -622,18 +648,21 @@ def process_model(model: ModelDecl, env: Env) -> tuple[ModelDecl, Env]:
       user_error(loc, 'the type parameter ' + base_name(p) + ' of the model'
                  + ' must occur in ' + str(concept_ref))
   decl = concept_of(env, concept_ref.concept, loc)
+  types = [(t, check_type(ty, body_env)) for (t, ty) in model.types]
   psub = _param_sub(decl, concept_ref)
   refined = [find_model(body_env, ref.substitute(psub), model.models, loc)
              for ref in decl.refines.constraints]
   funs = []
   for (m, define, body) in model.funs:
-    ty = check_type(dict(decl.funs)[m].substitute(psub), body_env)
-    funs.append((m, define, type_check_term(body, ty, body_env, None, [])))
+    ty = member_type(body_env, concept_ref, m, loc, dict(types))
+    funs.append((m, define, type_check_term(body, check_type(ty, body_env),
+                                            body_env, None, [])))
   new_model = ModelDecl(loc, model.name, concept_ref, funs, model.theorems,
                         visibility=model.visibility, models=model.models,
-                        type_params=model.type_params, where=where)
+                        type_params=model.type_params, where=where,
+                        types=types)
   for (m, define, _) in funs:
-    ty = member_type(body_env, concept_ref, m, loc)
+    ty = member_type(body_env, concept_ref, m, loc, dict(types))
     env = env.declare_term_var(loc, define, new_model.definition_type(ty),
                                visibility=model.visibility)
   return new_model, env._with_binding(
@@ -644,7 +673,7 @@ def process_model(model: ModelDecl, env: Env) -> tuple[ModelDecl, Env]:
 
 def collect_model(model: ModelDecl, env: Env) -> Env:
   for (m, define, body) in model.funs:
-    ty = member_type(env, model.concept, m, model.location)
+    ty = member_type(env, model.concept, m, model.location, dict(model.types))
     env = env.define_term_var(model.location, define,
                               model.definition_type(ty),
                               model.definition(body), model.visibility)

@@ -82,9 +82,11 @@ class ConceptRef(AST):
 @dataclass
 class AssocType(Type):
   """`@C<τ>.Elem`: the associated type ``Elem`` of the instance ``C<τ>``
-  (#1321)."""
+  (#1321). The checker replaces it with the type of the model in scope
+  (recorded in ``models``), so checked types never contain one."""
   ref: ConceptRef
   name: str
+  models: List[str] = field(default_factory=list, kw_only=True)
 
   def __str__(self) -> str:
     return '@' + str(self.ref) + '.' + name2str(self.name)
@@ -103,7 +105,8 @@ class AssocType(Type):
     if not names:
       static_error(self.location, base_name(ref.concept)
                    + ' has no associated type ' + self.name)
-    return AssocType(self.location, ref, names[0])
+    return AssocType(self.location, ref, names[0],
+                     models=env.get(MODELS_KEY, []))
 
 
 @dataclass
@@ -151,6 +154,10 @@ class WhereClause(AST):
     labels: dict[str, list[str]] = {}
     for inst in concept_closure(constraints):
       decl = concept_decls[inst.concept]
+      if decl.types:
+        static_error(self.location, 'where clauses on concepts with associated'
+                     + ' types, such as ' + str(inst)
+                     + ', are not supported yet (#1321)')
       for (m, _) in decl.funs:
         binder = generate_name(m, ctx)
         extend(env, base_name(m), binder, self.location)

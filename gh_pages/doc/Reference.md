@@ -777,9 +777,28 @@ refines, as `add_commute` uses `+`.
 requirement on a type other than the concept's own parameter, as in
 `require Semi<Pair<T, T>>`.
 
-A `type Elem` member declares an associated type, which a model
-defines (`type Elem = UInt`) and which is written `@C<τ>.Elem` outside
-the concept. Associated types are parsed but not yet checked (#1321).
+A `type Elem` member declares an associated type. Inside the concept it
+is used like a type parameter; each model defines it, and outside the
+concept it is written `@C<τ>.Elem`, which stands for the type that the
+model of `C<τ>` in scope gives it:
+
+```
+concept Container<C> {
+  type Elem
+  fun get : fn C -> Elem
+}
+
+model Container<Pair<bool, bool>> {
+  type Elem = bool
+  fun get = fun p:Pair<bool,bool> { first(p) }
+}
+
+define t : @Container<Pair<bool, bool>>.Elem = true
+```
+
+An `opaque` model still exports its associated types. Where clauses on
+concepts with associated types, and `require` on an associated type,
+are not supported yet (#1321).
 
 Concepts, models, and where clauses follow System F<sup>G</sup>
 (Siek and Lumsdaine, *Essential Language Support for Generic

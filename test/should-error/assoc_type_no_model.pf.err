@@ -1,0 +1,1 @@
+./test/should-error/assoc_type_no_model.pf:5.12-5.33: no model of Container<bool> in scope

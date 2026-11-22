@@ -1,7 +1,7 @@
-// Associated types (#1321) parse, but the checker does not support them
-// yet. This file exercises their syntax: `type` and `require` members of
-// a concept, `type` members of a model, the projection `@C<τ>.Elem`, and a
-// same-type constraint.
+// Where clauses on concepts with associated types (#1321) are not
+// supported yet. This file also exercises the syntax of associated types:
+// `type` and `require` members of a concept, `type` members of a model,
+// the projection `@C<τ>.Elem`, and a same-type constraint.
 
 concept Eq<T> {
   fun eq : fn (T, T) -> bool

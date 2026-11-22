@@ -1,0 +1,5 @@
+// A projection needs a model of its concept instance in scope (#1321).
+
+import ConceptContainer
+
+define t : @Container<bool>.Elem = true

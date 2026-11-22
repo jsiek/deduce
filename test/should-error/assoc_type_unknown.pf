@@ -1,0 +1,7 @@
+// A projection must name an associated type of the concept (#1321).
+
+import ConceptContainer
+import ConceptOpaqueContainerModel
+import Pair
+
+define t : @Container<Pair<bool, bool>>.Key = true

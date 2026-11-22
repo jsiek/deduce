@@ -1,0 +1,11 @@
+// A model may only define the associated types of its concept (#1321).
+
+import ConceptContainer
+
+model Container<bool> {
+  type Elem = bool
+  type Key = bool
+  fun get = fun b:bool { b }
+  fun put = fun b:bool { b }
+  theorem get_put = { arbitrary x:bool  . }
+}

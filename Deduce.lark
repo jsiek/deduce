@@ -18,9 +18,11 @@ IDENT: /[^\W\dλ₀₁₂₃₄₅₆₇₈₉]/ /([^\Wλ]|[₀₁₂₃₄₅�
 // priority than the bare `.` DOT) is what lets field access coexist with
 // the proof-terminating `.`: `show F .` keeps `.` as DOT, while `p.f` is one
 // FIELDACCESS token. Used by frame fields, imperative lvalues/postcondition
-// refs, and points-to addresses (#854). The trailing `(?!\.)` keeps the ASCII
-// circ operator `.o.` from being mis-lexed as the field access `.o` + `.`.
-FIELDACCESS.2: "." /[^\W\dλ₀₁₂₃₄₅₆₇₈₉]/ /([^\Wλ]|[₀₁₂₃₄₅₆₇₈₉!?'])*/ /(?!\.)/
+// refs, points-to addresses (#854), and concept members (`@C<τ>.m`,
+// `@C<τ>.Elem`). The `(?!o\.)` keeps the ASCII circ operator `.o.` from
+// being mis-lexed as the field access `.o` + `.`; any other field access may
+// be followed by `.`, as in `all x:@C<τ>.Elem. P` (#1321).
+FIELDACCESS.2: "." /(?!o\.)/ /[^\W\dλ₀₁₂₃₄₅₆₇₈₉]/ /([^\Wλ]|[₀₁₂₃₄₅₆₇₈₉!?'])*/
 // `.operator` names an operator member, as in `@Monoid<T>.operator+` (#1317).
 // It outranks FIELDACCESS, which would otherwise read it as a field named
 // `operator`.

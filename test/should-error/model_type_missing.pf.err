@@ -1,0 +1,1 @@
+./test/should-error/model_type_missing.pf:5.1-9.2: model Container<bool> is missing type Elem

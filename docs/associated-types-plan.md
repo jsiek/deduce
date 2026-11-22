@@ -186,6 +186,11 @@ Each step lands with its fixtures under both parsers.
    parameterized); `member_type` and `axiom` substitution. Fixtures:
    should-validate `assoc_types.pf`; should-error missing `type` member,
    projection with no model, member with the wrong type.
+   Done: a member lookup maps an associated type to the model's type, as
+   it maps an operation to its body. The `FIELDACCESS` token may now be
+   followed by `.` (so `all x:@C<τ>.Elem. P` lexes); only `.o.` is
+   excluded. Where clauses on concepts with associated types and
+   `require` on associated types report "not supported yet".
 3. **Where clauses without equations:** proxies, the expansion's extra
    binders, `intro_where`, `resolve_where` for theorems and functions.
    C back end and a separate-compilation scenario.

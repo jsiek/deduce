@@ -23,6 +23,7 @@ from abstract_syntax.ops import _walk_ast_descendants
 from abstract_syntax import (
     All,
     And,
+    AssocType,
     ConceptMember,
     Array,
     ArrayGet,
@@ -892,6 +893,9 @@ def check_type(typ: TypeExpr, env: Env, arity_required: bool = True) -> TypeExpr
       return ArrayType(loc, check_type(elt_type, env))
     case MutableArrayType(loc, elt_type):
       return MutableArrayType(loc, check_type(elt_type, env))
+    case AssocType():
+      from checker_concepts import check_assoc_type
+      return check_assoc_type(typ, env)
     case OverloadType(loc, overloads):
       # An unresolved overloaded reference (e.g. an overloaded function name
       # not yet narrowed by a call/expected type). Validate each candidate

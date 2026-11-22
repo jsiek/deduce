@@ -1,0 +1,16 @@
+// An opaque model exports its associated types (#1321): here Elem is
+// bool, though `get` and `put` stay folded.
+
+import ConceptContainer
+import ConceptOpaqueContainerModel
+import Pair
+
+define t : @Container<Pair<bool, bool>>.Elem = true
+
+theorem get_put_opaque: all x:bool.
+  @Container<Pair<bool, bool>>.get(@Container<Pair<bool, bool>>.put(x)) = x
+proof
+  @Container<Pair<bool, bool>>.get_put
+end
+
+assert @Container<Pair<bool, bool>>.get(@Container<Pair<bool, bool>>.put(t)) = true
