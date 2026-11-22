@@ -1,0 +1,14 @@
+// Model lookup through parameterized models (#1321) can ask for ever
+// larger instances: a model of Tag<T> needs one of Tag<Pair<T, T>>.
+
+import Pair
+
+concept Tag<T> {
+}
+
+model <T> where { Tag<Pair<T, T>> } Tag<T> {
+}
+
+fun pick<T> where { Tag<T> } (x:T) { x }
+
+assert pick(true)

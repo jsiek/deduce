@@ -1,0 +1,12 @@
+// Every type parameter of a parameterized model (#1321) must occur in
+// its head, or model lookup could not find its type.
+
+import ConceptMonoid
+import Pair
+
+model <T, U> where { Monoid<T> } Monoid<Pair<T, T>> {
+  fun operator+ = fun p:Pair<T,T>, q:Pair<T,T> { p }
+  fun zero = pair(zero, zero)
+  theorem add_zero = sorry
+  theorem zero_add = sorry
+}

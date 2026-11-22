@@ -1,0 +1,11 @@
+// An opaque parameterized model's operations (#1321) stay folded outside
+// its module, so its zero does not evaluate to a pair here.
+
+import ConceptBoolModel
+import ConceptOpaquePairModel
+import Pair
+
+theorem nope: @Monoid<Pair<bool, bool>>.zero = pair(false, false)
+proof
+  evaluate
+end

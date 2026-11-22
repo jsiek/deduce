@@ -1,0 +1,1 @@
+./test/should-error/param_model_ambiguous.pf:17.8-17.33: more than one model of Monoid<Pair<bool,bool>> in scope

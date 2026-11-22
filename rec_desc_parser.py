@@ -28,7 +28,7 @@ from abstract_syntax import (
     RuleInversion, SepConj, SimplifyFact, SimplifyGoal, Some, SomeElim, SomeIntro,
     Statement, Suffices, Switch, SwitchCase, SwitchProof, SwitchProofCase,
     TAnnote, TLet, Term, TermInst,
-    Theorem, Trace, Type, TypeAlias, TypeInst, TypeType, Union, Var, ViewDecl, ConceptDecl, ConceptMember, ConceptMemberProof, ConceptRef, ModelDecl, WhereClause,
+    Theorem, Trace, Type, TypeAlias, TypeInst, TypeType, Union, Var, ViewDecl, ConceptDecl, ConceptMember, ConceptMemberProof, ConceptRef, ModelDecl, PModel, WhereClause,
     build_equations_proof, list_of_and, list_of_or, extract_tuple,
     listToNodeList, mkIntLit, mkLitNat, mkUIntLit, remove_mark,
 )
@@ -1177,6 +1177,10 @@ def parse_proof_statement() -> tuple[Proof | None, bool]:
   elif token.type == 'DEFINE':
     return parse_define_proof_stmt(), False
 
+  elif token.type == 'MODEL':
+    model = parse_model_decl("public")
+    return PModel(model.location, model, None), False
+
   elif token.type == 'INJECTIVE':
     advance()
     constr = parse_term()
@@ -1699,11 +1703,18 @@ def parse_concept_decl(visibility: str) -> Statement:
     return ConceptDecl(meta, name, type_params, WhereClause(meta, refines),
                        funs, theorems, visibility=visibility)
 
-def parse_model_decl(visibility: str) -> Statement:
+def parse_model_decl(visibility: str) -> ModelDecl:
   while_parsing = 'while parsing\n' \
-      + '\tstatement ::= "model" identifier "<" type_list ">" "{" model_member* "}"\n'
+      + '\tstatement ::= "model" [ "<" identifier_list ">" [ where_clause ] ] identifier "<" type_list ">" "{" model_member* "}"\n'
   with parse_region(while_parsing) as start_token:
     advance()
+    type_params: list[str] = []
+    where = None
+    if current_token().type == 'LESSTHAN':
+      advance()
+      type_params = parse_ident_list()
+      consume_token('MORETHAN', '">"', context='after type parameters of a model')
+      where = parse_where_clause_opt()
     concept = parse_concept_ref()
     consume_token('LBRACE', '"{"', context='after model head')
     funs: list[tuple[str, str, Term]] = []
@@ -1725,7 +1736,8 @@ def parse_model_decl(visibility: str) -> Statement:
                          + current_token().value)
     consume_token('RBRACE', '"}"', context='after model members')
     return ModelDecl(meta_from_tokens(start_token, previous_token()), 'model',
-                     concept, funs, theorems, visibility=visibility)
+                     concept, funs, theorems, visibility=visibility,
+                     type_params=type_params, where=where)
 
 def parse_view_decl(visibility: str) -> Statement:
   while_parsing = 'while parsing\n' \

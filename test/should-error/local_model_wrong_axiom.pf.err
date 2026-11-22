@@ -1,0 +1,2 @@
+./test/should-error/local_model_wrong_axiom.pf:11.44-11.52: the goal did not evaluate to `true`, but instead:
+	false = x

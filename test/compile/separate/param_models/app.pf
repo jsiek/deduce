@@ -1,0 +1,8 @@
+import monoid
+import boolor
+import pairs
+
+print msum(cons(mk(true, false), cons(mk(false, false), nil)))
+print msum(@nil<P<bool>>)
+print msum(cons(mk(mk(false, true), mk(false, false)),
+                cons(mk(mk(true, false), mk(false, false)), nil)))

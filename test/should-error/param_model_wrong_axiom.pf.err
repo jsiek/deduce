@@ -1,0 +1,5 @@
+./test/should-error/param_model_wrong_axiom.pf:18.28-18.29: 
+You provided a proof of:
+	true
+but that is different from what you need to prove:
+	pair(a, zero) = pair(a, b)

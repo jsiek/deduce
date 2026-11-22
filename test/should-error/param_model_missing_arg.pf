@@ -1,0 +1,10 @@
+// A parameterized model (#1321) needs models of its where clause's
+// concepts where it is used: there is no model of Monoid<UInt>.
+
+import ConceptMonoidSum
+import ConceptOpaquePairModel
+import List
+import Pair
+import UInt
+
+assert msum([pair(1, 2)]) = pair(1, 2)

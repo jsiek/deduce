@@ -1,0 +1,20 @@
+module pairs
+
+// An opaque parameterized model (#1321): each operation compiles to a
+// function, defined here, from the operations of Monoid<T> to the
+// operation of Monoid<P<T>>. Other modules call it with their models.
+
+import monoid
+
+opaque model <T> where { Monoid<T> } Monoid<P<T>> {
+  fun operator+ = fun p:P<T>, q:P<T> {
+    switch p {
+      case mk(a, b) {
+        switch q {
+          case mk(c, d) { mk(a + c, b + d) }
+        }
+      }
+    }
+  }
+  fun zero = mk(zero, zero)
+}

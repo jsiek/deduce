@@ -1,0 +1,2 @@
+./test/should-error/param_model_opaque.pf:10.3-10.11: the goal did not evaluate to `true`, but instead:
+	@zero<bool>(fun a:bool,b:bool { a or b }, false) = pair(false, false)

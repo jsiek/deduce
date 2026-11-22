@@ -1,0 +1,18 @@
+module monoid
+
+// A concept and a where function, compiled in their own module (#1321
+// scenario): callers pass the operations of the models in their scope.
+
+union L<T> { nil  cons(T, L<T>) }
+
+union P<T> { mk(T, T) }
+
+concept Monoid<T> {
+  fun operator+ : fn (T, T) -> T
+  fun zero : T
+}
+
+recursive msum<T> where { Monoid<T> } (L<T>) -> T {
+  msum(nil) = zero
+  msum(cons(x, xs)) = x + msum(xs)
+}

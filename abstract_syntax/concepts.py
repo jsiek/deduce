@@ -29,6 +29,7 @@ Does NOT go here:
 
 from __future__ import annotations
 
+import textwrap
 from dataclasses import dataclass, field
 
 from .core import *
@@ -331,9 +332,42 @@ class ModelDecl(Declaration):
   # uniquify: the models of the refined concepts come from here (F^G's
   # MDL rule).
   models: List[str] = field(default_factory=list, kw_only=True)
+  # A parameterized model (#1321), `model <T> where { C<T> } D<F<T>>`,
+  # models a family of instances. Its operations' bodies are in the scope
+  # of its type parameters and of its where clause's binders.
+  type_params: List[str] = field(default_factory=list, kw_only=True)
+  where: Optional[WhereClause] = field(default=None, kw_only=True)
+
+  def head(self) -> str:
+    params = ('<' + ', '.join(name2str(p) for p in self.type_params) + '> '
+              if self.type_params else '')
+    where = str(self.where) + ' ' if self.where else ''
+    return 'model ' + params + where + str(self.concept)
+
+  def definition(self, body: Term) -> Term:
+    """The hidden definition of an operation whose body is ``body``. For
+    a parameterized model it is generic over the type parameters and
+    takes the operations of the where clause (F^G's function from
+    dictionaries to a dictionary)."""
+    if not self.type_params:
+      return body
+    loc = self.location
+    ty = cast(Type, body.typeof)
+    params = where_params(self.where) if self.where else []
+    fun = Lambda(loc, FunctionType(loc, [], [t for (_, t) in params], ty),
+                 cast(Any, params), body)
+    return Generic(loc, self.definition_type(ty), self.type_params, fun)
+
+  def definition_type(self, ty: Type) -> Type:
+    """The type of the hidden definition of an operation of type ``ty``."""
+    if not self.type_params:
+      return ty
+    params = where_params(self.where) if self.where else []
+    return FunctionType(self.location, self.type_params,
+                        [t for (_, t) in params], ty)
 
   def __str__(self) -> str:
-    lines = [self.visibility_prefix() + 'model ' + str(self.concept) + ' {']
+    lines = [self.visibility_prefix() + self.head() + ' {']
     lines += ['  fun ' + member_str(m) + ' = ' + str(body)
               for (m, _, body) in self.funs]
     lines += ['  theorem ' + name2str(m) + ' = ' + str(pf)
@@ -341,7 +375,7 @@ class ModelDecl(Declaration):
     return '\n'.join(lines) + '\n}\n'
 
   def opaque_signature(self) -> str | None:
-    return 'opaque model ' + str(self.concept) + '\n'
+    return 'opaque ' + self.head() + '\n'
 
   def print_theorems_statement(self, f: TextIO) -> None:
     # A model's interface is its operations; its proofs are not.
@@ -350,7 +384,7 @@ class ModelDecl(Declaration):
     if self.visibility == 'opaque':
       print(self.opaque_signature(), file=f)
       return
-    print('model ' + str(self.concept) + ' {\n'
+    print(self.head() + ' {\n'
           + ''.join('  fun ' + member_str(m) + ' = ' + str(body) + '\n'
                     for (m, _, body) in self.funs)
           + '}\n', file=f)
@@ -358,7 +392,12 @@ class ModelDecl(Declaration):
   def uniquify(self, env: object, ctx: object) -> ModelDecl:
     env = cast(UniquifyEnv, env)
     ctx = cast(UniquifyContext, ctx)
-    concept = self.concept.uniquify(env, ctx)
+    # A parameterized model's members are in the scope of its type
+    # parameters and its where clause (#1321).
+    body_env, type_params = uniquify_type_params(
+        env, self.type_params, ctx, self.location, overwrite)
+    where = self.where.bind(body_env, ctx) if self.where else None
+    concept = self.concept.uniquify(body_env, ctx)
     decl = concept_decls[concept.concept]
     given_funs = {f: body for (f, _, body) in self.funs}
     given_thms = {n: pf for (n, pf) in self.theorems}
@@ -372,20 +411,21 @@ class ModelDecl(Declaration):
       body = given_funs.get(base_name(m)) \
           or Var(self.location, None, base_name(m))
       funs.append((m, generate_name(base_name(m), ctx),
-                   body.uniquify(env, ctx)))
+                   body.uniquify(body_env, ctx)))
     theorems = []
     for (m, _) in decl.theorems:
       pf = given_thms.get(base_name(m))
       if pf is None:
         static_error(self.location, 'model ' + str(self.concept)
                      + ' is missing theorem ' + base_name(m))
-      theorems.append((m, pf.uniquify(env, ctx)))
+      theorems.append((m, pf.uniquify(body_env, ctx)))
     models = list(env.get(MODELS_KEY, []))
     new_name = generate_name('model', ctx)
     # A new list, not an append: environments are copied shallowly.
     env[MODELS_KEY] = models + [new_name]
     return ModelDecl(self.location, new_name, concept, funs, theorems,
-                     visibility=self.visibility, models=models)
+                     visibility=self.visibility, models=models,
+                     type_params=type_params, where=where)
 
   def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
     # A model has no name; it is exported into the scope of models,
@@ -393,6 +433,27 @@ class ModelDecl(Declaration):
     in_scope = export_env.get(MODELS_KEY, [])
     if not self._skip_export(importing_module) and self.name not in in_scope:
       export_env[MODELS_KEY] = in_scope + [self.name]
+
+
+@dataclass
+class PModel(Proof):
+  """A `model` statement inside a proof (#1321): the model is in scope
+  for the rest of the proof, where it wins over outer models of the same
+  concept instance."""
+  model: ModelDecl
+  body: Proof
+
+  def pretty_print(self, indent: int) -> str:
+    return textwrap.indent(str(self.model), indent*' ') \
+        + self.body.pretty_print(indent)
+
+  def __str__(self) -> str:
+    return str(self.model) + str(self.body)
+
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> PModel:
+    body_env = dict(env)
+    model = self.model.uniquify(body_env, ctx)
+    return PModel(self.location, model, self.body.uniquify(body_env, ctx))
 
 
 @dataclass
@@ -406,11 +467,31 @@ class ConceptBinding(Binding):
 
 @dataclass
 class ModelBinding(Binding):
-  # The type-checked model, and the unique names of the models it uses
-  # for the concepts its concept refines (fixed where the model is
-  # declared, as in F^G's (MDL) rule).
+  # The type-checked model, and the models it uses for the concepts its
+  # concept refines (fixed where the model is declared, as in F^G's
+  # (MDL) rule).
   model: ModelDecl
-  refined: List[str]
+  refined: List["ModelInstance"]
 
   def __str__(self) -> str:
-    return 'model ' + str(self.model.concept)
+    return self.model.head()
+
+
+@dataclass
+class ModelInstance:
+  """A model used at a concept instance: the model and, for a
+  parameterized model (#1321), its type arguments and the models of its
+  where clause's instances, found where it is used."""
+  binding: ModelBinding
+  type_args: List[Type] = field(default_factory=list)
+  args: List[Tuple[ConceptRef, "ModelInstance"]] = field(default_factory=list)
+
+  def key(self) -> str:
+    """The instance's identity: two refinement paths to a concept
+    instance must reach the same one."""
+    key = self.binding.model.name
+    if self.type_args:
+      key += '<' + ', '.join(str(t) for t in self.type_args) + '>'
+    if self.args:
+      key += '{' + ', '.join(m.key() for (_, m) in self.args) + '}'
+    return key

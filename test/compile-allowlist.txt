@@ -39,9 +39,12 @@ test/should-validate/int1.pf
 test/should-validate/int_arith.pf
 test/should-validate/list1.pf
 test/should-validate/list2.pf
+test/should-validate/local_models.pf
 test/should-validate/mark1.pf
 test/should-validate/nat_arith.pf
 test/should-validate/nat_literals.pf
+test/should-validate/parameterized_models.pf
+test/should-validate/parameterized_models_opaque.pf
 test/should-validate/simplify1.pf
 test/should-validate/theorem_and.pf
 test/should-validate/theorem_or.pf

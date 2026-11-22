@@ -2178,8 +2178,8 @@ def _check_proofs(stmt: Statement, env: Env) -> None:
       pass
 
     case ModelDecl():
-      for (pf, frm) in model_obligations(stmt, env):
-        _try_check_proof_of(pf, frm, env)
+      for (pf, frm, thm_env) in model_obligations(stmt, env):
+        _try_check_proof_of(pf, frm, thm_env)
 
     case Predicate():
       pass

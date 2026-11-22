@@ -1,0 +1,32 @@
+module ConceptOpaquePairModel
+
+// An opaque parameterized model (#1321): clients get its axioms at each
+// instance, but its operations stay folded outside this module.
+
+public import ConceptMonoid
+import Pair
+
+opaque model <T> where { Monoid<T> } Monoid<Pair<T, T>> {
+  fun operator+ = fun p:Pair<T,T>, q:Pair<T,T> {
+    pair(first(p) + first(q), second(p) + second(q))
+  }
+  fun zero = pair(zero, zero)
+  theorem add_zero = {
+    arbitrary p:Pair<T,T>
+    switch p {
+      case pair(a, b) {
+        expand first | second
+        replace add_zero[a] | add_zero[b].
+      }
+    }
+  }
+  theorem zero_add = {
+    arbitrary p:Pair<T,T>
+    switch p {
+      case pair(a, b) {
+        expand first | second
+        replace zero_add[a] | zero_add[b].
+      }
+    }
+  }
+}

@@ -328,6 +328,7 @@ operator_name: OPERATOR -> identifier
     | "assume" ":" term                             -> imp_intro_anon
     | "choose" term_list                            -> some_intro
     | "define" IDENT "=" term                       -> define_term_proof
+    | "model" model_head "{" model_member_list "}"   -> model_proof
     | "expand" identifier_list_bar                       -> expand
     | "replace" proof_list                          -> rewrite_goal
     | "show" term                                   -> annot_stmt
@@ -545,7 +546,7 @@ imp_block: "{" imp_stmt_list "}"                   -> imp_block
  | visibility "resource" identifier type_params_opt "(" proc_param_list ")" resource_body_opt -> resource_decl
  | visibility "view" IDENT type_params_opt "{" "source" type "target" type "into" identifier "out" identifier "roundtrip" identifier view_inverse_opt "}" -> view_declaration
  | visibility "concept" IDENT "<" identifier_list ">" "{" concept_member_list "}" -> concept_declaration
- | visibility "model" concept_ref "{" model_member_list "}" -> model_declaration
+ | visibility "model" model_head "{" model_member_list "}" -> model_declaration
  | definition
  | "associative" identifier type_params_opt "in" type -> associative_declaration
  | "auto" atomic_proof -> auto_declaration
@@ -570,6 +571,10 @@ concept_ref: IDENT "<" type_list ">"
 concept_member: "refines" concept_ref                   -> concept_refines
     | "fun" identifier ":" type                         -> concept_fun
     | "theorem" IDENT ":" term                          -> concept_theorem
+
+model_head: concept_ref                                 -> model_head
+    | "<" identifier_list ">" concept_ref               -> model_head_params
+    | "<" identifier_list ">" "where" "{" concept_ref_list "}" concept_ref -> model_head_where
 
 ?model_member_list:                                     -> empty
     | model_member model_member_list                    -> push

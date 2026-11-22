@@ -1,0 +1,1 @@
+./test/should-error/param_model_unused_param.pf:7.1-12.2: the type parameter U of the model must occur in Monoid<Pair<T,T>>

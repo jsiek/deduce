@@ -1,0 +1,2 @@
+./test/should-error/param_model_loop.pf:14.8-14.18: gave up looking for models: the where clauses of parameterized models keep needing more models
+(needed by model <T> where { Tag<Pair<T,T>> } Tag<T> for Tag<bool>)

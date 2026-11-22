@@ -228,7 +228,7 @@ def _flatten_imports(
             record_imported_define(s.name, s.body)
         elif isinstance(s, ast.ModelDecl):
             for (_m, define, body) in s.funs:
-                record_imported_define(define, body)
+                record_imported_define(define, s.definition(body))
         elif isinstance(s, ast.RecFun):
             import_funcs[s.name] = len(s.params)
         elif isinstance(s, ast.GenRecFun):
@@ -341,7 +341,7 @@ class LoweringCtx:
                    and self._resolve(alias) in self.postulated_funs:
                     self.postulated_funs.add(define)
                 else:
-                    defs.append(self.lower_define(define, body, s.location,
+                    defs.append(self.lower_define(define, s.definition(body), s.location,
                                                   module))
             return defs
         if isinstance(s, ast.Import):

@@ -1,0 +1,139 @@
+// Parameterized models (#1321): a model for a family of types, with its
+// own where clause. Pairs of a monoid form a monoid, componentwise.
+
+import ConceptMonoidSum
+import ConceptBoolModel
+import List
+import Pair
+
+model <T> where { Monoid<T> } Monoid<Pair<T, T>> {
+  fun operator+ = fun p:Pair<T,T>, q:Pair<T,T> {
+    pair(first(p) + first(q), second(p) + second(q))
+  }
+  fun zero = pair(zero, zero)
+  theorem add_zero = {
+    arbitrary p:Pair<T,T>
+    switch p {
+      case pair(a, b) {
+        expand first | second
+        replace add_zero[a] | add_zero[b].
+      }
+    }
+  }
+  theorem zero_add = {
+    arbitrary p:Pair<T,T>
+    switch p {
+      case pair(a, b) {
+        expand first | second
+        replace zero_add[a] | zero_add[b].
+      }
+    }
+  }
+}
+
+// Model lookup for Monoid<Pair<bool, bool>> uses the model of Monoid<bool>.
+assert msum([pair(true, false), pair(false, false)]) = pair(true, false)
+assert @Monoid<Pair<bool, bool>>.zero = pair(false, false)
+
+theorem pair_single: all p:Pair<bool, bool>. msum([p]) = p
+proof
+  msum_single<Pair<bool, bool>>
+end
+
+// Instances nest: Monoid<Pair<Pair<bool, bool>, Pair<bool, bool>>>.
+assert msum([pair(pair(true, false), pair(false, false)),
+             pair(pair(false, false), pair(false, true))])
+     = pair(pair(true, false), pair(false, true))
+
+// Inside a where clause, the clause's model is the argument model.
+theorem pair_single_generic: all T:type where { Monoid<T> }. all x:T, y:T.
+  msum([pair(x, y)]) = pair(x, y)
+proof
+  arbitrary T:type where { Monoid<T> }
+  arbitrary x:T, y:T
+  msum_single<Pair<T, T>>[pair(x, y)]
+end
+
+// Refinement: the model of Comm<Pair<T, T>> uses the model of
+// Monoid<Pair<T, T>> above, at the Monoid<T> of its where clause.
+concept Comm<T> {
+  refines Monoid<T>
+  theorem add_commute: all x:T, y:T. x + y = y + x
+}
+
+theorem comm_zero: all T:type where { Comm<T> }. all a:T. zero + a = a + zero
+proof
+  arbitrary T:type where { Comm<T> }
+  arbitrary a:T
+  add_commute[zero, a]
+end
+
+theorem bor_commute: all x:bool, y:bool. bor(x, y) = bor(y, x)
+proof
+  arbitrary x:bool, y:bool
+  switch x {
+    case true { switch y { case true { evaluate } case false { evaluate } } }
+    case false { switch y { case true { evaluate } case false { evaluate } } }
+  }
+end
+
+model Comm<bool> {
+  theorem add_commute = bor_commute
+}
+
+model <T> where { Comm<T> } Comm<Pair<T, T>> {
+  theorem add_commute = {
+    arbitrary p:Pair<T,T>, q:Pair<T,T>
+    switch p {
+      case pair(a, b) {
+        switch q {
+          case pair(c, d) {
+            expand first | second
+            replace add_commute[a, c] | add_commute[b, d].
+          }
+        }
+      }
+    }
+  }
+}
+
+theorem pair_comm_zero: all p:Pair<bool, bool>.
+  @Monoid<Pair<bool, bool>>.operator+(@Monoid<Pair<bool, bool>>.zero, p)
+  = @Monoid<Pair<bool, bool>>.operator+(p, @Monoid<Pair<bool, bool>>.zero)
+proof
+  comm_zero<Pair<bool, bool>>
+end
+
+// A local parameterized model wins over the top-level one.
+theorem flipped: true
+proof
+  model <T> where { Monoid<T> } Monoid<Pair<T, T>> {
+    fun operator+ = fun p:Pair<T,T>, q:Pair<T,T> {
+      pair(first(p) + first(q), second(q) + second(p))
+    }
+    fun zero = pair(zero, zero)
+    theorem add_zero = {
+      arbitrary p:Pair<T,T>
+      switch p {
+        case pair(a, b) {
+          expand first | second
+          replace add_zero[a] | zero_add[b].
+        }
+      }
+    }
+    theorem zero_add = {
+      arbitrary p:Pair<T,T>
+      switch p {
+        case pair(a, b) {
+          expand first | second
+          replace zero_add[a] | add_zero[b].
+        }
+      }
+    }
+  }
+  have flipped_plus: all x:Pair<bool,bool>, y:Pair<bool,bool>.
+    @Monoid<Pair<bool,bool>>.operator+(x, y)
+    = pair(bor(first(x), first(y)), bor(second(y), second(x)))
+    by { arbitrary x:Pair<bool,bool>, y:Pair<bool,bool>  . }
+  .
+end
