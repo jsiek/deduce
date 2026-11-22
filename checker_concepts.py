@@ -118,10 +118,14 @@ def _premise(env: Env, where: WhereClause, lookup: MemberLookup,
 
 
 def _binder_lookup(env: Env, where: WhereClause, loc: Meta) -> MemberLookup:
-  def lookup(inst: ConceptRef, member: str) -> Term:
+  def lookup(inst: ConceptRef, member: str) -> Term | Type:
+    types = where.assoc_types(inst)
+    if member in types:
+      return types[member]
     for wm in where.operations():
       if wm.instance == inst and wm.member == member:
-        return ResolvedVar(loc, member_type(env, inst, member, loc), wm.binder)
+        return ResolvedVar(loc, member_type(env, inst, member, loc, types),
+                           wm.binder)
     user_error(loc, 'no binder for ' + base_name(member) + ' of ' + str(inst))
   return lookup
 
@@ -141,12 +145,22 @@ def check_where(where: WhereClause, env: Env) -> WhereClause:
                      [WhereMember(check_ref(wm.instance), wm.member,
                                   wm.binder, wm.is_theorem)
                       for wm in where.members],
-                     where.expanded)
+                     where.expanded,
+                     assoc=[(check_ref(i), t, p) for (i, t, p) in where.assoc])
+
+
+def _binder_type(env: Env, where: WhereClause, wm: WhereMember,
+                 loc: Meta) -> Type:
+  return member_type(env, wm.instance, wm.member, loc,
+                     where.assoc_types(wm.instance))
 
 
 def declare_where_operations(where: WhereClause, env: Env, loc: Meta) -> Env:
+  """The proxies of the where clause's associated types, as type
+  variables, and the binders of its operations."""
+  env = env.declare_type_vars(loc, where.proxies())
   return env.declare_term_vars(
-      loc, [(wm.binder, member_type(env, wm.instance, wm.member, loc))
+      loc, [(wm.binder, _binder_type(env, where, wm, loc))
             for wm in where.operations()])
 
 
@@ -170,23 +184,26 @@ def check_where_all(frm: All, env: Env,
   if premise is not None:
     body = IfThen(loc, BoolType(loc), premise, body)
   for wm in reversed(where.operations()):
-    body = All(loc, BoolType(loc),
-               (wm.binder, member_type(body_env, wm.instance, wm.member, loc)),
+    body = All(loc, BoolType(loc), (wm.binder, _binder_type(body_env, where, wm, loc)),
                (0, 1), body)
+  for p in reversed(where.proxies()):
+    body = All(loc, BoolType(loc), (p, TypeType(loc)), (0, 1), body)
   where.expanded = True
   return All(loc, BoolType(loc), (x, new_ty), frm.pos, body, where=where)
 
 
 def _strip_operations(loc: Meta, frm: Formula, where: WhereClause,
                       lookup: MemberLookup) -> Formula:
-  """Instantiate the ``all ops`` of an expanded where formula's body with
-  ``lookup``'s terms."""
+  """Instantiate the ``all`` binders of an expanded where formula's body,
+  for its associated types and operations, with ``lookup``'s types and
+  terms."""
   sub = {}
-  for wm in where.operations():
-    if not isinstance(frm, All) or frm.var[0] != wm.binder:
+  for (inst, member, binder) in [(i, t, p) for (i, t, p) in where.assoc] \
+      + [(wm.instance, wm.member, wm.binder) for wm in where.operations()]:
+    if not isinstance(frm, All) or frm.var[0] != binder:
       user_error(loc, 'expected the operations of the where clause, not\n\t'
                  + str(frm))
-    sub[wm.binder] = lookup(wm.instance, wm.member)
+    sub[binder] = lookup(inst, member)
     frm = frm.body
   return frm.substitute(sub)
 
@@ -252,10 +269,11 @@ def add_where_models(loc: Meta, where: WhereClause, env: Env) -> Env:
   bindings: dict[str, ModelBinding] = {}
   for inst in insts:
     funs = [(wm.member, wm.binder,
-             ResolvedVar(loc, member_type(env, inst, wm.member, loc), wm.binder))
+             ResolvedVar(loc, _binder_type(env, where, wm, loc), wm.binder))
             for wm in where.operations() if wm.instance == inst]
     model = ModelDecl(loc, _where_prefix(loc) + str(inst), inst,
-                      cast(list[tuple[str, str, Term]], funs), [])
+                      cast(list[tuple[str, str, Term]], funs), [],
+                      types=list(where.assoc_types(inst).items()))
     bindings[str(inst)] = ModelBinding(loc, model, [],
                                        module=env.get_current_module())
   for inst in insts:

@@ -194,6 +194,15 @@ Each step lands with its fixtures under both parsers.
 3. **Where clauses without equations:** proxies, the expansion's extra
    binders, `intro_where`, `resolve_where` for theorems and functions.
    C back end and a separate-compilation scenario.
+   Done for theorems: `WhereClause.assoc` records a proxy per associated
+   type (created by `bind`); the proxy where-models give them as their
+   `type` members, so `@C<T>.Elem` resolves to the proxy; the expansion
+   binds the proxies first and `_strip_operations` instantiates them with
+   the models' types. Still to do, and rejected for now: where clauses of
+   functions and parameterized models (`where_params`; the proxies must
+   become extra type parameters of the `FunctionType`, matched at calls
+   and filled from the models), and refining a concept with associated
+   types.
 4. **Same-type constraints:** the union-find with unification and
    congruence, the nested-scope rule, and the instantiation check. Fixtures:
    the `same_first` example, the inconsistent and occurs-check errors, the

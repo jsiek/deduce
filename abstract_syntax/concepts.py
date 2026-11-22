@@ -131,6 +131,12 @@ class WhereClause(AST):
   expanded: bool = False
   # The same-type constraints `σ = τ` (#1321).
   equations: List[Tuple[Type, Type]] = field(default_factory=list, kw_only=True)
+  # For each associated type of each instance of the refinement closure,
+  # (instance, associated type, proxy): the proxy is the type variable
+  # that stands for the associated type in the clause's scope (F^G §5:
+  # associated types become extra type parameters). Filled in by `bind`.
+  assoc: List[Tuple[ConceptRef, str, str]] = field(default_factory=list,
+                                                   kw_only=True)
 
   def __str__(self) -> str:
     return 'where { ' + ', '.join([str(c) for c in self.constraints]
@@ -152,12 +158,11 @@ class WhereClause(AST):
     constraints = [c.uniquify(env, ctx) for c in self.constraints]
     members = []
     labels: dict[str, list[str]] = {}
+    assoc = []
     for inst in concept_closure(constraints):
       decl = concept_decls[inst.concept]
-      if decl.types:
-        static_error(self.location, 'where clauses on concepts with associated'
-                     + ' types, such as ' + str(inst)
-                     + ', are not supported yet (#1321)')
+      for t in decl.types:
+        assoc.append((inst, t, generate_name(base_name(t), ctx)))
       for (m, _) in decl.funs:
         binder = generate_name(m, ctx)
         extend(env, base_name(m), binder, self.location)
@@ -186,7 +191,7 @@ class WhereClause(AST):
     equations = [(s.uniquify(env, ctx), t.uniquify(env, ctx))
                  for (s, t) in self.equations]
     return WhereClause(self.location, constraints, members,
-                       equations=equations)
+                       equations=equations, assoc=assoc)
 
   def substitute(self, sub: Mapping[str, Term | Type | RecFun | GenRecFun]) -> WhereClause:
     return WhereClause(self.location,
@@ -196,7 +201,17 @@ class WhereClause(AST):
                         for m in self.members],
                        self.expanded,
                        equations=[(s.substitute(sub), t.substitute(sub))
-                                  for (s, t) in self.equations])
+                                  for (s, t) in self.equations],
+                       assoc=[(i.substitute(sub), t, p)
+                              for (i, t, p) in self.assoc])
+
+  def proxies(self) -> List[str]:
+    return [p for (_, _, p) in self.assoc]
+
+  def assoc_types(self, inst: ConceptRef) -> dict[str, Type]:
+    """The proxies of the associated types of ``inst``."""
+    return {t: cast(Type, ResolvedVar(self.location, None, p))
+            for (i, t, p) in self.assoc if i == inst}
 
   def operations(self) -> List[WhereMember]:
     return [m for m in self.members if not m.is_theorem]
@@ -212,7 +227,7 @@ def where_body(frm: All) -> Formula:
   body = frm.body
   if frm.where is None or not frm.where.expanded:
     return body
-  for _ in frm.where.operations():
+  for _ in frm.where.proxies() + frm.where.operations():
     if not isinstance(body, All):
       return body
     body = body.body
@@ -292,6 +307,11 @@ def where_params(where: WhereClause) -> List[Tuple[str, Type]]:
   (#1282): the binders of its operations, with their types. They are the
   dictionary of F^G's translation of ``Λt̄ where c̄. e``; a type
   application passes the models' operations for them."""
+  if where.assoc:
+    static_error(where.location, 'where clauses of functions and of'
+                 + ' parameterized models on concepts with associated types,'
+                 + ' such as ' + str(where.assoc[0][0])
+                 + ', are not supported yet (#1321)')
   params = []
   for wm in where.operations():
     decl = concept_decls[wm.instance.concept]
@@ -359,6 +379,10 @@ class ConceptDecl(Declaration):
         body_env, self.types, ctx, self.location, overwrite)
     requires = [r.uniquify(body_env, ctx) for r in self.requires]
     refines = self.refines.bind(body_env, ctx)
+    if refines.assoc:
+      static_error(self.location, 'refining a concept with associated types,'
+                   + ' such as ' + str(refines.assoc[0][0])
+                   + ', is not supported yet (#1321)')
     funs = []
     for (f, t) in self.funs:
       new_f = generate_name(f, ctx)

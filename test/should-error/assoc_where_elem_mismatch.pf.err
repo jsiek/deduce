@@ -1,0 +1,2 @@
+./test/should-error/assoc_where_elem_mismatch.pf:6.66-6.67: expected a term of type Elem
+but got term c of type C

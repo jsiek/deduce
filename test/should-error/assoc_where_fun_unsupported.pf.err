@@ -1,0 +1,1 @@
+./test/should-error/assoc_where_fun_unsupported.pf:6.19-6.41: where clauses of functions and of parameterized models on concepts with associated types, such as Container<C>, are not supported yet (#1321)

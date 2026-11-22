@@ -796,9 +796,21 @@ model Container<Pair<bool, bool>> {
 define t : @Container<Pair<bool, bool>>.Elem = true
 ```
 
-An `opaque` model still exports its associated types. Where clauses on
-concepts with associated types, and `require` on an associated type,
-are not supported yet (#1321).
+An `opaque` model still exports its associated types.
+
+In the scope of a where clause, an associated type is a type variable
+of its own: in
+
+```
+theorem get_put_twice: all C:type where { Container<C> }.
+  all x:@Container<C>.Elem. get(put(get(put(x)))) = x
+```
+
+`@Container<C>.Elem` is a type that nothing more is known about, and
+using the theorem at `Pair<bool, bool>` makes it `bool`. Where clauses
+of functions and of parameterized models on such concepts, refining
+such a concept, and `require` on an associated type are not supported
+yet (#1321).
 
 Concepts, models, and where clauses follow System F<sup>G</sup>
 (Siek and Lumsdaine, *Essential Language Support for Generic

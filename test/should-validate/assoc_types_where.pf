@@ -1,0 +1,43 @@
+// Where clauses on concepts with associated types (#1321): inside the
+// where clause, `@Container<C>.Elem` is a type variable (the clause's
+// proxy); a use at a model takes the model's type.
+
+import ConceptContainer
+import ConceptOpaqueContainerModel
+import Pair
+
+theorem get_put_twice: all C:type where { Container<C> }.
+  all x:@Container<C>.Elem. get(put(get(put(x)))) = x
+proof
+  arbitrary C:type where { Container<C> }
+  arbitrary x:@Container<C>.Elem
+  have once: get(put(x)) = x by get_put[x]
+  replace once | once.
+end
+
+// At the opaque model, Elem is bool.
+theorem get_put_twice_pair: all b:bool.
+  @Container<Pair<bool,bool>>.get(@Container<Pair<bool,bool>>.put(
+    @Container<Pair<bool,bool>>.get(@Container<Pair<bool,bool>>.put(b)))) = b
+proof
+  get_put_twice<Pair<bool,bool>>
+end
+
+// Implicit instantiation: `replace` finds C from the models in scope.
+theorem get_put_twice_implicit: all b:bool.
+  @Container<Pair<bool,bool>>.get(@Container<Pair<bool,bool>>.put(
+    @Container<Pair<bool,bool>>.get(@Container<Pair<bool,bool>>.put(b)))) = b
+proof
+  arbitrary b:bool
+  replace get_put_twice.
+end
+
+// A where clause naming two instances has a proxy for each.
+theorem two: all C:type, D:type where { Container<C>, Container<D> }.
+  all x:@Container<C>.Elem, y:@Container<D>.Elem.
+  get(put(x)) = x and get(put(y)) = y
+proof
+  arbitrary C:type, D:type where { Container<C>, Container<D> }
+  arbitrary x:@Container<C>.Elem, y:@Container<D>.Elem
+  get_put[x], get_put[y]
+end

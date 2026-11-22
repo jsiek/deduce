@@ -1,0 +1,9 @@
+// Inside a where clause, @Container<C>.Elem is a type variable of its own
+// (#1321): an element of C is not one.
+
+import ConceptContainer
+
+theorem bad: all C:type where { Container<C> }. all c:C. get(put(c)) = c
+proof
+  sorry
+end

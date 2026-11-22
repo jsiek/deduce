@@ -1,0 +1,8 @@
+// Where clauses of functions on concepts with associated types (#1321)
+// are not supported yet.
+
+import ConceptContainer
+
+fun round_trip<C> where { Container<C> } (c:C) {
+  put(get(c))
+}
