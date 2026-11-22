@@ -1,0 +1,396 @@
+module Point
+
+/*
+  Points of the plane, for coordinate geometry (#1191).
+
+  `point(x, y)` is the point with coordinates x and y, and `xcoord(P)`
+  and `ycoord(P)` are the coordinates of P. The representation of
+  `Point` is private, so it can change without affecting users.
+
+  The functions below are defined from the coordinates, so
+  `expand dist2` (or `midpoint`, `dot`, `cross`) gives the coordinate
+  formula, and `algebra` finishes most coordinate proofs:
+
+  * `dist2(A, B)`: the square of the distance from A to B. It avoids
+    square roots, so segments AB and CD are congruent,
+    `seg_congruent(A, B, C, D)`, when their squared lengths are equal.
+  * `midpoint(A, B)`: ((x₁ + x₂) / 2, (y₁ + y₂) / 2).
+  * `dot(O, A, B)`: the dot product of the vectors OA and OB, which is
+    zero when the angle AOB is right.
+  * `cross(O, A, B)`: the cross product of OA and OB, which is zero
+    when O, A, and B are collinear, `collinear(O, A, B)`.
+*/
+
+import UInt
+import Int
+import Base
+public import Rat
+public import Real
+import Linear
+import Ring
+
+opaque union Point {
+  point_of(Real, Real)
+}
+
+opaque fun point(x : Real, y : Real) { point_of(x, y) }
+
+opaque fun xcoord(P : Point) {
+  switch P { case point_of(x, y) { x } }
+}
+
+opaque fun ycoord(P : Point) {
+  switch P { case point_of(x, y) { y } }
+}
+
+// The square of the distance from A to B.
+fun dist2(A : Point, B : Point) {
+  (xcoord(A) - xcoord(B)) * (xcoord(A) - xcoord(B))
+  + (ycoord(A) - ycoord(B)) * (ycoord(A) - ycoord(B))
+}
+
+fun midpoint(A : Point, B : Point) {
+  point(real(frac(+1, 2)) * (xcoord(A) + xcoord(B)),
+        real(frac(+1, 2)) * (ycoord(A) + ycoord(B)))
+}
+
+// The dot product of the vectors from O to A and from O to B.
+fun dot(O : Point, A : Point, B : Point) {
+  (xcoord(A) - xcoord(O)) * (xcoord(B) - xcoord(O))
+  + (ycoord(A) - ycoord(O)) * (ycoord(B) - ycoord(O))
+}
+
+// The cross product of the vectors from O to A and from O to B.
+fun cross(O : Point, A : Point, B : Point) {
+  (xcoord(A) - xcoord(O)) * (ycoord(B) - ycoord(O))
+  - (ycoord(A) - ycoord(O)) * (xcoord(B) - xcoord(O))
+}
+
+fun collinear(A : Point, B : Point, C : Point) {
+  cross(A, B, C) = real(+0)
+}
+
+// Segments AB and CD are congruent.
+fun seg_congruent(A : Point, B : Point, C : Point, D : Point) {
+  dist2(A, B) = dist2(C, D)
+}
+
+/*
+  Coordinates
+*/
+
+theorem point_xcoord: all x:Real, y:Real. xcoord(point(x, y)) = x
+proof
+  arbitrary x:Real, y:Real
+  expand point | xcoord.
+end
+
+theorem point_ycoord: all x:Real, y:Real. ycoord(point(x, y)) = y
+proof
+  arbitrary x:Real, y:Real
+  expand point | ycoord.
+end
+
+auto point_xcoord
+auto point_ycoord
+
+theorem point_coords: all P:Point. point(xcoord(P), ycoord(P)) = P
+proof
+  arbitrary P:Point
+  switch P { case point_of(x, y) {
+    expand point | xcoord | ycoord.
+  } }
+end
+
+// Two points are equal when their coordinates are.
+theorem point_equal: all P:Point, Q:Point.
+  if xcoord(P) = xcoord(Q) and ycoord(P) = ycoord(Q) then P = Q
+proof
+  arbitrary P:Point, Q:Point
+  assume prem
+  replace symmetric point_coords[P] | symmetric point_coords[Q]
+  replace conjunct 0 of prem | conjunct 1 of prem.
+end
+
+/*
+  Distance
+*/
+
+theorem point_dist2_symmetric: all A:Point, B:Point. dist2(A, B) = dist2(B, A)
+proof
+  arbitrary A:Point, B:Point
+  expand dist2
+  algebra
+end
+
+theorem point_dist2_self: all A:Point. dist2(A, A) = real(+0)
+proof
+  arbitrary A:Point
+  expand dist2.
+end
+
+theorem point_dist2_nonneg: all A:Point, B:Point. real(+0) ≤ dist2(A, B)
+proof
+  arbitrary A:Point, B:Point
+  expand dist2
+  algebra with real_square_nonneg[xcoord(A) - xcoord(B)]
+             | real_square_nonneg[ycoord(A) - ycoord(B)]
+end
+
+lemma square_zero: all x:Real. if x * x = real(+0) then x = real(+0)
+proof
+  arbitrary x:Real
+  assume xx
+  cases apply real_mult_to_zero[x, x] to xx
+  case z { z }
+  case z { z }
+end
+
+// The sum of two squares is zero only when both are.
+lemma squares_zero: all x:Real, y:Real.
+  if x * x + y * y = real(+0) then x = real(+0) and y = real(+0)
+proof
+  arbitrary x:Real, y:Real
+  assume s
+  have xx: x * x = real(+0)
+    by algebra with real_square_nonneg[x] | real_square_nonneg[y]
+  have yy: y * y = real(+0) by replace xx in s
+  have x0: x = real(+0) by apply square_zero[x] to xx
+  have y0: y = real(+0) by apply square_zero[y] to yy
+  (x0, y0)
+end
+
+theorem point_dist2_zero: all A:Point, B:Point. (dist2(A, B) = real(+0)) = (A = B)
+proof
+  arbitrary A:Point, B:Point
+  have fwd: if dist2(A, B) = real(+0) then A = B by {
+    expand dist2
+    assume d
+    have z: xcoord(A) - xcoord(B) = real(+0) and ycoord(A) - ycoord(B) = real(+0)
+      by apply squares_zero[xcoord(A) - xcoord(B), ycoord(A) - ycoord(B)] to d
+    apply point_equal[A, B] to replace real_sub_eq_zero_iff in z
+  }
+  have bwd: if A = B then dist2(A, B) = real(+0) by {
+    assume e
+    replace e
+    point_dist2_self[B]
+  }
+  apply iff_equal to fwd, bwd
+end
+
+// Distinct points are a positive distance apart.
+theorem point_dist2_pos: all A:Point, B:Point.
+  if not (A = B) then real(+0) < dist2(A, B)
+proof
+  arbitrary A:Point, B:Point
+  assume ne
+  replace real_less_def
+  have nz: not (real(+0) = dist2(A, B)) by {
+    assume z
+    apply ne to replace point_dist2_zero[A, B] in symmetric z
+  }
+  (point_dist2_nonneg[A, B], nz)
+end
+
+/*
+  Midpoint
+*/
+
+theorem point_midpoint_symmetric: all A:Point, B:Point.
+  midpoint(A, B) = midpoint(B, A)
+proof
+  arbitrary A:Point, B:Point
+  expand midpoint
+  replace real_add_commute[xcoord(A), xcoord(B)]
+        | real_add_commute[ycoord(A), ycoord(B)].
+end
+
+theorem point_midpoint_self: all A:Point. midpoint(A, A) = A
+proof
+  arbitrary A:Point
+  expand midpoint
+  have hx: xcoord(A) + xcoord(A) = real(+2) * xcoord(A) by algebra
+  have hy: ycoord(A) + ycoord(A) = real(+2) * ycoord(A) by algebra
+  replace hx | hy
+  point_coords[A]
+end
+
+/*
+  The midpoint proofs below are polynomial identities that hold
+  because 2 · ½ = 1. The `algebra` tactic does not know that ½ is a
+  number (it treats `real(frac(+1, 2))` as an unknown h), so each is
+  proved for every h with an extra term (1 - 2h) · q, and then
+  instantiated at h = ½, where the extra term reduces to zero.
+*/
+
+lemma midpoint_equidistant_h: all h:Real, A:Point, B:Point.
+  dist2(A, point(h * (xcoord(A) + xcoord(B)), h * (ycoord(A) + ycoord(B))))
+  = dist2(point(h * (xcoord(A) + xcoord(B)), h * (ycoord(A) + ycoord(B))), B)
+    + (real(+1) - real(+2) * h)
+      * ((xcoord(A) - xcoord(B)) * (xcoord(A) + xcoord(B))
+         + (ycoord(A) - ycoord(B)) * (ycoord(A) + ycoord(B)))
+proof
+  arbitrary h:Real, A:Point, B:Point
+  expand dist2
+  algebra
+end
+
+// The midpoint is equidistant from the endpoints.
+theorem point_midpoint_equidistant: all A:Point, B:Point.
+  dist2(A, midpoint(A, B)) = dist2(midpoint(A, B), B)
+proof
+  arbitrary A:Point, B:Point
+  expand midpoint
+  midpoint_equidistant_h[real(frac(+1, 2)), A, B]
+end
+
+lemma midpoint_dist2_h: all h:Real, A:Point, B:Point.
+  real(+4) * dist2(A, point(h * (xcoord(A) + xcoord(B)), h * (ycoord(A) + ycoord(B))))
+  = dist2(A, B)
+    + (real(+1) - real(+2) * h)
+      * ((xcoord(A) + xcoord(B))
+           * (real(+3) * xcoord(A) - xcoord(B) - real(+2) * h * (xcoord(A) + xcoord(B)))
+         + (ycoord(A) + ycoord(B))
+           * (real(+3) * ycoord(A) - ycoord(B) - real(+2) * h * (ycoord(A) + ycoord(B))))
+proof
+  arbitrary h:Real, A:Point, B:Point
+  expand dist2
+  algebra
+end
+
+// AM is half of AB, so AM² is a quarter of AB².
+theorem point_midpoint_dist2: all A:Point, B:Point.
+  real(+4) * dist2(A, midpoint(A, B)) = dist2(A, B)
+proof
+  arbitrary A:Point, B:Point
+  expand midpoint
+  midpoint_dist2_h[real(frac(+1, 2)), A, B]
+end
+
+/*
+  Collinearity
+*/
+
+lemma real_neg_zero_iff: all x:Real. (- x = real(+0)) = (x = real(+0))
+proof
+  arbitrary x:Real
+  have fwd: if - x = real(+0) then x = real(+0) by { assume n algebra }
+  have bwd: if x = real(+0) then - x = real(+0) by { assume n algebra }
+  apply iff_equal to fwd, bwd
+end
+
+theorem point_collinear_rotate: all A:Point, B:Point, C:Point.
+  collinear(A, B, C) = collinear(B, C, A)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  have e: cross(B, C, A) = cross(A, B, C) by { expand cross algebra }
+  expand collinear
+  replace e.
+end
+
+theorem point_collinear_swap: all A:Point, B:Point, C:Point.
+  collinear(A, B, C) = collinear(A, C, B)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  have e: cross(A, C, B) = - cross(A, B, C) by { expand cross algebra }
+  expand collinear
+  replace e | real_neg_zero_iff.
+end
+
+theorem point_collinear_same: all A:Point, B:Point. collinear(A, A, B)
+proof
+  arbitrary A:Point, B:Point
+  expand collinear | cross.
+end
+
+lemma midpoint_collinear_h: all h:Real, A:Point, B:Point.
+  cross(A, point(h * (xcoord(A) + xcoord(B)), h * (ycoord(A) + ycoord(B))), B)
+  = (real(+2) * h - real(+1))
+    * (xcoord(A) * (ycoord(B) - ycoord(A)) - ycoord(A) * (xcoord(B) - xcoord(A)))
+proof
+  arbitrary h:Real, A:Point, B:Point
+  expand cross
+  algebra
+end
+
+theorem point_midpoint_collinear: all A:Point, B:Point.
+  collinear(A, midpoint(A, B), B)
+proof
+  arbitrary A:Point, B:Point
+  expand collinear | midpoint
+  midpoint_collinear_h[real(frac(+1, 2)), A, B]
+end
+
+/*
+  Right angles: the Pythagorean theorem and its converse
+*/
+
+// The law of cosines, in coordinates: BC² = AB² + AC² - 2 AB·AC.
+theorem point_dist2_dot: all A:Point, B:Point, C:Point.
+  dist2(B, C) = dist2(A, B) + dist2(A, C) - real(+2) * dot(A, B, C)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  expand dist2 | dot
+  algebra
+end
+
+theorem point_pythagoras: all A:Point, B:Point, C:Point.
+  if dot(A, B, C) = real(+0) then dist2(B, C) = dist2(A, B) + dist2(A, C)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  assume right
+  replace point_dist2_dot[A, B, C] | right.
+end
+
+theorem point_pythagoras_converse: all A:Point, B:Point, C:Point.
+  if dist2(B, C) = dist2(A, B) + dist2(A, C) then dot(A, B, C) = real(+0)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  assume sq
+  algebra with point_dist2_dot[A, B, C]
+end
+
+/*
+  Congruent segments
+*/
+
+theorem point_seg_congruent_refl: all A:Point, B:Point. seg_congruent(A, B, A, B)
+proof
+  arbitrary A:Point, B:Point
+  expand seg_congruent.
+end
+
+theorem point_seg_congruent_symm: all A:Point, B:Point, C:Point, D:Point.
+  if seg_congruent(A, B, C, D) then seg_congruent(C, D, A, B)
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point
+  expand seg_congruent
+  assume e
+  symmetric e
+end
+
+theorem point_seg_congruent_trans: all A:Point, B:Point, C:Point, D:Point, E:Point, F:Point.
+  if seg_congruent(A, B, C, D) and seg_congruent(C, D, E, F)
+  then seg_congruent(A, B, E, F)
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point, E:Point, F:Point
+  expand seg_congruent
+  assume prem
+  transitive (conjunct 0 of prem) (conjunct 1 of prem)
+end
+
+theorem point_seg_congruent_reverse: all A:Point, B:Point. seg_congruent(A, B, B, A)
+proof
+  arbitrary A:Point, B:Point
+  expand seg_congruent
+  point_dist2_symmetric[A, B]
+end
+
+// The midpoint divides a segment into two congruent segments.
+theorem point_midpoint_seg_congruent: all A:Point, B:Point.
+  seg_congruent(A, midpoint(A, B), midpoint(A, B), B)
+proof
+  arbitrary A:Point, B:Point
+  expand seg_congruent
+  point_midpoint_equidistant[A, B]
+end

@@ -1930,14 +1930,14 @@ def run_imperative_regression() -> list[tuple[str, str, str]]:
 
 
 def run_examples_parallel(workers: int) -> list[tuple[str, str, str]]:
-    """``examples/*.pf`` × RD parser only.
+    """``examples/**/*.pf`` × RD parser only.
 
     Examples are end-user-facing proofs that rely on the auto-prelude
     (``import UInt`` etc. is not written out); use the prelude-injection
     worker so the stdlib is implicitly available, the same way
     ``deduce.py`` runs them.
     """
-    files = list_pf(EXAMPLES_DIR)
+    files = list_pf_recursive(EXAMPLES_DIR)
     tasks = shard([(f, True) for f in files])
     failures: list[tuple[str, str, str]] = []
     for f, ok, label, msg in _map_or_serial(workers, _worker_prelude, tasks, 4):

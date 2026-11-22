@@ -1,0 +1,104 @@
+// lib/Point.pf from a client's view: only its public names.
+
+import Point
+
+// The distance formula on concrete points: a 3-4-5 right triangle.
+define O = point(real(+0), real(+0))
+define P = point(real(+3), real(+0))
+define Q = point(real(+0), real(+4))
+
+theorem dist2_example: dist2(P, Q) = real(+25)
+proof
+  expand P | Q | dist2.
+end
+
+theorem right_angle_example: dot(O, P, Q) = real(+0)
+proof
+  expand O | P | Q | dot.
+end
+
+theorem pythagoras_example: dist2(P, Q) = dist2(O, P) + dist2(O, Q)
+proof
+  apply point_pythagoras[O, P, Q] to right_angle_example
+end
+
+// The midpoint formula.
+theorem midpoint_example:
+  midpoint(point(real(+0), real(+0)), point(real(+2), real(+4)))
+  = point(real(+1), real(+2))
+proof
+  expand midpoint.
+end
+
+theorem xcoord_example: xcoord(point(real(+5), real(+7))) = real(+5)
+proof
+  .
+end
+
+// A coordinate proof: a point is on the x-axis iff it is collinear
+// with (0, 0) and (1, 0).
+theorem on_x_axis: all x:Real, y:Real.
+  collinear(O, point(real(+1), real(+0)), point(x, y)) = (y = real(+0))
+proof
+  arbitrary x:Real, y:Real
+  expand O | collinear | cross.
+end
+
+theorem collinear_permute: all A:Point, B:Point, C:Point.
+  if collinear(A, B, C) then collinear(C, B, A)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  assume abc
+  have bca: collinear(B, C, A) by replace point_collinear_rotate[A, B, C] in abc
+  have bac: collinear(B, A, C) by replace point_collinear_swap[B, C, A] in bca
+  replace point_collinear_rotate[C, B, A]
+  bac
+end
+
+theorem midpoint_facts: all A:Point, B:Point.
+  seg_congruent(A, midpoint(A, B), midpoint(A, B), B)
+  and collinear(A, midpoint(A, B), B)
+  and real(+4) * dist2(A, midpoint(A, B)) = dist2(A, B)
+  and midpoint(B, A) = midpoint(A, B)
+  and midpoint(A, A) = A
+proof
+  arbitrary A:Point, B:Point
+  (point_midpoint_seg_congruent[A, B], point_midpoint_collinear[A, B],
+   point_midpoint_dist2[A, B], point_midpoint_symmetric[B, A],
+   point_midpoint_self[A])
+end
+
+theorem same_point: all A:Point, B:Point.
+  if dist2(A, B) = real(+0) then A = B
+proof
+  arbitrary A:Point, B:Point
+  assume z
+  replace symmetric point_dist2_zero[A, B]
+  z
+end
+
+theorem distinct_points: all A:Point, B:Point.
+  if not (A = B) then real(+0) < dist2(A, B)
+proof
+  point_dist2_pos
+end
+
+theorem congruent_chain: all A:Point, B:Point, C:Point, D:Point, E:Point, F:Point.
+  if seg_congruent(A, B, C, D) and seg_congruent(E, F, C, D)
+  then seg_congruent(B, A, F, E)
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point, E:Point, F:Point
+  assume prem
+  have ab_cd: seg_congruent(A, B, C, D) by conjunct 0 of prem
+  have cd_ef: seg_congruent(C, D, E, F)
+    by apply point_seg_congruent_symm[E, F, C, D] to conjunct 1 of prem
+  have ab_ef: seg_congruent(A, B, E, F)
+    by apply point_seg_congruent_trans[A, B, C, D, E, F] to ab_cd, cd_ef
+  have ba_ab: seg_congruent(B, A, A, B)
+    by point_seg_congruent_reverse[B, A]
+  have ef_fe: seg_congruent(E, F, F, E)
+    by point_seg_congruent_reverse[E, F]
+  have ba_ef: seg_congruent(B, A, E, F)
+    by apply point_seg_congruent_trans[B, A, A, B, E, F] to ba_ab, ab_ef
+  apply point_seg_congruent_trans[B, A, E, F, F, E] to ba_ef, ef_fe
+end

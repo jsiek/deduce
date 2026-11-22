@@ -1,0 +1,8 @@
+// The representation of Point (lib/Point.pf) is private.
+
+import Point
+
+theorem peek: all P:Point. some x:Real, y:Real. P = point_of(x, y)
+proof
+  ?
+end
