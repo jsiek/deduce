@@ -10,7 +10,9 @@ Only the top-level module files (such as `UInt.pf`) are listed below. Each modul
   group with scaling by rationals), with models for `Rat` and `Real`,
   and `CommSemiring` (a commutative semiring that reads integer
   constants, with powers `x ^ k` for a `UInt` exponent `k`), with models for `UInt`, `Int`, `Rat`, and `Real`,
-  and `CommRing`, with models for `Int`, `Rat`, and `Real`. Prove a theorem once under
+  `CommRing`, with models for `Int`, `Rat`, and `Real`, and `Field`
+  (a commutative ring with `inv` and `/` that reads fraction
+  constants), with models for `Rat` and `Real`. Prove a theorem once under
   `where { OrderedQVectorSpace<T> }` and use it at `Rat` or `Real`.
 - ([`Angle.thm`](../lib/Angle.thm), [`Angle.pf`](../lib/Angle.pf)): Angle
   measures. Write `deg(n)` for n degrees (an `Int` or a `Rat`), e.g.
@@ -54,7 +56,9 @@ Only the top-level module files (such as `UInt.pf`) are listed below. Each modul
   normalization for the [`algebra`](./Reference.md#algebra-proof)
   tactic: it proves an equation whose sides are equal as polynomials
   over any type that models `CommSemiring`, such as
-  `(x + y) * (x + y) = x * x + real(+2) * x * y + y * y`.
+  `(x + y) * (x + y) = x * x + real(+2) * x * y + y * y`, and, over
+  any type that models `Field`, whose sides are equal as fractions when
+  the denominators are nonzero, such as `x / y * y = x`.
 - ([`Set.thm`](../lib/Set.thm), [`Set.pf`](../lib/Set.pf)): Sets
 - ([`UInt.thm`](../lib/UInt.thm), [`UInt.pf`](../lib/UInt.pf)): Unsigned integers
 - ([`WellFounded.thm`](../lib/WellFounded.thm), [`WellFounded.pf`](../lib/WellFounded.pf)):

@@ -210,9 +210,9 @@ The sides may use `+`, `*`, powers `x ^ k` whose exponent `k` is a
 `UInt` literal, such as `x ^ (2:UInt)`, and integer constants: literals
 such as `2`, `+2`, `-2`, `rat(+2)`, and `real(+2)`, and the semiring's
 `zero` and `one`. In a ring they may also use `-` (subtraction and
-negation). Any other subterm, such as `f(x)`, `frac(+1, 2)`, `x / y`,
-or a power with a variable exponent `x ^ n`, is treated as an unknown
-of its own. So is a power whose expansion is large (an exponent above
+negation), and in a field, `/`, `inv`, and fraction constants (see
+below). Any other subterm, such as `f(x)` or a power with a variable
+exponent `x ^ n`, is treated as an unknown of its own. So is a power whose expansion is large (an exponent above
 32 or a coefficient above 256), such as `(x + y) ^ (30:UInt)`.
 
 This works at the types that model the concept `CommSemiring`
@@ -239,6 +239,31 @@ The proof is checked: `algebra` instantiates the theorem
 `semiring_prove` or `ring_prove` of lib/Ring.pf, whose premise, that
 the two sides have the same normal form, Deduce evaluates. When the
 sides differ, `algebra` shows the two normal forms.
+
+**Field identities.** At the types that model the concept `Field`
+(`Rat`, `Real`, and, under `where { Field<T> }`, the type `T`), the
+sides may also use `x / y`, `inv(x)`, and fraction constants such as
+`frac(+1, 2)` and `real(frac(+1, 2))`. `algebra` brings each side to a
+single fraction and compares the cross products. This needs the
+denominators to be nonzero: for each factor `d` that is inverted,
+`algebra` proves `not (d = zero)` from the givens (and any `with`
+facts), directly or by the linear arithmetic below, as `not (y =
+real(+0))` from `real(+0) < y`, or `not (real(+2) = real(+0))`. If it
+cannot, it lists the conditions it could not prove.
+
+```
+theorem div_mult_cancel: all x:Real, y:Real.
+  if not (y = real(+0)) then x / y * y = x
+proof
+  arbitrary x:Real, y:Real
+  assume hy
+  algebra
+end
+```
+
+The theorem `field_prove` of lib/Ring.pf checks the proof: its
+premises are that the cross products have the same normal form, which
+Deduce evaluates, and that the inverted factors are nonzero.
 
 **Linear arithmetic.** Otherwise, `algebra` proves a linear equation
 or inequality from the givens: a goal `a = b`, `a ≤ b`, `a < b`, `a ≥ b`, or `a > b`, its

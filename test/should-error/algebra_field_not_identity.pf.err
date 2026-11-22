@@ -1,0 +1,6 @@
+./test/should-error/algebra_field_not_identity.pf:9.3-9.10: algebra could not prove
+	(x + y) / real(+2) = x + y / real(+2)
+as fractions, the two sides are
+	(x + y) / 2
+and
+	(2·x + y) / 2

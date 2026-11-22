@@ -1,0 +1,10 @@
+// The two sides are different fractions, so the field mode of
+// `algebra` (#1322) shows them.
+
+import Ring
+
+theorem not_identity: all x:Real, y:Real. (x + y) / real(+2) = x + y / real(+2)
+proof
+  arbitrary x:Real, y:Real
+  algebra
+end

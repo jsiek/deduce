@@ -87,6 +87,21 @@ concept CommRing<T> {
   refines AddCommGroup<T>
 }
 
+// The interface of the field mode of `algebra` (#1322). `from_frac`
+// reads fraction constants: the Nat numerator and denominator of a
+// literal such as `frac(+1, 2)` or `real(frac(+1, 2))`.
+concept Field<T> {
+  refines CommRing<T>
+  fun inv : fn T -> T
+  fun operator/ : fn (T, T) -> T
+  fun from_frac : fn (Nat, Nat) -> T
+  theorem one_nonzero: not (one = zero)
+  theorem mult_inv: all x:T. if not (x = zero) then x * inv(x) = one
+  theorem div_def: all x:T, y:T. x / y = x * inv(y)
+  theorem from_frac_mult: all n:Nat, d:Nat.
+    if not (from_nat(d) = zero) then from_frac(n, d) * from_nat(d) = from_nat(n)
+}
+
 // UInt
 
 model AddCommMonoid<UInt> {
@@ -214,6 +229,20 @@ model CommSemiring<Rat> {
 
 model CommRing<Rat> { }
 
+model Field<Rat> {
+  fun from_frac = fun n:Nat, d:Nat { frac(pos(fromNat(n)), fromNat(d)) }
+  theorem one_nonzero = rat_one_not_zero
+  theorem mult_inv = rat_mult_inv
+  theorem div_def = rat_div_def
+  theorem from_frac_mult = {
+    arbitrary n:Nat, d:Nat
+    assume h
+    have h2: not (rat(pos(fromNat(d))) = rat(+0)) by h
+    replace rat_frac_div
+    apply rat_div_mult_cancel[rat(pos(fromNat(n))), rat(pos(fromNat(d)))] to h2
+  }
+}
+
 // Real
 
 model AddCommMonoid<Real> {
@@ -312,3 +341,17 @@ model CommSemiring<Real> {
 }
 
 model CommRing<Real> { }
+
+model Field<Real> {
+  fun from_frac = fun n:Nat, d:Nat { real(frac(pos(fromNat(n)), fromNat(d))) }
+  theorem one_nonzero = real_one_not_zero
+  theorem mult_inv = real_mult_inv
+  theorem div_def = real_div_def
+  theorem from_frac_mult = {
+    arbitrary n:Nat, d:Nat
+    assume h
+    have h2: not (real(pos(fromNat(d))) = real(+0)) by h
+    replace rat_frac_div
+    apply real_div_mult_cancel[real(pos(fromNat(n))), real(pos(fromNat(d)))] to h2
+  }
+}

@@ -1,0 +1,3 @@
+./test/should-error/algebra_field_side_condition.pf:9.3-9.10: algebra needs the denominators to be nonzero, but could not prove
+	y ≠ real(+0)
+from the givens

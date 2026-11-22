@@ -1,0 +1,10 @@
+// The field mode of `algebra` (#1322) needs the denominator to be
+// nonzero, and nothing says `y ≠ real(+0)`.
+
+import Ring
+
+theorem div_mult_cancel: all x:Real, y:Real. x / y * y = x
+proof
+  arbitrary x:Real, y:Real
+  algebra
+end

@@ -863,8 +863,10 @@ LINEAR_DEFS = (
   'lin_some_strict', 'lin_unit_fact', 'lin_check', 'lin_check_goal',
 )
 # The definitions of lib/Ring.pf that reducing a ring identity's
-# conclusion unfolds (its premise is evaluated).
-RING_DEFS = ('ring_get', 'ring_tail', 'ring_sdenote', 'ring_denote')
+# conclusion, and a field identity's side conditions, unfolds (its
+# premise is evaluated).
+RING_DEFS = ('ring_get', 'ring_tail', 'ring_sdenote', 'ring_denote',
+             'field_denote', 'field_nonzero')
 # The names the `algebra` tactic builds its certificates from (lib/Linear.pf,
 # lib/Ring.pf, and the literals of Nat, UInt, Int, and Rat).
 ALGEBRA_NAMES = (
@@ -872,8 +874,9 @@ ALGEBRA_NAMES = (
   'lvar', 'lconst', 'lzero', 'ladd', 'lsub', 'lneg', 'lscale',
   'lin_fact', 'rle', 'rlt', 'req', 'node', 'empty',
   'lit', 'suc', 'zero', 'fromNat', 'pos', 'negsuc', 'rat', 'frac',
-  'CommRing', 'CommSemiring', 'ring_prove', 'semiring_prove',
-  'rvar', 'rzero', 'rone', 'rconst', 'radd', 'rsub', 'rneg', 'rmul', 'rpow',
+  'CommRing', 'CommSemiring', 'Field', 'ring_prove', 'semiring_prove',
+  'field_prove', 'rvar', 'rzero', 'rone', 'rconst', 'radd', 'rsub', 'rneg',
+  'rmul', 'rpow', 'rinv', 'rdiv', 'rfrac',
 ) + LINEAR_DEFS + RING_DEFS
 
 @dataclass
