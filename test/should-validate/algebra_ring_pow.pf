@@ -1,0 +1,92 @@
+// The `algebra` tactic's ring normalization with powers whose exponent
+// is a UInt literal (#1324), over UInt, Int, Rat, and Real.
+
+import Ring
+
+theorem uint_square_sum_pow: all x:UInt, y:UInt.
+  (x + y) ^ 2 = x ^ 2 + 2 * x * y + y ^ 2
+proof
+  arbitrary x:UInt, y:UInt
+  algebra
+end
+
+theorem int_square_sum_pow: all x:Int, y:Int.
+  (x + y) ^ (2:UInt) = x ^ (2:UInt) + +2 * x * y + y ^ (2:UInt)
+proof
+  arbitrary x:Int, y:Int
+  algebra
+end
+
+theorem rat_square_sum_pow: all x:Rat, y:Rat.
+  (x + y) ^ (2:UInt) = x ^ (2:UInt) + rat(+2) * x * y + y ^ (2:UInt)
+proof
+  arbitrary x:Rat, y:Rat
+  algebra
+end
+
+theorem real_square_sum_pow: all x:Real, y:Real.
+  (x + y) ^ (2:UInt) = x ^ (2:UInt) + real(+2) * x * y + y ^ (2:UInt)
+proof
+  arbitrary x:Real, y:Real
+  algebra
+end
+
+// A power of a power, a power times the base, and the zeroth and first
+// powers.
+theorem real_pow_laws: all x:Real, y:Real.
+  (x ^ (2:UInt)) ^ (3:UInt) * x * y ^ (0:UInt) = x ^ (7:UInt) * y ^ (1:UInt) - x ^ (7:UInt) * (y - real(+1))
+proof
+  arbitrary x:Real, y:Real
+  algebra
+end
+
+theorem int_cube_difference: all x:Int, y:Int.
+  (x - y) ^ (3:UInt) = x ^ (3:UInt) - +3 * x ^ (2:UInt) * y + +3 * x * y ^ (2:UInt) - y ^ (3:UInt)
+proof
+  arbitrary x:Int, y:Int
+  algebra
+end
+
+// The coordinate identity behind the Pythagorean theorem (see
+// algebra_ring.pf), with squares written as powers.
+theorem pythagoras_coordinates_pow: all x1:Real, y1:Real, x2:Real, y2:Real, x3:Real, y3:Real.
+  (x3 - x1) ^ (2:UInt) + (y3 - y1) ^ (2:UInt)
+  = ((x2 - x1) ^ (2:UInt) + (y2 - y1) ^ (2:UInt))
+    + ((x3 - x2) ^ (2:UInt) + (y3 - y2) ^ (2:UInt))
+    - real(+2) * ((x1 - x2) * (x3 - x2) + (y1 - y2) * (y3 - y2))
+proof
+  arbitrary x1:Real, y1:Real, x2:Real, y2:Real, x3:Real, y3:Real
+  algebra
+end
+
+// A power with a symbolic exponent is an atom.
+theorem int_pow_symbolic: all x:Int, n:UInt.
+  (x ^ n + +1) * (x ^ n - +1) = x ^ n * x ^ n - +1
+proof
+  arbitrary x:Int, n:UInt
+  algebra
+end
+
+// A power with a large expansion (here a coefficient of 155117520) is
+// an atom too.
+theorem int_pow_large: all x:Int, y:Int, z:Int.
+  (x + y) ^ (30:UInt) * z = z * (x + y) ^ (30:UInt)
+proof
+  arbitrary x:Int, y:Int, z:Int
+  algebra
+end
+
+// Proved once for every commutative semiring, used at Rat.
+theorem ring_square_sum_pow: all T:type where { CommSemiring<T> }. all x:T, y:T.
+  (x + y) ^ (2:UInt) = x ^ (2:UInt) + (one + one) * x * y + y ^ (2:UInt)
+proof
+  arbitrary T:type where { CommSemiring<T> }
+  arbitrary x:T, y:T
+  algebra
+end
+
+theorem rat_square_sum_pow_again: all x:Rat, y:Rat.
+  (x + y) ^ (2:UInt) = x ^ (2:UInt) + (rat(+1) + rat(+1)) * x * y + y ^ (2:UInt)
+proof
+  ring_square_sum_pow<Rat>
+end

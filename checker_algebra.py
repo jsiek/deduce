@@ -8,8 +8,8 @@ reduction do the proof.
 
 An equation whose sides are equal polynomials is proved by ring
 normalization: read each side as an ``RExpr`` over atoms (the maximal
-subterms that are not sums, products, constants, or, in a ring,
-differences and negations), instantiate ``ring_prove`` (in a ring) or
+subterms that are not sums, products, constants, powers with a UInt
+literal exponent, or, in a ring, differences and negations), instantiate ``ring_prove`` (in a ring) or
 ``semiring_prove`` at the goal's type, evaluate its premise, that the
 normal forms are equal, to ``true``, and reduce its conclusion to the
 goal, unfolding only the denotation of lib/Ring.pf.
@@ -180,9 +180,10 @@ class _Reifier:
 
   def ring(self, t: Term, ring: bool) -> Lin:
     """``t`` as an ``RExpr`` of lib/Ring.pf: ('var', i), ('zero',),
-    ('one',), ('const', n, lit), ('add', a, b), ('mul', a, b), and in a
-    ring (not a semiring) ('sub', a, b) and ('neg', a). Sums and products
-    may be flattened by associativity."""
+    ('one',), ('const', n, lit), ('add', a, b), ('mul', a, b), ('pow', a,
+    k, lit) for the UInt literal ``lit`` of value ``k``, and in a ring
+    (not a semiring) ('sub', a, b) and ('neg', a). Sums and products may
+    be flattened by associativity."""
     if (c := _ring_const(t)) is not None and (ring or c[0] != 'neg'):
       return c
     match _call(t):
@@ -195,7 +196,19 @@ class _Reifier:
         return ('sub', self.ring(a, ring), self.ring(b, ring))
       case ("-", [a]) if ring:
         return ('neg', self.ring(a, ring))
+      case ("^", [a, k]) if isUInt(k) and uintToInt(k) <= _MAX_EXPONENT:
+        e = ('pow', self.ring(a, ring), uintToInt(k), k)
+        if max(_poly(e, True).values(), default=0) <= _MAX_COEFFICIENT:
+          return e
     return self.atom(t)
+
+
+# lib/Ring.pf computes with unary Nat coefficients and exponents, so a
+# power whose expansion has a larger exponent or coefficient is left as
+# an atom: checking `(x + y) ^ 12` takes a minute, and `x ^ 200` 80
+# seconds.
+_MAX_EXPONENT = 32
+_MAX_COEFFICIENT = 256
 
 
 # A polynomial: the coefficient of each monomial, a monomial being the
@@ -203,7 +216,9 @@ class _Reifier:
 Poly = dict[tuple[int, ...], Fraction]
 
 
-def _poly(e: Lin) -> Poly:
+def _poly(e: Lin, unsigned: bool = False) -> Poly:
+  """The polynomial of ``e``; if ``unsigned``, with each `-` read as `+`,
+  which bounds the coefficients lib/Ring.pf computes along the way."""
   match e:
     case ('var', i):
       return {(0,) * i + (1,): Fraction(1)}
@@ -212,20 +227,30 @@ def _poly(e: Lin) -> Poly:
     case ('one',):
       return {(): Fraction(1)}
     case ('const', c, _):
-      return {(): Fraction(c)} if c else {}
+      return {(): Fraction(abs(c) if unsigned else c)} if c else {}
     case ('add', a, b):
-      return _plus(_poly(a), _poly(b), 1)
+      return _plus(_poly(a, unsigned), _poly(b, unsigned), 1)
     case ('sub', a, b):
-      return _plus(_poly(a), _poly(b), -1)
+      return _plus(_poly(a, unsigned), _poly(b, unsigned), 1 if unsigned else -1)
     case ('neg', a):
-      return _plus({}, _poly(a), -1)
+      return _plus({}, _poly(a, unsigned), 1 if unsigned else -1)
     case ('mul', a, b):
-      out: Poly = {}
-      for (m, c), (n, d) in itertools.product(_poly(a).items(), _poly(b).items()):
-        mn = tuple(i + j for i, j in itertools.zip_longest(m, n, fillvalue=0))
-        out = _plus(out, {mn: c * d}, 1)
+      return _times(_poly(a, unsigned), _poly(b, unsigned))
+    case ('pow', a, k, _):
+      pa = _poly(a, unsigned)
+      out: Poly = {(): Fraction(1)}
+      for _ in range(k):
+        out = _times(pa, out)
       return out
   raise ValueError(e)
+
+
+def _times(p: Poly, q: Poly) -> Poly:
+  out: Poly = {}
+  for (m, c), (n, d) in itertools.product(p.items(), q.items()):
+    mn = tuple(i + j for i, j in itertools.zip_longest(m, n, fillvalue=0))
+    out = _plus(out, {mn: c * d}, 1)
+  return out
 
 
 def _show_poly(p: Poly, atoms: list[Term]) -> str:
@@ -393,6 +418,8 @@ class _Builder:
       case ('const', n, t):
         return self.call('rconst', t if t is not None
                          else self._resolve(mkLitNat(self.loc, n)))
+      case ('pow', a, _, t):
+        return self.call('rpow', self.rexpr(a), t)
       case (op, *args):
         return self.call('r' + op, *[self.rexpr(a) for a in args])
     raise ValueError(e)

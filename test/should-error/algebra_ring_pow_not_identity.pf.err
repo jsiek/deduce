@@ -1,0 +1,6 @@
+./test/should-error/algebra_ring_pow_not_identity.pf:9.3-9.10: algebra could not prove
+	(x + y) ^ 2 = x ^ 2 + y ^ 2
+as polynomials, the two sides are
+	x^2 + 2·x·y + y^2
+and
+	x^2 + y^2

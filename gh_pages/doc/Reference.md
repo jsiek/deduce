@@ -206,15 +206,19 @@ proof
 end
 ```
 
-The sides may use `+`, `*`, and integer constants: literals such as
-`2`, `+2`, `-2`, `rat(+2)`, and `real(+2)`, and the semiring's
+The sides may use `+`, `*`, powers `x ^ k` whose exponent `k` is a
+`UInt` literal, such as `x ^ (2:UInt)`, and integer constants: literals
+such as `2`, `+2`, `-2`, `rat(+2)`, and `real(+2)`, and the semiring's
 `zero` and `one`. In a ring they may also use `-` (subtraction and
-negation). Any other subterm, such as `f(x)`, `frac(+1, 2)`, or
-`x / y`, is treated as an unknown of its own.
+negation). Any other subterm, such as `f(x)`, `frac(+1, 2)`, `x / y`,
+or a power with a variable exponent `x ^ n`, is treated as an unknown
+of its own. So is a power whose expansion is large (an exponent above
+32 or a coefficient above 256), such as `(x + y) ^ (30:UInt)`.
 
 This works at the types that model the concept `CommSemiring`
 (lib/Algebra.pf), a commutative semiring with a map `from_nat` that
-reads constants: `UInt`, `Int`, `Rat`, `Real`,
+reads constants and a power `^` with a `UInt` exponent: `UInt`, `Int`,
+`Rat`, `Real`,
 and, inside a proof under `where { CommSemiring<T> }`, the type `T`.
 At the types that also model `CommRing` (`Int`, `Rat`, `Real`),
 subtraction and negation are normalized too. In a semiring such as

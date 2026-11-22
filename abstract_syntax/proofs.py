@@ -873,7 +873,7 @@ ALGEBRA_NAMES = (
   'lin_fact', 'rle', 'rlt', 'req', 'node', 'empty',
   'lit', 'suc', 'zero', 'fromNat', 'pos', 'negsuc', 'rat', 'frac',
   'CommRing', 'CommSemiring', 'ring_prove', 'semiring_prove',
-  'rvar', 'rzero', 'rone', 'rconst', 'radd', 'rsub', 'rneg', 'rmul',
+  'rvar', 'rzero', 'rone', 'rconst', 'radd', 'rsub', 'rneg', 'rmul', 'rpow',
 ) + LINEAR_DEFS + RING_DEFS
 
 @dataclass
