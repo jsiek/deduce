@@ -8,8 +8,8 @@ reduction do the proof.
 
 An equation whose sides are equal polynomials is proved by ring
 normalization: read each side as an ``RExpr`` over atoms (the maximal
-subterms that are not sums, products, constants, or, in a ring,
-differences and negations), instantiate ``ring_prove`` (in a ring) or
+subterms that are not sums, products, constants, powers with a UInt
+literal exponent, or, in a ring, differences and negations), instantiate ``ring_prove`` (in a ring) or
 ``semiring_prove`` at the goal's type, evaluate its premise, that the
 normal forms are equal, to ``true``, and reduce its conclusion to the
 goal, unfolding only the denotation of lib/Ring.pf.
@@ -180,9 +180,10 @@ class _Reifier:
 
   def ring(self, t: Term, ring: bool) -> Lin:
     """``t`` as an ``RExpr`` of lib/Ring.pf: ('var', i), ('zero',),
-    ('one',), ('const', n, lit), ('add', a, b), ('mul', a, b), and in a
-    ring (not a semiring) ('sub', a, b) and ('neg', a). Sums and products
-    may be flattened by associativity."""
+    ('one',), ('const', n, lit), ('add', a, b), ('mul', a, b), ('pow', a,
+    k, lit) for the UInt literal ``lit`` of value ``k``, and in a ring
+    (not a semiring) ('sub', a, b) and ('neg', a). Sums and products may
+    be flattened by associativity."""
     if (c := _ring_const(t)) is not None and (ring or c[0] != 'neg'):
       return c
     match _call(t):
@@ -195,6 +196,8 @@ class _Reifier:
         return ('sub', self.ring(a, ring), self.ring(b, ring))
       case ("-", [a]) if ring:
         return ('neg', self.ring(a, ring))
+      case ("^", [a, k]) if isUInt(k):
+        return ('pow', self.ring(a, ring), uintToInt(k), k)
     return self.atom(t)
 
 
@@ -220,12 +223,22 @@ def _poly(e: Lin) -> Poly:
     case ('neg', a):
       return _plus({}, _poly(a), -1)
     case ('mul', a, b):
-      out: Poly = {}
-      for (m, c), (n, d) in itertools.product(_poly(a).items(), _poly(b).items()):
-        mn = tuple(i + j for i, j in itertools.zip_longest(m, n, fillvalue=0))
-        out = _plus(out, {mn: c * d}, 1)
+      return _times(_poly(a), _poly(b))
+    case ('pow', a, k, _):
+      pa = _poly(a)
+      out: Poly = {(): Fraction(1)}
+      for _ in range(k):
+        out = _times(pa, out)
       return out
   raise ValueError(e)
+
+
+def _times(p: Poly, q: Poly) -> Poly:
+  out: Poly = {}
+  for (m, c), (n, d) in itertools.product(p.items(), q.items()):
+    mn = tuple(i + j for i, j in itertools.zip_longest(m, n, fillvalue=0))
+    out = _plus(out, {mn: c * d}, 1)
+  return out
 
 
 def _show_poly(p: Poly, atoms: list[Term]) -> str:
@@ -393,6 +406,8 @@ class _Builder:
       case ('const', n, t):
         return self.call('rconst', t if t is not None
                          else self._resolve(mkLitNat(self.loc, n)))
+      case ('pow', a, _, t):
+        return self.call('rpow', self.rexpr(a), t)
       case (op, *args):
         return self.call('r' + op, *[self.rexpr(a) for a in args])
     raise ValueError(e)

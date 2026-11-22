@@ -6,7 +6,8 @@ module Ring
   `algebra` proves an equation `a = b` whose sides are equal as
   polynomials. It writes each side as an expression (`RExpr`) over
   atoms, the maximal subterms that are not sums, products, constants,
-  or (in a ring) differences and negations, and instantiates
+  powers with a literal exponent, or (in a ring) differences and
+  negations, and instantiates
   `semiring_prove` or `ring_prove` at the goal's type. The checker
   evaluates the normal forms of both expressions and the denotation of
   each, so the premise becomes `true` and the conclusion the goal as the
@@ -39,6 +40,7 @@ union RExpr {
   rsub(RExpr, RExpr)
   rneg(RExpr)
   rmul(RExpr, RExpr)
+  rpow(RExpr, UInt)
 }
 
 recursive ring_get<T> where { CommSemiring<T> } (List<T>, Nat) -> T {
@@ -62,6 +64,7 @@ recursive ring_sdenote<T> where { CommSemiring<T> } (RExpr, List<T>) -> T {
   ring_sdenote(rsub(a, b), env) = zero
   ring_sdenote(rneg(a), env) = zero
   ring_sdenote(rmul(a, b), env) = ring_sdenote(a, env) * ring_sdenote(b, env)
+  ring_sdenote(rpow(a, k), env) = ring_sdenote(a, env) ^ k
 }
 
 recursive ring_denote<T> where { CommRing<T> } (RExpr, List<T>) -> T {
@@ -73,6 +76,7 @@ recursive ring_denote<T> where { CommRing<T> } (RExpr, List<T>) -> T {
   ring_denote(rsub(a, b), env) = ring_denote(a, env) - ring_denote(b, env)
   ring_denote(rneg(a), env) = - ring_denote(a, env)
   ring_denote(rmul(a, b), env) = ring_denote(a, env) * ring_denote(b, env)
+  ring_denote(rpow(a, k), env) = ring_denote(a, env) ^ k
 }
 
 /********************** Normal forms **********************/
@@ -137,6 +141,11 @@ recursive ring_mul(List<Mono>, List<Mono>) -> List<Mono> {
     switch t { case mono(c, m) { ring_add(ring_scale(qs, c, m), ring_mul(ps, qs)) } }
 }
 
+recursive ring_npow(Nat, List<Mono>) -> List<Mono> {
+  ring_npow(zero, ps) = [mono(suc(zero), [])]
+  ring_npow(suc(n), ps) = ring_mul(ps, ring_npow(n, ps))
+}
+
 recursive ring_norm(RExpr) -> List<Mono> {
   ring_norm(rvar(i)) = [mono(suc(zero), ring_vunit(i))]
   ring_norm(rzero) = []
@@ -146,6 +155,7 @@ recursive ring_norm(RExpr) -> List<Mono> {
   ring_norm(rsub(a, b)) = []
   ring_norm(rneg(a)) = []
   ring_norm(rmul(a, b)) = ring_mul(ring_norm(a), ring_norm(b))
+  ring_norm(rpow(a, k)) = ring_npow(toNat(k), ring_norm(a))
 }
 
 recursive ring_pow<T> where { CommSemiring<T> } (Nat, T) -> T {
@@ -408,6 +418,54 @@ proof
   }
 end
 
+lemma ring_pdenote_npow: all T:type where { CommSemiring<T> }.
+  all n:Nat. all ps:List<Mono>, env:List<T>.
+  ring_pdenote(ring_npow(n, ps), env) = ring_pow(n, ring_pdenote(ps, env))
+proof
+  arbitrary T:type where { CommSemiring<T> }
+  induction Nat
+  case zero {
+    arbitrary ps:List<Mono>, env:List<T>
+    expand ring_npow | ring_pow | 2*ring_pdenote | ring_mdenote
+    replace from_nat_one | mult_one | add_zero.
+  }
+  case suc(n) assume IH {
+    arbitrary ps:List<Mono>, env:List<T>
+    expand ring_npow | ring_pow
+    replace ring_pdenote_mul<T> | IH[ps, env].
+  }
+end
+
+// The semiring's `^` is `ring_pow` on the exponent as a Nat.
+lemma ring_pow_uint: all T:type where { CommSemiring<T> }.
+  all x:T, k:UInt. x ^ k = ring_pow(toNat(k), x)
+proof
+  arbitrary T:type where { CommSemiring<T> }
+  arbitrary x:T
+  define P = fun k:UInt { x ^ k = ring_pow(toNat(k), x) }
+  have base: P(0) by {
+    expand P
+    have z: toNat(fromNat(ℕ0)) = zero by uint_toNat_fromNat[ℕ0]
+    replace pow_zero | z
+    expand ring_pow.
+  }
+  have step: all m:UInt. if P(m) then P(1 + m) by {
+    arbitrary m:UInt
+    assume IH
+    expand P
+    have toNat_one: toNat(fromNat(ℕ1)) = ℕ1 by uint_toNat_fromNat[ℕ1]
+    have nat_eq: toNat((1:UInt) + m) = suc(toNat(m)) by {
+      replace toNat_add | toNat_one
+      evaluate
+    }
+    replace pow_one_add | nat_eq | (expand P in IH)
+    expand ring_pow.
+  }
+  arbitrary k:UInt
+  have all_P: all n:UInt. P(n) by apply uint_induction[P] to base, step
+  expand P in all_P[k]
+end
+
 // The normal form denotes the expression.
 lemma ring_norm_sound: all T:type where { CommSemiring<T> }.
   all e:RExpr. all env:List<T>.
@@ -462,6 +520,11 @@ proof
     expand ring_norm | ring_sdenote
     replace ring_pdenote_mul<T> | IHa[env] | IHb[env].
   }
+  case rpow(a, k) assume IHa {
+    arbitrary env:List<T>
+    expand ring_norm | ring_sdenote
+    replace ring_pdenote_npow<T> | IHa[env] | ring_pow_uint<T>[ring_sdenote(a, env), k].
+  }
 end
 
 theorem semiring_prove: all T:type where { CommSemiring<T> }.
@@ -495,6 +558,11 @@ fun pn_mul(x : PN, y : PN) {
      ring_add(ring_mul(pn_pos(x), pn_neg(y)), ring_mul(pn_neg(x), pn_pos(y))))
 }
 
+recursive pn_npow(Nat, PN) -> PN {
+  pn_npow(zero, x) = pn(ring_norm(rone), [])
+  pn_npow(suc(n), x) = pn_mul(x, pn_npow(n, x))
+}
+
 recursive ring_pn(RExpr) -> PN {
   ring_pn(rvar(i)) = pn(ring_norm(rvar(i)), [])
   ring_pn(rzero) = pn([], [])
@@ -504,6 +572,7 @@ recursive ring_pn(RExpr) -> PN {
   ring_pn(rsub(a, b)) = pn_add(ring_pn(a), pn_swap(ring_pn(b)))
   ring_pn(rneg(a)) = pn_swap(ring_pn(a))
   ring_pn(rmul(a, b)) = pn_mul(ring_pn(a), ring_pn(b))
+  ring_pn(rpow(a, k)) = pn_npow(toNat(k), ring_pn(a))
 }
 
 // `a - b` is `(P(a) - N(a)) - (P(b) - N(b))`, which is zero when
@@ -569,6 +638,49 @@ proof
   expand pn_neg.
 end
 
+// If x = P(X) - N(X) and y = P(Y) - N(Y), then x * y is the value of
+// their product.
+lemma pn_mul_sound: all T:type where { CommRing<T> }.
+  all x:T, y:T, X:PN, Y:PN, env:List<T>.
+  if x + ring_pdenote(pn_neg(X), env) = ring_pdenote(pn_pos(X), env)
+     and y + ring_pdenote(pn_neg(Y), env) = ring_pdenote(pn_pos(Y), env)
+  then x * y + ring_pdenote(pn_neg(pn_mul(X, Y)), env)
+     = ring_pdenote(pn_pos(pn_mul(X, Y)), env)
+proof
+  arbitrary T:type where { CommRing<T> }
+  arbitrary x:T, y:T, X:PN, Y:PN, env:List<T>
+  assume h
+  expand pn_mul
+  replace pn_pos_pn | pn_neg_pn | ring_pdenote_add<T> | ring_pdenote_mul<T>
+        | symmetric conjunct 0 of h | symmetric conjunct 1 of h
+  algebra
+end
+
+lemma pn_npow_sound: all T:type where { CommRing<T> }.
+  all n:Nat. all x:T, X:PN, env:List<T>.
+  if x + ring_pdenote(pn_neg(X), env) = ring_pdenote(pn_pos(X), env)
+  then ring_pow(n, x) + ring_pdenote(pn_neg(pn_npow(n, X)), env)
+     = ring_pdenote(pn_pos(pn_npow(n, X)), env)
+proof
+  arbitrary T:type where { CommRing<T> }
+  induction Nat
+  case zero {
+    arbitrary x:T, X:PN, env:List<T>
+    assume h
+    expand pn_npow | ring_pow
+    replace pn_pos_pn | pn_neg_pn | ring_norm_sound<T>
+    expand ring_sdenote | ring_pdenote
+    add_zero
+  }
+  case suc(n) assume IH {
+    arbitrary x:T, X:PN, env:List<T>
+    assume h
+    expand pn_npow | ring_pow
+    apply pn_mul_sound<T>[x, ring_pow(n, x), X, pn_npow(n, X), env]
+      to h, (apply IH[x, X, env] to h)
+  }
+end
+
 // The value of an expression is P - N, stated without subtraction.
 lemma ring_pn_sound: all T:type where { CommRing<T> }.
   all e:RExpr. all env:List<T>.
@@ -625,10 +737,14 @@ proof
   }
   case rmul(a, b) assume IHa, IHb {
     arbitrary env:List<T>
-    expand ring_pn | pn_mul | ring_denote
-    replace pn_pos_pn | pn_neg_pn | ring_pdenote_add<T> | ring_pdenote_mul<T>
-          | symmetric IHa[env] | symmetric IHb[env]
-    algebra
+    expand ring_pn | ring_denote
+    apply pn_mul_sound<T> to IHa[env], IHb[env]
+  }
+  case rpow(a, k) assume IHa {
+    arbitrary env:List<T>
+    expand ring_pn | ring_denote
+    replace ring_pow_uint<T>[ring_denote(a, env), k]
+    apply pn_npow_sound<T>[toNat(k)][ring_denote(a, env), ring_pn(a), env] to IHa[env]
   }
 end
 

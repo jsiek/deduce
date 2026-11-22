@@ -28,3 +28,4 @@ public import RealLess
 public import RealEmbed
 public import RealSqrt
 public import RealLit
+public import RealPow

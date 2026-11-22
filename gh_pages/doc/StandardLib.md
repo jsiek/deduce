@@ -9,7 +9,7 @@ Only the top-level module files (such as `UInt.pf`) are listed below. Each modul
   `OrderedAddCommGroup`, and `OrderedQVectorSpace` (an ordered abelian
   group with scaling by rationals), with models for `Rat` and `Real`,
   and `CommSemiring` (a commutative semiring that reads integer
-  constants), with models for `UInt`, `Int`, `Rat`, and `Real`,
+  constants, with powers `x ^ k` for a `UInt` exponent `k`), with models for `UInt`, `Int`, `Rat`, and `Real`,
   and `CommRing`, with models for `Int`, `Rat`, and `Real`. Prove a theorem once under
   `where { OrderedQVectorSpace<T> }` and use it at `Rat` or `Real`.
 - ([`Angle.thm`](../lib/Angle.thm), [`Angle.pf`](../lib/Angle.pf)): Angle
@@ -42,12 +42,13 @@ Only the top-level module files (such as `UInt.pf`) are listed below. Each modul
   and `rat(n)` for an integer, e.g. `frac(+3, 4) + rat(+1) = frac(+7, 4)`.
   The representation is canonical, so `=` is equality of rationals.
   Division by zero gives zero: `x / rat(+0) = rat(+0)`.
+  `x ^ k` is the power with a `UInt` exponent `k`.
 - ([`Real.thm`](../lib/Real.thm), [`Real.pf`](../lib/Real.pf)): Real numbers,
   axiomatized as a real closed field. All assumptions are in
   [`RealAxioms.pf`](../lib/RealAxioms.pf). Write
   `real(n)` for an integer and `real(q)` for a rational, e.g.
   `real(frac(+1, 2))`; concrete arithmetic on these is computed
-  automatically. `python deduce.py --postulates file.pf` lists the
+  automatically. `x ^ k` is the power with a `UInt` exponent `k`. `python deduce.py --postulates file.pf` lists the
   axioms a file depends on.
 - ([`Ring.thm`](../lib/Ring.thm), [`Ring.pf`](../lib/Ring.pf)): Ring
   normalization for the [`algebra`](./Reference.md#algebra-proof)

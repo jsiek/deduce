@@ -1,0 +1,10 @@
+// `algebra` expands powers with a literal exponent and shows the normal
+// forms of the two sides when they are different polynomials (#1324).
+
+import Ring
+
+theorem wrong: all x:Real, y:Real. (x + y) ^ (2:UInt) = x ^ (2:UInt) + y ^ (2:UInt)
+proof
+  arbitrary x:Real, y:Real
+  algebra
+end

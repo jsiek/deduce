@@ -1,0 +1,98 @@
+module RealPow
+
+import Nat
+import UInt
+import Int
+import Base
+import Rat
+import RealAxioms
+import RealDefs
+import RealMult
+
+/*
+  Powers of reals with a UInt exponent: `x ^ k`, defined (as for
+  Int) by recursion on the exponent as a Nat.
+*/
+
+private recursive expt_nat(Nat, Real) -> Real {
+  expt_nat(0, a) = real(+1)
+  expt_nat(suc(p), a) = a * expt_nat(p, a)
+}
+
+opaque fun operator ^(a : Real, b : UInt) {
+  expt_nat(toNat(b), a)
+}
+
+theorem real_pow_zero: all x:Real. x ^ (0:UInt) = real(+1)
+proof
+  arbitrary x:Real
+  expand operator^
+  have z: toNat(fromNat(ℕ0)) = zero by uint_toNat_fromNat[ℕ0]
+  replace z
+  evaluate
+end
+
+auto real_pow_zero
+
+theorem real_pow_one_add: all x:Real, k:UInt. x ^ (1 + k) = x * x ^ k
+proof
+  arbitrary x:Real, k:UInt
+  expand operator^
+  have nat_eq: toNat((1:UInt) + k) = suc(toNat(k)) by {
+    have one: toNat(fromNat(ℕ1)) = ℕ1 by uint_toNat_fromNat[ℕ1]
+    replace toNat_add | one
+    evaluate
+  }
+  replace nat_eq
+  evaluate
+end
+
+lemma expt_nat_add: all j:Nat, k:Nat, x:Real.
+  expt_nat(j + k, x) = expt_nat(j, x) * expt_nat(k, x)
+proof
+  induction Nat
+  case zero {
+    arbitrary k:Nat, x:Real
+    expand expt_nat.
+  }
+  case suc(j') assume IH {
+    arbitrary k:Nat, x:Real
+    have step: suc(j') + k = suc(j' + k) by expand operator+.
+    replace step
+    expand expt_nat
+    replace IH[k, x].
+  }
+end
+
+theorem real_pow_add: all x:Real, j:UInt, k:UInt. x ^ (j + k) = x ^ j * x ^ k
+proof
+  arbitrary x:Real, j:UInt, k:UInt
+  expand operator^
+  replace toNat_add
+  expt_nat_add[toNat(j), toNat(k), x]
+end
+
+lemma expt_nat_mul_base: all k:Nat, x:Real, y:Real.
+  expt_nat(k, x * y) = expt_nat(k, x) * expt_nat(k, y)
+proof
+  induction Nat
+  case zero {
+    arbitrary x:Real, y:Real
+    expand expt_nat.
+  }
+  case suc(k') assume IH {
+    arbitrary x:Real, y:Real
+    expand expt_nat
+    replace IH[x, y]
+    show x * y * (expt_nat(k', x) * expt_nat(k', y))
+       = x * expt_nat(k', x) * (y * expt_nat(k', y))
+    replace real_mult_commute[y, expt_nat(k', x)].
+  }
+end
+
+theorem real_pow_mul_base: all k:UInt, x:Real, y:Real. (x * y) ^ k = x ^ k * y ^ k
+proof
+  arbitrary k:UInt, x:Real, y:Real
+  expand operator^
+  expt_nat_mul_base[toNat(k), x, y]
+end

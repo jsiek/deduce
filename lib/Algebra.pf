@@ -62,11 +62,13 @@ concept OrderedQVectorSpace<T> {
 // The interfaces of ring normalization in the `algebra` tactic (#1190,
 // lib/Ring.pf). `from_nat` reads constants in the semiring: the Nat
 // literal inside a literal such as `2`, `+2`, `rat(+2)`, or `real(+2)`.
+// `^` is the power with a UInt exponent (#1324).
 concept CommSemiring<T> {
   refines AddCommMonoid<T>
   fun operator* : fn (T, T) -> T
   fun one : T
   fun from_nat : fn Nat -> T
+  fun operator^ : fn (T, UInt) -> T
   theorem mult_commute: all x:T, y:T. x * y = y * x
   theorem mult_assoc: all x:T, y:T, z:T. (x * y) * z = x * (y * z)
   theorem mult_one: all x:T. x * one = x
@@ -76,6 +78,8 @@ concept CommSemiring<T> {
   theorem from_nat_one: from_nat(suc(zero)) = one
   theorem from_nat_add: all m:Nat, n:Nat. from_nat(m + n) = from_nat(m) + from_nat(n)
   theorem from_nat_mult: all m:Nat, n:Nat. from_nat(m * n) = from_nat(m) * from_nat(n)
+  theorem pow_zero: all x:T. x ^ (0:UInt) = one
+  theorem pow_one_add: all x:T, k:UInt. x ^ (1 + k) = x * x ^ k
 }
 
 concept CommRing<T> {
@@ -104,6 +108,11 @@ model CommSemiring<UInt> {
   theorem from_nat_one = evaluate
   theorem from_nat_add = fromNat_add
   theorem from_nat_mult = fromNat_mult
+  theorem pow_zero = uint_expt_zero
+  theorem pow_one_add = {
+    arbitrary x:UInt, k:UInt
+    replace uint_pow_add_r[x, 1, k].
+  }
 }
 
 // Int
@@ -141,6 +150,8 @@ model CommSemiring<Int> {
     arbitrary m:Nat, n:Nat
     replace fromNat_mult[m, n] | mult_pos_pos.
   }
+  theorem pow_zero = int_pow_zero
+  theorem pow_one_add = int_pow_one_add
 }
 
 model CommRing<Int> { }
@@ -197,6 +208,8 @@ model CommSemiring<Rat> {
     arbitrary m:Nat, n:Nat
     replace fromNat_mult[m, n] | mult_pos_pos.
   }
+  theorem pow_zero = rat_pow_zero
+  theorem pow_one_add = rat_pow_one_add
 }
 
 model CommRing<Rat> { }
@@ -294,6 +307,8 @@ model CommSemiring<Real> {
     arbitrary m:Nat, n:Nat
     replace fromNat_mult[m, n] | mult_pos_pos.
   }
+  theorem pow_zero = real_pow_zero
+  theorem pow_one_add = real_pow_one_add
 }
 
 model CommRing<Real> { }

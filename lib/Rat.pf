@@ -29,3 +29,4 @@ public import RatMult
 public import RatLess
 public import RatInt
 public import RatLit
+public import RatPow
