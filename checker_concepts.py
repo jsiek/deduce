@@ -117,6 +117,9 @@ def _binder_lookup(env: Env, where: WhereClause, loc: Meta) -> MemberLookup:
 def check_where(where: WhereClause, env: Env) -> WhereClause:
   """Type check the concept applications of a where clause (including
   its refinement closure) in ``env``."""
+  if where.equations:
+    user_error(where.equations[0][0].location,
+               'same-type constraints are not supported yet (#1321)')
   def check_ref(ref: ConceptRef) -> ConceptRef:
     concept_of(env, ref.concept, ref.location)
     return ConceptRef(ref.location, ref.concept,
@@ -574,6 +577,8 @@ def concept_member_formula(proof: ConceptMemberProof, env: Env) -> Formula:
 
 def process_concept(decl: ConceptDecl, env: Env) -> tuple[ConceptDecl, Env]:
   loc = decl.location
+  if decl.types:
+    user_error(loc, 'associated types are not supported yet (#1321)')
   body_env = env.declare_type_vars(loc, decl.type_params)
   refines = check_where(decl.refines, body_env)
   body_env = declare_where_operations(refines, body_env, loc)
@@ -581,7 +586,8 @@ def process_concept(decl: ConceptDecl, env: Env) -> tuple[ConceptDecl, Env]:
   body_env = body_env.declare_term_vars(loc, funs)
   theorems = [(n, check_formula(frm, body_env)) for (n, frm) in decl.theorems]
   new_decl = ConceptDecl(loc, decl.name, decl.type_params, refines, funs,
-                         theorems, visibility=decl.visibility)
+                         theorems, visibility=decl.visibility,
+                         requires=decl.requires)
   return new_decl, env._with_binding(
       decl.name, ConceptBinding(loc, new_decl, module=env.get_current_module(),
                                 visibility=decl.visibility))

@@ -165,10 +165,10 @@ operator_name: OPERATOR -> identifier
     | "λ" type_params_opt ne_variable_list "{" term "}"    -> lambda
     | "fun" type_params_opt ne_variable_list "{" term "}"  -> lambda
     | "generic" identifier_list "{" term "}"            -> generic
-    | "generic" identifier_list "where" "{" concept_ref_list "}" "{" term "}" -> generic_where
+    | "generic" identifier_list "where" "{" where_constraints "}" "{" term "}" -> generic_where
     | "switch" term "{" switch_list "}"            -> switch
     | "all" type_annotation_list "." term               -> all_formula
-    | "all" type_annotation_list "where" "{" concept_ref_list "}" "." term -> all_where_formula
+    | "all" type_annotation_list "where" "{" where_constraints "}" "." term -> all_where_formula
     | "<" identifier_list ">" term                      -> alltype_formula
     | "some" type_annotation_list "." term              -> some_formula
     | "define" IDENT "=" term ";" term             -> define_term
@@ -322,7 +322,7 @@ operator_name: OPERATOR -> identifier
     | "with" proof_list
 
 ?proof_stmt: "arbitrary" type_annotation_list            -> all_intro
-    | "arbitrary" type_annotation_list "where" "{" concept_ref_list "}" -> all_intro_where
+    | "arbitrary" type_annotation_list "where" "{" where_constraints "}" -> all_intro_where
     | "assume" IDENT                                -> imp_intro
     | "assume" IDENT ":" term                       -> imp_intro_explicit
     | "assume" ":" term                             -> imp_intro_anon
@@ -360,8 +360,8 @@ operator_name: OPERATOR -> identifier
 
 ?type: "fn" type_params_opt type_list "->" type        -> function_type
  | "fn" type_params_opt "(" type "," type_list ")" "->" type   -> function_type_paren
- | "fn" "<" identifier_list ">" "where" "{" concept_ref_list "}" type_list "->" type -> function_type_where
- | "fn" "<" identifier_list ">" "where" "{" concept_ref_list "}" "(" type "," type_list ")" "->" type -> function_type_where_paren
+ | "fn" "<" identifier_list ">" "where" "{" where_constraints "}" type_list "->" type -> function_type_where
+ | "fn" "<" identifier_list ">" "where" "{" where_constraints "}" "(" type "," type_list ")" "->" type -> function_type_where_paren
  | IDENT "<" type_list ">"                             -> type_inst
  | atomic_type
 
@@ -371,6 +371,7 @@ operator_name: OPERATOR -> identifier
  | "(" type ")"   -> paren
  | "[" type "]" "!" -> mutable_array_type
  | "[" type "]"   -> array_type
+ | "@" IDENT "<" type_list ">" FIELDACCESS -> assoc_type
 
 ?type_list: type                                 -> single
     | type "," type_list                         -> push
@@ -536,11 +537,11 @@ imp_block: "{" imp_stmt_list "}"                   -> imp_block
  | visibility "predicate" identifier type_params_opt ":" type "{" predicate_rule_list "}" -> predicate_declaration
  | visibility "relation"  identifier type_params_opt ":" type "{" predicate_rule_list "}" -> relation_declaration
  | visibility "recursive" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> recursive_function
- | visibility "recursive" identifier "<" identifier_list ">" "where" "{" concept_ref_list "}" "(" type_list ")" "->" type "{" fun_case_list "}" -> recursive_function_where
+ | visibility "recursive" identifier "<" identifier_list ">" "where" "{" where_constraints "}" "(" type_list ")" "->" type "{" fun_case_list "}" -> recursive_function_where
  | visibility "fun" identifier type_params_opt "(" variable_list ")" "{" term "}" -> fun
- | visibility "fun" identifier "<" identifier_list ">" "where" "{" concept_ref_list "}" "(" variable_list ")" "{" term "}" -> fun_where
+ | visibility "fun" identifier "<" identifier_list ">" "where" "{" where_constraints "}" "(" variable_list ")" "{" term "}" -> fun_where
  | visibility "recfun" identifier type_params_opt "(" variable_list ")" "->" type "measure" term "of" type "{" term "}" "terminates" proof -> general_recursive_function
- | visibility "recfun" identifier "<" identifier_list ">" "where" "{" concept_ref_list "}" "(" variable_list ")" "->" type "measure" term "of" type "{" term "}" "terminates" proof -> general_recursive_function_where
+ | visibility "recfun" identifier "<" identifier_list ">" "where" "{" where_constraints "}" "(" variable_list ")" "->" type "measure" term "of" type "{" term "}" "terminates" proof -> general_recursive_function_where
  | visibility "proc" identifier type_params_opt "(" proc_param_list ")" proc_return_opt proc_spec_list imp_block proc_proof_opt -> proc_decl
  | visibility "observer" identifier type_params_opt "(" proc_param_list ")" "->" type observer_reads_list observer_body_opt -> observer_decl
  | visibility "resource" identifier type_params_opt "(" proc_param_list ")" resource_body_opt -> resource_decl
@@ -562,24 +563,30 @@ imp_block: "{" imp_stmt_list "}"                   -> imp_block
 // Concepts, models, and where clauses (#1264).
 concept_ref: IDENT "<" type_list ">"
 
-?concept_ref_list: concept_ref                          -> single
-    | concept_ref "," concept_ref_list                  -> push
+?where_constraints: where_constraint                    -> single
+    | where_constraint "," where_constraints            -> push
+
+?where_constraint: concept_ref
+    | type "=" type                                     -> same_type
 
 ?concept_member_list:                                   -> empty
     | concept_member concept_member_list                -> push
 
 concept_member: "refines" concept_ref                   -> concept_refines
+    | "require" concept_ref                             -> concept_require
+    | "type" IDENT                                      -> concept_type
     | "fun" identifier ":" type                         -> concept_fun
     | "theorem" IDENT ":" term                          -> concept_theorem
 
 model_head: concept_ref                                 -> model_head
     | "<" identifier_list ">" concept_ref               -> model_head_params
-    | "<" identifier_list ">" "where" "{" concept_ref_list "}" concept_ref -> model_head_where
+    | "<" identifier_list ">" "where" "{" where_constraints "}" concept_ref -> model_head_where
 
 ?model_member_list:                                     -> empty
     | model_member model_member_list                    -> push
 
-model_member: "fun" identifier "=" term                 -> model_fun
+model_member: "type" IDENT "=" type                     -> model_type
+    | "fun" identifier "=" term                         -> model_fun
     | "theorem" IDENT "=" proof                         -> model_theorem
 
 ?statement_list: statement                               -> single

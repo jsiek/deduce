@@ -1,0 +1,27 @@
+// Associated types (#1321) parse, but the checker does not support them
+// yet. This file exercises their syntax: `type` and `require` members of
+// a concept, `type` members of a model, the projection `@C<τ>.Elem`, and a
+// same-type constraint.
+
+concept Eq<T> {
+  fun eq : fn (T, T) -> bool
+}
+
+concept Container<C> {
+  type Elem
+  require Eq<Elem>
+  fun first : fn C -> Elem
+}
+
+model Container<bool> {
+  type Elem = bool
+  fun first = fun b:bool { b }
+}
+
+theorem same_first: all C:type, D:type
+    where { Container<C>, Container<D>,
+            @Container<C>.Elem = @Container<D>.Elem }.
+  all c:C, d:D. if first(c) = first(d) then first(d) = first(c)
+proof
+  sorry
+end

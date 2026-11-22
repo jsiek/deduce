@@ -1,5 +1,5 @@
 from abstract_syntax import (
-    All, AllElim, ConceptDecl, ConceptMember, ConceptMemberProof, ConceptRef, ModelDecl, PModel, WhereClause, AllElimTypes, AllIntro, And, ApplyDefsFact,
+    All, AllElim, AssocType, ConceptDecl, ConceptMember, ConceptMemberProof, ConceptRef, ModelDecl, PModel, WhereClause, AllElimTypes, AllIntro, And, ApplyDefsFact,
     ApplyDefsGoal, ArrayGet, ArrayType, Assert, Associative, Auto,
     Bool, BoolType, Call, Cases, Conditional, Constructor,
     AlgebraGoal, Define, Emp, EvaluateFact, EvaluateGoal, Export, FieldAccess, FunCase,
@@ -250,18 +250,24 @@ def _imp_rhs_to_ast(e: ParseNode, parent: ParseParent) -> Any:
                         parse_tree_to_list(e.children[2], e))
     return parse_tree_to_ast(e, parent)
 
+def _where_clause(meta: Any, tree: Any, parent: Any) -> WhereClause:
+    items = parse_tree_to_list(tree, parent)
+    return WhereClause(meta, [c for c in items if isinstance(c, ConceptRef)],
+                       equations=[c for c in items if isinstance(c, tuple)])
+
 def _model_decl(e: Any, children: list[Any]) -> ModelDecl:
     head = children[0]
     parts = head.children
     type_params = parse_tree_to_list(parts[0], head) if len(parts) > 1 else []
-    where = WhereClause(head.meta, parse_tree_to_list(parts[1], head)) \
+    where = _where_clause(head.meta, parts[1], head) \
         if head.data == 'model_head_where' else None
     members = parse_tree_to_list(children[1], e)
     return ModelDecl(
         e.meta, 'model', parse_tree_to_ast(parts[-1], head),
         [(m[1], '', m[2]) for m in members if m[0] == 'model_fun'],
         [(str(m[1]), m[2]) for m in members if m[0] == 'model_theorem'],
-        type_params=type_params, where=where)
+        type_params=type_params, where=where,
+        types=[(str(m[1]), m[2]) for m in members if m[0] == 'model_type'])
 
 # Any: the lark-tree -> AST dispatch boundary. This is dispatched on the
 # grammar rule name and so is polymorphic over every node kind the grammar
@@ -354,7 +360,7 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
         return result
     elif e.data == 'all_where_formula':
         vars = parse_tree_to_list(e.children[0], e)
-        where = WhereClause(e.meta, parse_tree_to_list(e.children[1], e))
+        where = _where_clause(e.meta, e.children[1], e)
         result = parse_tree_to_ast(e.children[2], e)
         for i, var in enumerate(reversed(vars)):
             result = All(e.meta, None, var, (i, len(vars)), result,
@@ -396,7 +402,7 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
                           parse_tree_to_list(e.children[0], e),
                           parse_tree_to_list(e.children[1 + w], e),
                           parse_tree_to_ast(e.children[2 + w], e),
-                          where=WhereClause(e.meta, parse_tree_to_list(e.children[1], e))
+                          where=_where_clause(e.meta, e.children[1], e)
                           if w else None)
     elif e.data in ('function_type_paren', 'function_type_where_paren'):
       w = 1 if e.data == 'function_type_where_paren' else 0
@@ -406,7 +412,7 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
                           parse_tree_to_list(e.children[0], e),
                           [first_param] + rest_params,
                           parse_tree_to_ast(e.children[3 + w], e),
-                          where=WhereClause(e.meta, parse_tree_to_list(e.children[1], e))
+                          where=_where_clause(e.meta, e.children[1], e)
                           if w else None)
     elif e.data == 'type_inst':
       return TypeInst(e.meta, Var(e.meta, None, _token_text(e, 0)),
@@ -757,7 +763,7 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
         return Generic(e.meta, None,
                        parse_tree_to_list(e.children[0], e),
                        parse_tree_to_ast(e.children[2], e),
-                       where=WhereClause(e.meta, parse_tree_to_list(e.children[1], e)))
+                       where=_where_clause(e.meta, e.children[1], e))
     elif e.data == 'not_equal':
         kids = [parse_tree_to_ast(c, e) for c in e.children]
         return IfThen(e.meta, None, 
@@ -899,7 +905,7 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
         return result
     elif e.data == 'all_intro_where':
         vars = parse_tree_to_list(e.children[0], e)
-        where = WhereClause(e.meta, parse_tree_to_list(e.children[1], e))
+        where = _where_clause(e.meta, e.children[1], e)
         result = None
         for i, var in enumerate(reversed(vars)):
             result = AllIntro(e.meta, var, (i, len(vars)), result,
@@ -1219,7 +1225,7 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
         lam = Lambda(e.meta, None, params, body)
         if len(typarams) > 0:
             fun = Generic(e.meta, None, typarams, lam,
-                          where=WhereClause(e.meta, parse_tree_to_list(e.children[3], e))
+                          where=_where_clause(e.meta, e.children[3], e)
                           if w else None)
         else:
             fun = lam
@@ -1236,7 +1242,7 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
                            parse_tree_to_list(e.children[3 + w], e),
                            parse_tree_to_ast(e.children[4 + w], e),
                            parse_tree_to_list(e.children[5 + w], e),
-                           where=WhereClause(e.meta, parse_tree_to_list(e.children[3], e))
+                           where=_where_clause(e.meta, e.children[3], e)
                            if w else None)
         set_visibility(statement, visibility)
         return statement
@@ -1254,7 +1260,7 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
                               parse_tree_to_ast(e.children[6 + w], e),
                               parse_tree_to_ast(e.children[7 + w], e),
                               parse_tree_to_ast(e.children[8 + w], e),
-                              where=WhereClause(e.meta, parse_tree_to_list(e.children[3], e))
+                              where=_where_clause(e.meta, e.children[3], e)
                               if w else None)
         set_visibility(statement, visibility)
         return statement
@@ -1281,17 +1287,29 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
     elif e.data == 'concept_ref':
         return ConceptRef(e.meta, _token_text(e, 0),
                           parse_tree_to_list(e.children[1], e))
-    elif e.data in ('concept_refines', 'concept_fun', 'concept_theorem',
-                    'model_fun', 'model_theorem'):
+    elif e.data == 'assoc_type':
+        return AssocType(e.meta, ConceptRef(e.meta, _token_text(e, 0),
+                                            parse_tree_to_list(e.children[1], e)),
+                         _field_name(e, 2))
+    elif e.data == 'same_type':
+        return (parse_tree_to_ast(e.children[0], e),
+                parse_tree_to_ast(e.children[1], e))
+    elif e.data in ('concept_refines', 'concept_require', 'concept_type',
+                    'concept_fun', 'concept_theorem',
+                    'model_type', 'model_fun', 'model_theorem'):
         return (e.data,) + tuple(parse_tree_to_ast(c, e) for c in e.children)
     elif e.data == 'concept_declaration':
         visibility = parse_tree_to_ast(e.children[0], e)
         members = parse_tree_to_list(e.children[3], e)
+        requires = [m[1] for m in members if m[0] == 'concept_require']
         statement = ConceptDecl(
             e.meta, _token_text(e, 1), parse_tree_to_list(e.children[2], e),
-            WhereClause(e.meta, [m[1] for m in members if m[0] == 'concept_refines']),
+            WhereClause(e.meta, [m[1] for m in members
+                                 if m[0] in ('concept_refines', 'concept_require')]),
             [(m[1], m[2]) for m in members if m[0] == 'concept_fun'],
-            [(str(m[1]), m[2]) for m in members if m[0] == 'concept_theorem'])
+            [(str(m[1]), m[2]) for m in members if m[0] == 'concept_theorem'],
+            types=[str(m[1]) for m in members if m[0] == 'concept_type'],
+            requires=requires)
         set_visibility(statement, visibility)
         return statement
     elif e.data == 'model_declaration':

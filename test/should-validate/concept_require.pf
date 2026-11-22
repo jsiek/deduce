@@ -1,0 +1,40 @@
+// `require` (#1321): a requirement on a type other than the concept's
+// own parameter. It means the same as `refines`.
+
+import Pair
+
+concept Semi<T> {
+  fun op : fn (T, T) -> T
+}
+
+concept Doubled<T> {
+  require Semi<Pair<T, T>>
+  fun dbl : fn T -> Pair<T, T>
+  theorem dbl_op: all x:T. op(dbl(x), dbl(x)) = dbl(x)
+}
+
+theorem dbl_op_twice: all T:type where { Doubled<T> }. all x:T.
+  op(op(dbl(x), dbl(x)), dbl(x)) = dbl(x)
+proof
+  arbitrary T:type where { Doubled<T> }
+  arbitrary x:T
+  replace dbl_op[x] | dbl_op[x].
+end
+
+model Semi<Pair<bool, bool>> {
+  fun op = fun p:Pair<bool,bool>, q:Pair<bool,bool> { p }
+}
+
+model Doubled<bool> {
+  fun dbl = fun b:bool { pair(b, b) }
+  theorem dbl_op = { arbitrary x:bool  evaluate }
+}
+
+assert @Doubled<bool>.dbl(true) = pair(true, true)
+
+theorem at_bool: all x:bool.
+  @Semi<Pair<bool,bool>>.op(@Semi<Pair<bool,bool>>.op(pair(x, x), pair(x, x)),
+                            pair(x, x)) = pair(x, x)
+proof
+  dbl_op_twice<bool>
+end

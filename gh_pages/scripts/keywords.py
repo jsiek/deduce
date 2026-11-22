@@ -135,6 +135,7 @@ known_tokens = {
     'RELATION': 'keyword',
     'RULE': 'keyword',
     'REPLACE': 'keyword',
+    'REQUIRE': 'keyword',
     'REQUIRES': 'keyword',
     'RESOURCE': 'keyword',
     'RETURN': 'keyword',

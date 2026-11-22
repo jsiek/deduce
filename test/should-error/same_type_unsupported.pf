@@ -1,0 +1,11 @@
+// Same-type constraints (#1321) parse, but the checker does not support
+// them yet.
+
+concept Semi<T> {
+  fun op : fn (T, T) -> T
+}
+
+theorem op_bool: all T:type where { Semi<T>, T = bool }. all x:T. op(x, x) = op(x, x)
+proof
+  sorry
+end

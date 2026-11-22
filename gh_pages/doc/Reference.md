@@ -302,7 +302,7 @@ assert cnt(X)(7) = 0
 
 ```deduce-grammar
 atomic_term ::= "all" type_annotation_list "." term
-atomic_term ::= "all" type_annotation_list "where" "{" concept_ref_list "}" "." term
+atomic_term ::= "all" type_annotation_list "where" "{" where_constraints "}" "." term
 ```
 
 The second form quantifies over types that model some concepts; see
@@ -453,7 +453,7 @@ end
 
 ```deduce-grammar
 proof_stmt ::= "arbitrary" type_annotation_list
-proof_stmt ::= "arbitrary" type_annotation_list "where" "{" concept_ref_list "}"
+proof_stmt ::= "arbitrary" type_annotation_list "where" "{" where_constraints "}"
 ```
 
 The second form proves an `all` formula with a where clause; see
@@ -742,6 +742,8 @@ statement ::= visibility "concept" IDENT "<" identifier_list ">" "{" concept_mem
 concept_member_list ::= ε
 concept_member_list ::= concept_member concept_member_list
 concept_member ::= "refines" concept_ref
+concept_member ::= "require" concept_ref
+concept_member ::= "type" IDENT
 concept_member ::= "fun" identifier ":" type
 concept_member ::= "theorem" IDENT ":" term
 concept_ref ::= IDENT "<" type_list ">"
@@ -770,6 +772,14 @@ concept CommMonoid<T> {
 
 The theorems of a concept may use the operations of the concepts it
 refines, as `add_commute` uses `+`.
+
+`require C<τ>` means the same as `refines C<τ>`. It reads better for a
+requirement on a type other than the concept's own parameter, as in
+`require Semi<Pair<T, T>>`.
+
+A `type Elem` member declares an associated type, which a model
+defines (`type Elem = UInt`) and which is written `@C<τ>.Elem` outside
+the concept. Associated types are parsed but not yet checked (#1321).
 
 Concepts, models, and where clauses follow System F<sup>G</sup>
 (Siek and Lumsdaine, *Essential Language Support for Generic
@@ -1310,7 +1320,7 @@ To add type parameters to a function (to make it generic), see
 
 ```deduce-grammar
 statement ::= visibility "fun" identifier type_params_opt "(" variable_list ")" "{" term "}"
-statement ::= visibility "fun" identifier "<" identifier_list ">" "where" "{" concept_ref_list "}" "(" variable_list ")" "{" term "}"
+statement ::= visibility "fun" identifier "<" identifier_list ">" "where" "{" where_constraints "}" "(" variable_list ")" "{" term "}"
 ```
 
 The `fun` statement is for defining a function (non-recursive).
@@ -1335,8 +1345,8 @@ assert interchange(pair(1,2)) = pair(2,1)
 ```deduce-grammar
 type ::= "fn" type_params_opt type_list "->" type
 type ::= "fn" type_params_opt "(" type "," type_list ")" "->" type
-type ::= "fn" "<" identifier_list ">" "where" "{" concept_ref_list "}" type_list "->" type
-type ::= "fn" "<" identifier_list ">" "where" "{" concept_ref_list "}" "(" type "," type_list ")" "->" type
+type ::= "fn" "<" identifier_list ">" "where" "{" where_constraints "}" type_list "->" type
+type ::= "fn" "<" identifier_list ">" "where" "{" where_constraints "}" "(" type "," type_list ")" "->" type
 ```
 
 A function type classifies a function. This includes both recursive
@@ -1373,7 +1383,7 @@ this formula applies to lists with any element type.
 
 ```deduce-grammar
 atomic_term ::= "generic" identifier_list "{" term "}"
-atomic_term ::= "generic" identifier_list "where" "{" concept_ref_list "}" "{" term "}"
+atomic_term ::= "generic" identifier_list "where" "{" where_constraints "}" "{" term "}"
 ```
 
 A term of the form
@@ -2007,9 +2017,10 @@ the braces of a `have`.
 statement ::= visibility "model" model_head "{" model_member_list "}"
 model_head ::= concept_ref
 model_head ::= "<" identifier_list ">" concept_ref
-model_head ::= "<" identifier_list ">" "where" "{" concept_ref_list "}" concept_ref
+model_head ::= "<" identifier_list ">" "where" "{" where_constraints "}" concept_ref
 model_member_list ::= ε
 model_member_list ::= model_member model_member_list
+model_member ::= "type" IDENT "=" type
 model_member ::= "fun" identifier "=" term
 model_member ::= "theorem" IDENT "=" proof
 ```
@@ -2738,7 +2749,7 @@ is a proof of the formula `P1 and ... and Pn`. The formulas
 
 ```deduce-grammar
 statement ::= visibility "recfun" identifier type_params_opt "(" variable_list ")" "->" type "measure" term "of" type "{" term "}" "terminates" proof
-statement ::= visibility "recfun" identifier "<" identifier_list ">" "where" "{" concept_ref_list "}" "(" variable_list ")" "->" type "measure" term "of" type "{" term "}" "terminates" proof
+statement ::= visibility "recfun" identifier "<" identifier_list ">" "where" "{" where_constraints "}" "(" variable_list ")" "->" type "measure" term "of" type "{" term "}" "terminates" proof
 ```
 
 The `recfun` statement defines a function by general recursion: the
@@ -2822,7 +2833,7 @@ so the proof can use the concepts' operations and theorems.
 
 ```deduce-grammar
 statement ::= visibility "recursive" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}"
-statement ::= visibility "recursive" identifier "<" identifier_list ">" "where" "{" concept_ref_list "}" "(" type_list ")" "->" type "{" fun_case_list "}"
+statement ::= visibility "recursive" identifier "<" identifier_list ">" "where" "{" where_constraints "}" "(" type_list ")" "->" type "{" fun_case_list "}"
 fun_case ::= identifier "(" pattern_list ")" "=" term
 fun_case_list ::= fun_case
 fun_case_list ::= fun_case fun_case_list
@@ -3523,9 +3534,10 @@ type ::= identifier                                    // type of a union or typ
 type ::= identifier "<" type_list ">"                  // type of a generic union or type alias
 type ::= "[" type "]"                                  // type of an array
 type ::= "[" type "]" "!"                              // experimental mutable-array type
+type ::= "@" IDENT "<" type_list ">" FIELDACCESS       // associated type of a concept instance
 type ::= "fn" type_params_opt type_list "->" type      // type of a function 
 type ::= "fn" type_params_opt "(" type "," type_list ")" "->" type   // parenthesized multi-arg form
-type ::= "fn" "<" identifier_list ">" "where" "{" concept_ref_list "}" type_list "->" type  // with a where clause
+type ::= "fn" "<" identifier_list ">" "where" "{" where_constraints "}" type_list "->" type  // with a where clause
 type ::= "(" type ")"
 ```
 
@@ -3801,9 +3813,15 @@ used outside of the current module.
 ## Where Clause
 
 ```deduce-grammar
-concept_ref_list ::= concept_ref
-concept_ref_list ::= concept_ref "," concept_ref_list
+where_constraints ::= where_constraint
+where_constraints ::= where_constraint "," where_constraints
+where_constraint ::= concept_ref
+where_constraint ::= type "=" type
 ```
+
+A constraint `σ = τ` is a same-type constraint, as in
+`where { Container<C>, Container<D>, @Container<C>.Elem = @Container<D>.Elem }`.
+Same-type constraints are parsed but not yet checked (#1321).
 
 A where clause on an `all` formula over types restricts the types to
 those that satisfy some [concepts](#concept-statement):

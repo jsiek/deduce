@@ -419,6 +419,7 @@ PARSER_ROUND_TRIP_FILES = (
     "./test/should-validate/induction_auto_assume.pf",  # induction + suffices body
     "./test/should-validate/private_roundtrip.pf", # `private type` + `private fun`
     "./test/should-validate/proof_print_roundtrip_1284.pf",  # model `arbitrary` member, `replace` tuple
+    "./test/should-validate/concept_require.pf",   # concept `require` member
     # `private theorem` / `private lemma` / `private postulate` visibility
     # round-trip (Theorem.__str__ / Postulate.__str__ visibility prefix).
     "./test/should-validate/private_theorem.pf",

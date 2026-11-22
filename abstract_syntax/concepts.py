@@ -80,6 +80,33 @@ class ConceptRef(AST):
 
 
 @dataclass
+class AssocType(Type):
+  """`@C<τ>.Elem`: the associated type ``Elem`` of the instance ``C<τ>``
+  (#1321)."""
+  ref: ConceptRef
+  name: str
+
+  def __str__(self) -> str:
+    return '@' + str(self.ref) + '.' + name2str(self.name)
+
+  def __eq__(self, other: object) -> bool:
+    return isinstance(other, AssocType) and self.ref == other.ref \
+      and self.name == other.name
+
+  def free_vars(self) -> Set[str]:
+    return set().union(*[t.free_vars() for t in self.ref.type_args])
+
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> AssocType:
+    ref = self.ref.uniquify(env, ctx)
+    names = [t for t in concept_decls[ref.concept].types
+             if base_name(t) == self.name]
+    if not names:
+      static_error(self.location, base_name(ref.concept)
+                   + ' has no associated type ' + self.name)
+    return AssocType(self.location, ref, names[0])
+
+
+@dataclass
 class WhereMember:
   """One member of one concept instance in a where clause's refinement
   closure: the concept member ``member`` of ``instance`` is bound by
@@ -99,14 +126,19 @@ class WhereClause(AST):
   # Set by the checker once the body of the ``all`` has been expanded to
   # ``all ops. if axioms then P``.
   expanded: bool = False
+  # The same-type constraints `σ = τ` (#1321).
+  equations: List[Tuple[Type, Type]] = field(default_factory=list, kw_only=True)
 
   def __str__(self) -> str:
-    return 'where { ' + ', '.join(str(c) for c in self.constraints) + ' }'
+    return 'where { ' + ', '.join([str(c) for c in self.constraints]
+                                  + [str(s) + ' = ' + str(t)
+                                     for (s, t) in self.equations]) + ' }'
 
   def __eq__(self, other: object) -> bool:
     return isinstance(other, WhereClause) \
       and len(self.constraints) == len(other.constraints) \
-      and all(a == b for a, b in zip(self.constraints, other.constraints))
+      and all(a == b for a, b in zip(self.constraints, other.constraints)) \
+      and self.equations == other.equations
 
   def bind(self, env: UniquifyEnv, ctx: UniquifyContext) -> WhereClause:
     """Uniquify the constraints and bind a fresh name for every member
@@ -144,7 +176,10 @@ class WhereClause(AST):
          for wm in members] + env.get(WHERE_MEMBERS_KEY, [])
     if overloaded:
       env[OVERLOADED_PROOFS_KEY] = env.get(OVERLOADED_PROOFS_KEY, set()) | overloaded
-    return WhereClause(self.location, constraints, members)
+    equations = [(s.uniquify(env, ctx), t.uniquify(env, ctx))
+                 for (s, t) in self.equations]
+    return WhereClause(self.location, constraints, members,
+                       equations=equations)
 
   def substitute(self, sub: Mapping[str, Term | Type | RecFun | GenRecFun]) -> WhereClause:
     return WhereClause(self.location,
@@ -152,7 +187,9 @@ class WhereClause(AST):
                        [WhereMember(m.instance.substitute(sub), m.member,
                                     m.binder, m.is_theorem)
                         for m in self.members],
-                       self.expanded)
+                       self.expanded,
+                       equations=[(s.substitute(sub), t.substitute(sub))
+                                  for (s, t) in self.equations])
 
   def operations(self) -> List[WhereMember]:
     return [m for m in self.members if not m.is_theorem]
@@ -287,11 +324,20 @@ class ConceptDecl(Declaration):
   refines: WhereClause
   funs: List[Tuple[str, Type]]
   theorems: List[Tuple[str, Formula]]
+  # The associated types (#1321), bound in the members like type
+  # parameters.
+  types: List[str] = field(default_factory=list, kw_only=True)
+  # The constraints of `refines` written as `require` (G's nested
+  # requirements, usually on associated types). They mean the same as
+  # `refines`; this list only keeps the keyword for printing.
+  requires: List[ConceptRef] = field(default_factory=list, kw_only=True)
 
   def __str__(self) -> str:
     lines = [self.visibility_prefix() + 'concept ' + name2str(self.name)
              + '<' + ', '.join(name2str(p) for p in self.type_params) + '> {']
-    lines += ['  refines ' + str(r) for r in self.refines.constraints]
+    lines += ['  type ' + name2str(t) for t in self.types]
+    lines += [('  require ' if r in self.requires else '  refines ') + str(r)
+              for r in self.refines.constraints]
     lines += ['  fun ' + member_str(f) + ' : ' + str(t) for (f, t) in self.funs]
     lines += ['  theorem ' + name2str(n) + ': ' + str(frm)
               for (n, frm) in self.theorems]
@@ -302,6 +348,9 @@ class ConceptDecl(Declaration):
     ctx = cast(UniquifyContext, ctx)
     body_env, type_params = uniquify_type_params(
         env, self.type_params, ctx, self.location, overwrite)
+    body_env, types = uniquify_type_params(
+        body_env, self.types, ctx, self.location, overwrite)
+    requires = [r.uniquify(body_env, ctx) for r in self.requires]
     refines = self.refines.bind(body_env, ctx)
     funs = []
     for (f, t) in self.funs:
@@ -314,7 +363,8 @@ class ConceptDecl(Declaration):
     overwrite(env, self.name, new_name, self.location)
     env['no overload'][self.name] = 'concept'
     decl = ConceptDecl(self.location, new_name, type_params, refines, funs,
-                       theorems, visibility=self.visibility)
+                       theorems, visibility=self.visibility, types=types,
+                       requires=requires)
     concept_decls[new_name] = decl
     return decl
 
@@ -337,6 +387,12 @@ class ModelDecl(Declaration):
   # of its type parameters and of its where clause's binders.
   type_params: List[str] = field(default_factory=list, kw_only=True)
   where: Optional[WhereClause] = field(default=None, kw_only=True)
+  # (associated type of the concept, its definition), `type Elem = σ`
+  # (#1321).
+  types: List[Tuple[str, Type]] = field(default_factory=list, kw_only=True)
+
+  def type_members(self) -> List[str]:
+    return ['  type ' + name2str(t) + ' = ' + str(ty) for (t, ty) in self.types]
 
   def head(self) -> str:
     params = ('<' + ', '.join(name2str(p) for p in self.type_params) + '> '
@@ -368,6 +424,7 @@ class ModelDecl(Declaration):
 
   def __str__(self) -> str:
     lines = [self.visibility_prefix() + self.head() + ' {']
+    lines += self.type_members()
     lines += ['  fun ' + member_str(m) + ' = ' + str(body)
               for (m, _, body) in self.funs]
     lines += ['  theorem ' + name2str(m) + ' = ' + str(pf)
@@ -375,16 +432,21 @@ class ModelDecl(Declaration):
     return '\n'.join(lines) + '\n}\n'
 
   def opaque_signature(self) -> str | None:
-    return 'opaque ' + self.head() + '\n'
+    # An opaque model still exports its associated types (#1321).
+    if not self.types:
+      return 'opaque ' + self.head() + '\n'
+    return 'opaque ' + self.head() + ' {\n' \
+      + ''.join(line + '\n' for line in self.type_members()) + '}\n'
 
   def print_theorems_statement(self, f: TextIO) -> None:
-    # A model's interface is its operations; its proofs are not.
+    # A model's interface is its types and operations; its proofs are not.
     if self.visibility == 'private':
       return
     if self.visibility == 'opaque':
       print(self.opaque_signature(), file=f)
       return
     print(self.head() + ' {\n'
+          + ''.join(line + '\n' for line in self.type_members())
           + ''.join('  fun ' + member_str(m) + ' = ' + str(body) + '\n'
                     for (m, _, body) in self.funs)
           + '}\n', file=f)
@@ -401,11 +463,23 @@ class ModelDecl(Declaration):
     decl = concept_decls[concept.concept]
     given_funs = {f: body for (f, _, body) in self.funs}
     given_thms = {n: pf for (n, pf) in self.theorems}
+    given_types = {t: ty for (t, ty) in self.types}
     members = {base_name(m) for (m, _) in decl.funs + decl.theorems}
     for name in list(given_funs) + list(given_thms):
       if name not in members:
         static_error(self.location, name + ' is not a member of concept '
                      + base_name(decl.name))
+    for name in given_types:
+      if name not in map(base_name, decl.types):
+        static_error(self.location, name + ' is not an associated type of '
+                     + 'concept ' + base_name(decl.name))
+    types = []
+    for t in decl.types:
+      ty = given_types.get(base_name(t))
+      if ty is None:
+        static_error(self.location, 'model ' + str(self.concept)
+                     + ' is missing type ' + base_name(t))
+      types.append((t, ty.uniquify(body_env, ctx)))
     funs = []
     for (m, _) in decl.funs:
       body = given_funs.get(base_name(m)) \
@@ -425,7 +499,7 @@ class ModelDecl(Declaration):
     env[MODELS_KEY] = models + [new_name]
     return ModelDecl(self.location, new_name, concept, funs, theorems,
                      visibility=self.visibility, models=models,
-                     type_params=type_params, where=where)
+                     type_params=type_params, where=where, types=types)
 
   def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
     # A model has no name; it is exported into the scope of models,

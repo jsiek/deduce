@@ -1,0 +1,1 @@
+./test/should-error/same_type_unsupported.pf:8.46-8.47: same-type constraints are not supported yet (#1321)
