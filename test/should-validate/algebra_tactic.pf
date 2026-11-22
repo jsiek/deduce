@@ -90,3 +90,19 @@ proof
   assume h
   algebra
 end
+
+// A redundant given that compares with 0 is not lost (#1329).
+theorem duplicate_zero_given: all a:Real, b:Real.
+  if a + b = real(+0) and a = real(+0) and a = real(+0) then b = real(+0)
+proof
+  arbitrary a:Real, b:Real
+  assume h
+  algebra
+end
+
+// A linear goal that needs no givens (#1329).
+theorem half_double: all x:Real. real(frac(+1, 2)) * (x + x) = x
+proof
+  arbitrary x:Real
+  algebra
+end

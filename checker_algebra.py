@@ -246,7 +246,7 @@ def form(e: Lin) -> Form:
     case ('var', i):
       return {i: Fraction(1)}
     case ('const', q, _):
-      return {UNIT: q}
+      return {UNIT: q} if q else {}
     case ('zero',):
       return {}
     case ('add', a, b):
@@ -513,6 +513,8 @@ def check_algebra(proof: AlgebraGoal, goal: Formula, env: Env,
   frm = _instance(proof, theorem, ty, [b.list(reifier.atoms)] + args, env,
                   check_proof)
   frm = _reduce(loc, frm, proof.names, LINEAR_DEFS, _scale_op(frm), env)
+  if frm in _forms(goal, env):
+    return  # no facts were needed, so the premise reduced away
   if not isinstance(frm, IfThen):
     user_error(loc, 'algebra: unexpected instance\n\t' + str(frm))
   # The premises are the certificate's check, which reduces to `true`,
