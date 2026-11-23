@@ -1,0 +1,37 @@
+// Regressions for the `algebra` tactic.
+
+import UInt
+import Real
+import Ring
+import Linear
+
+// #1335: `algebra` after a `define` in the proof.
+theorem algebra_after_define: all a:Real, b:Real.
+  a * b - b * a = real(+0)
+proof
+  arbitrary a:Real, b:Real
+  define s = a * b
+  have e: s - b * a = real(+0) by {
+    expand s
+    algebra
+  }
+  e
+end
+
+// #1336: refuting the givens when the first given is not about numbers.
+theorem algebra_false_mixed: all n:UInt, x:Real.
+  if n = 1 and x < real(+0) and real(+0) < x then false
+proof
+  arbitrary n:UInt, x:Real
+  assume h
+  algebra
+end
+
+// #1337: a negative literal such as `real(-1)` is a constant.
+theorem algebra_negative_literal: all x:Real.
+  if real(+1) + x = real(+0) then x = real(-1)
+proof
+  arbitrary x:Real
+  assume h
+  algebra
+end

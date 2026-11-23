@@ -124,6 +124,24 @@ proof
   }
 end
 
+theorem real_mult_zero_iff: all x:Real, y:Real.
+  if not (x = real(+0)) then (x * y = real(+0)) = (y = real(+0))
+proof
+  arbitrary x:Real, y:Real
+  assume xnz
+  have fwd: if x * y = real(+0) then y = real(+0) by {
+    assume xy
+    cases apply real_mult_to_zero[x, y] to xy
+    case xz { conclude false by apply xnz to xz }
+    case yz { yz }
+  }
+  have bwd: if y = real(+0) then x * y = real(+0) by {
+    assume yz
+    replace yz.
+  }
+  apply iff_equal to fwd, bwd
+end
+
 theorem real_mult_left_cancel: all x:Real, y:Real, z:Real.
   if not (x = real(+0)) and x * y = x * z then y = z
 proof

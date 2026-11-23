@@ -1840,11 +1840,12 @@ def _check_proof_of_tlet_new(proof: PTLetNew, formula: CheckedFormula, env: Env)
       print('define ' + str(proof.var) + '\n\trewrite with ' + str(equation) + '\n\tin ' \
             + str(red_formula))
   frm = rewrite(loc, red_formula, equation, env)
-  new_body_env = Env({k: ProofBinding(b.location, \
-                                      rewrite(loc, b.formula, equation, env), \
-                                      b.local, module=env.get_current_module()) \
-                      if isinstance(b, ProofBinding) else b \
-                       for (k,b) in body_env.dict.items()})
+  # Fold the definition into the local givens only: the theorems in scope
+  # can't mention the proof's variables.
+  new_body_env = Env({k: dataclasses.replace(b, formula=rewrite(loc, b.formula,
+                                                                equation, env))
+                      if isinstance(b, ProofBinding) and b.local else b
+                      for (k,b) in body_env.dict.items()})
   _try_check_proof_of(proof.body, frm, new_body_env)
 
 def _check_proof_of_model(proof: PModel, formula: CheckedFormula, env: Env) -> None:

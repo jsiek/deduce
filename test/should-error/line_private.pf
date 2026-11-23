@@ -1,0 +1,8 @@
+// The representation of Line (lib/Line.pf) is private.
+
+import Line
+
+theorem peek: all L:Line. some c:Real. L = vertical(c)
+proof
+  ?
+end

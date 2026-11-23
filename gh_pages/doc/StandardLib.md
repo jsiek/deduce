@@ -30,6 +30,20 @@ Only the top-level module files (such as `UInt.pf`) are listed below. Each modul
   and the concept `LinearArith` (an `OrderedQVectorSpace` with a
   positive `unit`) of the types it works at, with models for `Rat` and
   `Real`.
+- ([`Line.thm`](../lib/Line.thm), [`Line.pf`](../lib/Line.pf)): Lines
+  of the plane, for coordinate geometry. `line(A, B)` is the line
+  through the points `A` and `B`, and `on_line(P, L)` says that `P` is
+  on `L`; the representation is private and canonical, so `=` on lines
+  is equality of lines. `parallel(L, M)` and `perpendicular(L, M)`
+  work for vertical lines too. Theorems include that two distinct
+  points determine a unique line (`line_unique`), that P is on line AB
+  exactly when A, B, P are collinear (`line_on_collinear`), and that
+  AB ∥ CD and AB ⊥ CD exactly when `seg_cross(A, B, C, D)` and
+  `seg_dot(A, B, C, D)`, the cross and dot products of the vectors AB
+  and CD, are zero (`line_parallel_seg_cross`,
+  `line_perpendicular_seg_dot`), or, for lines that are not vertical,
+  when the slopes are equal or have product -1
+  (`line_parallel_slope`, `line_perpendicular_slope`).
 - ([`List.thm`](../lib/List.thm), [`List.pf`](../lib/List.pf)): Lists.
   Higher-order list functions use collection-first order:
   `map(xs, f)`, `filter(xs, P)`, `foldr(xs, u, c)`, and
@@ -45,11 +59,14 @@ Only the top-level module files (such as `UInt.pf`) are listed below. Each modul
   `ycoord`; the representation is private. `dist2(A, B)` is the
   squared distance, `midpoint(A, B)` the midpoint, `dot(O, A, B)` and
   `cross(O, A, B)` the dot and cross products of OA and OB,
-  `collinear(A, B, C)` means `cross(A, B, C) = real(+0)`, and
-  `seg_congruent(A, B, C, D)` means `dist2(A, B) = dist2(C, D)`.
-  `expand` any of these for its coordinate formula. Theorems include
-  the Pythagorean theorem and its converse (`point_pythagoras`) and
-  that the midpoint is equidistant from the endpoints.
+  `collinear(A, B, C)` means `cross(A, B, C) = real(+0)`,
+  `seg_congruent(A, B, C, D)` means `dist2(A, B) = dist2(C, D)`, and
+  `slope(A, B)` is the slope of AB (meaningful when `xcoord(A) ≠
+  xcoord(B)`). `expand` any of these for its coordinate formula.
+  Theorems include the Pythagorean theorem and its converse
+  (`point_pythagoras`), that the midpoint is equidistant from the
+  endpoints, and that A, B, C are collinear exactly when AB and AC
+  have the same slope (`point_slope_collinear`).
 - ([`Rat.thm`](../lib/Rat.thm), [`Rat.pf`](../lib/Rat.pf)): Rational numbers.
   Write `frac(n, d)` for the rational `n / d` (an `Int` over a `UInt`)
   and `rat(n)` for an integer, e.g. `frac(+3, 4) + rat(+1) = frac(+7, 4)`.

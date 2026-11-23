@@ -1,0 +1,462 @@
+module Line
+
+/*
+  Lines of the plane, for coordinate geometry (#1191).
+
+  `line(A, B)` is the line through the points A and B, and
+  `on_line(P, L)` says that the point P is on the line L. Two distinct
+  points determine a unique line (`line_unique`), so lines are equal
+  exactly when they have the same points.
+
+  * `parallel(L, M)` and `perpendicular(L, M)` compare the directions
+    of two lines. They work for vertical lines too. For the lines
+    through two pairs of points, they are `seg_cross(A, B, C, D) = 0`
+    and `seg_dot(A, B, C, D) = 0` (`line_parallel_seg_cross`,
+    `line_perpendicular_seg_dot`), and for lines that are not
+    vertical, they are "equal slopes" and "slopes with product -1"
+    (`line_parallel_slope`, `line_perpendicular_slope`).
+  * `seg_cross(A, B, C, D)` and `seg_dot(A, B, C, D)` are the cross
+    and dot products of the vectors from A to B and from C to D.
+
+  The representation of `Line` is private. A line is stored in a
+  canonical form, as `x = c` (vertical) or as `y = m x + b`, so `=`
+  on lines is equality of lines.
+*/
+
+import Base
+public import Point
+import Linear
+import Ring
+
+opaque union Line {
+  vertical(Real)          // x = c
+  sloped(Real, Real)      // y = m x + b
+}
+
+// The direction of a line is the vector (dx(L), dy(L)).
+private fun dx(L : Line) {
+  switch L { case vertical(c) { real(+0) } case sloped(m, b) { real(+1) } }
+}
+
+private fun dy(L : Line) {
+  switch L { case vertical(c) { real(+1) } case sloped(m, b) { m } }
+}
+
+lemma dx_vertical: all c:Real. dx(vertical(c)) = real(+0)
+proof
+  arbitrary c:Real
+  expand dx.
+end
+
+lemma dy_vertical: all c:Real. dy(vertical(c)) = real(+1)
+proof
+  arbitrary c:Real
+  expand dy.
+end
+
+lemma dx_sloped: all m:Real, b:Real. dx(sloped(m, b)) = real(+1)
+proof
+  arbitrary m:Real, b:Real
+  expand dx.
+end
+
+lemma dy_sloped: all m:Real, b:Real. dy(sloped(m, b)) = m
+proof
+  arbitrary m:Real, b:Real
+  expand dy.
+end
+
+// Zero exactly when P is on L.
+private fun resid(P : Point, L : Line) {
+  switch L {
+    case vertical(c) { c - xcoord(P) }
+    case sloped(m, b) { ycoord(P) - (m * xcoord(P) + b) }
+  }
+}
+
+// The line through A and B (when A = B, the vertical line through A).
+opaque fun line(A : Point, B : Point) {
+  if xcoord(A) = xcoord(B) then vertical(xcoord(A))
+  else sloped(slope(A, B), ycoord(A) - slope(A, B) * xcoord(A))
+}
+
+opaque fun on_line(P : Point, L : Line) { resid(P, L) = real(+0) }
+
+opaque fun parallel(L : Line, M : Line) { dx(L) * dy(M) = dy(L) * dx(M) }
+
+opaque fun perpendicular(L : Line, M : Line) {
+  dx(L) * dx(M) + dy(L) * dy(M) = real(+0)
+}
+
+// The cross product of the vectors from A to B and from C to D.
+fun seg_cross(A : Point, B : Point, C : Point, D : Point) {
+  (xcoord(B) - xcoord(A)) * (ycoord(D) - ycoord(C))
+  - (ycoord(B) - ycoord(A)) * (xcoord(D) - xcoord(C))
+}
+
+// The dot product of the vectors from A to B and from C to D.
+fun seg_dot(A : Point, B : Point, C : Point, D : Point) {
+  (xcoord(B) - xcoord(A)) * (xcoord(D) - xcoord(C))
+  + (ycoord(B) - ycoord(A)) * (ycoord(D) - ycoord(C))
+}
+
+/*
+  Incidence
+*/
+
+theorem line_on_left: all A:Point, B:Point. on_line(A, line(A, B))
+proof
+  arbitrary A:Point, B:Point
+  expand on_line | line
+  switch xcoord(A) = xcoord(B) {
+    case true assume e { expand resid. }
+    case false assume ne { expand resid  algebra }
+  }
+end
+
+theorem line_on_right: all A:Point, B:Point. on_line(B, line(A, B))
+proof
+  arbitrary A:Point, B:Point
+  expand on_line | line
+  switch xcoord(A) = xcoord(B) {
+    case true assume e { expand resid  replace e. }
+    case false assume ne {
+      have nz: not (xcoord(A) - xcoord(B) = real(+0))
+        by { replace real_sub_eq_zero_iff  ne }
+      expand resid | slope
+      algebra
+    }
+  }
+end
+
+// For distinct A and B, the vector from A to B is a nonzero multiple
+// k of the direction of line(A, B), and cross(A, B, P) is k times
+// resid(P, line(A, B)).
+lemma line_through: all A:Point, B:Point. if not (A = B) then
+  some k:Real. not (k = real(+0))
+    and xcoord(B) - xcoord(A) = k * dx(line(A, B))
+    and ycoord(B) - ycoord(A) = k * dy(line(A, B))
+    and (all P:Point. cross(A, B, P) = k * resid(P, line(A, B)))
+proof
+  arbitrary A:Point, B:Point
+  assume ne
+  switch xcoord(A) = xcoord(B) {
+    case true assume ex {
+      have l: line(A, B) = vertical(xcoord(A))
+        by { expand line  replace apply eq_true to ex. }
+      have nk: not (ycoord(B) - ycoord(A) = real(+0)) by {
+        assume z
+        have ey: ycoord(A) = ycoord(B) by algebra
+        apply ne to apply point_equal[A, B] to ex, ey
+      }
+      replace l
+      choose ycoord(B) - ycoord(A)
+      expand dx | dy | resid
+      have hx: xcoord(B) - xcoord(A) = real(+0) by algebra
+      have hp: all P:Point. cross(A, B, P)
+                 = (ycoord(B) - ycoord(A)) * (xcoord(A) - xcoord(P)) by {
+        arbitrary P:Point
+        expand cross
+        replace symmetric ex
+        algebra
+      }
+      (nk, hx, hp)
+    }
+    case false assume nx {
+      have nz: not (xcoord(A) - xcoord(B) = real(+0))
+        by { replace real_sub_eq_zero_iff  nx }
+      have nk: not (xcoord(B) - xcoord(A) = real(+0))
+        by { assume z  apply nx to symmetric (replace real_sub_eq_zero_iff in z) }
+      have l: line(A, B) = sloped(slope(A, B), ycoord(A) - slope(A, B) * xcoord(A))
+        by { expand line  replace apply eq_false to nx. }
+      replace l
+      choose xcoord(B) - xcoord(A)
+      expand dx | dy | resid
+      have hy: ycoord(B) - ycoord(A) = (xcoord(B) - xcoord(A)) * slope(A, B)
+        by { expand slope  algebra }
+      have hp: all P:Point. cross(A, B, P)
+                 = (xcoord(B) - xcoord(A))
+                   * (ycoord(P) - (slope(A, B) * xcoord(P)
+                                   + (ycoord(A) - slope(A, B) * xcoord(A)))) by {
+        arbitrary P:Point
+        expand cross | slope
+        algebra
+      }
+      (nk, hy, hp)
+    }
+  }
+end
+
+// A point P is on line AB exactly when A, B, and P are collinear.
+theorem line_on_collinear: all A:Point, B:Point, P:Point.
+  if not (A = B) then on_line(P, line(A, B)) = collinear(A, B, P)
+proof
+  arbitrary A:Point, B:Point, P:Point
+  assume ne
+  obtain k where h from apply line_through[A, B] to ne
+  expand on_line | collinear
+  replace (conjunct 3 of h)[P] | apply real_mult_zero_iff[k, resid(P, line(A, B))] to conjunct 0 of h.
+end
+
+// Two distinct points determine a unique line.
+theorem line_unique: all A:Point, B:Point, L:Line.
+  if not (A = B) and on_line(A, L) and on_line(B, L) then L = line(A, B)
+proof
+  arbitrary A:Point, B:Point, L:Line
+  expand on_line
+  switch L {
+    case vertical(c) {
+      expand resid
+      assume prem
+      have xa: xcoord(A) = c by algebra
+      have xb: xcoord(B) = c by algebra
+      expand line
+      replace xa | xb.
+    }
+    case sloped(m, b) {
+      expand resid
+      assume prem
+      have ya: ycoord(A) = m * xcoord(A) + b by algebra
+      have yb: ycoord(B) = m * xcoord(B) + b by algebra
+      have nx: not (xcoord(A) = xcoord(B)) by {
+        assume ex
+        have yb2: ycoord(B) = m * xcoord(A) + b by { replace ex  yb }
+        have ey: ycoord(A) = ycoord(B) by algebra
+        apply (conjunct 0 of prem) to apply point_equal[A, B] to ex, ey
+      }
+      have nz: not (xcoord(A) - xcoord(B) = real(+0))
+        by { replace real_sub_eq_zero_iff  nx }
+      have ms: slope(A, B) = m by {
+        expand slope
+        replace ya | yb
+        algebra
+      }
+      have bb: ycoord(A) - m * xcoord(A) = b by algebra
+      expand line
+      replace apply eq_false to nx | ms | bb.
+    }
+  }
+end
+
+theorem line_symmetric: all A:Point, B:Point. line(A, B) = line(B, A)
+proof
+  arbitrary A:Point, B:Point
+  switch A = B {
+    case true assume e { replace e. }
+    case false assume ne {
+      symmetric (apply line_unique[A, B, line(B, A)]
+                 to ne, line_on_right[B, A], line_on_left[B, A])
+    }
+  }
+end
+
+/*
+  Parallel lines
+*/
+
+theorem line_parallel_refl: all L:Line. parallel(L, L)
+proof
+  arbitrary L:Line
+  expand parallel
+  algebra
+end
+
+theorem line_parallel_symmetric: all L:Line, M:Line.
+  if parallel(L, M) then parallel(M, L)
+proof
+  arbitrary L:Line, M:Line
+  expand parallel
+  assume h
+  replace real_mult_commute[dx(M), dy(L)] | real_mult_commute[dy(M), dx(L)]
+  symmetric h
+end
+
+theorem line_parallel_trans: all L:Line, M:Line, N:Line.
+  if parallel(L, M) and parallel(M, N) then parallel(L, N)
+proof
+  arbitrary L:Line, M:Line, N:Line
+  expand parallel
+  switch M {
+    case vertical(c) {
+      replace dx_vertical | dy_vertical
+      assume h
+      have lx: dx(L) = real(+0) by algebra
+      have nx: dx(N) = real(+0) by algebra
+      replace lx | nx.
+    }
+    case sloped(m, b) {
+      replace dx_sloped | dy_sloped
+      assume h
+      have ly: dy(L) = dx(L) * m by algebra
+      have ny: dy(N) = m * dx(N) by algebra
+      replace ly | ny.
+    }
+  }
+end
+
+// Two lines through a point that are parallel are the same line.
+theorem line_parallel_unique: all L:Line, M:Line, P:Point.
+  if parallel(L, M) and on_line(P, L) and on_line(P, M) then L = M
+proof
+  arbitrary L:Line, M:Line, P:Point
+  expand parallel | on_line
+  switch L {
+    case vertical(c1) {
+      switch M {
+        case vertical(c2) {
+          expand resid
+          assume h
+          have e: c1 = c2 by algebra
+          replace e.
+        }
+        case sloped(m2, b2) {
+          expand dx | dy.
+        }
+      }
+    }
+    case sloped(m1, b1) {
+      switch M {
+        case vertical(c2) {
+          expand dx | dy.
+        }
+        case sloped(m2, b2) {
+          expand dx | dy | resid
+          assume h
+          have em: m2 = m1 by algebra
+          have h2: ycoord(P) - (m1 * xcoord(P) + b2) = real(+0)
+            by { replace symmetric em  conjunct 2 of h }
+          have eb: b1 = b2 by algebra
+          replace em | eb.
+        }
+      }
+    }
+  }
+end
+
+// For distinct A, B and distinct C, D: AB ∥ CD exactly when the
+// cross product of AB and CD is zero.
+theorem line_parallel_seg_cross: all A:Point, B:Point, C:Point, D:Point.
+  if not (A = B) and not (C = D)
+  then parallel(line(A, B), line(C, D)) = (seg_cross(A, B, C, D) = real(+0))
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point
+  assume ne
+  obtain k1 where h1 from apply line_through[A, B] to conjunct 0 of ne
+  obtain k2 where h2 from apply line_through[C, D] to conjunct 1 of ne
+  define s = dx(line(A, B)) * dy(line(C, D)) - dy(line(A, B)) * dx(line(C, D))
+  have e: seg_cross(A, B, C, D) = k1 * (k2 * s) by {
+    expand seg_cross | s
+    replace conjunct 1 of h1 | conjunct 2 of h1 | conjunct 1 of h2 | conjunct 2 of h2
+    algebra
+  }
+  expand parallel
+  replace e | apply real_mult_zero_iff[k1, k2 * s] to conjunct 0 of h1
+        | apply real_mult_zero_iff[k2, s] to conjunct 0 of h2
+  expand s
+  replace real_sub_eq_zero_iff.
+end
+
+/*
+  Perpendicular lines
+*/
+
+theorem line_perpendicular_symmetric: all L:Line, M:Line.
+  if perpendicular(L, M) then perpendicular(M, L)
+proof
+  arbitrary L:Line, M:Line
+  expand perpendicular
+  assume h
+  have e: dx(M) * dx(L) + dy(M) * dy(L) = dx(L) * dx(M) + dy(L) * dy(M)
+    by algebra
+  replace e
+  h
+end
+
+// Two lines perpendicular to the same line are parallel.
+theorem line_perpendicular_parallel: all L:Line, M:Line, N:Line.
+  if perpendicular(L, N) and perpendicular(M, N) then parallel(L, M)
+proof
+  arbitrary L:Line, M:Line, N:Line
+  expand perpendicular | parallel
+  switch N {
+    case vertical(c) {
+      replace dx_vertical | dy_vertical
+      assume h
+      have ly: dy(L) = real(+0) by algebra
+      have my: dy(M) = real(+0) by algebra
+      replace ly | my.
+    }
+    case sloped(m, b) {
+      replace dx_sloped | dy_sloped
+      assume h
+      have lx: dx(L) = - (dy(L) * m) by algebra
+      have mx: dx(M) = - (dy(M) * m) by algebra
+      replace lx | mx
+      algebra
+    }
+  }
+end
+
+// For distinct A, B and distinct C, D: AB ⊥ CD exactly when the
+// dot product of AB and CD is zero.
+theorem line_perpendicular_seg_dot: all A:Point, B:Point, C:Point, D:Point.
+  if not (A = B) and not (C = D)
+  then perpendicular(line(A, B), line(C, D)) = (seg_dot(A, B, C, D) = real(+0))
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point
+  assume ne
+  obtain k1 where h1 from apply line_through[A, B] to conjunct 0 of ne
+  obtain k2 where h2 from apply line_through[C, D] to conjunct 1 of ne
+  define s = dx(line(A, B)) * dx(line(C, D)) + dy(line(A, B)) * dy(line(C, D))
+  have e: seg_dot(A, B, C, D) = k1 * (k2 * s) by {
+    expand seg_dot | s
+    replace conjunct 1 of h1 | conjunct 2 of h1 | conjunct 1 of h2 | conjunct 2 of h2
+    algebra
+  }
+  expand perpendicular
+  replace e | apply real_mult_zero_iff[k1, k2 * s] to conjunct 0 of h1
+        | apply real_mult_zero_iff[k2, s] to conjunct 0 of h2
+  expand s.
+end
+
+/*
+  Slopes
+*/
+
+// Lines that are not vertical are parallel exactly when their slopes
+// are equal.
+theorem line_parallel_slope: all A:Point, B:Point, C:Point, D:Point.
+  if not (xcoord(A) = xcoord(B)) and not (xcoord(C) = xcoord(D))
+  then parallel(line(A, B), line(C, D)) = (slope(A, B) = slope(C, D))
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point
+  assume ne
+  expand parallel | line
+  replace apply eq_false to conjunct 0 of ne | apply eq_false to conjunct 1 of ne
+  expand dx | dy
+  have fwd: if slope(C, D) = slope(A, B) then slope(A, B) = slope(C, D)
+    by { assume h  symmetric h }
+  have bwd: if slope(A, B) = slope(C, D) then slope(C, D) = slope(A, B)
+    by { assume h  symmetric h }
+  apply iff_equal to fwd, bwd
+end
+
+// Lines that are not vertical are perpendicular exactly when the
+// product of their slopes is -1.
+theorem line_perpendicular_slope: all A:Point, B:Point, C:Point, D:Point.
+  if not (xcoord(A) = xcoord(B)) and not (xcoord(C) = xcoord(D))
+  then perpendicular(line(A, B), line(C, D)) = (slope(A, B) * slope(C, D) = real(-1))
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point
+  assume ne
+  expand perpendicular | line
+  replace apply eq_false to conjunct 0 of ne | apply eq_false to conjunct 1 of ne
+  expand dx | dy
+  have fwd: if real(+1) + slope(A, B) * slope(C, D) = real(+0)
+            then slope(A, B) * slope(C, D) = real(-1)
+    by { assume h  algebra }
+  have bwd: if slope(A, B) * slope(C, D) = real(-1)
+            then real(+1) + slope(A, B) * slope(C, D) = real(+0)
+    by { assume h  algebra }
+  apply iff_equal to fwd, bwd
+end

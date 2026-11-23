@@ -1,0 +1,136 @@
+// lib/Line.pf and the slope of lib/Point.pf from a client's view: only
+// their public names.
+
+import Line
+
+define O = point(real(+0), real(+0))
+define P = point(real(+1), real(+1))
+define Q = point(real(+2), real(+2))
+define R = point(real(+1), real(-1))
+define V = point(real(+0), real(+5))
+
+theorem slope_example: slope(O, Q) = real(+1)
+proof
+  expand O | Q | slope.
+end
+
+theorem slope_symmetric_example: slope(Q, O) = real(+1)
+proof
+  replace point_slope_symmetric[Q, O]
+  slope_example
+end
+
+theorem collinear_by_slope: collinear(O, P, Q)
+proof
+  have nx: not (xcoord(O) = xcoord(P)) and not (xcoord(O) = xcoord(Q))
+    by { expand O | P | Q.  }
+  replace apply point_slope_collinear[O, P, Q] to nx
+  expand O | P | Q | slope.
+end
+
+theorem O_ne_P: not (O = P)
+proof
+  assume e
+  have x: xcoord(O) = xcoord(P) by { replace e. }
+  expand O | P in x
+end
+
+theorem O_ne_R: not (O = R)
+proof
+  assume e
+  have x: xcoord(O) = xcoord(R) by { replace e. }
+  expand O | R in x
+end
+
+theorem O_ne_V: not (O = V)
+proof
+  assume e
+  have y: ycoord(O) = ycoord(V) by { replace e. }
+  expand O | V in y
+end
+
+// Q is on the line through O and P.
+theorem on_line_example: on_line(Q, line(O, P))
+proof
+  replace apply line_on_collinear[O, P, Q] to O_ne_P
+  collinear_by_slope
+end
+
+theorem endpoints_on_line: on_line(O, line(O, P)) and on_line(P, line(O, P))
+proof
+  (line_on_left[O, P], line_on_right[O, P])
+end
+
+// The line through O and Q is the line through O and P.
+theorem same_line: line(O, Q) = line(O, P)
+proof
+  apply line_unique[O, P, line(O, Q)]
+    to O_ne_P, line_on_left[O, Q],
+       (replace apply line_on_collinear[O, Q, P] to (assume e
+          have x: xcoord(O) = xcoord(Q) by { replace e. }
+          expand O | Q in x)
+        expand collinear | cross | O | P | Q.)
+end
+
+theorem line_symmetric_example: line(P, O) = line(O, P)
+proof
+  line_symmetric[P, O]
+end
+
+// Perpendicular, by the slopes: 1 · (-1) = -1.
+theorem perpendicular_example: perpendicular(line(O, P), line(O, R))
+proof
+  have nx: not (xcoord(O) = xcoord(P)) and not (xcoord(O) = xcoord(R))
+    by { expand O | P | R. }
+  replace apply line_perpendicular_slope[O, P, O, R] to nx
+  expand O | P | R | slope.
+end
+
+// Perpendicular, by the dot product; this works for a vertical line.
+theorem vertical_perpendicular: perpendicular(line(O, V), line(O, point(real(+3), real(+0))))
+proof
+  have ne: not (O = point(real(+3), real(+0))) by {
+    assume e
+    have x: xcoord(O) = xcoord(point(real(+3), real(+0))) by { replace e. }
+    expand O in x
+  }
+  replace apply line_perpendicular_seg_dot[O, V, O, point(real(+3), real(+0))] to O_ne_V, ne
+  expand seg_dot | O | V.
+end
+
+theorem parallel_facts: all L:Line, M:Line, N:Line.
+  parallel(L, L)
+  and (if parallel(L, M) then parallel(M, L))
+  and (if parallel(L, M) and parallel(M, N) then parallel(L, N))
+  and (if perpendicular(L, M) then perpendicular(M, L))
+  and (if perpendicular(L, N) and perpendicular(M, N) then parallel(L, M))
+proof
+  arbitrary L:Line, M:Line, N:Line
+  (line_parallel_refl[L], line_parallel_symmetric[L, M], line_parallel_trans[L, M, N],
+   line_perpendicular_symmetric[L, M], line_perpendicular_parallel[L, M, N])
+end
+
+// Playfair: through a point there is only one parallel to a line.
+theorem playfair: all L:Line, M:Line, N:Line, X:Point.
+  if parallel(L, N) and parallel(M, N) and on_line(X, L) and on_line(X, M)
+  then L = M
+proof
+  arbitrary L:Line, M:Line, N:Line, X:Point
+  assume prem
+  have nm: parallel(N, M) by apply line_parallel_symmetric[M, N] to conjunct 1 of prem
+  have lm: parallel(L, M) by
+    apply line_parallel_trans[L, N, M] to (conjunct 0 of prem), nm
+  apply line_parallel_unique[L, M, X] to lm, (conjunct 2 of prem), (conjunct 3 of prem)
+end
+
+// Parallel lines that are not vertical have equal slopes.
+theorem parallel_slope_example: all A:Point, B:Point, C:Point, D:Point.
+  if not (xcoord(A) = xcoord(B)) and not (xcoord(C) = xcoord(D))
+     and parallel(line(A, B), line(C, D))
+  then slope(A, B) = slope(C, D)
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point
+  assume prem
+  replace symmetric (apply line_parallel_slope[A, B, C, D] to (conjunct 0 of prem), (conjunct 1 of prem))
+  conjunct 2 of prem
+end
