@@ -581,7 +581,7 @@ class VarRef(Term):
     # Post-uniquify references (OverloadedVar / ResolvedVar) resolve
     # against the runtime environment. `Var` is pre-uniquify and
     # overrides this to a no-op.
-    if get_reduce_all() or (self in get_reduce_only()):
+    if get_reduce_all() or _in_reduce_only(self.get_name()):
       name = self.get_name()
       if get_dont_reduce_opaque() and name in env.dict.keys():
         binding = env.dict[name]
@@ -890,6 +890,25 @@ def set_reduce_only(defs: list[VarRef]) -> None:
 def get_reduce_only() -> list[VarRef]:
   global reduce_only
   return reduce_only
+
+# The names in ``reduce_only``, for the list object and length they were
+# computed from (a variable is in the list when one of its entries
+# equals it, which is by name).
+_reduce_only_names: tuple[list[VarRef], int, frozenset[str]] | None = None
+
+def _ref_name(d: object) -> str | None:
+  while isinstance(d, (TermInst, TAnnote)):
+    d = d.subject
+  return d.name if isinstance(d, (OverloadedVar, ResolvedVar, RecFun, GenRecFun)) \
+    else None
+
+def _in_reduce_only(name: str) -> bool:
+  global _reduce_only_names
+  c = _reduce_only_names
+  if c is None or c[0] is not reduce_only or c[1] != len(reduce_only):
+    names = frozenset(n for d in reduce_only if (n := _ref_name(d)) is not None)
+    c = _reduce_only_names = (reduce_only, len(reduce_only), names)
+  return name in c[2]
 
 reduce_all = False
 
@@ -1565,6 +1584,7 @@ class Call(Term):
               did_call = True
               rator_var = ResolvedVar(loc, None, name)
               if rator_var in reduce_only:
+                reduce_only = reduce_only.copy()
                 reduce_only.remove(rator_var)
               set_reduce_only(reduce_only)
               break
