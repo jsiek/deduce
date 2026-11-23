@@ -1,0 +1,57 @@
+// UInt and Int literals have no size limit: a literal is stored as its
+// number (#1025), so these check as fast as small ones. Before, a
+// literal at the old limit of 4000 already overflowed the stack (#1342).
+
+import Nat
+import UInt
+import Real
+import Ring
+
+assert 1000000 + 1 = 1000001
+assert 1000000 * 1000000 = 1000000000000
+assert 1000000000 / 7 = 142857142
+
+theorem uint_hyp_big: all x:UInt. if x = 1000000 then x = 1000000
+proof
+  arbitrary x:UInt
+  assume h
+  h
+end
+
+theorem uint_hyp_4000: all x:UInt. if x = 4000 then x = 4000
+proof
+  arbitrary x:UInt
+  assume h
+  h
+end
+
+theorem real_big_refl: all x:Real. real(+1000000) * x = real(+1000000) * x
+proof
+  arbitrary x:Real
+  .
+end
+
+theorem uint_big_le: (1000000:UInt) ≤ 1000001
+proof
+  .
+end
+
+theorem uint_big_algebra: all x:UInt. 1000000 * x + 1000000 * x = 2000000 * x
+proof
+  arbitrary x:UInt
+  algebra
+end
+
+theorem nat_lit_max: ℕ4000 = ℕ4000
+proof
+  .
+end
+
+fun nat_pred(n : Nat) {
+  switch n {
+    case zero { zero }
+    case suc(m) { m }
+  }
+}
+
+assert nat_pred(ℕ4000) = ℕ3999

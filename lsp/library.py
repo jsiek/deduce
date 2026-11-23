@@ -500,22 +500,20 @@ def _check_file_impl(
         if isinstance(e, RecursionError):
             # A bare "maximum recursion depth exceeded" is exactly the
             # kind of opaque crash Deduce's beginner-friendly diagnostics
-            # avoid. The usual cause is an oversized integer literal:
-            # numbers desugar to a *unary* term whose depth equals the
-            # value, so every tree-walking pass recurses that deep. Skip
-            # ``format_exc`` -- the traceback is thousands of frames deep
-            # and re-walking it risks tripping the limit again. Issue
-            # #1021.
+            # avoid. A common cause is computing with a large ``Nat``,
+            # which is unary: a function on it recurses once per
+            # ``suc``. Skip ``format_exc`` -- the traceback is thousands
+            # of frames deep and re-walking it risks tripping the limit
+            # again. Issues #1021, #1025.
             return CheckResult(
                 ok=False,
                 error_message=(
                     "this file is too deeply nested for Deduce to check "
-                    "(exceeded the recursion limit). The most common cause "
-                    "is a very large integer literal: Deduce represents a "
-                    "number as a unary term whose depth equals its value, "
-                    "so a literal like 100000 builds a term too deep to "
-                    "check. Use a smaller value, or raise RECURSION_LIMIT "
-                    "in flags.py if you really need it."
+                    "(exceeded the recursion limit). A common cause is "
+                    "computing with a large Nat: Nat numbers are unary "
+                    "(zero and suc), so a function on ℕ100000 recurses "
+                    "100000 times. Use UInt for large numbers, or raise "
+                    "RECURSION_LIMIT in flags.py if you really need it."
                 ),
                 error_traceback=None,
                 exception=e,

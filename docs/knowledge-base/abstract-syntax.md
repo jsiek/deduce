@@ -223,6 +223,11 @@ length(ls)
 
 Used for union constructors, infix operators, and functions.
 
+#### Numeral
+`Numeral(location, typeof, value, suc, zero)`
+
+The `Nat` `suc(suc(…(zero)…))` with `value` `suc`s, stored as the number. The parsers build one for the `n` in every numeric literal: `4000` is `fromNat(lit(Numeral(4000)))`, `ℕ7` is `lit(Numeral(7))`. It is a `Call` whose `rator` is `suc` and whose `args` are `[Numeral(value - 1)]` (or `[zero]`), built when asked for, so code that takes terms apart (pattern matching, `auto` rules, `switch`) sees the chain. Comparing, printing, type checking, uniquify, substitute, and reduce take constant time instead of recursing `value` deep (#1025). A new pass that walks terms by their `args` works on it unchanged but in time proportional to `value`; give it a `Numeral` case if it can see large literals.
+
 ### Switch
 See also SwitchProf
 

@@ -59,7 +59,7 @@ def count_marks(formula: AST) -> int:
       return 1 + count_marks(subject)
     case TermInst(_, _, subject, _, _):
       return count_marks(subject)
-    case Var() | OverloadedVar() | ResolvedVar():
+    case Var() | OverloadedVar() | ResolvedVar() | Numeral():
       return 0
     case Bool(_, _, _):
       return 0
@@ -117,7 +117,7 @@ def find_mark(formula: AST) -> None:
       raise MarkException(subject)
     case TermInst(_, _, subject, _, _):
       find_mark(subject)
-    case Var() | OverloadedVar() | ResolvedVar():
+    case Var() | OverloadedVar() | ResolvedVar() | Numeral():
       pass
     case Bool(_, _, _):
       pass
@@ -204,7 +204,7 @@ def replace_mark(formula: Term | SwitchCase, replacement: Term) -> Term | Switch
     case TermInst(loc2, tyof, subject, tyargs, inferred):
       return TermInst(loc2, tyof, replace_mark(subject, replacement), tyargs, inferred,
                       dicts=formula.dicts, models=formula.models)
-    case Var() | OverloadedVar() | ResolvedVar():
+    case Var() | OverloadedVar() | ResolvedVar() | Numeral():
       return formula
     case Bool(loc2, tyof, _):
       return formula
@@ -360,6 +360,8 @@ def rewrite_aux(loc: Meta, formula: Term | SwitchCase, equation: Formula | AutoR
                       tyargs, inferred, dicts=formula.dicts,
                       models=formula.models)
     case OverloadedVar() | ResolvedVar() | Var():
+      return formula
+    case Numeral() if not may_match_in_numeral(_rule_lhs(equation, env)):
       return formula
     case Bool(loc2, tyof, _):
       return formula
@@ -590,6 +592,10 @@ def formula_match(
     case _ if isinstance(pattern_frm, VarRef) and isinstance(frm, VarRef) \
               and pattern_frm.get_name() == frm.get_name():
       pass
+    case (Numeral(), Numeral()):
+      if pattern_frm != frm:
+        match_failed(loc, lambda: "formula: " + str(frm) + "\n"
+                     + "does not match expected formula: " + str(pattern_frm))
     case _ if isinstance(pattern_frm, VarRef) and pattern_frm in vars:
       tyvar_name = pattern_frm.get_name()
       if tyvar_name in matching.keys():

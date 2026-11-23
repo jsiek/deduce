@@ -1,8 +1,8 @@
-./test/should-error/literal_too_large.pf:4.1-4.14: while parsing assert
+./test/should-error/literal_too_large.pf:5.1-5.15: while parsing assert
 	statement ::= "assert" formula
 
 
-assert 100000 = 100000
-       ^^^^^^
+assert ℕ100000 = ℕ100000
+       ^^^^^^^
 
-./test/should-error/literal_too_large.pf:4.8-4.14: numeric literal 100000 is too large: Deduce represents numbers as unary terms whose depth equals the value, so it only supports literals up to 4000.
+./test/should-error/literal_too_large.pf:5.8-5.15: the Nat literal ℕ100000 is too large: Nat numbers are unary (zero and suc), so Deduce supports Nat literals up to ℕ4000. For larger numbers, use UInt.

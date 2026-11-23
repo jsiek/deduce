@@ -1,0 +1,8 @@
+// A UInt literal compiles to its binary value, not to `fromNat` of a
+// unary Nat as deep as the value (#1025).
+
+import UInt
+
+print 1000000 + 1
+print 123456789 * 2
+print 4000 / 7

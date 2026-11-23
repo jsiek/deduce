@@ -213,6 +213,9 @@ def _walk_ast_descendants(roots: object, into_imports: bool = True) -> Iterator[
       continue
     if isinstance(node, Import) and not into_imports:
       continue
+    if isinstance(node, Numeral):
+      stack.extend([node.suc, node.zero])
+      continue
     if isinstance(node, AST) and is_dataclass(node):
       for f in fields(node):
         child = getattr(node, f.name, None)
@@ -417,6 +420,10 @@ def alpha_equiv(t1: object, t2: object) -> bool:
   return _alpha_equiv(t1, t2, {}, {})
 
 
+def _structural_class(t: object) -> type:
+  return Call if isinstance(t, Numeral) else type(t)
+
+
 def _alpha_equiv(t1: object, t2: object,
                  env1: dict[str, object], env2: dict[str, object]) -> bool:
   # TermInst / TAnnote are transparent for equality -- existing
@@ -460,9 +467,12 @@ def _alpha_equiv(t1: object, t2: object,
     return _alpha_equiv_tlet(t1, t2, env1, env2)
   if isinstance(t1, FunctionType):
     return _alpha_equiv_function_type(t1, t2, env1, env2)
+  if isinstance(t1, Numeral) and isinstance(t2, Numeral):
+    return t1 == t2
   # Default: structural walk. TermInst/TAnnote already unwrapped, so
-  # a class mismatch here is real.
-  if type(t1) is not type(t2):
+  # a class mismatch here is real, except that a Numeral is the Call
+  # `suc(…)` (#1025).
+  if _structural_class(t1) is not _structural_class(t2):
     return False
   for fld in dc_fields(t1):
     if fld.name in t1._NON_STRUCTURAL_FIELDS:

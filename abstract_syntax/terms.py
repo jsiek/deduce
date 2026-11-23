@@ -1472,6 +1472,8 @@ class Call(Term):
                      ret.args[:len(ret.args) - len(dicts)])
       case Generic(_, _, typarams, body):
         internal_error(self.location, 'in reduction, call to generic\n\t' + str(self))
+      case VarRef() if (n := _suc_of_numeral(fun, args)) is not None:
+        ret = n
       case _:
         ret = Call(self.location, self.typeof, cast(Term, fun), args)
 
@@ -1600,6 +1602,98 @@ class Call(Term):
       return explicit_term_inst(flat_results[0])
     else:
       return Call(self.location, self.typeof, cast(Term, fun), flat_results)
+
+
+class Numeral(Call):
+  """The Nat ``suc(suc(…(zero)…))`` with ``value`` ≥ 1 ``suc``s, stored
+  as the number (#1025), so that a literal such as ``4000`` is not 4000
+  calls deep. To code that takes a term apart it is that chain: its
+  ``rator`` is ``suc`` and its ``args`` are ``[suc^(value-1)(zero)]``,
+  built when asked for. Comparing, printing, and walking it (copy,
+  uniquify, substitute, reduce) take constant time. Build one with
+  ``mkNumeral``."""
+
+  def __init__(self, location: Meta, typeof: Optional[Type], value: int,
+               suc: VarRef, zero: VarRef) -> None:
+    assert value >= 1
+    self.location = location
+    self.typeof = typeof
+    self.value = value
+    self.suc = suc
+    self.zero = zero
+    self.models: List[str] = []
+
+  @property
+  def rator(self) -> Term:  # type: ignore[override]
+    return self.suc
+
+  @property
+  def args(self) -> list[Term]:  # type: ignore[override]
+    return [mkNumeral(self.location, self.typeof, self.value - 1,
+                      self.suc, self.zero)]
+
+  def __repr__(self) -> str:
+    return f'Numeral({self.value}, {self.suc!r}, {self.zero!r})'
+
+  def __eq__(self, other: object) -> bool:
+    if isinstance(other, Numeral):
+      return self.value == other.value and self.suc == other.suc \
+        and self.zero == other.zero
+    return super().__eq__(other)
+
+  def _atomic_str(self) -> str:
+    return (str(self.suc) + '(') * self.value + str(self.zero) \
+      + ')' * self.value
+
+  def _children(self) -> Iterator[AST]:
+    yield self.suc
+    yield self.zero
+
+  def _map_children(
+      self,
+      f: Callable[[AST], AST],
+      *,
+      on_typeof: Callable[[Optional[Type]], Optional[Type]] | None = None,
+  ) -> Self:
+    suc, zero = f(self.suc), f(self.zero)
+    typeof = on_typeof(self.typeof) if on_typeof is not None else self.typeof
+    if isinstance(suc, VarRef) and isinstance(zero, VarRef):
+      return cast(Self, Numeral(self.location, typeof, self.value, suc, zero))
+    # `f` replaced `suc` or `zero` by something else: walk the chain.
+    return cast(Self, Call(self.location, self.typeof, self.suc, self.args)
+                ._map_children(f, on_typeof=on_typeof))
+
+  def reduce(self, env: Env) -> Term:
+    # A chain of constructors is a value, unless an auto rule could
+    # rewrite part of it (none in the library can).
+    from .literals import may_match_in_numeral
+    if get_eval_all() or not any(
+        may_match_in_numeral(rule.lhs)
+        for rule in env.get_auto_rewrites('suc') + env.get_auto_rewrites(None)):
+      return self
+    return super().reduce(env)
+
+
+def _suc_of_numeral(suc: VarRef, args: list[Term]) -> Numeral | None:
+  """``suc(n)`` as one ``Numeral``, if ``n`` is ``zero`` or a ``Numeral``
+  of this ``suc``, so that a rule such as ``suc(lit(n)) = lit(suc(n))``
+  keeps a literal compact."""
+  if base_name(suc.get_name()) != 'suc' or len(args) != 1:
+    return None
+  match args[0]:
+    case Numeral() as n if n.suc == suc:
+      return Numeral(n.location, n.typeof, n.value + 1, n.suc, n.zero)
+    case VarRef() as z if base_name(z.get_name()) == 'zero' \
+        and z.typeof is not None:
+      return Numeral(z.location, z.typeof, 1, suc, z)
+  return None
+
+
+def mkNumeral(loc: Meta, typeof: Optional[Type], value: int, suc: VarRef,
+              zero: VarRef) -> Term:
+  """``suc^value(zero)``: ``zero`` itself if ``value`` is 0, otherwise a
+  ``Numeral``."""
+  return zero if value == 0 else Numeral(loc, typeof, value, suc, zero)
 
 
 @dataclass

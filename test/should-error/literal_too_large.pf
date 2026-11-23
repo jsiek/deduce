@@ -1,4 +1,5 @@
-// Regression test for issue #1021: a numeric literal beyond MAX_LITERAL
+// Regression test for issue #1021: a Nat literal beyond MAX_NAT_LITERAL
 // must produce a clean, located error instead of an opaque
-// "maximum recursion depth exceeded" crash.
-assert 100000 = 100000
+// "maximum recursion depth exceeded" crash. (UInt literals have no
+// limit since #1025.)
+assert ℕ100000 = ℕ100000

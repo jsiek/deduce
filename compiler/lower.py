@@ -606,10 +606,34 @@ class LoweringCtx:
                 )
             if name in self.ctors:
                 return ir.Con(name, [self.lower_term(a) for a in c.args])
+            if base == 'fromNat' and (binary := self._uint_literal(c)) is not None:
+                return binary
         args = [self.lower_term(a) for a in c.args]
         if isinstance(c.rator, ast.TermInst) and c.rator.dicts:
             return self.apply_inst(c.rator, args)
         return ir.App(self.lower_term(c.rator), args)
+
+    def _uint_literal(self, c: ast.Call) -> Optional[ir.Term]:
+        """The call `c` to a function named `fromNat`, if it is UInt's
+        applied to a literal (`fromNat(lit(n))`), as the `Binary` value it
+        computes, whose size is O(log n) (#1025)."""
+        names = [ast.library_names.get(('UInt', k))
+                 for k in ('Binary', 'bzero', 'inc_dub', 'dub_inc')]
+        binary, bzero, inc_dub, dub_inc = names
+        if not (isinstance(c.typeof, ast.VarRef)
+                and c.typeof.get_name() == binary
+                and len(c.args) == 1 and ast.isNat(c.args[0])
+                and bzero in self.ctors and inc_dub in self.ctors
+                and dub_inc in self.ctors):
+            return None
+
+        def con(n: int) -> ir.Term:
+            if n == 0:
+                return ir.Con(cast(str, bzero), [])
+            if n % 2 == 1:
+                return ir.Con(cast(str, inc_dub), [con((n - 1) // 2)])
+            return ir.Con(cast(str, dub_inc), [con(n // 2 - 1)])
+        return con(ast.natToInt(c.args[0]))
 
     def apply_inst(self, inst: ast.TermInst, args: List[ir.Term]) -> ir.Term:
         """Call a function with a where clause (#1282): its operations
