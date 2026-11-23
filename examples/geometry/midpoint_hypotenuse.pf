@@ -1,0 +1,69 @@
+// midpoint_hypotenuse.pf
+//
+// A coordinate proof from a high school geometry course:
+//
+//   The midpoint of the hypotenuse of a right triangle is
+//   equidistant from its three vertices.
+//
+// As in the textbook, place the right angle C at the origin and the
+// legs on the axes, and give the other vertices the coordinates 2a and
+// 2b so that the midpoint has no fractions:
+//
+//            B (0, 2b)
+//            |\
+//            | \
+//            |  M (a, b)
+//            |   \
+//            |    \
+//   C (0, 0) +-----+ A (2a, 0)
+//
+// The two-column proof:
+//
+//   Statements                       Reasons
+//   1. M = (a, b)                    Midpoint formula
+//   2. MA² = (a - 2a)² + b² = a² + b²   Distance formula
+//   3. MB² = a² + (b - 2b)² = a² + b²   Distance formula
+//   4. MC² = a² + b²                 Distance formula
+//   5. MA ≅ MC and MB ≅ MC          Def. of congruent segments (2, 3, 4)
+//
+// Distances are squared (`dist2`), so the proof needs no square roots.
+
+theorem midpoint_hypotenuse: all a:Real, b:Real, A:Point, B:Point, C:Point.
+  if C = point(real(+0), real(+0))
+     and A = point(real(+2) * a, real(+0))
+     and B = point(real(+0), real(+2) * b)
+  then seg_congruent(midpoint(A, B), A, midpoint(A, B), C)
+   and seg_congruent(midpoint(A, B), B, midpoint(A, B), C)
+proof
+  arbitrary a:Real, b:Real, A:Point, B:Point, C:Point
+  assume given
+  have c_def: C = point(real(+0), real(+0)) by given
+  have a_def: A = point(real(+2) * a, real(+0)) by given
+  have b_def: B = point(real(+0), real(+2) * b) by given
+
+  have step1: midpoint(A, B) = point(a, b) by {
+    // Midpoint formula
+    expand midpoint
+    replace a_def | b_def.
+  }
+  have step2: dist2(midpoint(A, B), A) = a * a + b * b by {
+    // Distance formula
+    replace step1 | a_def
+    expand dist2
+    algebra
+  }
+  have step3: dist2(midpoint(A, B), B) = a * a + b * b by {
+    // Distance formula
+    replace step1 | b_def
+    expand dist2
+    algebra
+  }
+  have step4: dist2(midpoint(A, B), C) = a * a + b * b by {
+    // Distance formula
+    replace step1 | c_def
+    expand dist2.
+  }
+  // Definition of congruent segments
+  expand seg_congruent
+  replace step2 | step3 | step4.
+end

@@ -37,6 +37,17 @@ Only the top-level module files (such as `UInt.pf`) are listed below. Each modul
 - ([`Nat.thm`](../lib/Nat.thm), [`Nat.pf`](../lib/Nat.pf)): Natural numbers
 - ([`Option.pf`](../lib/Option.pf)): Optional values
 - ([`Pair.pf`](../lib/Pair.pf)): Pairs
+- ([`Point.thm`](../lib/Point.thm), [`Point.pf`](../lib/Point.pf)): Points
+  of the plane, for coordinate geometry. `point(x, y)` is the point
+  with `Real` coordinates `x` and `y`, read back with `xcoord` and
+  `ycoord`; the representation is private. `dist2(A, B)` is the
+  squared distance, `midpoint(A, B)` the midpoint, `dot(O, A, B)` and
+  `cross(O, A, B)` the dot and cross products of OA and OB,
+  `collinear(A, B, C)` means `cross(A, B, C) = real(+0)`, and
+  `seg_congruent(A, B, C, D)` means `dist2(A, B) = dist2(C, D)`.
+  `expand` any of these for its coordinate formula. Theorems include
+  the Pythagorean theorem and its converse (`point_pythagoras`) and
+  that the midpoint is equidistant from the endpoints.
 - ([`Rat.thm`](../lib/Rat.thm), [`Rat.pf`](../lib/Rat.pf)): Rational numbers.
   Write `frac(n, d)` for the rational `n / d` (an `Int` over a `UInt`)
   and `rat(n)` for an integer, e.g. `frac(+3, 4) + rat(+1) = frac(+7, 4)`.
