@@ -213,10 +213,10 @@ such as `2`, `+2`, `-2`, `rat(+2)`, and `real(+2)`, and the semiring's
 negation), and in a field, `/`, `inv`, and fraction constants (see
 below). Any other subterm, such as `f(x)` or a power with a variable
 exponent `x ^ n`, is treated as an unknown of its own. So is a power whose expansion is large (an exponent above
-32 or a coefficient above 256), such as `(x + y) ^ (30:UInt)`.
+256 or more than 16 monomials), such as `(x + y) ^ (30:UInt)`.
 
 This works at the types that model the concept `CommSemiring`
-(lib/Algebra.pf), a commutative semiring with a map `from_nat` that
+(lib/Algebra.pf), a commutative semiring with a map `from_uint` that
 reads constants and a power `^` with a `UInt` exponent: `UInt`, `Int`,
 `Rat`, `Real`,
 and, inside a proof under `where { CommSemiring<T> }`, the type `T`.

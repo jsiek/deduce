@@ -67,12 +67,21 @@ proof
   algebra
 end
 
-// A power with a large expansion (here a coefficient of 155117520) is
+// A power with a large expansion (here 31 monomials) is
 // an atom too.
 theorem int_pow_large: all x:Int, y:Int, z:Int.
   (x + y) ^ (30:UInt) * z = z * (x + y) ^ (30:UInt)
 proof
   arbitrary x:Int, y:Int, z:Int
+  algebra
+end
+
+// The expansion stops as soon as it passes the bound: in full, this one
+// would have C(203, 3), over a million, monomials.
+theorem int_pow_wide: all a:Int, b:Int, c:Int, d:Int, z:Int.
+  (a + b + c + d) ^ (200:UInt) * z = z * (a + b + c + d) ^ (200:UInt)
+proof
+  arbitrary a:Int, b:Int, c:Int, d:Int, z:Int
   algebra
 end
 
@@ -89,4 +98,12 @@ theorem rat_square_sum_pow_again: all x:Rat, y:Rat.
   (x + y) ^ (2:UInt) = x ^ (2:UInt) + (rat(+1) + rat(+1)) * x * y + y ^ (2:UInt)
 proof
   ring_square_sum_pow<Rat>
+end
+
+// A power whose expansion has a coefficient of 924 (#1328).
+theorem uint_pow_twelve: all x:UInt, y:UInt.
+  (x + y) ^ (12:UInt) = (x + y) ^ (6:UInt) * (x + y) ^ (6:UInt)
+proof
+  arbitrary x:UInt, y:UInt
+  algebra
 end

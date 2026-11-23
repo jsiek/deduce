@@ -48,9 +48,10 @@ from abstract_syntax import (
     ConceptRef, Env, Formula, FunctionType, IfThen, OverloadedVar, PVar, Proof,
     ResolvedVar, Term, TermInst, Type, Var, VarRef, base_name, full_reduce,
     get_dont_reduce_opaque, get_reduce_only, intToNat, isNat, isUInt, mkIntLit,
-    mkLitNat, mkUIntLit, natToInt, remove_mark, set_dont_reduce_opaque,
+    mkUIntLit, natToInt, remove_mark, set_dont_reduce_opaque,
     set_reduce_only, uintToInt,
 )
+from abstract_syntax.literals import _mk_uint_from_int
 from checker_concepts import find_model
 from error import UserError, user_error
 from flags import record_implicit_use
@@ -118,33 +119,34 @@ def _is_rat(t: Term) -> bool:
   return isinstance(t.typeof, VarRef) and base_name(t.typeof.get_name()) == 'Rat'
 
 
-def _nat_lit(t: Term) -> Term | None:
-  """``t`` if it is a Nat literal ``lit(n)``, or the Nat literal of a UInt
-  literal ``fromNat(lit(n))``."""
+def _uint_lit(t: Term) -> int | None:
+  """The value of a UInt literal, as written (``fromNat(lit(n))``) or
+  evaluated."""
+  if isUInt(t):
+    return cast(int, uintToInt(t))
   match _call(t):
-    case ('lit', [n]) if isNat(n):
-      return t
-    case ('fromNat', [n]):
-      return _nat_lit(n)
+    case ('fromNat', [n]) if (c := _call(n)) is not None and c[0] == 'lit' \
+        and isNat(c[1][0]):
+      return cast(int, natToInt(c[1][0]))
   return None
 
 
 def _ring_const(t: Term) -> Lin | None:
   """``t`` as a constant of lib/Ring.pf, ``('const', n, lit)`` with ``lit``
-  the Nat literal for ``n`` (or None to build one), possibly negated:
+  the UInt literal for ``n`` (or None to build one), possibly negated:
   ``2``, ``+2``, ``-2``, ``rat(+2)``, ``real(+2)``, or the ring's
   ``zero`` or ``one``."""
+  if (v := _uint_lit(t)) is not None:
+    return ('const', v, t)
   match _call(t):
-    case ('fromNat', [_]) if (n := _nat_lit(t)) is not None:
-      return ('const', natToInt(n), n)
-    case ('pos', [u]) if (n := _nat_lit(u)) is not None:
-      return ('const', natToInt(n), n)
-    case ('negsuc', [u]) if (n := _nat_lit(u)) is not None:
-      return ('neg', ('const', natToInt(n) + 1, None))
-    case ('-', [u]) if (n := _nat_lit(u)) is not None:
+    case ('pos', [u]) if (v := _uint_lit(u)) is not None:
+      return ('const', v, u)
+    case ('negsuc', [u]) if (v := _uint_lit(u)) is not None:
+      return ('neg', ('const', v + 1, None))
+    case ('-', [u]) if (v := _uint_lit(u)) is not None:
       # An Int literal such as `-2` written as the negation of a UInt
       # literal.
-      return ('neg', ('const', natToInt(n), n))
+      return ('neg', ('const', v, u))
     case ('rat' | 'real', [i]) if (c := _call(i)) is not None \
         and c[0] in ('pos', 'negsuc', '-'):
       return _ring_const(i)
@@ -228,18 +230,17 @@ class _Reifier:
         return ('inv', self.ring(a))
       case ("^", [a, k]) if isUInt(k) and uintToInt(k) <= _MAX_EXPONENT:
         e = ('pow', self.ring(a), uintToInt(k), k)
-        if all(max(_poly(p, True).values(), default=0) <= _MAX_COEFFICIENT
-               for p in _frac(e)):
+        if all(len(_poly(p, True)) <= _MAX_TERMS for p in _frac(e)):
           return e
     return self.atom(t)
 
 
-# lib/Ring.pf computes with unary Nat coefficients and exponents, so a
-# power whose expansion has a larger exponent or coefficient is left as
-# an atom: checking `(x + y) ^ 12` takes a minute, and `x ^ 200` 80
-# seconds.
-_MAX_EXPONENT = 32
-_MAX_COEFFICIENT = 256
+# lib/Ring.pf multiplies out a power one factor at a time, so a power
+# with a larger exponent, or whose expansion has more monomials, is left
+# as an atom: checking `x ^ 200 * y = y * x ^ 200` takes 2.6 seconds,
+# and `(x - y) ^ 20 = (y - x) ^ 20` (21 monomials) 7 seconds.
+_MAX_EXPONENT = 256
+_MAX_TERMS = 16
 
 
 # A polynomial: the coefficient of each monomial, a monomial being the
@@ -249,7 +250,8 @@ Poly = dict[tuple[int, ...], Fraction]
 
 def _poly(e: Lin, unsigned: bool = False) -> Poly:
   """The polynomial of ``e``; if ``unsigned``, with each `-` read as `+`,
-  which bounds the coefficients lib/Ring.pf computes along the way."""
+  which bounds the monomials lib/Ring.pf computes along the way. Nothing
+  cancels then, so a power stops expanding past ``_MAX_TERMS``."""
   match e:
     case ('var', i):
       return {(0,) * i + (1,): Fraction(1)}
@@ -272,6 +274,8 @@ def _poly(e: Lin, unsigned: bool = False) -> Poly:
       out: Poly = {(): Fraction(1)}
       for _ in range(k):
         out = _times(pa, out)
+        if unsigned and len(out) > _MAX_TERMS:
+          break
       return out
   raise ValueError(e)
 
@@ -451,9 +455,10 @@ def _integral(cs: list[Fraction]) -> list[Fraction]:
 ################ Building the proof ################
 
 class _Builder:
-  def __init__(self, loc: Meta, names: dict[str, list[str]]):
+  def __init__(self, loc: Meta, names: dict[str, list[str]], env: Env):
     self.loc = loc
     self.names = names
+    self.env = env
 
   def var(self, name: str) -> Term:
     if name not in self.names:
@@ -463,6 +468,13 @@ class _Builder:
 
   def call(self, name: str, *args: Term) -> Term:
     return Call(self.loc, None, self.var(name), list(args))
+
+  def uint(self, n: int) -> Term:
+    # A binary UInt value, not a literal `fromNat(lit(n))` (a unary Nat
+    # inside, as deep as its value).
+    t = _mk_uint_from_int(self.loc, n, None, self.env)
+    assert t is not None
+    return t
 
   def nat(self, n: int) -> Term:
     # A raw numeral (not a `lit`), so that the patterns of lib/Linear.pf
@@ -511,14 +523,24 @@ class _Builder:
         return self.call('rvar', self.nat(i))
       case ('zero' | 'one' as c,):
         return self.var('r' + c)
-      case ('const', n, t):
-        return self.call('rconst', t if t is not None
-                         else self._resolve(mkLitNat(self.loc, n)))
+      case ('neg', ('const', n, t)):
+        # A literal, as written (or built), so that the auto rules for
+        # Int literals take `- pos(3)` to the goal's `-3`, `negsuc(2)`.
+        return self.call('rneg', self.call(
+            'rconst', t if t is not None
+            else self._resolve(mkUIntLit(self.loc, n))))
+      case ('neg', ('frac', n, d)):
+        # Literals, so that the auto rules take `- frac(+1, 3)` to the
+        # goal's `frac(-1, 3)`.
+        return self.call('rneg', self.call(
+            'rfrac', self._resolve(mkUIntLit(self.loc, n)),
+            self._resolve(mkUIntLit(self.loc, d))))
+      case ('const', n, _):
+        return self.call('rconst', self.uint(n))
       case ('pow', a, _, t):
         return self.call('rpow', self.rexpr(a), t)
       case ('frac', n, d):
-        return self.call('rfrac', self._resolve(mkLitNat(self.loc, n)),
-                         self._resolve(mkLitNat(self.loc, d)))
+        return self.call('rfrac', self.uint(n), self.uint(d))
       case (op, *args):
         return self.call('r' + op, *[self.rexpr(a) for a in args])
     raise ValueError(e)
@@ -612,7 +634,7 @@ def check_algebra(proof: AlgebraGoal, goal: Formula, env: Env,
     assert cert is not None
     return _integral(cert)
 
-  b = _Builder(loc, proof.names)
+  b = _Builder(loc, proof.names, env)
   if target is not None and negated is None:
     rel, x, y = target
     g = (rel, reifier.lin(x), reifier.lin(y))
@@ -692,7 +714,7 @@ def _check_ring(proof: AlgebraGoal, goal: Formula, env: Env,
             + ('\n(' + str(ty) + ' is a semiring, so subtraction is not'
                ' normalized)' if monus else ''))
   loc = proof.location
-  bld = _Builder(loc, proof.names)
+  bld = _Builder(loc, proof.names, env)
   frm = _instance(proof, theorem, ty,
                   [bld.list(reifier.atoms), bld.rexpr(a), bld.rexpr(b)],
                   env, check_proof)
@@ -719,7 +741,7 @@ def _check_field(proof: AlgebraGoal, goal: Formula, env: Env,
     if c not in conds:
       conds.append(c)
   loc = proof.location
-  bld = _Builder(loc, proof.names)
+  bld = _Builder(loc, proof.names, env)
   frm = _instance(proof, 'field_prove', ty,
                   [bld.list(reifier.atoms), bld.rexpr(a), bld.rexpr(b),
                    bld.list([bld.rexpr(c) for c in conds])],
@@ -740,9 +762,13 @@ def _check_field(proof: AlgebraGoal, goal: Formula, env: Env,
 
 def _side_condition(proof: AlgebraGoal, p: Formula, env: Env,
                     check_proof: Callable[[Proof, Env], Formula]) -> bool:
-  """Whether ``p`` is a given (or a `with` fact) or follows from them by
+  """Whether ``p`` is a given (or a `with` fact), follows from them by
   `algebra` (its linear mode, as for `not (y = real(+0))` from
-  `real(+0) < y`, or for a constant, `not (real(+2) = real(+0))`)."""
+  `real(+0) < y`), or, for a constant, evaluates to `true` (as
+  `not (real(+2) = real(+0))`)."""
+  v = full_reduce(p, env)
+  if isinstance(v, Bool) and v.value is True:
+    return True
   givens = env.local_proofs() + [check_proof(g, env) for g in proof.givens]
   available = [f for g in givens for c in _conjuncts(g) for f in _forms(c, env)]
   if p in available:
@@ -772,9 +798,30 @@ def _check_closed(loc: Meta, premise: Formula, env: Env) -> None:
 def _check_conclusion(proof: AlgebraGoal, frm: Formula, goal: Formula,
                       env: Env) -> None:
   frm = _reduce(proof.location, frm, proof.names, RING_DEFS, [], env)
-  if frm not in _forms(goal, env):
+  # Compare with the goal as written first: reducing it may compute
+  # with its literals in unary. A goal may also reduce to `true` (as
+  # `inv(x ^ 0) = real(+1)`).
+  if not _same(frm, goal) \
+     and not any(_same(frm, g) or (isinstance(g, Bool) and g.value is True)
+                 for g in _forms(goal, env)):
     user_error(proof.location, 'algebra proved\n\t' + str(frm)
                + '\ninstead of\n\t' + str(goal))
+
+
+def _same(a: Term, b: Term) -> bool:
+  """Whether ``a`` and ``b`` are equal, comparing UInt numerals by value:
+  the instance's positive constants are binary UInt values, the goal's
+  literals `fromNat(lit(n))`, with a unary Nat as deep as its value
+  (too deep for `==`)."""
+  if isUInt(a) and isUInt(b):
+    return cast(int, uintToInt(a)) == cast(int, uintToInt(b))
+  match a, b:
+    case Call(_, _, r1, args1), Call(_, _, r2, args2):
+      return len(args1) == len(args2) and _same(r1, r2) \
+          and all(_same(x, y) for x, y in zip(args1, args2))
+    case IfThen(_, _, p1, c1), IfThen(_, _, p2, c2):
+      return _same(p1, p2) and _same(c1, c2)
+  return bool(a == b)
 
 
 def _show_frac(n: Lin, d: Lin, atoms: list[Term]) -> str:
