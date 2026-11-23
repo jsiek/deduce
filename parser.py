@@ -1295,7 +1295,7 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
         return (parse_tree_to_ast(e.children[0], e),
                 parse_tree_to_ast(e.children[1], e))
     elif e.data in ('concept_refines', 'concept_require', 'concept_type',
-                    'concept_fun', 'concept_theorem',
+                    'concept_fun', 'concept_theorem', 'concept_same_type',
                     'model_type', 'model_fun', 'model_theorem'):
         return (e.data,) + tuple(parse_tree_to_ast(c, e) for c in e.children)
     elif e.data == 'concept_declaration':
@@ -1305,7 +1305,9 @@ def parse_tree_to_ast(e: ParseNode, parent: ParseParent) -> Any:
         statement = ConceptDecl(
             e.meta, _token_text(e, 1), parse_tree_to_list(e.children[2], e),
             WhereClause(e.meta, [m[1] for m in members
-                                 if m[0] in ('concept_refines', 'concept_require')]),
+                                 if m[0] in ('concept_refines', 'concept_require')],
+                        equations=[(m[1], m[2]) for m in members
+                                   if m[0] == 'concept_same_type']),
             [(m[1], m[2]) for m in members if m[0] == 'concept_fun'],
             [(str(m[1]), m[2]) for m in members if m[0] == 'concept_theorem'],
             types=[str(m[1]) for m in members if m[0] == 'concept_type'],

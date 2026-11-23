@@ -579,6 +579,7 @@ concept_member: "refines" concept_ref                   -> concept_refines
     | "type" IDENT                                      -> concept_type
     | "fun" identifier ":" type                         -> concept_fun
     | "theorem" IDENT ":" term                          -> concept_theorem
+    | type "=" type                                     -> concept_same_type
 
 model_head: concept_ref                                 -> model_head
     | "<" identifier_list ">" concept_ref               -> model_head_params

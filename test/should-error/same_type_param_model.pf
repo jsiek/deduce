@@ -1,0 +1,30 @@
+// A parameterized model with a same-type constraint (#1321) models only
+// the instances that satisfy it: the Elem of Container<List<bool>> is
+// List<bool>, not bool, so Container<Box<List<bool>>> has no model.
+
+import ConceptContainer
+import List
+
+model Container<List<bool>> {
+  type Elem = List<bool>
+  fun get = fun xs:List<bool> { xs }
+  fun put = fun xs:List<bool> { xs }
+  theorem get_put = { arbitrary x:List<bool>  evaluate }
+}
+
+union Box<T> {
+  box(T)
+}
+
+model <C> where { Container<C>, @Container<C>.Elem = bool } Container<Box<C>> {
+  type Elem = bool
+  fun get = fun b:Box<C> { switch b { case box(c) { get(c) } } }
+  fun put = fun x:bool { box(put(x)) }
+  theorem get_put = {
+    arbitrary x:bool
+    suffices get(put(x)) = x by evaluate
+    get_put[x]
+  }
+}
+
+define b : bool = @Container<Box<List<bool>>>.get(box([true]))

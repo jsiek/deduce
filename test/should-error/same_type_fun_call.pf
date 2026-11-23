@@ -1,0 +1,29 @@
+// At a call of a function with same-type constraints (#1321), the
+// models' associated types must satisfy them: the Elem of
+// Container<Pair<bool,bool>> is bool, but that of Container<List<bool>>
+// is List<bool>.
+
+import ConceptContainer
+import List
+import Pair
+
+model Container<Pair<bool,bool>> {
+  type Elem = bool
+  fun get = fun p:Pair<bool,bool> { first(p) }
+  fun put = fun b:bool { pair(b, b) }
+  theorem get_put = { arbitrary x:bool  evaluate }
+}
+
+model Container<List<bool>> {
+  type Elem = List<bool>
+  fun get = fun xs:List<bool> { xs }
+  fun put = fun xs:List<bool> { xs }
+  theorem get_put = { arbitrary x:List<bool>  evaluate }
+}
+
+fun move<C, D> where { Container<C>, Container<D>,
+                       @Container<C>.Elem = @Container<D>.Elem } (c:C) {
+  @Container<D>.put(get(c))
+}
+
+define moved : List<bool> = move(pair(true, false))

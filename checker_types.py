@@ -422,7 +422,13 @@ def type_check_call_funty(
         if inferred:
           context += '\n\tinferred type arguments: ' + ', '.join(inferred)
         raise wrap_user_error(e, context) from e
-    
+
+    # The where clause's same-type constraints determine some type
+    # parameters from the others (#1321).
+    for (x, ty) in where.solution.items() if where else []:
+      if x in typarams and x not in matching:
+        matching[x] = ty.substitute(matching)
+
     # Were all the type parameters deduced?
     for x in typarams:
         if x not in matching.keys():
@@ -873,8 +879,7 @@ def check_type(typ: TypeExpr, env: Env, arity_required: bool = True) -> TypeExpr
       return typ
     case FunctionType(loc, typarams, param_types, return_type, where=where):
       from checker_concepts import function_where_scope
-      new_where, body_env = function_where_scope(
-          loc, where, env.declare_type_vars(loc, typarams))
+      new_where, body_env = function_where_scope(loc, where, env, typarams)
       new_param_types = [check_type(ty, body_env) for ty in param_types]
       new_return_type = check_type(return_type, body_env)
       return FunctionType(loc, typarams, new_param_types, new_return_type,
@@ -979,19 +984,16 @@ def type_check_term_inst_var(term: TermInst, env: Env) -> TermInst:
   internal_error(term.location, 'internal error, expected variable, not ' + str(subject_var))
 
 def _checked_where(term: Generic, env: Env) -> WhereClause | None:
-  from checker_concepts import check_where
-  if term.where is None:
-    return None
-  return check_where(term.where, env.declare_type_vars(term.location,
-                                                       term.type_params))
+  from checker_concepts import function_where_scope
+  return function_where_scope(term.location, term.where, env,
+                              term.type_params)[0]
 
 def _generic_env(term: Generic, env: Env) -> Env:
   """The environment of a generic's body: its type parameters and the
   models its where clause provides (#1282)."""
   from checker_concepts import function_where_scope
-  return function_where_scope(
-      term.location, term.where,
-      env.declare_type_vars(term.location, term.type_params))[1]
+  return function_where_scope(term.location, term.where, env,
+                              term.type_params)[1]
 
 def type_synth_term(
     term: Term, env: Env, recfun: RecursiveName, subterms: SubtermNames
@@ -1316,17 +1318,15 @@ def type_check_term(
           # operations of the generic's clause.
           expected_where = typ.where.substitute(sub) if typ.where else None
           actual_where = _checked_where(term, env)
-          if (expected_where is None) != (actual_where is None) \
-             or (actual_where is not None and expected_where is not None
-                 and actual_where.constraints != expected_where.constraints):
+          if actual_where != expected_where:
             user_error(loc, 'the where clause of the generic ('
                        + (str(term.where) if term.where else 'none')
                        + ') does not match that of its type ('
                        + (str(typ.where) if typ.where else 'none') + ')')
+          body_env = _generic_env(term, env)
           if term.where is not None:
             new_param_types = new_param_types \
-              + [ty for (_, ty) in where_params(term.where)]
-          body_env = _generic_env(term, env)
+              + [check_type(ty, body_env) for (_, ty) in where_params(term.where)]
           funty = FunctionType(loc2, [], new_param_types, new_return_type)
           new_body = type_check_term(body, funty, body_env, recfun, subterms)
           return Generic(loc, typ, type_params, new_body, where=term.where)

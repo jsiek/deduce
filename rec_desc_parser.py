@@ -1696,6 +1696,7 @@ def parse_concept_decl(visibility: str) -> Statement:
     types: list[str] = []
     funs: list[tuple[str, Type]] = []
     theorems: list[tuple[str, Term]] = []
+    equations: list[tuple[Type, Type]] = []
     while current_token().type != 'RBRACE':
       if current_token().type == 'REFINES':
         advance()
@@ -1717,13 +1718,20 @@ def parse_concept_decl(visibility: str) -> Statement:
         thm_name = parse_identifier()
         consume_token('COLON', '":"', context='after name of a concept theorem')
         theorems.append((thm_name, parse_term()))
+      elif current_token().type in ('IDENT', 'AT'):
+        # A same-type requirement `σ = τ` (#1321; G's `type == type;`).
+        typ = parse_type()
+        consume_token('EQUAL', '"="', context='in a same-type requirement')
+        equations.append((typ, parse_type()))
       else:
         raise ParseError(meta_from_tokens(current_token(), current_token()),
                          'expected "refines", "require", "type", "fun", "theorem", '
-                         'or "}" in concept, not ' + current_token().value)
+                         'a same-type requirement, or "}" in concept, not '
+                         + current_token().value)
     consume_token('RBRACE', '"}"', context='after concept members')
     meta = meta_from_tokens(start_token, previous_token())
-    return ConceptDecl(meta, name, type_params, WhereClause(meta, refines),
+    return ConceptDecl(meta, name, type_params,
+                       WhereClause(meta, refines, equations=equations),
                        funs, theorems, visibility=visibility, types=types,
                        requires=requires)
 

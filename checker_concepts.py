@@ -154,9 +154,7 @@ def check_where(where: WhereClause, env: Env,
   ref_env = env.declare_type_vars(where.location,
                                   [p for (_, _, p) in where.assoc])
   def check_ref(ref: ConceptRef) -> ConceptRef:
-    concept_of(env, ref.concept, ref.location)
-    return ConceptRef(ref.location, ref.concept,
-                      [check_type(t, ref_env) for t in ref.type_args])
+    return _check_ref(ref, ref_env)
   checked = WhereClause(where.location,
                         [check_ref(c) for c in where.constraints],
                         [WhereMember(check_ref(wm.instance), wm.member,
@@ -164,12 +162,35 @@ def check_where(where: WhereClause, env: Env,
                          for wm in where.members],
                         where.expanded, equations=where.equations,
                         assoc=[(check_ref(i), t, p) for (i, t, p) in where.assoc])
-  if where.equations:
-    _solve(checked, env, own or [])
+  implied = _requirements(checked, ref_env)
+  if where.equations or implied:
+    _solve(checked, env, own or [], implied)
   return checked
 
 
-def _solve(where: WhereClause, env: Env, own: list[str]) -> None:
+def _check_ref(ref: ConceptRef, env: Env) -> ConceptRef:
+  concept_of(env, ref.concept, ref.location)
+  return ConceptRef(ref.location, ref.concept,
+                    [check_type(t, env) for t in ref.type_args])
+
+
+def _requirements(where: WhereClause, env: Env) -> list[tuple[Type, Type, str]]:
+  """The same-type requirements of the concepts of the (checked) where
+  clause's instances (G's `type == type;` in a concept), at the
+  instances' associated types, with what they come from."""
+  out = []
+  for inst in _where_closure(where, env):
+    decl = concept_of(env, inst.concept, inst.location)
+    sub = _param_sub(decl, inst) | where.assoc_types(inst)
+    for (s, t) in decl.refines.equations:
+      a, b = s.substitute(sub), t.substitute(sub)
+      out.append((a, b, 'the same-type requirement ' + str(a) + ' = ' + str(b)
+                  + ' of ' + str(inst)))
+  return out
+
+
+def _solve(where: WhereClause, env: Env, own: list[str],
+           implied: list[tuple[Type, Type, str]]) -> None:
   """Solve the same-type constraints of ``where`` (#1321), following the
   congruence closure of G (Siek's thesis, §4.5 and §5.2): type the
   constraints, unify their sides, and merge the instances that become
@@ -178,7 +199,7 @@ def _solve(where: WhereClause, env: Env, own: list[str]) -> None:
   ``own`` and its proxies can be determined, each by a type or by a
   variable bound before it; the types of outer scopes are fixed. Sets
   the checked constraints, the solution, and the instances in terms of
-  the solution."""
+  the solution. The ``implied`` constraints come from the concepts."""
   loc = where.location
   proxies = where.proxies()
   variables = own + proxies
@@ -218,8 +239,9 @@ def _solve(where: WhereClause, env: Env, own: list[str]) -> None:
                  + ', which is fixed outside this where clause')
     user_error(loc, why + ' is inconsistent: ' + str(s) + ' ≠ ' + str(t))
 
-  pending = [(s, t, 'the same-type constraint ' + w, eq_loc)
-             for ((s, t), (w, eq_loc)) in zip(where.equations, written)]
+  pending = [(s, t, why, loc) for (s, t, why) in implied] \
+      + [(s, t, 'the same-type constraint ' + w, eq_loc)
+         for ((s, t), (w, eq_loc)) in zip(where.equations, written)]
   while pending:
     for (s, t, why, eq_loc) in pending:
       unify(s, t, why, eq_loc)
@@ -323,15 +345,21 @@ def _binder_type(env: Env, where: WhereClause, wm: WhereMember,
                      where.assoc_types(wm.instance))
 
 
-def declare_where_operations(where: WhereClause, env: Env, loc: Meta) -> Env:
+def _declare_solution(where: WhereClause, env: Env, loc: Meta) -> Env:
   """The proxies of the where clause's associated types, as type
-  variables, the type variables that its same-type constraints determine,
-  as aliases, and the binders of its operations."""
+  variables, and the type variables that its same-type constraints
+  determine, as aliases (a function's parameters may mention a determined
+  proxy)."""
   env = env.declare_type_vars(loc, where.proxies())
-  proxies = [p for (_, _, p) in where.assoc]
   for (x, ty) in where.solution.items():
-    if x not in proxies:
-      env = env.define_type(loc, x, TypeAlias(loc, x, [], ty))
+    env = env.define_type(loc, x, TypeAlias(loc, x, [], ty))
+  return env
+
+
+def declare_where_operations(where: WhereClause, env: Env, loc: Meta) -> Env:
+  """``_declare_solution`` and the binders of the where clause's
+  operations."""
+  env = _declare_solution(where, env, loc)
   return env.declare_term_vars(
       loc, [(wm.binder, _binder_type(env, where, wm, loc))
             for wm in where.operations()])
@@ -481,11 +509,9 @@ def _where_closure(where: WhereClause, env: Env) -> list[ConceptRef]:
   """The (checked) instances of the refinement closure of ``where``, in
   terms of its solution; a concept's requirements on its associated
   types are on the clause's proxies (#1321)."""
-  refs: list[ConceptRef] = concept_closure(
+  return [_check_ref(r, env) for r in concept_closure(
       [c.substitute(where.solution) for c in where.constraints],
-      where.assoc_types)
-  checked: WhereClause = check_where(WhereClause(where.location, refs), env)
-  return list(checked.constraints)
+      where.assoc_types)]
 
 
 def _where_prefix(loc: Meta) -> str:
@@ -572,17 +598,20 @@ def where_arguments(loc: Meta, where: WhereClause, in_scope: list[str],
           {p: lookup(i, t) for (i, t, p) in where.assoc})
 
 
-def function_where_scope(loc: Meta, where: WhereClause | None,
-                         env: Env) -> tuple[WhereClause | None, Env]:
-  """The checked where clause of a function or parameterized model, and
-  the scope of its types: the clause's proxies, as type variables (its
+def function_where_scope(loc: Meta, where: WhereClause | None, env: Env,
+                         typarams: list[str]) -> tuple[WhereClause | None, Env]:
+  """The checked where clause of a function with the type parameters
+  ``typarams``, which its same-type constraints may determine, and the
+  scope of its types: the type parameters, the clause's proxies (its
   operations' types and a projection such as `@Container<C>.Elem`
-  mention them), and its models (#1321)."""
+  mention them), the determined type parameters, as aliases, and its
+  models (#1321)."""
+  env = env.declare_type_vars(loc, typarams)
   if where is None:
     return None, env
-  env = env.declare_type_vars(loc, where.proxies())
-  checked = check_where(where, env)
-  return checked, add_where_models(loc, checked, env)
+  checked = check_where(where, env, typarams)
+  return checked, add_where_models(loc, checked,
+                                   _declare_solution(checked, env, loc))
 
 
 def _match_type(pattern: Type, ty: Type, tyvars: list[str],
@@ -707,8 +736,6 @@ def instantiate_where(loc: Meta, allfrm: All, type_arg: Type,
   where = allfrm.where.substitute(sub)
   models, proxies = _where_models(loc, where, in_scope, env)
   lookup = _model_lookup(env, models, loc, proxies)
-  if (why := _unsatisfied(where, lookup)) is not None:
-    user_error(loc, why)
   frm = _strip_operations(loc, allfrm.body.substitute(sub), where, lookup)
   # The axioms, of the instances at the models' types (`Eq<Elem>` required
   # by `Bag<C>` is `Eq<bool>` at a model with `type Elem = bool`).
@@ -730,10 +757,14 @@ def _where_models(loc: Meta, where: WhereClause, in_scope: list[str],
                   env: Env, depth: int = 0
                   ) -> tuple[Models, dict[str, Term | Type]]:
   """The models in scope of the instances of ``where`` (at the caller's
-  types), and the types they give its proxies."""
-  return _find_models(loc, [c.substitute(where.solution)
-                            for c in where.constraints],
-                      in_scope, env, depth, where)
+  types), and the types they give its proxies, which must satisfy its
+  same-type constraints."""
+  models, proxies = _find_models(loc, [c.substitute(where.solution)
+                                       for c in where.constraints],
+                                 in_scope, env, depth, where)
+  if (why := _unsatisfied(where, _model_lookup(env, models, loc, proxies))):
+    user_error(loc, why)
+  return models, proxies
 
 
 def _find_models(loc: Meta, refs: list[ConceptRef], in_scope: list[str],
@@ -798,13 +829,13 @@ def _rebase(r: ModelInstance, m: ModelInstance) -> ModelInstance:
 
 def _qualified(loc: Meta, ref: ConceptRef, in_scope: list[str],
                env: Env) -> tuple[ConceptRef, Models]:
-  ref = check_where(WhereClause(loc, [ref]), env).constraints[0]
+  ref = _check_ref(ref, env)
   return ref, _models_in_scope(loc, [ref], in_scope, env)
 
 
 def check_concept_member(term: ConceptMember, env: Env) -> Term:
-  """`@C<τ>.m` outside a where clause binding ``C<τ>``: the operation of
-  the model in scope, unfolded where the model is visible."""
+  """`@C<τ>.m`: the operation of the model in scope, unfolded where the
+  model is visible; a where clause's model gives its binder."""
   loc = term.location
   ref, models = _qualified(loc, term.ref, term.models, env)
   model = _model_for(models, ref)
@@ -877,8 +908,8 @@ def _is_well_founded(decl: ConceptDecl) -> bool:
 
 
 def concept_member_formula(proof: ConceptMemberProof, env: Env) -> Formula:
-  """`@C<τ>.thm` outside a where clause binding ``C<τ>``: the concept's
-  theorem at the operations of the model in scope (which proved it)."""
+  """`@C<τ>.thm`: the concept's theorem at the operations of the model in
+  scope, which proved it or, for a where clause's model, assumes it."""
   loc = proof.location
   ref, models = _qualified(loc, proof.ref, proof.models, env)
   decl = concept_of(env, ref.concept, loc)
@@ -892,7 +923,9 @@ def process_concept(decl: ConceptDecl, env: Env) -> tuple[ConceptDecl, Env]:
   loc = decl.location
   # Inside the concept, its associated types are like type parameters.
   body_env = env.declare_type_vars(loc, decl.type_params + decl.types)
-  refines = check_where(decl.refines, body_env)
+  # The concept's own associated types are determined by its same-type
+  # requirements as the type variables of a where clause are.
+  refines = check_where(decl.refines, body_env, decl.type_params + decl.types)
   body_env = add_where_models(loc, refines,
                               declare_where_operations(refines, body_env, loc))
   funs = [(f, check_type(t, body_env)) for (f, t) in decl.funs]
@@ -920,14 +953,14 @@ def process_model(model: ModelDecl, env: Env) -> tuple[ModelDecl, Env]:
   where = None
   if model.where is not None:
     where = check_where(model.where,
-                        env.declare_type_vars(loc, model.type_params))
+                        env.declare_type_vars(loc, model.type_params),
+                        model.type_params)
   model = ModelDecl(loc, model.name, model.concept, model.funs, model.theorems,
                     visibility=model.visibility, models=model.models,
                     type_params=model.type_params, where=where,
                     types=model.types)
   body_env = _model_scope(model, env)
-  concept_ref = check_where(WhereClause(loc, [model.concept]),
-                            body_env).constraints[0]
+  concept_ref = _check_ref(model.concept, body_env)
   occurs: dict[str, Type] = {}
   for t in concept_ref.type_args:
     _match_type(t, t, model.type_params, occurs)
@@ -948,6 +981,14 @@ def process_model(model: ModelDecl, env: Env) -> tuple[ModelDecl, Env]:
         model.models, body_env), loc)
     types += [(p, cast(Type, lookup(i.substitute(psub), t)))
               for (i, t, p) in decl.refines.assoc]
+  # The concept's same-type requirements hold at the model's types.
+  tsub = _param_sub(decl, concept_ref) | dict(types)
+  for (s, t) in decl.refines.equations:
+    a, b = s.substitute(tsub), t.substitute(tsub)
+    if a != b:
+      user_error(loc, 'the model of ' + str(concept_ref) + ' does not satisfy'
+                 + ' the same-type requirement ' + decl.refines.equation_str(s, t)
+                 + ': ' + str(a) + ' ≠ ' + str(b))
   funs = []
   for (m, define, body) in model.funs:
     ty = member_type(body_env, concept_ref, m, loc, dict(types))

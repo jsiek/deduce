@@ -746,6 +746,7 @@ concept_member ::= "require" concept_ref
 concept_member ::= "type" IDENT
 concept_member ::= "fun" identifier ":" type
 concept_member ::= "theorem" IDENT ":" term
+concept_member ::= type "=" type
 concept_ref ::= IDENT "<" type_list ">"
 ```
 
@@ -820,7 +821,7 @@ define b : bool = elem(pair(true, false))   // Elem of Container<Pair<bool,bool>
 
 A concept that refines one with associated types can use them
 directly: inside `concept Seq<C> { refines Container<C> ... }`, `Elem`
-is `@Container<C>.Elem`.
+is `@Container<C>.Elem`, and so is `@Seq<C>.Elem` outside it.
 
 A concept can require a concept of one of its associated types:
 
@@ -835,9 +836,27 @@ concept Bag<C> {
 A model of `Bag<τ>` with `type Elem = σ` needs a model of `Eq<σ>`, and
 a where clause `where { Bag<C> }` also assumes `Eq<@Bag<C>.Elem>`. A
 where clause's own constraints can mention its instances' associated
-types too, as in `where { Iter<I>, Less<@Iter<I>.Elem> }`. Same-type
-constraints in where clauses of functions and parameterized models are
-not supported yet (#1321).
+types too, as in `where { Iter<I>, Less<@Iter<I>.Elem> }`.
+
+A member `σ = τ` is a same-type requirement: inside the concept the two
+types are one, a where clause on the concept assumes it, and each model
+must satisfy it.
+
+```
+concept VertexList<G> {
+  refines Graph<G>
+  type VIter
+  require Iter<VIter>
+  @Iter<VIter>.Elem = Vertex
+  fun vertices : fn G -> VIter
+  theorem first_vertex: all g:G. deref(vertices(g)) = some_vertex(g)
+}
+```
+
+`deref(vertices(g))` is an `@Iter<VIter>.Elem` and `some_vertex(g)` a
+`Vertex` (of `Graph<G>`), so without the requirement `first_vertex`
+would not type check. A model of `VertexList<bool>` whose `VIter` has
+`Elem = bool` needs the model of `Graph<bool>` to have `Vertex = bool`.
 
 Concepts, models, and where clauses follow System F<sup>G</sup>
 (Siek and Lumsdaine, *Essential Language Support for Generic
@@ -3897,6 +3916,19 @@ with one `Elem`. Types bound outside the `all` are fixed: in
 error. `arbitrary` must repeat the constraints, and using the formula
 checks them: `transfer<A, B>` needs the models of `Container<A>` and
 `Container<B>` to give `Elem` the same type.
+
+Functions and parameterized models can have same-type constraints too.
+A call computes a type parameter that a constraint determines from the
+others, and checks the constraints at the models it finds:
+
+```
+fun move<C, D> where { Container<C>, Container<D>,
+                       @Container<C>.Elem = @Container<D>.Elem } (c:C) {
+  @Container<D>.put(get(c))
+}
+
+define moved : List<bool> = move(pair(true, false))
+```
 
 A where clause on an `all` formula over types restricts the types to
 those that satisfy some [concepts](#concept-statement):

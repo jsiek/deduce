@@ -209,10 +209,8 @@ Each step lands with its fixtures under both parsers.
    definitions of a parameterized model's operations (`_model_sub` gives
    their values at an instance). Refinement brings the refined concepts'
    associated types into scope by base name (G); a where clause's
-   `assoc_types` and a checked model's `types` map them. Not done:
-   `@Seq<C>.Elem` for a refined concept's associated type (write
-   `@Container<C>.Elem`), and same-type constraints in where clauses of
-   functions and parameterized models.
+   `assoc_types` and a checked model's `types` map them, and uniquify
+   turns `@Seq<C>.Elem` into `@Container<C>.Elem` (`_projection`).
 4. **Same-type constraints:** the union-find with unification and
    congruence, the nested-scope rule, and the instantiation check. Fixtures:
    the `same_first` example, the inconsistent and occurs-check errors, the
@@ -230,13 +228,17 @@ Each step lands with its fixtures under both parsers.
    variable is an alias of its type. The expansion binds only the
    undetermined proxies. Instantiation checks every written constraint
    with the models' types (`_unsatisfied`, G's `satisfy_requirements`);
-   `arbitrary` must repeat the goal's constraints.
-   Still missing: constraints on projections of the clause's own
-   instances in its concept constraints (`where { Iterator<I>,
-   Less<@Iterator<I>.Elem> }`, the thesis's `merge`), and same-type
-   requirements inside concepts; both come with step 6.
+   `arbitrary` must repeat the goal's constraints. Qualified members
+   `@C<τ>.m` are resolved by the checker through the where clause's
+   models (not by uniquify), so a merged-away instance's members are
+   the kept instance's.
+   Functions and parameterized models: `function_where_scope` solves
+   with the type parameters as the clause's own variables; a call
+   computes the determined ones from the others, and `_where_models`
+   checks the constraints at every use (calls, `thm<τ>`, and the
+   lookup of a parameterized model).
 5. **Docs:** `Reference.md` (Concept, Model, where clauses) and
-   `TacticsCheatSheet.md`.
+   `TacticsCheatSheet.md`. Done.
 6. **`require` on associated types:** `require Regular<Elem>` in a
    concept. `require` is stored in the concept's `refines` where clause
    (step 1; `ConceptDecl.requires` only keeps the keyword for printing),
@@ -252,8 +254,14 @@ Each step lands with its fixtures under both parsers.
    for a where clause (`_find_models`) builds the closure as it finds
    models: an instance that mentions a proxy waits for the model that
    gives the proxy its type, and a model's refined requirements are at
-   its associated types (G's satisfy_requirements). Not done: same-type
-   requirements inside concepts (G's `type == type;`, §4.2).
+   its associated types (G's satisfy_requirements).
+   Same-type requirements (G's `type == type;`, §4.2) are concept
+   members `σ = τ`, kept as the equations of the concept's `refines`
+   clause. Inside the concept they are solved like a where clause's,
+   with the concept's parameters and own associated types as its
+   variables; a where clause adds those of its instances' concepts, at
+   its proxies (`_requirements`); a model must satisfy them at its
+   types (`process_model`).
 
 ## Open questions
 

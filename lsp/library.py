@@ -560,6 +560,8 @@ _TRACKED_CONTAINERS: tuple[_TrackedAttr, ...] = (
     (_abstract_syntax, "_predicate_decls_by_unique_name"),
     # Concepts by unique name, read by where clauses and models (#1264).
     (_abstract_syntax, "concept_decls"),
+    # Where-clause proxies by unique name, for printing (#1321).
+    (_abstract_syntax, "proxy_projections"),
     (_abstract_syntax, "collected_imports"),
     (_abstract_syntax, "reduce_only"),
     (_abstract_syntax, "reduced_defs"),

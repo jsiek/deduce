@@ -1,0 +1,70 @@
+// Same-type constraints in where clauses of functions and of
+// parameterized models (#1321).
+
+import ConceptContainer
+import List
+import Pair
+
+model Container<Pair<bool,bool>> {
+  type Elem = bool
+  fun get = fun p:Pair<bool,bool> { first(p) }
+  fun put = fun b:bool { pair(b, b) }
+  theorem get_put = { arbitrary x:bool  evaluate }
+}
+
+model Container<List<bool>> {
+  type Elem = bool
+  fun get = fun xs:List<bool> { switch xs { case empty { false } case node(x, _) { x } } }
+  fun put = fun b:bool { [b] }
+  theorem get_put = { arbitrary x:bool  evaluate }
+}
+
+// Moving an element between containers with the same element type.
+fun move<C, D> where { Container<C>, Container<D>,
+                       @Container<C>.Elem = @Container<D>.Elem } (c:C) {
+  @Container<D>.put(get(c))
+}
+
+define moved : List<bool> = move(pair(true, false))
+assert moved = [true]
+
+// A constraint that fixes an associated type.
+fun get_bool<C> where { Container<C>, @Container<C>.Elem = bool } (c:C) {
+  get(c)
+}
+
+assert get_bool([false, true]) = false
+
+recursive get_bools<C> where { Container<C>, @Container<C>.Elem = bool }
+    (List<C>) -> List<bool> {
+  get_bools(empty) = empty
+  get_bools(node(c, cs)) = node(get(c), get_bools(cs))
+}
+
+assert get_bools([[true], [false, true]]) = [true, false]
+
+// A constraint that determines a type parameter: at a call, D is C.
+fun apply_same<C, D> where { C = D } (f: fn D -> bool, c:C) {
+  f(c)
+}
+
+assert apply_same(fun b:bool { not b }, true) = false
+
+// A parameterized model with a same-type constraint.
+union Box<T> {
+  box(T)
+}
+
+model <C> where { Container<C>, @Container<C>.Elem = bool } Container<Box<C>> {
+  type Elem = bool
+  fun get = fun b:Box<C> { switch b { case box(c) { get(c) } } }
+  fun put = fun x:bool { box(put(x)) }
+  theorem get_put = {
+    arbitrary x:bool
+    suffices get(put(x)) = x by evaluate
+    get_put[x]
+  }
+}
+
+assert @Container<Box<List<bool>>>.get(box([true])) = true
+assert get_bool(box(pair(false, true))) = false

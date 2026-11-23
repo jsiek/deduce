@@ -1,0 +1,1 @@
+./test/should-error/same_type_requirement_model.pf:35.1-38.2: the model of VertexList<bool> does not satisfy the same-type requirement @Iter<VIter>.Elem = @Graph<G>.Vertex: bool ≠ List<bool>

@@ -10,6 +10,7 @@ concept Seq<C> {
   refines Container<C>
   fun head : fn C -> Elem
   theorem head_put: all x:Elem. head(put(x)) = x
+  theorem head_put_proj: all x:@Container<C>.Elem. head(put(x)) = x
 }
 
 model Container<Pair<bool,bool>> {
@@ -22,7 +23,11 @@ model Container<Pair<bool,bool>> {
 model Seq<Pair<bool,bool>> {
   fun head = fun p:Pair<bool,bool> { second(p) }
   theorem head_put = { arbitrary x:bool  evaluate }
+  theorem head_put_proj = { arbitrary x:bool  evaluate }
 }
+
+// The associated types of a refined concept are the refining one's too.
+define seq_elem : @Seq<Pair<bool,bool>>.Elem = true
 
 assert @Seq<Pair<bool,bool>>.head(pair(false, true)) = true
 
@@ -39,4 +44,12 @@ theorem head_get_pair: all x:bool.
   = @Container<Pair<bool,bool>>.get(@Container<Pair<bool,bool>>.put(x))
 proof
   head_get<Pair<bool,bool>>
+end
+
+theorem head_get_seq: all C:type where { Seq<C> }. all x:@Seq<C>.Elem.
+  head(put(x)) = get(put(x))
+proof
+  arbitrary C:type where { Seq<C> }
+  arbitrary x:@Seq<C>.Elem
+  replace head_put[x] | get_put[x].
 end

@@ -117,3 +117,14 @@ theorem congruence_bool: all x:bool, y:bool.
 proof
   congruence<bool, bool>
 end
+
+// The members of a merged instance are the first instance's, also under
+// the other instance's name.
+theorem congruence_qualified: all S:type, T:type
+    where { Container<S>, Container<T>, S = T }.
+  all y:@Container<T>.Elem. @Container<T>.get(@Container<T>.put(y)) = y
+proof
+  arbitrary S:type, T:type where { Container<S>, Container<T>, S = T }
+  arbitrary y:@Container<T>.Elem
+  @Container<T>.get_put[y]
+end
