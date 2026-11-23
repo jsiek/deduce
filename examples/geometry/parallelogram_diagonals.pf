@@ -1,0 +1,102 @@
+// parallelogram_diagonals.pf
+//
+// A coordinate proof from a high school geometry course:
+//
+//   The diagonals of a parallelogram bisect each other.
+//
+// As in the textbook, place A at the origin and B on the x-axis. Then
+// D is any point (b, c), and C = (a + b, c), so that AB ∥ DC and
+// AD ∥ BC:
+//
+//        D (b, c) +----------+ C (a + b, c)
+//                /     P    /
+//               /          /
+//     A (0, 0) +----------+ B (a, 0)
+//
+// The two-column proof:
+//
+//   Statements                                 Reasons
+//   1. AB ∥ DC and AD ∥ BC                     Cross product (if c ≠ 0)
+//   2. midpoint of AC = ((a + b)/2, c/2)       Midpoint formula
+//   3. midpoint of BD = ((a + b)/2, c/2)       Midpoint formula
+//   4. The midpoints are the same point P,     (2, 3)
+//      so the diagonals bisect each other
+
+theorem parallelogram_sides: all a:Real, b:Real, c:Real, A:Point, B:Point, C:Point, D:Point.
+  if A = point(real(+0), real(+0)) and B = point(a, real(+0))
+     and C = point(a + b, c) and D = point(b, c)
+     and not (a = real(+0)) and not (c = real(+0))
+  then parallel(line(A, B), line(D, C)) and parallel(line(A, D), line(B, C))
+proof
+  arbitrary a:Real, b:Real, c:Real, A:Point, B:Point, C:Point, D:Point
+  assume given
+  have a_def: A = point(real(+0), real(+0)) by given
+  have b_def: B = point(a, real(+0)) by given
+  have c_def: C = point(a + b, c) by given
+  have d_def: D = point(b, c) by given
+  // The vertices are distinct: their coordinates differ.
+  have a_ne_b: not (A = B) by {
+    assume e
+    have ax: xcoord(A) = xcoord(B) by { replace e. }
+    apply (conjunct 4 of given) to symmetric (replace a_def | b_def in ax)
+  }
+  have d_ne_c: not (D = C) by {
+    assume e
+    have dx: xcoord(D) = xcoord(C) by { replace e. }
+    have dx2: b = a + b by replace d_def | c_def in dx
+    have z: a = real(+0) by algebra
+    apply (conjunct 4 of given) to z
+  }
+  have a_ne_d: not (A = D) by {
+    assume e
+    have ay: ycoord(A) = ycoord(D) by { replace e. }
+    apply (conjunct 5 of given) to symmetric (replace a_def | d_def in ay)
+  }
+  have b_ne_c: not (B = C) by {
+    assume e
+    have bc: ycoord(B) = ycoord(C) by { replace e. }
+    apply (conjunct 5 of given) to symmetric (replace b_def | c_def in bc)
+  }
+  have ab_dc: parallel(line(A, B), line(D, C)) by {
+    replace apply line_parallel_seg_cross[A, B, D, C] to a_ne_b, d_ne_c
+    replace a_def | b_def | c_def | d_def
+    expand seg_cross.
+  }
+  have ad_bc: parallel(line(A, D), line(B, C)) by {
+    replace apply line_parallel_seg_cross[A, D, B, C] to a_ne_d, b_ne_c
+    replace a_def | b_def | c_def | d_def
+    expand seg_cross
+    algebra
+  }
+  (ab_dc, ad_bc)
+end
+
+theorem parallelogram_diagonals: all a:Real, b:Real, c:Real, A:Point, B:Point, C:Point, D:Point.
+  if A = point(real(+0), real(+0)) and B = point(a, real(+0))
+     and C = point(a + b, c) and D = point(b, c)
+  then midpoint(A, C) = midpoint(B, D)
+proof
+  arbitrary a:Real, b:Real, c:Real, A:Point, B:Point, C:Point, D:Point
+  assume given
+  have a_def: A = point(real(+0), real(+0)) by given
+  have b_def: B = point(a, real(+0)) by given
+  have c_def: C = point(a + b, c) by given
+  have d_def: D = point(b, c) by given
+  have step2: midpoint(A, C) = point((a + b) / real(+2), c / real(+2)) by {
+    // Midpoint formula
+    expand midpoint
+    replace a_def | c_def
+    have hx: real(frac(+1, 2)) * (a + b) = (a + b) / real(+2) by algebra
+    have hy: real(frac(+1, 2)) * c = c / real(+2) by algebra
+    replace hx | hy.
+  }
+  have step3: midpoint(B, D) = point((a + b) / real(+2), c / real(+2)) by {
+    // Midpoint formula
+    expand midpoint
+    replace b_def | d_def
+    have hx: real(frac(+1, 2)) * (a + b) = (a + b) / real(+2) by algebra
+    have hy: real(frac(+1, 2)) * c = c / real(+2) by algebra
+    replace hx | hy.
+  }
+  replace step2 | step3.
+end

@@ -19,6 +19,8 @@ module Point
     zero when the angle AOB is right.
   * `cross(O, A, B)`: the cross product of OA and OB, which is zero
     when O, A, and B are collinear, `collinear(O, A, B)`.
+  * `slope(A, B)`: (y₁ - y₂) / (x₁ - x₂), meaningful when
+    xcoord(A) ≠ xcoord(B). Lines (lib/Line.pf) work without it.
 */
 
 import UInt
@@ -68,6 +70,12 @@ fun cross(O : Point, A : Point, B : Point) {
 
 fun collinear(A : Point, B : Point, C : Point) {
   cross(A, B, C) = real(+0)
+}
+
+// The slope of line AB. It is meaningful only when
+// xcoord(A) ≠ xcoord(B), that is, when AB is not vertical.
+fun slope(A : Point, B : Point) {
+  (ycoord(A) - ycoord(B)) / (xcoord(A) - xcoord(B))
 }
 
 // Segments AB and CD are congruent.
@@ -215,23 +223,12 @@ proof
   point_coords[A]
 end
 
-/*
-  The midpoint proofs below are polynomial identities that hold
-  because 2 · ½ = 1. The `algebra` tactic does not know that ½ is a
-  number (it treats `real(frac(+1, 2))` as an unknown h), so each is
-  proved for every h with an extra term (1 - 2h) · q, and then
-  instantiated at h = ½, where the extra term reduces to zero.
-*/
-
-lemma midpoint_equidistant_h: all h:Real, A:Point, B:Point.
-  dist2(A, point(h * (xcoord(A) + xcoord(B)), h * (ycoord(A) + ycoord(B))))
-  = dist2(point(h * (xcoord(A) + xcoord(B)), h * (ycoord(A) + ycoord(B))), B)
-    + (real(+1) - real(+2) * h)
-      * ((xcoord(A) - xcoord(B)) * (xcoord(A) + xcoord(B))
-         + (ycoord(A) - ycoord(B)) * (ycoord(A) + ycoord(B)))
+// AM is half of AB, so AM² is a quarter of AB².
+theorem point_midpoint_dist2: all A:Point, B:Point.
+  real(+4) * dist2(A, midpoint(A, B)) = dist2(A, B)
 proof
-  arbitrary h:Real, A:Point, B:Point
-  expand dist2
+  arbitrary A:Point, B:Point
+  expand midpoint | dist2
   algebra
 end
 
@@ -240,31 +237,13 @@ theorem point_midpoint_equidistant: all A:Point, B:Point.
   dist2(A, midpoint(A, B)) = dist2(midpoint(A, B), B)
 proof
   arbitrary A:Point, B:Point
-  expand midpoint
-  midpoint_equidistant_h[real(frac(+1, 2)), A, B]
-end
-
-lemma midpoint_dist2_h: all h:Real, A:Point, B:Point.
-  real(+4) * dist2(A, point(h * (xcoord(A) + xcoord(B)), h * (ycoord(A) + ycoord(B))))
-  = dist2(A, B)
-    + (real(+1) - real(+2) * h)
-      * ((xcoord(A) + xcoord(B))
-           * (real(+3) * xcoord(A) - xcoord(B) - real(+2) * h * (xcoord(A) + xcoord(B)))
-         + (ycoord(A) + ycoord(B))
-           * (real(+3) * ycoord(A) - ycoord(B) - real(+2) * h * (ycoord(A) + ycoord(B))))
-proof
-  arbitrary h:Real, A:Point, B:Point
-  expand dist2
-  algebra
-end
-
-// AM is half of AB, so AM² is a quarter of AB².
-theorem point_midpoint_dist2: all A:Point, B:Point.
-  real(+4) * dist2(A, midpoint(A, B)) = dist2(A, B)
-proof
-  arbitrary A:Point, B:Point
-  expand midpoint
-  midpoint_dist2_h[real(frac(+1, 2)), A, B]
+  // MB² is a quarter of AB² too. (A direct `algebra` works but is slow, #1338.)
+  have mb: real(+4) * dist2(midpoint(A, B), B) = dist2(A, B) by {
+    replace point_dist2_symmetric[midpoint(A, B), B] | point_midpoint_symmetric[A, B]
+          | point_dist2_symmetric[A, B]
+    point_midpoint_dist2[B, A]
+  }
+  algebra with point_midpoint_dist2[A, B] | mb
 end
 
 /*
@@ -303,22 +282,55 @@ proof
   expand collinear | cross.
 end
 
-lemma midpoint_collinear_h: all h:Real, A:Point, B:Point.
-  cross(A, point(h * (xcoord(A) + xcoord(B)), h * (ycoord(A) + ycoord(B))), B)
-  = (real(+2) * h - real(+1))
-    * (xcoord(A) * (ycoord(B) - ycoord(A)) - ycoord(A) * (xcoord(B) - xcoord(A)))
-proof
-  arbitrary h:Real, A:Point, B:Point
-  expand cross
-  algebra
-end
-
 theorem point_midpoint_collinear: all A:Point, B:Point.
   collinear(A, midpoint(A, B), B)
 proof
   arbitrary A:Point, B:Point
-  expand collinear | midpoint
-  midpoint_collinear_h[real(frac(+1, 2)), A, B]
+  expand collinear | midpoint | cross
+  algebra
+end
+
+/*
+  Slope
+*/
+
+theorem point_slope_symmetric: all A:Point, B:Point. slope(A, B) = slope(B, A)
+proof
+  arbitrary A:Point, B:Point
+  expand slope
+  switch xcoord(A) = xcoord(B) {
+    case true assume e { replace e. }
+    case false assume ne {
+      have nz: not (xcoord(A) - xcoord(B) = real(+0))
+        by { replace real_sub_eq_zero_iff  ne }
+      have nz2: not (xcoord(B) - xcoord(A) = real(+0))
+        by { assume z  apply ne to symmetric (replace real_sub_eq_zero_iff in z) }
+      algebra
+    }
+  }
+end
+
+// A, B, and C are collinear exactly when AB and AC have the same slope.
+theorem point_slope_collinear: all A:Point, B:Point, C:Point.
+  if not (xcoord(A) = xcoord(B)) and not (xcoord(A) = xcoord(C))
+  then collinear(A, B, C) = (slope(A, B) = slope(A, C))
+proof
+  arbitrary A:Point, B:Point, C:Point
+  assume ne
+  have nb: not (xcoord(A) - xcoord(B) = real(+0))
+    by { replace real_sub_eq_zero_iff  conjunct 0 of ne }
+  have nc: not (xcoord(A) - xcoord(C) = real(+0))
+    by { replace real_sub_eq_zero_iff  conjunct 1 of ne }
+  have e: cross(A, B, C)
+        = - ((xcoord(A) - xcoord(B))
+             * ((xcoord(A) - xcoord(C)) * (slope(A, B) - slope(A, C))))
+    by { expand cross | slope  algebra }
+  expand collinear
+  replace e | real_neg_zero_iff
+        | apply real_mult_zero_iff[xcoord(A) - xcoord(B),
+                (xcoord(A) - xcoord(C)) * (slope(A, B) - slope(A, C))] to nb
+        | apply real_mult_zero_iff[xcoord(A) - xcoord(C), slope(A, B) - slope(A, C)] to nc
+  real_sub_eq_zero_iff
 end
 
 /*

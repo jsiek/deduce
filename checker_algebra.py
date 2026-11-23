@@ -82,7 +82,8 @@ def _call(t: Term) -> tuple[str, list[Term]] | None:
 
 
 def _int_value(t: Term) -> int | None:
-  """The value of a UInt or Int literal."""
+  """The value of a UInt or Int literal (such as `-2`, the negation of a
+  UInt literal)."""
   if isUInt(t):
     return cast(int, uintToInt(t))
   match _call(t):
@@ -90,6 +91,8 @@ def _int_value(t: Term) -> int | None:
       return cast(int, uintToInt(u))
     case ('negsuc', [u]) if isUInt(u):
       return -cast(int, uintToInt(u)) - 1
+    case ('-', [u]) if (v := _int_value(u)) is not None:
+      return -v
   return None
 
 
@@ -158,9 +161,6 @@ def _frac_literal(n: Term, d: Term) -> Lin | None:
   values, possibly negated, if ``n`` and ``d`` are literals and ``d`` is
   positive."""
   a, b = _int_value(n), _int_value(d)
-  match _call(n):
-    case ('-', [u]) if (v := _int_value(u)) is not None:
-      a = -v
   if a is None or b is None or b <= 0:
     return None
   return ('neg', ('frac', -a, b)) if a < 0 else ('frac', a, b)
@@ -583,7 +583,9 @@ def check_algebra(proof: AlgebraGoal, goal: Formula, env: Env,
   if target is not None:
     ty = target[1].typeof
   elif relations:
-    ty = relations[0][1].typeof
+    # Refute at the first type of the givens that `algebra` works at.
+    tys = [r[1].typeof for r in relations]
+    ty = next((t for t in tys if _has_model(proof, env, 'LinearArith', t)), tys[0])
   else:
     user_error(loc, 'algebra found no equations or inequalities among the'
                ' givens')
