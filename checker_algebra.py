@@ -323,7 +323,9 @@ def _factors(e: Lin) -> list[Lin]:
   match e:
     case ('mul', a, b):
       return _factors(a) + _factors(b)
-    case ('pow', a, _, _):
+    case ('pow', a, k, _):
+      return [] if k == 0 else _factors(a)
+    case ('neg', a):
       return _factors(a)
   return [] if e == _ONE else [e]
 

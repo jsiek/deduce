@@ -69,6 +69,22 @@ proof
   algebra
 end
 
+// x ^ 0 is one, so it needs no condition on x.
+theorem inv_pow_zero: all x:Real. inv(x ^ (0:UInt)) = real(+1)
+proof
+  arbitrary x:Real
+  algebra
+end
+
+// The condition for a negated denominator -y is y ≠ 0.
+theorem div_neg: all x:Real, y:Real.
+  if not (y = real(+0)) then x / (- y) = - x / y
+proof
+  arbitrary x:Real, y:Real
+  assume h
+  algebra
+end
+
 theorem sum_over_sum: all x:Real, y:Real.
   if real(+0) < x + y then (x + y) / (x + y) = real(+1)
 proof

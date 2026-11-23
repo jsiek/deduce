@@ -892,9 +892,9 @@ recursive field_factors(RExpr) -> List<RExpr> {
   field_factors(rconst(n)) = [rconst(n)]
   field_factors(radd(a, b)) = [radd(a, b)]
   field_factors(rsub(a, b)) = [rsub(a, b)]
-  field_factors(rneg(a)) = [rneg(a)]
+  field_factors(rneg(a)) = field_factors(a)
   field_factors(rmul(a, b)) = field_factors(a) ++ field_factors(b)
-  field_factors(rpow(a, k)) = field_factors(a)
+  field_factors(rpow(a, k)) = if k = 0 then [] else field_factors(a)
   field_factors(rinv(a)) = [rinv(a)]
   field_factors(rdiv(a, b)) = [rdiv(a, b)]
   field_factors(rfrac(n, d)) = [rfrac(n, d)]
@@ -982,6 +982,21 @@ proof
   have xy2: x * y = zero * y by replace xy | ring_zero_mult<T>.
   have x0: x = zero by apply field_mult_cancel<T>[x, zero, y] to (conjunct 1 of h), xy2
   apply (conjunct 0 of h) to x0
+end
+
+lemma field_neg_nonzero: all T:type where { Field<T> }.
+  all x:T. if not (x = zero) then not (- x = zero)
+proof
+  arbitrary T:type where { Field<T> }
+  arbitrary x:T
+  assume h
+  assume nx
+  have x0: x = zero by
+    equations
+          x = #x + zero#  by replace add_zero.
+        ... = #x + - x#   by replace nx.
+        ... = zero        by add_inverse
+  apply h to x0
 end
 
 lemma field_ring_pow_nonzero: all T:type where { Field<T> }.
@@ -1151,7 +1166,8 @@ proof
   case rneg(a) assume IHa {
     arbitrary env:List<T>
     assume h
-    conjunct 0 of (expand field_factors | field_nonzero in h)
+    expand ring_denote
+    apply field_neg_nonzero<T>[ring_denote(a, env)] to (apply IHa[env] to (expand field_factors in h))
   }
   case rmul(a, b) assume IHa, IHb {
     arbitrary env:List<T>
@@ -1166,7 +1182,16 @@ proof
     arbitrary env:List<T>
     assume h
     expand ring_denote
-    apply field_pow_nonzero<T>[ring_denote(a, env), k] to (apply IHa[env] to (expand field_factors in h))
+    switch k = 0 {
+      case true assume k0 {
+        replace k0 | pow_zero
+        one_nonzero
+      }
+      case false assume kn0 {
+        have ha: field_nonzero(field_factors(a), env) by simplify with kn0 in expand field_factors in h
+        apply field_pow_nonzero<T>[ring_denote(a, env), k] to (apply IHa[env] to ha)
+      }
+    }
   }
   case rinv(a) assume IHa {
     arbitrary env:List<T>
