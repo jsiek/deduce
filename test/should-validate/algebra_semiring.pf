@@ -46,3 +46,18 @@ theorem int_square_sum_again: all x:Int, y:Int.
 proof
   semiring_square_sum<Int>
 end
+
+// Large constants: the normal forms compute in binary (#1328).
+theorem uint_large_constants: all x:UInt, y:UInt.
+  4000 * x + 4000 * y = 4000 * (y + x)
+proof
+  arbitrary x:UInt, y:UInt
+  algebra
+end
+
+theorem int_large_constants: all x:Int, y:Int.
+  +1000 * x - -1000 * y = +1000 * (y + x)
+proof
+  arbitrary x:Int, y:Int
+  algebra
+end

@@ -60,24 +60,24 @@ concept OrderedQVectorSpace<T> {
 }
 
 // The interfaces of ring normalization in the `algebra` tactic (#1190,
-// lib/Ring.pf). `from_nat` reads constants in the semiring: the Nat
+// lib/Ring.pf). `from_uint` reads constants in the semiring: the UInt
 // literal inside a literal such as `2`, `+2`, `rat(+2)`, or `real(+2)`.
 // `^` is the power with a UInt exponent (#1324).
 concept CommSemiring<T> {
   refines AddCommMonoid<T>
   fun operator* : fn (T, T) -> T
   fun one : T
-  fun from_nat : fn Nat -> T
+  fun from_uint : fn UInt -> T
   fun operator^ : fn (T, UInt) -> T
   theorem mult_commute: all x:T, y:T. x * y = y * x
   theorem mult_assoc: all x:T, y:T, z:T. (x * y) * z = x * (y * z)
   theorem mult_one: all x:T. x * one = x
   theorem mult_zero: all x:T. x * zero = zero
   theorem dist_mult_add: all x:T, y:T, z:T. x * (y + z) = x * y + x * z
-  theorem from_nat_zero: from_nat(zero) = zero
-  theorem from_nat_one: from_nat(suc(zero)) = one
-  theorem from_nat_add: all m:Nat, n:Nat. from_nat(m + n) = from_nat(m) + from_nat(n)
-  theorem from_nat_mult: all m:Nat, n:Nat. from_nat(m * n) = from_nat(m) * from_nat(n)
+  theorem from_uint_zero: from_uint(0) = zero
+  theorem from_uint_one: from_uint(1) = one
+  theorem from_uint_add: all m:UInt, n:UInt. from_uint(m + n) = from_uint(m) + from_uint(n)
+  theorem from_uint_mult: all m:UInt, n:UInt. from_uint(m * n) = from_uint(m) * from_uint(n)
   theorem pow_zero: all x:T. x ^ (0:UInt) = one
   theorem pow_one_add: all x:T, k:UInt. x ^ (1 + k) = x * x ^ k
 }
@@ -88,18 +88,18 @@ concept CommRing<T> {
 }
 
 // The interface of the field mode of `algebra` (#1322). `from_frac`
-// reads fraction constants: the Nat numerator and denominator of a
+// reads fraction constants: the UInt numerator and denominator of a
 // literal such as `frac(+1, 2)` or `real(frac(+1, 2))`.
 concept Field<T> {
   refines CommRing<T>
   fun inv : fn T -> T
   fun operator/ : fn (T, T) -> T
-  fun from_frac : fn (Nat, Nat) -> T
+  fun from_frac : fn (UInt, UInt) -> T
   theorem one_nonzero: not (one = zero)
   theorem mult_inv: all x:T. if not (x = zero) then x * inv(x) = one
   theorem div_def: all x:T, y:T. x / y = x * inv(y)
-  theorem from_frac_mult: all n:Nat, d:Nat.
-    if not (from_nat(d) = zero) then from_frac(n, d) * from_nat(d) = from_nat(n)
+  theorem from_frac_mult: all n:UInt, d:UInt.
+    if not (from_uint(d) = zero) then from_frac(n, d) * from_uint(d) = from_uint(n)
 }
 
 // UInt
@@ -113,16 +113,16 @@ model AddCommMonoid<UInt> {
 
 model CommSemiring<UInt> {
   fun one = 1
-  fun from_nat = fromNat
+  fun from_uint = fun n:UInt { n }
   theorem mult_commute = uint_mult_commute
   theorem mult_assoc = uint_mult_assoc
   theorem mult_one = uint_mult_one
   theorem mult_zero = uint_mult_zero
   theorem dist_mult_add = uint_dist_mult_add
-  theorem from_nat_zero = evaluate
-  theorem from_nat_one = evaluate
-  theorem from_nat_add = fromNat_add
-  theorem from_nat_mult = fromNat_mult
+  theorem from_uint_zero = evaluate
+  theorem from_uint_one = evaluate
+  theorem from_uint_add = { arbitrary m:UInt, n:UInt . }
+  theorem from_uint_mult = { arbitrary m:UInt, n:UInt . }
   theorem pow_zero = uint_expt_zero
   theorem pow_one_add = {
     arbitrary x:UInt, k:UInt
@@ -149,21 +149,21 @@ model AddCommGroup<Int> {
 
 model CommSemiring<Int> {
   fun one = +1
-  fun from_nat = fun n:Nat { pos(fromNat(n)) }
+  fun from_uint = fun n:UInt { pos(n) }
   theorem mult_commute = int_mult_commute
   theorem mult_assoc = int_mult_assoc
   theorem mult_one = int_mult_one
   theorem mult_zero = int_mult_zero
   theorem dist_mult_add = int_dist_mult_add
-  theorem from_nat_zero = evaluate
-  theorem from_nat_one = evaluate
-  theorem from_nat_add = {
-    arbitrary m:Nat, n:Nat
-    replace fromNat_add[m, n] | add_pos_pos.
+  theorem from_uint_zero = evaluate
+  theorem from_uint_one = evaluate
+  theorem from_uint_add = {
+    arbitrary m:UInt, n:UInt
+    replace add_pos_pos.
   }
-  theorem from_nat_mult = {
-    arbitrary m:Nat, n:Nat
-    replace fromNat_mult[m, n] | mult_pos_pos.
+  theorem from_uint_mult = {
+    arbitrary m:UInt, n:UInt
+    replace mult_pos_pos.
   }
   theorem pow_zero = int_pow_zero
   theorem pow_one_add = int_pow_one_add
@@ -207,21 +207,21 @@ model OrderedQVectorSpace<Rat> {
 
 model CommSemiring<Rat> {
   fun one = rat(+1)
-  fun from_nat = fun n:Nat { rat(pos(fromNat(n))) }
+  fun from_uint = fun n:UInt { rat(pos(n)) }
   theorem mult_commute = rat_mult_commute
   theorem mult_assoc = rat_mult_assoc
   theorem mult_one = rat_mult_one
   theorem mult_zero = rat_mult_zero
   theorem dist_mult_add = rat_dist_mult_add
-  theorem from_nat_zero = evaluate
-  theorem from_nat_one = evaluate
-  theorem from_nat_add = {
-    arbitrary m:Nat, n:Nat
-    replace fromNat_add[m, n] | add_pos_pos.
+  theorem from_uint_zero = evaluate
+  theorem from_uint_one = evaluate
+  theorem from_uint_add = {
+    arbitrary m:UInt, n:UInt
+    replace add_pos_pos.
   }
-  theorem from_nat_mult = {
-    arbitrary m:Nat, n:Nat
-    replace fromNat_mult[m, n] | mult_pos_pos.
+  theorem from_uint_mult = {
+    arbitrary m:UInt, n:UInt
+    replace mult_pos_pos.
   }
   theorem pow_zero = rat_pow_zero
   theorem pow_one_add = rat_pow_one_add
@@ -230,16 +230,16 @@ model CommSemiring<Rat> {
 model CommRing<Rat> { }
 
 model Field<Rat> {
-  fun from_frac = fun n:Nat, d:Nat { frac(pos(fromNat(n)), fromNat(d)) }
+  fun from_frac = fun n:UInt, d:UInt { frac(pos(n), d) }
   theorem one_nonzero = rat_one_not_zero
   theorem mult_inv = rat_mult_inv
   theorem div_def = rat_div_def
   theorem from_frac_mult = {
-    arbitrary n:Nat, d:Nat
+    arbitrary n:UInt, d:UInt
     assume h
-    have h2: not (rat(pos(fromNat(d))) = rat(+0)) by h
+    have h2: not (rat(pos(d)) = rat(+0)) by h
     replace rat_frac_div
-    apply rat_div_mult_cancel[rat(pos(fromNat(n))), rat(pos(fromNat(d)))] to h2
+    apply rat_div_mult_cancel[rat(pos(n)), rat(pos(d))] to h2
   }
 }
 
@@ -320,21 +320,21 @@ model OrderedQVectorSpace<Real> {
 
 model CommSemiring<Real> {
   fun one = real(+1)
-  fun from_nat = fun n:Nat { real(pos(fromNat(n))) }
+  fun from_uint = fun n:UInt { real(pos(n)) }
   theorem mult_commute = real_mult_commute
   theorem mult_assoc = real_mult_assoc
   theorem mult_one = real_mult_one
   theorem mult_zero = real_mult_zero
   theorem dist_mult_add = real_dist_mult_add
-  theorem from_nat_zero = evaluate
-  theorem from_nat_one = evaluate
-  theorem from_nat_add = {
-    arbitrary m:Nat, n:Nat
-    replace fromNat_add[m, n] | add_pos_pos.
+  theorem from_uint_zero = evaluate
+  theorem from_uint_one = evaluate
+  theorem from_uint_add = {
+    arbitrary m:UInt, n:UInt
+    replace add_pos_pos.
   }
-  theorem from_nat_mult = {
-    arbitrary m:Nat, n:Nat
-    replace fromNat_mult[m, n] | mult_pos_pos.
+  theorem from_uint_mult = {
+    arbitrary m:UInt, n:UInt
+    replace mult_pos_pos.
   }
   theorem pow_zero = real_pow_zero
   theorem pow_one_add = real_pow_one_add
@@ -343,15 +343,15 @@ model CommSemiring<Real> {
 model CommRing<Real> { }
 
 model Field<Real> {
-  fun from_frac = fun n:Nat, d:Nat { real(frac(pos(fromNat(n)), fromNat(d))) }
+  fun from_frac = fun n:UInt, d:UInt { real(frac(pos(n), d)) }
   theorem one_nonzero = real_one_not_zero
   theorem mult_inv = real_mult_inv
   theorem div_def = real_div_def
   theorem from_frac_mult = {
-    arbitrary n:Nat, d:Nat
+    arbitrary n:UInt, d:UInt
     assume h
-    have h2: not (real(pos(fromNat(d))) = real(+0)) by h
+    have h2: not (real(pos(d)) = real(+0)) by h
     replace rat_frac_div
-    apply real_div_mult_cancel[real(pos(fromNat(n))), real(pos(fromNat(d)))] to h2
+    apply real_div_mult_cancel[real(pos(n)), real(pos(d))] to h2
   }
 }
