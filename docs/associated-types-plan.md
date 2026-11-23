@@ -243,6 +243,17 @@ Each step lands with its fixtures under both parsers.
    so it already works on other types today. With associated types, a
    where clause gets proxy models of `Regular<Elem₁>`, and a model needs a
    model of `Regular<σ>` in scope.
+   Done. `concept_closure` takes the instance's associated types, so a
+   refined requirement is on them. `WhereClause.bind` processes the
+   constraints in order (G's introduce_assumptions): a later constraint
+   may name an earlier instance's associated type, which uniquify
+   replaces by its proxy (`WHERE_ASSOC_KEY`), as in the thesis's `merge`,
+   `where { Iter<I1>, Iter<I2>, … , Less<@Iter<I1>.Elem> }`. Model lookup
+   for a where clause (`_find_models`) builds the closure as it finds
+   models: an instance that mentions a proxy waits for the model that
+   gives the proxy its type, and a model's refined requirements are at
+   its associated types (G's satisfy_requirements). Not done: same-type
+   requirements inside concepts (G's `type == type;`, §4.2).
 
 ## Open questions
 

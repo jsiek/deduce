@@ -98,13 +98,16 @@ class AssocType(Type):
   def free_vars(self) -> Set[str]:
     return set().union(*[t.free_vars() for t in self.ref.type_args])
 
-  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> AssocType:
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> Type:  # type: ignore[override]
     ref = self.ref.uniquify(env, ctx)
     names = [t for t in concept_decls[ref.concept].types
              if base_name(t) == self.name]
     if not names:
       static_error(self.location, base_name(ref.concept)
                    + ' has no associated type ' + self.name)
+    for (i, t, p) in env.get(WHERE_ASSOC_KEY, []):
+      if i == ref and t == names[0]:
+        return cast(Type, ResolvedVar(self.location, None, p))
     return AssocType(self.location, ref, names[0],
                      models=env.get(MODELS_KEY, []))
 
@@ -144,20 +147,20 @@ class WhereClause(AST):
   solution: dict[str, Type] = field(default_factory=dict, kw_only=True)
 
   def __str__(self) -> str:
-    return 'where { ' + ', '.join([str(c) for c in self.constraints]
-                                  + [self.equation_str(s, t)
-                                     for (s, t) in self.equations]) + ' }'
+    (constraints, equations) = self._written()
+    return 'where { ' + ', '.join([str(c) for c in constraints]
+                                  + [str(s) + ' = ' + str(t)
+                                     for (s, t) in equations]) + ' }'
 
   def __eq__(self, other: object) -> bool:
-    return isinstance(other, WhereClause) \
-      and len(self.constraints) == len(other.constraints) \
-      and all(a == b for a, b in zip(self.constraints, other.constraints)) \
-      and self._written() == other._written()
+    return isinstance(other, WhereClause) and self._written() == other._written()
 
-  def _written(self) -> List[Tuple[Type, Type]]:
-    """The same-type constraints with projections for the proxies."""
+  def _written(self) -> Tuple[List[ConceptRef], List[Tuple[Type, Type]]]:
+    """The constraints and same-type constraints, with projections for the
+    proxies (#1321)."""
     sub = {p: AssocType(self.location, i, t) for (i, t, p) in self.assoc}
-    return [(s.substitute(sub), t.substitute(sub)) for (s, t) in self.equations]
+    return ([c.substitute(sub) for c in self.constraints],
+            [(s.substitute(sub), t.substitute(sub)) for (s, t) in self.equations])
 
   def equation_str(self, s: Type, t: Type) -> str:
     sub = {p: AssocType(self.location, i, n) for (i, n, p) in self.assoc}
@@ -169,14 +172,33 @@ class WhereClause(AST):
     copied for the scope of the where clause). Operations overload their
     base names, so ``x + y`` with ``x : T`` resolves to the binder by type;
     theorems shadow theirs."""
-    constraints = [c.uniquify(env, ctx) for c in self.constraints]
+    # The constraints in order (G's introduce_assumptions): a later one may
+    # mention an associated type of an earlier one's instance, which is
+    # that instance's proxy, and a concept's requirements on its
+    # associated types are on the proxies (#1321).
+    assoc: List[Tuple[ConceptRef, str, str]] = []
+    def proxies(inst: ConceptRef) -> dict[str, Type]:
+      if not any(i == inst for (i, _, _) in assoc):
+        assoc.extend((inst, t, generate_name(base_name(t), ctx))
+                     for t in concept_decls[inst.concept].types)
+      return {t: cast(Type, ResolvedVar(self.location, None, p))
+              for (i, t, p) in assoc if i == inst}
+    outer = env.get(WHERE_ASSOC_KEY)
+    env[WHERE_ASSOC_KEY] = assoc
+    constraints: List[ConceptRef] = []
+    closure: List[ConceptRef] = []
+    for c in self.constraints:
+      constraints.append(c.uniquify(env, ctx))
+      closure += [i for i in concept_closure([constraints[-1]], proxies)
+                  if i not in closure]
+    if outer is None:
+      del env[WHERE_ASSOC_KEY]
+    else:
+      env[WHERE_ASSOC_KEY] = outer
     members = []
     labels: dict[str, list[str]] = {}
-    assoc = []
-    for inst in concept_closure(constraints):
+    for inst in closure:
       decl = concept_decls[inst.concept]
-      for t in decl.types:
-        assoc.append((inst, t, generate_name(base_name(t), ctx)))
       for (m, _) in decl.funs:
         binder = generate_name(m, ctx)
         extend(env, base_name(m), binder, self.location)
@@ -233,7 +255,7 @@ class WhereClause(AST):
              for (i, t, p) in self.assoc if i == inst}
     decl = concept_decls.get(inst.concept)
     if decl is not None:
-      psub = dict(zip(decl.type_params, inst.type_args))
+      psub = dict(zip(decl.type_params, inst.type_args)) | types
       for (i, t, p) in decl.refines.assoc:
         refined = self.assoc_types(i.substitute(psub))
         if t in refined:
@@ -372,17 +394,22 @@ def member_str(name: str) -> str:
   return ('operator ' if is_operator_name(name) else '') + name2str(name)
 
 
-def concept_closure(refs: List[ConceptRef]) -> List[ConceptRef]:
+def concept_closure(refs: List[ConceptRef],
+                    assoc: Optional[Callable[[ConceptRef], Mapping[str, Type]]]
+                    = None) -> List[ConceptRef]:
   """The concept instances that ``refs`` require, refined concepts first,
   each instance once (F^G de-duplicates only associated types; Deduce
   also de-duplicates members, since duplicates would show up in
-  formulas)."""
+  formulas). A concept's requirements on its associated types (`require
+  Eq<Elem>`) are on ``assoc``'s types for the instance (#1321)."""
   result: List[ConceptRef] = []
   def visit(ref: ConceptRef) -> None:
     if ref in result:
       return
     decl = concept_decls[ref.concept]
-    sub = {p: t for (p, t) in zip(decl.type_params, ref.type_args)}
+    sub: dict[str, Type] = {p: t for (p, t) in zip(decl.type_params, ref.type_args)}
+    if assoc is not None:
+      sub.update(assoc(ref))
     for r in decl.refines.constraints:
       visit(r.substitute(sub))
     result.append(ref)

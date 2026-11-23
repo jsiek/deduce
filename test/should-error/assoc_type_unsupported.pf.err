@@ -1,1 +1,0 @@
-./test/should-error/assoc_type_unsupported.pf:12.11-12.19: requirements on associated types, such as Eq<Elem>, are not supported yet (#1321)

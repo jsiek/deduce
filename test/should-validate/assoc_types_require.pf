@@ -1,0 +1,92 @@
+// Requirements on associated types (#1321): a concept can require a
+// concept of its associated type, and a where clause can constrain an
+// associated type of one of its instances (Siek's thesis §7.4, `merge`).
+
+import Pair
+
+concept Eq<T> {
+  fun eq : fn (T, T) -> bool
+  theorem eq_refl: all x:T. eq(x, x) = true
+}
+
+concept Bag<C> {
+  type Elem
+  require Eq<Elem>
+  fun pick : fn C -> Elem
+  fun wrap : fn Elem -> C
+  theorem pick_wrap: all x:Elem. eq(pick(wrap(x)), x) = true
+}
+
+model Eq<bool> {
+  fun eq = fun a:bool, b:bool { a = b }
+  theorem eq_refl = {
+    arbitrary x:bool
+    switch x { case true { evaluate } case false { evaluate } }
+  }
+}
+
+model Bag<Pair<bool,bool>> {
+  type Elem = bool
+  fun pick = fun p:Pair<bool,bool> { first(p) }
+  fun wrap = fun b:bool { pair(b, b) }
+  theorem pick_wrap = {
+    arbitrary x:bool
+    switch x { case true { evaluate } case false { evaluate } }
+  }
+}
+
+// Inside a where clause, Eq<@Bag<C>.Elem> is assumed with Bag<C>.
+theorem pick_wrap_refl: all C:type where { Bag<C> }. all x:@Bag<C>.Elem.
+  eq(pick(wrap(x)), x) = eq(x, x)
+proof
+  arbitrary C:type where { Bag<C> }
+  arbitrary x:@Bag<C>.Elem
+  replace pick_wrap[x] | eq_refl[x].
+end
+
+// Using it looks up Bag<Pair<bool,bool>>, then Eq<bool> for its Elem.
+theorem pick_wrap_refl_pair: all x:bool.
+  @Eq<bool>.eq(@Bag<Pair<bool,bool>>.pick(@Bag<Pair<bool,bool>>.wrap(x)), x)
+  = @Eq<bool>.eq(x, x)
+proof
+  pick_wrap_refl<Pair<bool,bool>>
+end
+
+// The merge example: two iterators with the same element type, which is
+// ordered.
+concept Iter<I> {
+  type Elem
+  fun deref : fn I -> Elem
+}
+
+concept Less<T> {
+  fun less : fn (T, T) -> bool
+}
+
+model Iter<Pair<bool,bool>> {
+  type Elem = bool
+  fun deref = fun p:Pair<bool,bool> { first(p) }
+}
+
+model Less<bool> {
+  fun less = fun a:bool, b:bool { not a and b }
+}
+
+theorem merge_step: all I1:type, I2:type
+    where { Iter<I1>, Iter<I2>, @Iter<I1>.Elem = @Iter<I2>.Elem,
+            Less<@Iter<I1>.Elem> }.
+  all a:I1, b:I2. less(deref(a), deref(b)) = less(deref(a), deref(b))
+proof
+  arbitrary I1:type, I2:type
+    where { Iter<I1>, Iter<I2>, @Iter<I1>.Elem = @Iter<I2>.Elem,
+            Less<@Iter<I1>.Elem> }
+  arbitrary a:I1, b:I2
+  .
+end
+
+theorem merge_step_pair: all a:Pair<bool,bool>, b:Pair<bool,bool>.
+  @Less<bool>.less(@Iter<Pair<bool,bool>>.deref(a), @Iter<Pair<bool,bool>>.deref(b))
+  = @Less<bool>.less(@Iter<Pair<bool,bool>>.deref(a), @Iter<Pair<bool,bool>>.deref(b))
+proof
+  merge_step<Pair<bool,bool>, Pair<bool,bool>>
+end

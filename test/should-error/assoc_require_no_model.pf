@@ -1,5 +1,6 @@
-// `require` on an associated type (#1321) is not supported yet. This file
-// also exercises the rest of the syntax of associated types: `type`
+// `require Eq<Elem>` (#1321): a model of Container<bool> with
+// `type Elem = bool` needs a model of Eq<bool>, and there is none. This
+// file also exercises the rest of the syntax of associated types: `type`
 // members of a concept and a model, the projection `@C<τ>.Elem`, and a
 // same-type constraint.
 

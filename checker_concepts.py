@@ -25,6 +25,7 @@ its head, and its where clause's models are found where it is used.
 
 from __future__ import annotations
 
+import dataclasses
 import itertools
 from typing import Callable, cast
 
@@ -103,14 +104,15 @@ def _instance_sub(env: Env, inst: ConceptRef, lookup: MemberLookup,
   refines) to ``inst``'s type arguments and to ``lookup``'s types and
   terms."""
   decl = concept_of(env, inst.concept, loc)
-  psub = _param_sub(decl, inst)
-  sub: dict[str, Term | Type] = dict(psub)
-  for m in decl.types + [f for (f, _) in decl.funs]:
-    sub[m] = lookup(inst, m)
+  tsub: dict[str, Term | Type] = dict(_param_sub(decl, inst))
+  tsub.update({t: lookup(inst, t) for t in decl.types})
+  sub = dict(tsub)
+  for f in [f for (f, _) in decl.funs]:
+    sub[f] = lookup(inst, f)
   for wm in decl.refines.operations():
-    sub[wm.binder] = lookup(wm.instance.substitute(psub), wm.member)
+    sub[wm.binder] = lookup(wm.instance.substitute(tsub), wm.member)
   for (i, t, p) in decl.refines.assoc:
-    sub[p] = lookup(i.substitute(psub), t)
+    sub[p] = lookup(i.substitute(tsub), t)
   return sub
 
 
@@ -148,11 +150,13 @@ def check_where(where: WhereClause, env: Env,
   """Type check the concept applications of a where clause (including
   its refinement closure) in ``env``, and solve its same-type
   constraints, which may determine the type variables ``own`` that the
-  clause introduces."""
+  clause introduces. The instances may mention the clause's proxies."""
+  ref_env = env.declare_type_vars(where.location,
+                                  [p for (_, _, p) in where.assoc])
   def check_ref(ref: ConceptRef) -> ConceptRef:
     concept_of(env, ref.concept, ref.location)
     return ConceptRef(ref.location, ref.concept,
-                      [check_type(t, env) for t in ref.type_args])
+                      [check_type(t, ref_env) for t in ref.type_args])
   checked = WhereClause(where.location,
                         [check_ref(c) for c in where.constraints],
                         [WhereMember(check_ref(wm.instance), wm.member,
@@ -410,14 +414,19 @@ def intro_where(loc: Meta, goal: All, x: str, where: WhereClause,
   rename: dict[str, Term | Type] = \
       {gp: ResolvedVar(loc, None, p)
        for ((_, _, gp), (_, _, p)) in zip(goal_where.assoc, where.assoc)}
-  if goal_where.constraints != where.constraints \
+  if [c.substitute(rename) for c in goal_where.constraints] \
+     != where.constraints \
      or [(s.substitute(rename), t.substitute(rename))
          for (s, t) in goal_where.equations] != where.equations:
     user_error(loc, mismatch)
   body_env = declare_where_operations(where, body_env, loc)
   lookup = _binder_lookup(body_env, where, loc)
   frm = goal.body.substitute({goal.var[0]: ResolvedVar(loc, None, x)})
-  frm = _strip_operations(loc, frm, goal_where, lookup)
+  # The goal's instances mention the goal's proxies (`Eq<Elem>` required
+  # by `Bag<C>`); the proof's mention the proof's.
+  frm = _strip_operations(
+      loc, frm, goal_where,
+      lambda inst, member: lookup(inst.substitute(rename), member))
   frm = _discharge(loc, frm, _premise(body_env, where, lookup, loc))
   return frm, _assume_where(loc, where, body_env, lookup)
 
@@ -445,26 +454,38 @@ def add_where_models(loc: Meta, where: WhereClause, env: Env) -> Env:
   models to the context), so a where theorem can be instantiated at the
   clause's types."""
   # From the constraints, not the members: a concept may have none.
-  insts = check_where(WhereClause(loc, concept_closure(where.constraints)),
-                      env).constraints
-  bindings: dict[str, ModelBinding] = {}
-  for inst in insts:
+  bindings: list[tuple[ConceptRef, ModelBinding]] = []
+  for inst in _where_closure(where, env):
+    if any(i == inst for (i, _) in bindings):
+      continue
     funs = [(wm.member, wm.binder,
              ResolvedVar(loc, _binder_type(env, where, wm, loc), wm.binder))
             for wm in where.operations() if wm.instance == inst]
-    model = ModelDecl(loc, _where_prefix(loc) + str(inst), inst,
+    model = ModelDecl(loc, _where_prefix(loc) + str(len(bindings)) + ' '
+                      + str(inst), inst,
                       cast(list[tuple[str, str, Term]], funs), [],
                       types=list(where.assoc_types(inst).items()))
-    bindings[str(inst)] = ModelBinding(loc, model, [],
-                                       module=env.get_current_module())
-  for inst in insts:
-    b = bindings[str(inst)]
+    bindings.append((inst, ModelBinding(loc, model, [],
+                                        module=env.get_current_module())))
+  for (inst, b) in bindings:
     decl = concept_of(env, inst.concept, loc)
-    psub = _param_sub(decl, inst)
-    b.refined = [ModelInstance(bindings[str(r.substitute(psub))])
+    tsub = _param_sub(decl, inst) | where.assoc_types(inst)
+    b.refined = [ModelInstance(next(c for (i, c) in bindings
+                                    if i == r.substitute(tsub)))
                  for r in decl.refines.constraints]
     env = env._with_binding(b.model.name, b)
-  return scope_models([b.model.name for b in bindings.values()], env)
+  return scope_models([b.model.name for (_, b) in bindings], env)
+
+
+def _where_closure(where: WhereClause, env: Env) -> list[ConceptRef]:
+  """The (checked) instances of the refinement closure of ``where``, in
+  terms of its solution; a concept's requirements on its associated
+  types are on the clause's proxies (#1321)."""
+  refs: list[ConceptRef] = concept_closure(
+      [c.substitute(where.solution) for c in where.constraints],
+      where.assoc_types)
+  checked: WhereClause = check_where(WhereClause(where.location, refs), env)
+  return list(checked.constraints)
 
 
 def _where_prefix(loc: Meta) -> str:
@@ -528,8 +549,8 @@ def _instance(env: Env, b: ModelBinding, sub: dict[str, Type],
   if model.where is None:
     return ModelInstance(b, type_args)
   try:
-    args = _models_in_scope(loc, model.where.substitute(sub).constraints,
-                            models, env, depth + 1)
+    args = _where_models(loc, model.where.substitute(sub), models, env,
+                         depth + 1)[0]
   except UserError as e:
     if depth > 0:
       raise
@@ -544,8 +565,8 @@ def where_arguments(loc: Meta, where: WhereClause, in_scope: list[str],
   ``where`` (instantiated at the call's types): those of the models in
   scope, unfolded where they are visible (F^G's dictionary passing); and
   the types of its proxies, the models' associated types (#1321)."""
-  models = _models_in_scope(loc, where.constraints, in_scope, env)
-  lookup = _model_lookup(env, models, loc)
+  models, proxies = _where_models(loc, where, in_scope, env)
+  lookup = _model_lookup(env, models, loc, proxies)
   return ([cast(Term, lookup(wm.instance, wm.member))
            for wm in where.operations()],
           {p: lookup(i, t) for (i, t, p) in where.assoc})
@@ -634,9 +655,12 @@ def where_instances(loc: Meta, frm: Formula, base: Proof, models: list[str],
   return instances
 
 
-def _model_lookup(env: Env, models: Models, loc: Meta) -> MemberLookup:
+def _model_lookup(env: Env, models: Models, loc: Meta,
+                  proxies: dict[str, Term | Type] | None = None) -> MemberLookup:
+  """The members of the models ``models``, for instances that may mention
+  the ``proxies`` of a where clause (#1321)."""
   def lookup(inst: ConceptRef, member: str) -> Term | Type:
-    m = _model_for(models, inst)
+    m = _model_for(models, inst.substitute(proxies or {}))
     types = _model_types(m)
     return types[member] if member in types else _member(env, m, member, loc)
   return lookup
@@ -681,12 +705,17 @@ def instantiate_where(loc: Meta, allfrm: All, type_arg: Type,
   assert allfrm.where is not None
   sub = {allfrm.var[0]: type_arg}
   where = allfrm.where.substitute(sub)
-  models = _models_in_scope(loc, where.constraints, in_scope, env)
-  lookup = _model_lookup(env, models, loc)
+  models, proxies = _where_models(loc, where, in_scope, env)
+  lookup = _model_lookup(env, models, loc, proxies)
   if (why := _unsatisfied(where, lookup)) is not None:
     user_error(loc, why)
   frm = _strip_operations(loc, allfrm.body.substitute(sub), where, lookup)
-  return _discharge(loc, frm, _premise(env, where, lookup, loc))
+  # The axioms, of the instances at the models' types (`Eq<Elem>` required
+  # by `Bag<C>` is `Eq<bool>` at a model with `type Elem = bool`).
+  at_models = dataclasses.replace(where, members=[
+      WhereMember(wm.instance.substitute(proxies), wm.member, wm.binder,
+                  wm.is_theorem) for wm in where.members])
+  return _discharge(loc, frm, _premise(env, at_models, lookup, loc))
 
 
 def _models_in_scope(loc: Meta, refs: list[ConceptRef], in_scope: list[str],
@@ -694,18 +723,62 @@ def _models_in_scope(loc: Meta, refs: list[ConceptRef], in_scope: list[str],
   """The models in scope of the concept instances ``refs`` require
   (their refinement closure), checked for coherence: every refinement
   path to an instance reaches one model."""
-  models = [(inst, find_model(env, inst, in_scope, loc, depth))
-            for inst in concept_closure(refs)]
+  return _find_models(loc, refs, in_scope, env, depth, None)[0]
+
+
+def _where_models(loc: Meta, where: WhereClause, in_scope: list[str],
+                  env: Env, depth: int = 0
+                  ) -> tuple[Models, dict[str, Term | Type]]:
+  """The models in scope of the instances of ``where`` (at the caller's
+  types), and the types they give its proxies."""
+  return _find_models(loc, [c.substitute(where.solution)
+                            for c in where.constraints],
+                      in_scope, env, depth, where)
+
+
+def _find_models(loc: Meta, refs: list[ConceptRef], in_scope: list[str],
+                 env: Env, depth: int, where: WhereClause | None
+                 ) -> tuple[Models, dict[str, Term | Type]]:
+  """The models of the refinement closure of ``refs``. With the where
+  clause ``where``, an instance that mentions one of its proxies (say,
+  `Eq<Elem>` required by `Container<C>`) is looked up once the model that
+  gives the proxy its type is found (G's satisfy_requirements, #1321);
+  the models are listed under the instances at those types."""
+  pending = list(refs)
+  proxies = set(where.proxies()) if where else set()
+  sub: dict[str, Term | Type] = {}
+  models: Models = []
+  while pending:
+    inst = next((i for i in pending
+                 if not (set().union(*[t.free_vars() for t in i.type_args])
+                         & (proxies - sub.keys()))), None)
+    if inst is None:
+      user_error(loc, 'cannot look up the models of '
+                 + ', '.join(str(i) for i in pending))
+    pending.remove(inst)
+    key = inst.substitute(sub)
+    if any(k == key for (k, _) in models):
+      continue
+    m = find_model(env, key, in_scope, loc, depth)
+    models.append((key, m))
+    types = _model_types(m)
+    for (i, t, p) in where.assoc if where else []:
+      if p in proxies and p not in sub and i.substitute(sub) == key:
+        sub[p] = types[t]
+    # The refined concepts, at the model's associated types.
+    decl = concept_of(env, key.concept, loc)
+    psub = _param_sub(decl, key) | types
+    pending += [r.substitute(psub) for r in decl.refines.constraints]
   for (head, m) in models:
     concept = concept_of(env, head.concept, loc)
-    psub = _param_sub(concept, head)
+    psub = _param_sub(concept, head) | _model_types(m)
     for ref, refined in zip(concept.refines.constraints, m.binding.refined):
       inst = ref.substitute(psub)
       if _model_for(models, inst).key() != _rebase(refined, m).key():
         user_error(loc, 'the model of ' + str(head)
                    + ' uses a different model of ' + str(inst)
                    + ' than the one in scope here')
-  return models
+  return models, sub
 
 
 def _rebase(r: ModelInstance, m: ModelInstance) -> ModelInstance:
@@ -817,10 +890,6 @@ def concept_member_formula(proof: ConceptMemberProof, env: Env) -> Formula:
 
 def process_concept(decl: ConceptDecl, env: Env) -> tuple[ConceptDecl, Env]:
   loc = decl.location
-  for ref in decl.refines.constraints:
-    if set(decl.types) & set().union(*[t.free_vars() for t in ref.type_args]):
-      user_error(ref.location, 'requirements on associated types, such as '
-                 + str(ref) + ', are not supported yet (#1321)')
   # Inside the concept, its associated types are like type parameters.
   body_env = env.declare_type_vars(loc, decl.type_params + decl.types)
   refines = check_where(decl.refines, body_env)
@@ -868,7 +937,9 @@ def process_model(model: ModelDecl, env: Env) -> tuple[ModelDecl, Env]:
                  + ' must occur in ' + str(concept_ref))
   decl = concept_of(env, concept_ref.concept, loc)
   types = [(t, check_type(ty, body_env)) for (t, ty) in model.types]
-  psub = _param_sub(decl, concept_ref)
+  # The refined requirements are at the model's types (`require
+  # Eq<Elem>` needs a model of Eq<σ> for the model's `type Elem = σ`).
+  psub = _param_sub(decl, concept_ref) | dict(types)
   refined = [find_model(body_env, ref.substitute(psub), model.models, loc)
              for ref in decl.refines.constraints]
   if decl.refines.assoc:
@@ -913,8 +984,12 @@ def model_obligations(model: ModelDecl,
   loc = model.location
   binding = cast(ModelBinding, env.dict[model.name])
   env = _model_scope(model, env)
+  def types(inst: ConceptRef) -> dict[str, Type]:
+    if inst == model.concept:
+      return dict(model.types)
+    return _model_types(find_model(env, inst, model.models, loc))
   models = [(inst, find_model(env, inst, model.models, loc))
-            for inst in concept_closure([model.concept])[:-1]]
+            for inst in concept_closure([model.concept], types)[:-1]]
   sub = _head_match(binding, model.concept)
   assert sub is not None
   models.append((model.concept,

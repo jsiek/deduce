@@ -115,6 +115,12 @@ OVERLOADED_PROOFS_KEY = ' overloaded proofs'
 # where clause names its binder.
 WHERE_MEMBERS_KEY = ' where members'
 
+# The uniquify-environment key for the associated types of the instances
+# of the where clause being bound, as (instance, associated type, proxy):
+# in the clause's later constraints, `@C<τ>.Elem` on one of its instances
+# names the proxy (#1321).
+WHERE_ASSOC_KEY = ' where assoc'
+
 ############ AST Base Classes ###########
 
 @dataclass

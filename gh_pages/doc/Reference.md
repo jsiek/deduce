@@ -820,9 +820,24 @@ define b : bool = elem(pair(true, false))   // Elem of Container<Pair<bool,bool>
 
 A concept that refines one with associated types can use them
 directly: inside `concept Seq<C> { refines Container<C> ... }`, `Elem`
-is `@Container<C>.Elem`. A `require` on an associated type, and
-same-type constraints in where clauses of functions and parameterized
-models, are not supported yet (#1321).
+is `@Container<C>.Elem`.
+
+A concept can require a concept of one of its associated types:
+
+```
+concept Bag<C> {
+  type Elem
+  require Eq<Elem>
+  fun pick : fn C -> Elem
+}
+```
+
+A model of `Bag<τ>` with `type Elem = σ` needs a model of `Eq<σ>`, and
+a where clause `where { Bag<C> }` also assumes `Eq<@Bag<C>.Elem>`. A
+where clause's own constraints can mention its instances' associated
+types too, as in `where { Iter<I>, Less<@Iter<I>.Elem> }`. Same-type
+constraints in where clauses of functions and parameterized models are
+not supported yet (#1321).
 
 Concepts, models, and where clauses follow System F<sup>G</sup>
 (Siek and Lumsdaine, *Essential Language Support for Generic
