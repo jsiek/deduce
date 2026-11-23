@@ -550,71 +550,92 @@ def type_check_call_helper(
   funty = new_rator.typeof
   match funty:
     case OverloadType(_, overloads):
-      matches = []
-      # Implicit uses (for the postulate report) recorded while trying
-      # each overload; only the chosen overload's are kept.
-      trial_uses: dict[str, set[str]] = {}
-      for (x, funty) in overloads:
-          match funty:
-            case FunctionType(_, typarams, param_types, return_type, where=where):
-              # Preserve the rator's use-site location (e.g. the `+'
-              # token in `x + y') on the resolved variable.  Using
-              # `loc2' (the FunctionType's declaration site) here
-              # would leak the operator's declaration location into
-              # every Call.rator, breaking F12 / hover for overloaded
-              # operators -- the location info is the only thing the
-              # LSP can use to spot the use site.  Non-overloaded
-              # names go through the `FunctionType' arm below where
-              # ``new_rator'' is passed through unchanged.
-              trial_uses[x] = set()
-              outer_uses = swap_implicit_uses(trial_uses[x])
-              try:
-                new_call = type_check_call_funty(loc, ResolvedVar(new_rator.location, funty, x), args, env, recfun,
-                                                 subterms, ret_ty, call,
-                                                 typarams, param_types, return_type,
-                                                 where)
-                matches.append((x, funty, new_call))
-              except (UserError, MatchFailed):
-                pass
-              finally:
-                swap_implicit_uses(outer_uses)
-      if len(matches) > 1:
-          matches = [
-              candidate for candidate in matches
-              if not any(
-                  _is_strictly_more_specific(loc, other[1], candidate[1])
-                  for other in matches
-              )
-          ]
-      if len(matches) == 0:
-          arg_types = [type_synth_term(arg, env, None, []).typeof for arg in args]
-          msg = 'could not find a match for function call:\n\t' \
-                + str(call) + '\n' \
-                + 'argument types: ' + ', '.join([str(t) for t in arg_types]) + '\n'
-          if ret_ty is not None:
-              msg += 'expected return type: ' + str(ret_ty) + '\n'
-          msg += 'overloads:'
-          for (x, ty) in overloads:
-              annotation = overload_mismatch_annotation(loc, ty, arg_types, ret_ty)
-              msg += '\n\t' + str(ty)
-              if annotation is not None:
-                  msg += '   <-- ' + annotation
-          msg += _overload_nat_literal_hint(loc, args, arg_types, overloads)
-          user_error(loc, msg)
-      elif len(matches) > 1:
-          user_error(loc, 'in call to ' + str(new_rator) + '\n'\
-                + 'ambiguous overloads:\n' \
-                + '\n'.join([error_header(ty.location) + str(ty) for (x,ty,_) in matches]))
-      else:
-          for name in trial_uses[matches[0][0]]:
-            record_implicit_use(name)
-          return matches[0][2]
+      global _call_memo
+      outer_memo = _call_memo
+      if _call_memo is None:
+        _call_memo = {}
+      try:
+        return _resolve_overload(loc, new_rator, overloads, args, env, recfun,
+                                 subterms, ret_ty, call)
+      finally:
+        _call_memo = outer_memo
     case FunctionType(_, typarams, param_types, return_type, where=where):
       return type_check_call_funty(loc, new_rator, args, env, recfun, subterms, ret_ty, call,
                                    typarams, param_types, return_type, where)
     case _:
       user_error(loc, 'expected operator to have function type, not ' + str(funty))
-      
+
+def _resolve_overload(
+    loc: Meta,
+    new_rator: Term,
+    overloads: list[tuple[str, Type]],
+    args: list[Term],
+    env: Env,
+    recfun: RecursiveName,
+    subterms: SubtermNames,
+    ret_ty: TypeExpr | None,
+    call: Call,
+) -> Call:
+  matches = []
+  # Implicit uses (for the postulate report) recorded while trying
+  # each overload; only the chosen overload's are kept.
+  trial_uses: dict[str, set[str]] = {}
+  for (x, funty) in overloads:
+      match funty:
+        case FunctionType(_, typarams, param_types, return_type, where=where):
+          # Preserve the rator's use-site location (e.g. the `+'
+          # token in `x + y') on the resolved variable.  Using
+          # `loc2' (the FunctionType's declaration site) here
+          # would leak the operator's declaration location into
+          # every Call.rator, breaking F12 / hover for overloaded
+          # operators -- the location info is the only thing the
+          # LSP can use to spot the use site.  Non-overloaded
+          # names go through the `FunctionType' arm below where
+          # ``new_rator'' is passed through unchanged.
+          trial_uses[x] = set()
+          outer_uses = swap_implicit_uses(trial_uses[x])
+          try:
+            new_call = type_check_call_funty(loc, ResolvedVar(new_rator.location, funty, x), args, env, recfun,
+                                             subterms, ret_ty, call,
+                                             typarams, param_types, return_type,
+                                             where)
+            matches.append((x, funty, new_call))
+          except (UserError, MatchFailed):
+            pass
+          finally:
+            swap_implicit_uses(outer_uses)
+  if len(matches) > 1:
+      matches = [
+          candidate for candidate in matches
+          if not any(
+              _is_strictly_more_specific(loc, other[1], candidate[1])
+              for other in matches
+          )
+      ]
+  if len(matches) == 0:
+      arg_types = [type_synth_term(arg, env, None, []).typeof for arg in args]
+      msg = 'could not find a match for function call:\n\t' \
+            + str(call) + '\n' \
+            + 'argument types: ' + ', '.join([str(t) for t in arg_types]) + '\n'
+      if ret_ty is not None:
+          msg += 'expected return type: ' + str(ret_ty) + '\n'
+      msg += 'overloads:'
+      for (x, ty) in overloads:
+          annotation = overload_mismatch_annotation(loc, ty, arg_types, ret_ty)
+          msg += '\n\t' + str(ty)
+          if annotation is not None:
+              msg += '   <-- ' + annotation
+      msg += _overload_nat_literal_hint(loc, args, arg_types, overloads)
+      user_error(loc, msg)
+  elif len(matches) > 1:
+      user_error(loc, 'in call to ' + str(new_rator) + '\n'\
+            + 'ambiguous overloads:\n' \
+            + '\n'.join([error_header(ty.location) + str(ty) for (x,ty,_) in matches]))
+  else:
+      for name in trial_uses[matches[0][0]]:
+        record_implicit_use(name)
+      return matches[0][2]
+
 def type_check_call(
     loc: Meta,
     rator: Term,
@@ -628,8 +649,42 @@ def type_check_call(
   if get_verbose():
       print('tc_check_call(' + str(call) + ')')
       print('rator: ' + str(rator))
-  new_rator = type_synth_term(rator, env, recfun, subterms)
-  return type_check_call_helper(loc, new_rator, args, env, recfun, subterms, ret_ty, call)
+  if _call_memo is None:
+    new_rator = type_synth_term(rator, env, recfun, subterms)
+    return type_check_call_helper(loc, new_rator, args, env, recfun, subterms,
+                                  ret_ty, call)
+  # Inside overload resolution, each overload of `+` in `a + b + c`
+  # checks `a + b` again, so remember each result (or error), with the
+  # implicit uses it recorded.
+  entries = _call_memo.setdefault(
+      (id(call), id(env), recfun, tuple(subterms)), [])
+  for (_, _, ty, result, uses) in entries:
+    if ty == ret_ty:
+      break
+  else:
+    outer_uses = swap_implicit_uses(set())
+    try:
+      new_rator = type_synth_term(rator, env, recfun, subterms)
+      result = type_check_call_helper(loc, new_rator, args, env, recfun,
+                                      subterms, ret_ty, call)
+    except (UserError, MatchFailed) as e:
+      result = e
+    finally:
+      uses = swap_implicit_uses(outer_uses) or set()
+    # The call and env are kept so that their ids are not reused.
+    entries.append((call, env, ret_ty, result, uses))
+  for name in uses:
+    record_implicit_use(name)
+  if isinstance(result, Exception):
+    raise result
+  return result
+
+# Results of type_check_call while an overloaded call is resolved, by
+# the call, env, recfun, and subterms, then the expected type: (call, env,
+# expected type, the result or its error, implicit uses).
+_call_memo: dict[tuple[int, int, RecursiveName, tuple[str, ...]],
+                 list[tuple[Call, Env, TypeExpr | None, Call | Exception,
+                            set[str]]]] | None = None
 
 recursive_call_count = 0
 

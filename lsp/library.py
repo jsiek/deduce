@@ -77,6 +77,7 @@ _check_file_lock = threading.RLock()
 from lark.tree import Meta
 
 import abstract_syntax as _abstract_syntax
+import checker_types as _checker_types
 import error as _error
 import flags as _flags
 import parser as _lark_parser
@@ -616,6 +617,7 @@ _SCOPED_STATE: tuple[_TrackedAttr, ...] = (
     (_error, "_active_sink"),
     (_error, "_active_warning_sink"),
     (_error, "_speculative_depth"),
+    (_checker_types, "_call_memo"),
 )
 
 # Their values when no check is running: the module defaults, read
