@@ -78,3 +78,26 @@ model BoolBag<List<bool>> {
 fun pick_not<C> where { BoolBag<C> } (c:C) { not pick(c) }
 
 assert pick_not([true]) = false
+
+// A requirement that merges two required instances, used by a where
+// clause with no written same-type constraint.
+concept SameIter<X, Y> {
+  require Iter<X>
+  require Iter<Y>
+  X = Y
+}
+
+theorem same_iter_deref: all X:type, Y:type where { SameIter<X, Y> }. all x:X.
+  @Iter<X>.deref(x) = @Iter<Y>.deref(x)
+proof
+  arbitrary X:type, Y:type where { SameIter<X, Y> }
+  arbitrary x:X
+  .
+end
+
+// Requirements whose left side is not a name.
+concept Shapes<T> {
+  [T] = [bool]
+  fn T -> bool = fn bool -> bool
+  (T) = bool
+}

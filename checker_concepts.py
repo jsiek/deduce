@@ -258,7 +258,7 @@ def _solve(where: WhereClause, env: Env, own: list[str],
         seen.append((inst, t, proxy, i))
       elif same[0] != proxy:
         pending.append((same[0], proxy, 'merging ' + str(same[1]) + ' and '
-                        + str(i), written[-1][1]))
+                        + str(i), written[-1][1] if written else loc))
   where.solution = sol
   # Instances that have become equal are one instance: keep the first's
   # members (G, Siek's thesis §5.2.3).

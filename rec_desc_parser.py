@@ -1718,7 +1718,7 @@ def parse_concept_decl(visibility: str) -> Statement:
         thm_name = parse_identifier()
         consume_token('COLON', '":"', context='after name of a concept theorem')
         theorems.append((thm_name, parse_term()))
-      elif current_token().type in ('IDENT', 'AT'):
+      elif current_token().type in ('IDENT', 'AT', 'BOOL', 'FN', 'LSQB', 'LPAR'):
         # A same-type requirement `σ = τ` (#1321; G's `type == type;`).
         typ = parse_type()
         consume_token('EQUAL', '"="', context='in a same-type requirement')
