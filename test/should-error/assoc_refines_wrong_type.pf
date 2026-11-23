@@ -1,0 +1,24 @@
+// A model of a concept that refines one with an associated type (#1321):
+// Seq's head returns Container's Elem, which the model of
+// Container<Pair<bool,bool>> makes bool, so returning the pair is wrong.
+
+import ConceptContainer
+import Pair
+
+concept Seq<C> {
+  refines Container<C>
+  fun head : fn C -> Elem
+  theorem head_put: all x:Elem. head(put(x)) = x
+}
+
+model Container<Pair<bool,bool>> {
+  type Elem = bool
+  fun get = fun p:Pair<bool,bool> { first(p) }
+  fun put = fun b:bool { pair(b, b) }
+  theorem get_put = { arbitrary x:bool  evaluate }
+}
+
+model Seq<Pair<bool,bool>> {
+  fun head = fun p:Pair<bool,bool> { p }
+  theorem head_put = { arbitrary x:bool  evaluate }
+}

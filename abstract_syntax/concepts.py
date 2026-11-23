@@ -226,9 +226,19 @@ class WhereClause(AST):
 
   def assoc_types(self, inst: ConceptRef) -> dict[str, Type]:
     """The associated types of ``inst``: their proxies, or the types that
-    the same-type constraints give them."""
-    return {t: self.solution.get(p, cast(Type, ResolvedVar(self.location, None, p)))
-            for (i, t, p) in self.assoc if i == inst}
+    the same-type constraints give them; and those of the concepts that
+    ``inst``'s concept refines, under the names its refines clause gives
+    them."""
+    types = {t: self.solution.get(p, cast(Type, ResolvedVar(self.location, None, p)))
+             for (i, t, p) in self.assoc if i == inst}
+    decl = concept_decls.get(inst.concept)
+    if decl is not None:
+      psub = dict(zip(decl.type_params, inst.type_args))
+      for (i, t, p) in decl.refines.assoc:
+        refined = self.assoc_types(i.substitute(psub))
+        if t in refined:
+          types[p] = refined[t]
+    return types
 
   def operations(self) -> List[WhereMember]:
     return [m for m in self.members if not m.is_theorem]
@@ -339,11 +349,6 @@ def where_params(where: WhereClause) -> List[Tuple[str, Type]]:
   (#1282): the binders of its operations, with their types. They are the
   dictionary of F^G's translation of ``Λt̄ where c̄. e``; a type
   application passes the models' operations for them."""
-  if where.assoc:
-    static_error(where.location, 'where clauses of functions and of'
-                 + ' parameterized models on concepts with associated types,'
-                 + ' such as ' + str(where.assoc[0][0])
-                 + ', are not supported yet (#1321)')
   if where.equations:
     static_error(where.equations[0][0].location, 'same-type constraints in'
                  + ' where clauses of functions and of parameterized models'
@@ -352,8 +357,15 @@ def where_params(where: WhereClause) -> List[Tuple[str, Type]]:
   for wm in where.operations():
     decl = concept_decls[wm.instance.concept]
     sub = {p: t for (p, t) in zip(decl.type_params, wm.instance.type_args)}
-    params.append((wm.binder, dict(decl.funs)[wm.member].substitute(sub)))
+    params.append((wm.binder, dict(decl.funs)[wm.member].substitute(
+        sub | where.assoc_types(wm.instance))))
   return params
+
+
+def where_proxies(where: Optional[WhereClause]) -> List[str]:
+  """The proxies of a function's where clause, which are type parameters
+  of the function at run time (#1321)."""
+  return where.proxies() if where else []
 
 
 def member_str(name: str) -> str:
@@ -415,10 +427,13 @@ class ConceptDecl(Declaration):
         body_env, self.types, ctx, self.location, overwrite)
     requires = [r.uniquify(body_env, ctx) for r in self.requires]
     refines = self.refines.bind(body_env, ctx)
-    if refines.assoc:
-      static_error(self.location, 'refining a concept with associated types,'
-                   + ' such as ' + str(refines.assoc[0][0])
-                   + ', is not supported yet (#1321)')
+    # Refinement brings the refined concepts' associated types into scope
+    # directly (G, Siek's thesis §5.2.3): inside `concept Seq<C> { refines
+    # Container<C> ... }`, Elem is Container<C>'s.
+    own = {base_name(t) for t in types}
+    for (_, name, p) in refines.assoc:
+      if base_name(name) not in own:
+        overwrite(body_env, base_name(name), p, self.location)
     funs = []
     for (f, t) in self.funs:
       new_f = generate_name(f, ctx)
@@ -455,11 +470,20 @@ class ModelDecl(Declaration):
   type_params: List[str] = field(default_factory=list, kw_only=True)
   where: Optional[WhereClause] = field(default=None, kw_only=True)
   # (associated type of the concept, its definition), `type Elem = σ`
-  # (#1321).
+  # (#1321). The checker adds the associated types of the refined
+  # concepts, under the names of the concept's refines clause.
   types: List[Tuple[str, Type]] = field(default_factory=list, kw_only=True)
 
   def type_members(self) -> List[str]:
-    return ['  type ' + name2str(t) + ' = ' + str(ty) for (t, ty) in self.types]
+    return ['  type ' + name2str(t) + ' = ' + str(ty)
+            for (t, ty) in self.written_types()]
+
+  def written_types(self) -> List[Tuple[str, Type]]:
+    """The `type` members, without the associated types of the refined
+    concepts, which the checker adds to ``types`` (#1321)."""
+    decl = concept_decls.get(self.concept.concept)
+    return [(t, ty) for (t, ty) in self.types
+            if decl is None or t in decl.types]
 
   def head(self) -> str:
     params = ('<' + ', '.join(name2str(p) for p in self.type_params) + '> '
@@ -471,7 +495,8 @@ class ModelDecl(Declaration):
     """The hidden definition of an operation whose body is ``body``. For
     a parameterized model it is generic over the type parameters and
     takes the operations of the where clause (F^G's function from
-    dictionaries to a dictionary)."""
+    dictionaries to a dictionary). The where clause's proxies are type
+    parameters too (#1321)."""
     if not self.type_params:
       return body
     loc = self.location
@@ -479,14 +504,16 @@ class ModelDecl(Declaration):
     params = where_params(self.where) if self.where else []
     fun = Lambda(loc, FunctionType(loc, [], [t for (_, t) in params], ty),
                  cast(Any, params), body)
-    return Generic(loc, self.definition_type(ty), self.type_params, fun)
+    return Generic(loc, self.definition_type(ty),
+                   self.type_params + where_proxies(self.where), fun)
 
   def definition_type(self, ty: Type) -> Type:
     """The type of the hidden definition of an operation of type ``ty``."""
     if not self.type_params:
       return ty
     params = where_params(self.where) if self.where else []
-    return FunctionType(self.location, self.type_params,
+    return FunctionType(self.location,
+                        self.type_params + where_proxies(self.where),
                         [t for (_, t) in params], ty)
 
   def __str__(self) -> str:
@@ -500,7 +527,7 @@ class ModelDecl(Declaration):
 
   def opaque_signature(self) -> str | None:
     # An opaque model still exports its associated types (#1321).
-    if not self.types:
+    if not self.written_types():
       return 'opaque ' + self.head() + '\n'
     return 'opaque ' + self.head() + ' {\n' \
       + ''.join(line + '\n' for line in self.type_members()) + '}\n'

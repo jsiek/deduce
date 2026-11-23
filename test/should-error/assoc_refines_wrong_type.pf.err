@@ -1,0 +1,2 @@
+./test/should-error/assoc_refines_wrong_type.pf:22.38-22.39: expected a term of type bool
+but got term p of type Pair<bool,bool>

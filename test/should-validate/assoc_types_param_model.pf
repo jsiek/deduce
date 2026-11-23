@@ -1,0 +1,42 @@
+// A parameterized model with a where clause on a concept with an
+// associated type (#1321): Box<C> is a container of whatever C contains.
+
+import ConceptContainer
+import Pair
+
+union Box<T> {
+  box(T)
+}
+
+model Container<Pair<bool,bool>> {
+  type Elem = bool
+  fun get = fun p:Pair<bool,bool> { first(p) }
+  fun put = fun b:bool { pair(b, b) }
+  theorem get_put = { arbitrary x:bool  evaluate }
+}
+
+model <C> where { Container<C> } Container<Box<C>> {
+  type Elem = @Container<C>.Elem
+  fun get = fun b:Box<C> { switch b { case box(c) { get(c) } } }
+  fun put = fun x:@Container<C>.Elem { box(put(x)) }
+  theorem get_put = {
+    arbitrary x:@Container<C>.Elem
+    suffices get(put(x)) = x by evaluate
+    get_put[x]
+  }
+}
+
+// At Box<Pair<bool,bool>>, Elem is Pair<bool,bool>'s Elem: bool.
+define t : @Container<Box<Pair<bool,bool>>>.Elem = true
+
+assert @Container<Box<Pair<bool,bool>>>.get(box(pair(true, false))) = true
+assert @Container<Box<Pair<bool,bool>>>.put(false) = box(pair(false, false))
+
+// Boxes nest.
+define u : @Container<Box<Box<Pair<bool,bool>>>>.Elem = false
+
+// A where function used at the parameterized model.
+fun elem<C> where { Container<C> } (c:C) { get(c) }
+
+define e : bool = elem(box(pair(true, false)))
+assert elem(box(box(pair(false, true)))) = false

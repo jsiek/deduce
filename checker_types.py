@@ -354,8 +354,11 @@ def type_check_call_funty(
   else:
     #print('type check call to generic: ' + str(call))
     matching: TypeMatching = {}
-    # If there is an expected return type, match that first.
-    type_params = type_names(loc, typarams)
+    # If there is an expected return type, match that first. The proxies
+    # of the where clause's associated types (#1321) are matched too; the
+    # models determine them, and must agree.
+    proxies = where.proxies() if where else []
+    type_params = type_names(loc, typarams + proxies)
     if ret_ty:
       try:
           type_match(loc, type_params, return_type, ret_ty, matching)
@@ -441,6 +444,14 @@ def type_check_call_funty(
         loc, new_rator, FunctionType(loc, typarams, param_types, return_type,
                                      where=where),
         type_args, True, call.models, env)
+    if where is not None and proxies:
+      inst_return_type = cast(FunctionType, inst_rator.typeof).return_type
+      for ((i, t, p), ty) in zip([a for a in where.assoc if a[2] in proxies],
+                                 inst_rator.assoc):
+        if p in matching and matching[p] != ty:
+          user_error(loc, 'in call ' + str(call) + '\n\t@'
+                     + str(i.substitute(matching)) + '.' + base_name(t)
+                     + ' is ' + str(ty) + ', not ' + str(matching[p]))
     ret = Call(loc, inst_return_type, inst_rator, new_checked_args)
     # print('{{{ type deduction for call: ' + str(ret))
     # print('arg_types: ' + ', '.join([str(arg.typeof) for arg in new_args]))
@@ -459,12 +470,15 @@ def instantiate_term(loc: Meta, subject: Term, funty: Type, type_args: list[Type
   retty = _instantiation_result_type(loc, funty, type_args,
                                      'cannot instantiate a term of type ')
   dicts: list[Term] = []
+  proxy_types: list[Type] = []
   if isinstance(funty, FunctionType) and funty.where is not None:
     from checker_concepts import where_arguments
     where = funty.where.substitute(dict(zip(funty.type_params, type_args)))
-    dicts = where_arguments(loc, where, models, env)
+    dicts, assoc = where_arguments(loc, where, models, env)
+    retty = retty.substitute(assoc)
+    proxy_types = [cast(Type, assoc[p]) for p in where.proxies()]
   return TermInst(loc, retty, subject, type_args, inferred, dicts=dicts,
-                  models=models)
+                  assoc=proxy_types, models=models)
 
 def where_fun_type(loc: Meta, typarams: list[str], params: list[Type],
                    returns: Type, where: WhereClause | None) -> FunctionType:
@@ -858,12 +872,13 @@ def check_type(typ: TypeExpr, env: Env, arity_required: bool = True) -> TypeExpr
     case IntType(loc) | BoolType(loc) | TypeType(loc):
       return typ
     case FunctionType(loc, typarams, param_types, return_type, where=where):
-      from checker_concepts import check_where
-      body_env = env.declare_type_vars(loc, typarams)
+      from checker_concepts import function_where_scope
+      new_where, body_env = function_where_scope(
+          loc, where, env.declare_type_vars(loc, typarams))
       new_param_types = [check_type(ty, body_env) for ty in param_types]
       new_return_type = check_type(return_type, body_env)
       return FunctionType(loc, typarams, new_param_types, new_return_type,
-                          where=check_where(where, body_env) if where else None)
+                          where=new_where)
     case TypeInst(loc, inner_typ, arg_types):
       view_info = _instantiate_view_type(loc, typ, env)
       if view_info is not None:
@@ -973,11 +988,10 @@ def _checked_where(term: Generic, env: Env) -> WhereClause | None:
 def _generic_env(term: Generic, env: Env) -> Env:
   """The environment of a generic's body: its type parameters and the
   models its where clause provides (#1282)."""
-  from checker_concepts import add_where_models
-  body_env = env.declare_type_vars(term.location, term.type_params)
-  if term.where is not None:
-    body_env = add_where_models(term.location, term.where, body_env)
-  return body_env
+  from checker_concepts import function_where_scope
+  return function_where_scope(
+      term.location, term.where,
+      env.declare_type_vars(term.location, term.type_params))[1]
 
 def type_synth_term(
     term: Term, env: Env, recfun: RecursiveName, subterms: SubtermNames
@@ -1293,6 +1307,9 @@ def type_check_term(
         case FunctionType(loc2, type_params2, param_types2, return_type2):
           sub = {U: ResolvedVar(loc, None, T) \
                  for (T,U) in zip(type_params, type_params2) }
+          if typ.where is not None and term.where is not None:
+            sub.update({q: ResolvedVar(loc, None, p) for ((_, _, q), (_, _, p))
+                        in zip(typ.where.assoc, term.where.assoc)})
           new_param_types = [ty.substitute(sub) for ty in param_types2]
           new_return_type = return_type2.substitute(sub)
           # The where clauses must agree (#1282); the body also takes the

@@ -1,0 +1,42 @@
+// Refining a concept with an associated type (#1321): inside Seq, Elem is
+// Container<C>'s (as in G, refinement brings the refined concept's
+// associated types into scope), and a model of Seq<τ> uses the Elem of
+// the model of Container<τ>.
+
+import ConceptContainer
+import Pair
+
+concept Seq<C> {
+  refines Container<C>
+  fun head : fn C -> Elem
+  theorem head_put: all x:Elem. head(put(x)) = x
+}
+
+model Container<Pair<bool,bool>> {
+  type Elem = bool
+  fun get = fun p:Pair<bool,bool> { first(p) }
+  fun put = fun b:bool { pair(b, b) }
+  theorem get_put = { arbitrary x:bool  evaluate }
+}
+
+model Seq<Pair<bool,bool>> {
+  fun head = fun p:Pair<bool,bool> { second(p) }
+  theorem head_put = { arbitrary x:bool  evaluate }
+}
+
+assert @Seq<Pair<bool,bool>>.head(pair(false, true)) = true
+
+theorem head_get: all C:type where { Seq<C> }. all x:@Container<C>.Elem.
+  head(put(x)) = get(put(x))
+proof
+  arbitrary C:type where { Seq<C> }
+  arbitrary x:@Container<C>.Elem
+  replace head_put[x] | get_put[x].
+end
+
+theorem head_get_pair: all x:bool.
+  @Seq<Pair<bool,bool>>.head(@Container<Pair<bool,bool>>.put(x))
+  = @Container<Pair<bool,bool>>.get(@Container<Pair<bool,bool>>.put(x))
+proof
+  head_get<Pair<bool,bool>>
+end

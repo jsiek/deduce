@@ -1,0 +1,2 @@
+./test/should-error/assoc_fun_elem_mismatch.pf:17.19-17.32: in call elem(node(false, []))
+	@Container<List<bool>>.Elem is List<bool>, not bool

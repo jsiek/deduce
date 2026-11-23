@@ -35,7 +35,7 @@ from typing import TYPE_CHECKING
 from .core import *
 
 if TYPE_CHECKING:
-    from .concepts import WhereClause, where_body, where_params
+    from .concepts import WhereClause, where_body, where_params, where_proxies
     from .declarations import FunCase, GenRecFun, RecFun, Union, overwrite
     from .env import Env, TermBinding
     from .literals import (
@@ -1421,7 +1421,8 @@ class Call(Term):
       case TermInst(loc, _, subject, type_args) if isinstance(subject, GenRecFun):
         gen_fun = cast(GenRecFun, subject)
         name = gen_fun.name
-        typarams = gen_fun.type_params
+        typarams = gen_fun.type_params + where_proxies(gen_fun.where)
+        type_args = type_args + fun.assoc
         params = gen_fun.vars
         body = gen_fun.body
         # The operations for a where clause come after the arguments
@@ -1438,7 +1439,8 @@ class Call(Term):
       case TermInst(loc, _, subject, type_args) if isinstance(subject, RecFun):
         rec_fun = cast(RecFun, subject)
         name = rec_fun.name
-        typarams = rec_fun.type_params
+        typarams = rec_fun.type_params + where_proxies(rec_fun.where)
+        type_args = type_args + fun.assoc
         params = rec_fun.params
         returns = rec_fun.returns
         cases = rec_fun.cases
@@ -1732,6 +1734,9 @@ class TermInst(Term):
   # the checker looks up among ``models`` (the models in scope, recorded
   # by uniquify) and passes after the function's own arguments.
   dicts: List[Term] = field(default_factory=list, kw_only=True)
+  # The models' types for the proxies of the where clause's associated
+  # types (#1321), which are type parameters at run time.
+  assoc: List[Type] = field(default_factory=list, kw_only=True)
   models: List[str] = field(default_factory=list, kw_only=True)
 
   _NON_STRUCTURAL_FIELDS = frozenset({'location', 'typeof', 'models'})
@@ -1775,9 +1780,12 @@ class TermInst(Term):
     subject_red = self.subject.reduce(env)
     type_args_red = [t.reduce(env) for t in self.type_args]
     dicts_red = [d.reduce(env) for d in self.dicts]
+    assoc_red = [t.reduce(env) for t in self.assoc]
     match subject_red:
       case Generic(_, _, typarams, body):
         sub: dict[str, Term | Type] = {x:t for (x,t) in zip(typarams, type_args_red)}
+        if subject_red.where is not None:
+          sub.update(zip(subject_red.where.proxies(), assoc_red))
         if dicts_red and isinstance(body, Lambda):
           # Pass the operations for the where clause's parameters, which
           # come after the function's own (#1282).
@@ -1789,7 +1797,7 @@ class TermInst(Term):
       case _:
         return TermInst(self.location, self.typeof, subject_red,
                         type_args_red, self.inferred, dicts=dicts_red,
-                        models=self.models)
+                        assoc=assoc_red, models=self.models)
 
 @dataclass
 class Array(Term):

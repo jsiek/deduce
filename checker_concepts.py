@@ -33,7 +33,7 @@ from abstract_syntax import (
     ConceptMember, ConceptMemberProof, ConceptRef, Env,
     Formula, IfThen, ModelBinding, MutableArrayType, ModelDecl, ModelInstance, Proof,
     ResolvedVar, Term, TermBinding, TermInst, Type, TypeAlias, TypeBinding, FunctionType, TypeInst, TypeType, VarRef, WhereClause, WhereMember, base_name, concept_closure,
-    where_body,
+    where_body, where_proxies,
 )
 from checker_types import check_formula, check_type, type_check_term
 from error import UserError, user_error, wrap_user_error
@@ -78,11 +78,22 @@ def member_type(env: Env, inst: ConceptRef, member: str, loc: Meta,
                                             | (types or {}))
 
 
-def _model_types(m: ModelInstance) -> dict[str, Type]:
-  """The associated types of the model instance ``m``."""
+def _model_sub(m: ModelInstance) -> dict[str, Term | Type]:
+  """The type parameters of the model instance ``m``'s model, and the
+  proxies of its where clause, at ``m``'s types: the proxies are the
+  associated types of the where clause's models (#1321)."""
   model = m.binding.model
   sub: dict[str, Term | Type] = dict(zip(model.type_params, m.type_args))
-  return {t: ty.substitute(sub) for (t, ty) in model.types}
+  if model.where is not None:
+    for (i, t, p) in model.where.assoc:
+      sub[p] = _model_types(_model_for(m.args, i.substitute(sub)))[t]
+  return sub
+
+
+def _model_types(m: ModelInstance) -> dict[str, Type]:
+  """The associated types of the model instance ``m``."""
+  sub = _model_sub(m)
+  return {t: ty.substitute(sub) for (t, ty) in m.binding.model.types}
 
 
 def _instance_sub(env: Env, inst: ConceptRef, lookup: MemberLookup,
@@ -98,6 +109,8 @@ def _instance_sub(env: Env, inst: ConceptRef, lookup: MemberLookup,
     sub[m] = lookup(inst, m)
   for wm in decl.refines.operations():
     sub[wm.binder] = lookup(wm.instance.substitute(psub), wm.member)
+  for (i, t, p) in decl.refines.assoc:
+    sub[p] = lookup(i.substitute(psub), t)
   return sub
 
 
@@ -526,13 +539,29 @@ def _instance(env: Env, b: ModelBinding, sub: dict[str, Type],
 
 
 def where_arguments(loc: Meta, where: WhereClause, in_scope: list[str],
-                    env: Env) -> list[Term]:
+                    env: Env) -> tuple[list[Term], dict[str, Term | Type]]:
   """The operations to pass to a function with the where clause
   ``where`` (instantiated at the call's types): those of the models in
-  scope, unfolded where they are visible (F^G's dictionary passing)."""
+  scope, unfolded where they are visible (F^G's dictionary passing); and
+  the types of its proxies, the models' associated types (#1321)."""
   models = _models_in_scope(loc, where.constraints, in_scope, env)
   lookup = _model_lookup(env, models, loc)
-  return [lookup(wm.instance, wm.member) for wm in where.operations()]
+  return ([cast(Term, lookup(wm.instance, wm.member))
+           for wm in where.operations()],
+          {p: lookup(i, t) for (i, t, p) in where.assoc})
+
+
+def function_where_scope(loc: Meta, where: WhereClause | None,
+                         env: Env) -> tuple[WhereClause | None, Env]:
+  """The checked where clause of a function or parameterized model, and
+  the scope of its types: the clause's proxies, as type variables (its
+  operations' types and a projection such as `@Container<C>.Elem`
+  mention them), and its models (#1321)."""
+  if where is None:
+    return None, env
+  env = env.declare_type_vars(loc, where.proxies())
+  checked = check_where(where, env)
+  return checked, add_where_models(loc, checked, env)
 
 
 def _match_type(pattern: Type, ty: Type, tyvars: list[str],
@@ -621,7 +650,7 @@ def _member(env: Env, m: ModelInstance, member: str, loc: Meta) -> Term:
   collapse it. A parameterized model's operation is its body at the
   instance's types and at the operations of its where clause's models."""
   model = m.binding.model
-  sub: dict[str, Term | Type] = dict(zip(model.type_params, m.type_args))
+  sub = _model_sub(m)
   inst = model.concept.substitute(sub)
   found = [(define, body) for (mem, define, body) in model.funs if mem == member]
   if not found:
@@ -640,7 +669,8 @@ def _member(env: Env, m: ModelInstance, member: str, loc: Meta) -> Term:
   generic_ty = member_type(env, model.concept, member, loc, dict(model.types))
   fun = TermInst(loc, FunctionType(loc, [], [op.typeof for op in ops], ty),
                  ResolvedVar(loc, model.definition_type(generic_ty), define),
-                 m.type_args, False)
+                 m.type_args + [cast(Type, sub[p])
+                                for p in where_proxies(model.where)], False)
   return Call(loc, ty, fun, ops)
 
 
@@ -794,7 +824,8 @@ def process_concept(decl: ConceptDecl, env: Env) -> tuple[ConceptDecl, Env]:
   # Inside the concept, its associated types are like type parameters.
   body_env = env.declare_type_vars(loc, decl.type_params + decl.types)
   refines = check_where(decl.refines, body_env)
-  body_env = declare_where_operations(refines, body_env, loc)
+  body_env = add_where_models(loc, refines,
+                              declare_where_operations(refines, body_env, loc))
   funs = [(f, check_type(t, body_env)) for (f, t) in decl.funs]
   body_env = body_env.declare_term_vars(loc, funs)
   theorems = [(n, check_formula(frm, body_env)) for (n, frm) in decl.theorems]
@@ -840,6 +871,12 @@ def process_model(model: ModelDecl, env: Env) -> tuple[ModelDecl, Env]:
   psub = _param_sub(decl, concept_ref)
   refined = [find_model(body_env, ref.substitute(psub), model.models, loc)
              for ref in decl.refines.constraints]
+  if decl.refines.assoc:
+    lookup = _model_lookup(body_env, _models_in_scope(
+        loc, [r.substitute(psub) for r in decl.refines.constraints],
+        model.models, body_env), loc)
+    types += [(p, cast(Type, lookup(i.substitute(psub), t)))
+              for (i, t, p) in decl.refines.assoc]
   funs = []
   for (m, define, body) in model.funs:
     ty = member_type(body_env, concept_ref, m, loc, dict(types))

@@ -808,10 +808,21 @@ theorem get_put_twice: all C:type where { Container<C> }.
 
 `@Container<C>.Elem` is a type that nothing more is known about, and
 using the theorem at `Pair<bool, bool>` makes it `bool`. A
-[same-type constraint](#where-clause) can say more. Where clauses
-of functions and of parameterized models on such concepts, refining
-such a concept, and `require` on an associated type are not supported
-yet (#1321).
+[same-type constraint](#where-clause) can say more. The same holds in
+the where clause of a function or a parameterized model; at a call, the
+models determine the associated types:
+
+```
+fun elem<C> where { Container<C> } (c:C) { get(c) }
+
+define b : bool = elem(pair(true, false))   // Elem of Container<Pair<bool,bool>>
+```
+
+A concept that refines one with associated types can use them
+directly: inside `concept Seq<C> { refines Container<C> ... }`, `Elem`
+is `@Container<C>.Elem`. A `require` on an associated type, and
+same-type constraints in where clauses of functions and parameterized
+models, are not supported yet (#1321).
 
 Concepts, models, and where clauses follow System F<sup>G</sup>
 (Siek and Lumsdaine, *Essential Language Support for Generic

@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from imperative_verifier import ImperativeObligation
 
 from checker_concepts import (
-    add_where_models, check_where, collect_model, model_obligations,
+    collect_model, function_where_scope, model_obligations,
     well_founded_less, where_scope,
     process_concept, process_model,
 )
@@ -982,7 +982,8 @@ def process_declaration_visibility(decl: Declaration, env: Env,
                                    visibility=decl.visibility)
   
     case RecFun(loc, name, typarams, params, returns, _):
-      body_env = env.declare_type_vars(loc, typarams)
+      where, body_env = function_where_scope(
+          loc, decl.where, env.declare_type_vars(loc, typarams))
       checked_returns = check_type(returns, body_env)
       if len(params) == 0:
           user_error(loc, 'recursive functions need at least one parameter.')
@@ -993,7 +994,6 @@ def process_declaration_visibility(decl: Declaration, env: Env,
         _, source_ty, _ = view_info
         checked_params = [source_ty] + [check_type(t, body_env)
                                        for t in params[1:]]
-      where = check_where(decl.where, body_env) if decl.where else None
       fun_type = where_fun_type(loc, typarams, checked_params, checked_returns,
                                 where)
       register_library_name(env.get_current_module(), name)
@@ -1002,7 +1002,8 @@ def process_declaration_visibility(decl: Declaration, env: Env,
 
     case GenRecFun(loc, name, typarams, param_pairs, returns, _, measure_ty,
                    body, _):
-      body_env = env.declare_type_vars(loc, typarams)
+      where, body_env = function_where_scope(
+          loc, decl.where, env.declare_type_vars(loc, typarams))
       checked_returns = check_type(returns, body_env)
       checked_param_pairs = [(p, check_type(t, body_env) if t else None)
                              for (p, t) in param_pairs]
@@ -1012,7 +1013,6 @@ def process_declaration_visibility(decl: Declaration, env: Env,
           user_error(loc, 'Add type annotations to the parameters.')
       checked_param_types: List[Type] = [cast(Type, t) for t in param_types]
 
-      where = check_where(decl.where, body_env) if decl.where else None
       fun_type = where_fun_type(loc, typarams, checked_param_types,
                                 checked_returns, where)
       check_type(measure_ty, body_env)
@@ -1706,12 +1706,10 @@ def _type_check_stmt(stmt: Statement, env: Env,
       if view_info is not None:
         return type_check_view_recursive_fun(stmt, env, view_info)
 
-      body_env = env.declare_type_vars(loc, typarams)
+      where, body_env = function_where_scope(
+          loc, stmt.where, env.declare_type_vars(loc, typarams))
       checked_params = [check_type(p, body_env) for p in params]
       checked_returns = check_type(returns, body_env)
-      where = check_where(stmt.where, body_env) if stmt.where else None
-      if where is not None:
-        body_env = add_where_models(loc, where, body_env)
 
       fun_type = _alpha_renamed_function_type(
           loc, typarams, checked_params, checked_returns, where)
@@ -1738,12 +1736,12 @@ def _type_check_stmt(stmt: Statement, env: Env,
 
     case GenRecFun(loc, name, typarams, param_pairs, returns, measure, measure_ty,
                    body, terminates):
-      body_env = env.declare_type_vars(loc, typarams)
+      where, body_env = function_where_scope(
+          loc, stmt.where, env.declare_type_vars(loc, typarams))
       checked_param_pairs = [(x, check_type(p, body_env))
                              for (x, p) in param_pairs]
       checked_returns = check_type(returns, body_env)
       checked_measure_ty = check_type(measure_ty, body_env)
-      where = check_where(stmt.where, body_env) if stmt.where else None
 
       fun_type = _alpha_renamed_function_type(
           loc, typarams, [t for (_, t) in checked_param_pairs],
@@ -1752,10 +1750,9 @@ def _type_check_stmt(stmt: Statement, env: Env,
       env = env.define_term_var(loc, name, fun_type, stmt.reduce(env),
                                 stmt.visibility)
 
-      body_env = env.declare_type_vars(loc, typarams)
+      _, body_env = function_where_scope(
+          loc, stmt.where, env.declare_type_vars(loc, typarams))
       body_env = body_env.declare_term_vars(loc, checked_param_pairs)
-      if where is not None:
-        body_env = add_where_models(loc, where, body_env)
       new_measure = type_check_term(measure, checked_measure_ty, body_env, None, [])
 
       new_body = type_check_term(body, checked_returns, body_env, None, [])

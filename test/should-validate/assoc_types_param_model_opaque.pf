@@ -1,0 +1,17 @@
+// An opaque parameterized model on a concept with an associated type
+// (#1321), used from another module at the opaque Container<Pair<bool,bool>>:
+// Elem is bool, and the operations stay folded, so the proof uses the
+// model's theorem.
+
+import ConceptContainer
+import ConceptOpaqueContainerModel
+import ConceptOpaqueBoxContainer
+import Pair
+
+define t : @Container<Box<Pair<bool,bool>>>.Elem = true
+
+theorem box_get_put: all b:bool.
+  @Container<Box<Pair<bool,bool>>>.get(@Container<Box<Pair<bool,bool>>>.put(b)) = b
+proof
+  @Container<Box<Pair<bool,bool>>>.get_put
+end

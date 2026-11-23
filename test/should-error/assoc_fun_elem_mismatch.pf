@@ -1,0 +1,17 @@
+// At a call of a where function, the models determine the associated
+// types (#1321): elem([false]) returns the model's Elem, List<bool>, not
+// the bool the definition expects.
+
+import ConceptContainer
+import List
+
+model Container<List<bool>> {
+  type Elem = List<bool>
+  fun get = fun xs:List<bool> { xs }
+  fun put = fun xs:List<bool> { xs }
+  theorem get_put = { arbitrary x:List<bool>  evaluate }
+}
+
+fun elem<C> where { Container<C> } (c:C) { get(c) }
+
+define e : bool = elem([false])

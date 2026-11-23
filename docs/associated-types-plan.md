@@ -198,11 +198,21 @@ Each step lands with its fixtures under both parsers.
    type (created by `bind`); the proxy where-models give them as their
    `type` members, so `@C<T>.Elem` resolves to the proxy; the expansion
    binds the proxies first and `_strip_operations` instantiates them with
-   the models' types. Still to do, and rejected for now: where clauses of
-   functions and parameterized models (`where_params`; the proxies must
-   become extra type parameters of the `FunctionType`, matched at calls
-   and filled from the models), and refining a concept with associated
-   types.
+   the models' types.
+   3b, functions and parameterized models: `function_where_scope`
+   declares the clause's proxies and adds its models before the
+   parameter types are checked; `where_params` gives the operations'
+   types in terms of the proxies. At a call the proxies are matched with
+   the type parameters, then filled from the models (`where_arguments`)
+   and checked to agree; `TermInst.assoc` carries them, and they are
+   type parameters at run time (`where_proxies`), as are the hidden
+   definitions of a parameterized model's operations (`_model_sub` gives
+   their values at an instance). Refinement brings the refined concepts'
+   associated types into scope by base name (G); a where clause's
+   `assoc_types` and a checked model's `types` map them. Not done:
+   `@Seq<C>.Elem` for a refined concept's associated type (write
+   `@Container<C>.Elem`), and same-type constraints in where clauses of
+   functions and parameterized models.
 4. **Same-type constraints:** the union-find with unification and
    congruence, the nested-scope rule, and the instantiation check. Fixtures:
    the `same_first` example, the inconsistent and occurs-check errors, the
