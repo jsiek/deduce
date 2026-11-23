@@ -1,0 +1,41 @@
+// midpoint_theorem.pf
+//
+// The Midpoint Theorem of a high school geometry course:
+//
+//   If M is the midpoint of AB, then AM = ½ AB and MB = ½ AB.
+//
+//      A           M           B
+//      +-----------+-----------+
+//
+// The two-column proof:
+//
+//   Statements                       Reasons
+//   1. M is the midpoint of AB       Given
+//   2. M is on AB and AM = MB        Def. of midpoint (1)
+//   3. AM + MB = AB                  Segment Addition Postulate (2)
+//   4. AM + AM = AB                  Substitution (2, 3)
+//   5. AM = ½ AB and MB = ½ AB       Division and substitution (2, 4)
+//
+// Segment addition here is `seg_add`, which also covers the case
+// A = B, where M = A = B and every distance is 0.
+
+theorem midpoint_theorem: all A:Point, B:Point, M:Point.
+  if M = midpoint(A, B)
+  then dist(A, M) = real(frac(+1, 2)) * dist(A, B)
+   and dist(M, B) = real(frac(+1, 2)) * dist(A, B)
+proof
+  arbitrary A:Point, B:Point, M:Point
+  assume step1                                   // Given
+  have step2: on_segment(M, A, B) and dist(A, M) = dist(M, B)
+    by replace seg_midpoint_iff[A, B, M] in step1  // Def. of midpoint
+  have step3: dist(A, M) + dist(M, B) = dist(A, B)
+    by replace seg_add[A, M, B] in conjunct 0 of step2  // Segment Addition Postulate
+  have am_mb: dist(A, M) = dist(M, B) by conjunct 1 of step2
+  have step4: dist(A, M) + dist(A, M) = dist(A, B)
+    by replace symmetric am_mb in step3          // Substitution
+  have step5a: dist(A, M) = real(frac(+1, 2)) * dist(A, B)
+    by algebra with step4                        // Division
+  have step5b: dist(M, B) = real(frac(+1, 2)) * dist(A, B)
+    by { replace symmetric am_mb  step5a }       // Substitution
+  (step5a, step5b)
+end
