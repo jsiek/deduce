@@ -1,0 +1,1 @@
+./test/should-error/same_type_self.pf:28.3-28.23: the same-type constraint List<UInt> = List<@Wrap<List<UInt>>.Elem> does not hold: List<UInt> ≠ List<bool>

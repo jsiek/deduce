@@ -37,7 +37,7 @@ from abstract_syntax import (
     where_body, where_proxies,
 )
 from checker_types import check_formula, check_type, type_check_term
-from error import UserError, user_error, wrap_user_error
+from error import UserError, internal_error, user_error, wrap_user_error
 from lark.tree import Meta
 
 # What stands for a member of a concept instance: a where clause's
@@ -56,7 +56,11 @@ MAX_MODEL_DEPTH = 16
 
 
 def _model_for(models: Models, inst: ConceptRef) -> ModelInstance:
-  return next(m for (i, m) in models if i == inst)
+  found = [m for (i, m) in models if i == inst]
+  if not found:
+    internal_error(inst.location, 'no model of ' + str(inst) + ' among '
+                   + ', '.join(str(i) for (i, _) in models))
+  return found[0]
 
 
 def concept_of(env: Env, name: str, loc: Meta) -> ConceptDecl:
@@ -138,9 +142,8 @@ def _binder_lookup(env: Env, where: WhereClause, loc: Meta) -> MemberLookup:
     if member in types:
       return types[member]
     for wm in where.operations():
-      if wm.instance == inst and wm.member == member:
-        return ResolvedVar(loc, member_type(env, inst, member, loc, types),
-                           wm.binder)
+      if where.solved(wm.instance) == where.solved(inst) and wm.member == member:
+        return ResolvedVar(loc, _binder_type(env, where, wm, loc), wm.binder)
     user_error(loc, 'no binder for ' + base_name(member) + ' of ' + str(inst))
   return lookup
 
@@ -263,14 +266,11 @@ def _solve(where: WhereClause, env: Env, own: list[str],
   # Instances that have become equal are one instance: keep the first's
   # members (G, Siek's thesis §5.2.3).
   members: list[WhereMember] = []
-  for wm in where.members:
-    m = WhereMember(wm.instance.substitute(sol), wm.member, wm.binder,
-                    wm.is_theorem)
-    if not any(o.instance == m.instance and o.member == m.member
-               for o in members):
+  for m in where.members:
+    if not any(where.solved(o.instance) == where.solved(m.instance)
+               and o.member == m.member for o in members):
       members.append(m)
   where.members = members
-  where.assoc = [(i.substitute(sol), t, p) for (i, t, p) in where.assoc]
 
 
 def _is_type_var(x: str, env: Env) -> bool:
@@ -341,7 +341,7 @@ def _unsatisfied(where: WhereClause, lookup: MemberLookup) -> str | None:
 
 def _binder_type(env: Env, where: WhereClause, wm: WhereMember,
                  loc: Meta) -> Type:
-  return member_type(env, wm.instance, wm.member, loc,
+  return member_type(env, where.solved(wm.instance), wm.member, loc,
                      where.assoc_types(wm.instance))
 
 
@@ -488,7 +488,7 @@ def add_where_models(loc: Meta, where: WhereClause, env: Env) -> Env:
       continue
     funs = [(wm.member, wm.binder,
              ResolvedVar(loc, _binder_type(env, where, wm, loc), wm.binder))
-            for wm in where.operations() if wm.instance == inst]
+            for wm in where.operations() if where.solved(wm.instance) == inst]
     model = ModelDecl(loc, _where_prefix(loc) + str(len(bindings)) + ' '
                       + str(inst), inst,
                       cast(list[tuple[str, str, Term]], funs), [],
@@ -777,6 +777,7 @@ def _find_models(loc: Meta, refs: list[ConceptRef], in_scope: list[str],
   the models are listed under the instances at those types."""
   pending = list(refs)
   proxies = set(where.proxies()) if where else set()
+  solution = where.solution if where else {}
   sub: dict[str, Term | Type] = {}
   models: Models = []
   while pending:
@@ -794,7 +795,8 @@ def _find_models(loc: Meta, refs: list[ConceptRef], in_scope: list[str],
     models.append((key, m))
     types = _model_types(m)
     for (i, t, p) in where.assoc if where else []:
-      if p in proxies and p not in sub and i.substitute(sub) == key:
+      if p in proxies and p not in sub \
+         and i.substitute(solution).substitute(sub) == key:
         sub[p] = types[t]
     # The refined concepts, at the model's associated types.
     decl = concept_of(env, key.concept, loc)
@@ -809,7 +811,9 @@ def _find_models(loc: Meta, refs: list[ConceptRef], in_scope: list[str],
         user_error(loc, 'the model of ' + str(head)
                    + ' uses a different model of ' + str(inst)
                    + ' than the one in scope here')
-  return models, sub
+  # The determined variables too, so substituting puts an instance as
+  # written in terms of the models.
+  return models, sub | {x: ty.substitute(sub) for (x, ty) in solution.items()}
 
 
 def _rebase(r: ModelInstance, m: ModelInstance) -> ModelInstance:
