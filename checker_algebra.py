@@ -250,7 +250,8 @@ Poly = dict[tuple[int, ...], Fraction]
 
 def _poly(e: Lin, unsigned: bool = False) -> Poly:
   """The polynomial of ``e``; if ``unsigned``, with each `-` read as `+`,
-  which bounds the coefficients lib/Ring.pf computes along the way."""
+  which bounds the monomials lib/Ring.pf computes along the way. Nothing
+  cancels then, so a power stops expanding past ``_MAX_TERMS``."""
   match e:
     case ('var', i):
       return {(0,) * i + (1,): Fraction(1)}
@@ -273,6 +274,8 @@ def _poly(e: Lin, unsigned: bool = False) -> Poly:
       out: Poly = {(): Fraction(1)}
       for _ in range(k):
         out = _times(pa, out)
+        if unsigned and len(out) > _MAX_TERMS:
+          break
       return out
   raise ValueError(e)
 

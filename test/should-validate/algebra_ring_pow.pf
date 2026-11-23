@@ -76,6 +76,15 @@ proof
   algebra
 end
 
+// The expansion stops as soon as it passes the bound: in full, this one
+// would have C(203, 3), over a million, monomials.
+theorem int_pow_wide: all a:Int, b:Int, c:Int, d:Int, z:Int.
+  (a + b + c + d) ^ (200:UInt) * z = z * (a + b + c + d) ^ (200:UInt)
+proof
+  arbitrary a:Int, b:Int, c:Int, d:Int, z:Int
+  algebra
+end
+
 // Proved once for every commutative semiring, used at Rat.
 theorem ring_square_sum_pow: all T:type where { CommSemiring<T> }. all x:T, y:T.
   (x + y) ^ (2:UInt) = x ^ (2:UInt) + (one + one) * x * y + y ^ (2:UInt)
