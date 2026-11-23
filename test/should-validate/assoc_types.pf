@@ -1,0 +1,73 @@
+// Associated types with concrete models (#1321): `@C<τ>.Elem` is the type
+// that the model of C<τ> in scope gives Elem.
+
+import Pair
+
+concept Container<C> {
+  type Elem
+  fun get : fn C -> Elem
+  fun put : fn Elem -> C
+  theorem get_put: all x:Elem. get(put(x)) = x
+}
+
+model Container<Pair<bool, bool>> {
+  type Elem = bool
+  fun get = fun p:Pair<bool,bool> { first(p) }
+  fun put = fun b:bool { pair(b, b) }
+  theorem get_put = { arbitrary x:bool  evaluate }
+}
+
+// A projection in a type annotation.
+define t : @Container<Pair<bool, bool>>.Elem = true
+
+assert @Container<Pair<bool, bool>>.get(pair(t, false)) = true
+
+// The concept's theorem at the model: `Elem` is bool.
+theorem get_put_pair: all x:bool.
+  @Container<Pair<bool, bool>>.get(@Container<Pair<bool, bool>>.put(x)) = x
+proof
+  @Container<Pair<bool, bool>>.get_put
+end
+
+theorem get_put_pair_assoc: all x:@Container<Pair<bool, bool>>.Elem.
+  @Container<Pair<bool, bool>>.get(@Container<Pair<bool, bool>>.put(x)) = x
+proof
+  @Container<Pair<bool, bool>>.get_put
+end
+
+// A parameterized model: Elem depends on the type parameter.
+union Box<T> {
+  box(T)
+}
+
+model <T> Container<Box<T>> {
+  type Elem = T
+  fun get = fun b:Box<T> { switch b { case box(x) { x } } }
+  fun put = box
+  theorem get_put = { arbitrary x:T  evaluate }
+}
+
+define u : @Container<Box<Pair<bool, bool>>>.Elem = pair(true, false)
+
+assert @Container<Box<Pair<bool, bool>>>.get(box(u)) = pair(true, false)
+
+theorem get_put_box: all x:Box<bool>.
+  @Container<Box<Box<bool>>>.get(@Container<Box<Box<bool>>>.put(x)) = x
+proof
+  @Container<Box<Box<bool>>>.get_put
+end
+
+// A local model gives Elem its own type for the rest of the proof.
+theorem local_elem: all b:bool. b = b
+proof
+  model Container<bool> {
+    type Elem = bool
+    fun get = fun b:bool { b }
+    fun put = fun b:bool { b }
+    theorem get_put = { arbitrary x:bool  . }
+  }
+  have e: all x:@Container<bool>.Elem. @Container<bool>.get(@Container<bool>.put(x)) = x
+    by @Container<bool>.get_put
+  arbitrary b:bool
+  e[b]
+end

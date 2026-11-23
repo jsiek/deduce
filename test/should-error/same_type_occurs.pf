@@ -1,0 +1,12 @@
+// A same-type constraint (#1321) can't make an associated type part of
+// itself.
+
+import ConceptContainer
+import Pair
+
+theorem bad: all C:type
+    where { Container<C>, @Container<C>.Elem = Pair<@Container<C>.Elem, bool> }.
+  true
+proof
+  sorry
+end

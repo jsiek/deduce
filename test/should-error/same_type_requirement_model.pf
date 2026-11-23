@@ -1,0 +1,38 @@
+// A model must satisfy its concept's same-type requirements (#1321): the
+// Elem of VIter = List<bool> is bool, but the Vertex of Graph<bool> is
+// List<bool>.
+
+import List
+
+concept Iter<I> {
+  type Elem
+  fun deref : fn I -> Elem
+}
+
+concept Graph<G> {
+  type Vertex
+  fun some_vertex : fn G -> Vertex
+}
+
+concept VertexList<G> {
+  refines Graph<G>
+  type VIter
+  require Iter<VIter>
+  @Iter<VIter>.Elem = Vertex
+  fun vertices : fn G -> VIter
+}
+
+model Graph<bool> {
+  type Vertex = List<bool>
+  fun some_vertex = fun g:bool { [g] }
+}
+
+model Iter<List<bool>> {
+  type Elem = bool
+  fun deref = fun xs:List<bool> { switch xs { case empty { false } case node(x, _) { x } } }
+}
+
+model VertexList<bool> {
+  type VIter = List<bool>
+  fun vertices = fun g:bool { [g] }
+}

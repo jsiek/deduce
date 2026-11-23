@@ -1,0 +1,9 @@
+// Inside a where clause, C and @Container<C>.Elem are different types
+// (#1321), so put(c) with c:C is ill-typed: put expects an Elem.
+
+import ConceptContainer
+
+theorem bad: all C:type where { Container<C> }. all c:C. get(put(c)) = c
+proof
+  sorry
+end

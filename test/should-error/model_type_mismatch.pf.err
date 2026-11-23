@@ -1,0 +1,2 @@
+./test/should-error/model_type_mismatch.pf:9.37-9.38: expected a term of type bool
+but got term p of type Pair<bool,bool>

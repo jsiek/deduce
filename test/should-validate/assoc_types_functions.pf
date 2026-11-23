@@ -1,0 +1,53 @@
+// Functions with where clauses on a concept with an associated type
+// (#1321): inside the function, @Container<C>.Elem is the clause's proxy;
+// at a call it is the model's type.
+
+import ConceptContainer
+import List
+import Pair
+
+model Container<Pair<bool,bool>> {
+  type Elem = bool
+  fun get = fun p:Pair<bool,bool> { first(p) }
+  fun put = fun b:bool { pair(b, b) }
+  theorem get_put = { arbitrary x:bool  evaluate }
+}
+
+model Container<List<bool>> {
+  type Elem = List<bool>
+  fun get = fun xs:List<bool> { xs }
+  fun put = fun xs:List<bool> { xs }
+  theorem get_put = { arbitrary x:List<bool>  evaluate }
+}
+
+fun refill<C> where { Container<C> } (c:C) { put(get(c)) }
+
+fun elem<C> where { Container<C> } (c:C) { get(c) }
+
+fun wrap<C> where { Container<C> } (x:@Container<C>.Elem) { put(x) }
+
+assert refill(pair(true, false)) = pair(true, true)
+assert elem(pair(true, false)) = true
+assert elem([true, false]) = [true, false]
+assert @wrap<Pair<bool,bool>>(true) = pair(true, true)
+
+// The call's type is the model's Elem.
+define e : bool = elem(pair(false, true))
+define es : List<bool> = elem([false])
+
+recursive elems<C> where { Container<C> } (List<C>) -> List<@Container<C>.Elem> {
+  elems(empty) = empty
+  elems(node(c, cs)) = node(get(c), elems(cs))
+}
+
+assert elems([pair(true, false), pair(false, true)]) = [true, false]
+
+// Inside a where theorem, the clause's operations and proxies are passed.
+theorem elem_wrap: all C:type where { Container<C> }. all x:@Container<C>.Elem.
+  elem(@wrap<C>(x)) = x
+proof
+  arbitrary C:type where { Container<C> }
+  arbitrary x:@Container<C>.Elem
+  expand elem | wrap
+  get_put[x]
+end

@@ -1,0 +1,19 @@
+// Instantiating a where formula checks its same-type constraints after
+// the types are chosen (#1321; Siek's thesis §4.5, `foo_1(id, 1)`).
+
+import Pair
+
+theorem apply_same: all T:type, S:type where { T = S }.
+  all f:fn T -> T, a:S. f(a) = f(a)
+proof
+  arbitrary T:type, S:type where { T = S }
+  arbitrary f:fn T -> T, a:S
+  .
+end
+
+theorem bad: true
+proof
+  have t: all f:fn bool -> bool, a:Pair<bool,bool>. true
+    by apply_same<bool, Pair<bool,bool>>
+  .
+end

@@ -331,7 +331,7 @@ assert cnt(X)(7) = 0
 
 ```deduce-grammar
 atomic_term ::= "all" type_annotation_list "." term
-atomic_term ::= "all" type_annotation_list "where" "{" concept_ref_list "}" "." term
+atomic_term ::= "all" type_annotation_list "where" "{" where_constraints "}" "." term
 ```
 
 The second form quantifies over types that model some concepts; see
@@ -482,7 +482,7 @@ end
 
 ```deduce-grammar
 proof_stmt ::= "arbitrary" type_annotation_list
-proof_stmt ::= "arbitrary" type_annotation_list "where" "{" concept_ref_list "}"
+proof_stmt ::= "arbitrary" type_annotation_list "where" "{" where_constraints "}"
 ```
 
 The second form proves an `all` formula with a where clause; see
@@ -771,8 +771,11 @@ statement ::= visibility "concept" IDENT "<" identifier_list ">" "{" concept_mem
 concept_member_list ::= ε
 concept_member_list ::= concept_member concept_member_list
 concept_member ::= "refines" concept_ref
+concept_member ::= "require" concept_ref
+concept_member ::= "type" IDENT
 concept_member ::= "fun" identifier ":" type
 concept_member ::= "theorem" IDENT ":" term
+concept_member ::= type "=" type
 concept_ref ::= IDENT "<" type_list ">"
 ```
 
@@ -799,6 +802,90 @@ concept CommMonoid<T> {
 
 The theorems of a concept may use the operations of the concepts it
 refines, as `add_commute` uses `+`.
+
+`require C<τ>` means the same as `refines C<τ>`. It reads better for a
+requirement on a type other than the concept's own parameter, as in
+`require Semi<Pair<T, T>>`.
+
+A `type Elem` member declares an associated type. Inside the concept it
+is used like a type parameter; each model defines it, and outside the
+concept it is written `@C<τ>.Elem`, which stands for the type that the
+model of `C<τ>` in scope gives it:
+
+```
+concept Container<C> {
+  type Elem
+  fun get : fn C -> Elem
+}
+
+model Container<Pair<bool, bool>> {
+  type Elem = bool
+  fun get = fun p:Pair<bool,bool> { first(p) }
+}
+
+define t : @Container<Pair<bool, bool>>.Elem = true
+```
+
+An `opaque` model still exports its associated types.
+
+In the scope of a where clause, an associated type is a type variable
+of its own: in
+
+```
+theorem get_put_twice: all C:type where { Container<C> }.
+  all x:@Container<C>.Elem. get(put(get(put(x)))) = x
+```
+
+`@Container<C>.Elem` is a type that nothing more is known about, and
+using the theorem at `Pair<bool, bool>` makes it `bool`. A
+[same-type constraint](#where-clause) can say more. The same holds in
+the where clause of a function or a parameterized model; at a call, the
+models determine the associated types:
+
+```
+fun elem<C> where { Container<C> } (c:C) { get(c) }
+
+define b : bool = elem(pair(true, false))   // Elem of Container<Pair<bool,bool>>
+```
+
+A concept that refines one with associated types can use them
+directly: inside `concept Seq<C> { refines Container<C> ... }`, `Elem`
+is `@Container<C>.Elem`, and so is `@Seq<C>.Elem` outside it.
+
+A concept can require a concept of one of its associated types:
+
+```
+concept Bag<C> {
+  type Elem
+  require Eq<Elem>
+  fun pick : fn C -> Elem
+}
+```
+
+A model of `Bag<τ>` with `type Elem = σ` needs a model of `Eq<σ>`, and
+a where clause `where { Bag<C> }` also assumes `Eq<@Bag<C>.Elem>`. A
+where clause's own constraints can mention its instances' associated
+types too, as in `where { Iter<I>, Less<@Iter<I>.Elem> }`.
+
+A member `σ = τ` is a same-type requirement: inside the concept the two
+types are one, a where clause on the concept assumes it, and each model
+must satisfy it.
+
+```
+concept VertexList<G> {
+  refines Graph<G>
+  type VIter
+  require Iter<VIter>
+  @Iter<VIter>.Elem = Vertex
+  fun vertices : fn G -> VIter
+  theorem first_vertex: all g:G. deref(vertices(g)) = some_vertex(g)
+}
+```
+
+`deref(vertices(g))` is an `@Iter<VIter>.Elem` and `some_vertex(g)` a
+`Vertex` (of `Graph<G>`), so without the requirement `first_vertex`
+would not type check. A model of `VertexList<bool>` whose `VIter` has
+`Elem = bool` needs the model of `Graph<bool>` to have `Vertex = bool`.
 
 Concepts, models, and where clauses follow System F<sup>G</sup>
 (Siek and Lumsdaine, *Essential Language Support for Generic
@@ -1339,7 +1426,7 @@ To add type parameters to a function (to make it generic), see
 
 ```deduce-grammar
 statement ::= visibility "fun" identifier type_params_opt "(" variable_list ")" "{" term "}"
-statement ::= visibility "fun" identifier "<" identifier_list ">" "where" "{" concept_ref_list "}" "(" variable_list ")" "{" term "}"
+statement ::= visibility "fun" identifier "<" identifier_list ">" "where" "{" where_constraints "}" "(" variable_list ")" "{" term "}"
 ```
 
 The `fun` statement is for defining a function (non-recursive).
@@ -1364,8 +1451,8 @@ assert interchange(pair(1,2)) = pair(2,1)
 ```deduce-grammar
 type ::= "fn" type_params_opt type_list "->" type
 type ::= "fn" type_params_opt "(" type "," type_list ")" "->" type
-type ::= "fn" "<" identifier_list ">" "where" "{" concept_ref_list "}" type_list "->" type
-type ::= "fn" "<" identifier_list ">" "where" "{" concept_ref_list "}" "(" type "," type_list ")" "->" type
+type ::= "fn" "<" identifier_list ">" "where" "{" where_constraints "}" type_list "->" type
+type ::= "fn" "<" identifier_list ">" "where" "{" where_constraints "}" "(" type "," type_list ")" "->" type
 ```
 
 A function type classifies a function. This includes both recursive
@@ -1402,7 +1489,7 @@ this formula applies to lists with any element type.
 
 ```deduce-grammar
 atomic_term ::= "generic" identifier_list "{" term "}"
-atomic_term ::= "generic" identifier_list "where" "{" concept_ref_list "}" "{" term "}"
+atomic_term ::= "generic" identifier_list "where" "{" where_constraints "}" "{" term "}"
 ```
 
 A term of the form
@@ -2036,9 +2123,10 @@ the braces of a `have`.
 statement ::= visibility "model" model_head "{" model_member_list "}"
 model_head ::= concept_ref
 model_head ::= "<" identifier_list ">" concept_ref
-model_head ::= "<" identifier_list ">" "where" "{" concept_ref_list "}" concept_ref
+model_head ::= "<" identifier_list ">" "where" "{" where_constraints "}" concept_ref
 model_member_list ::= ε
 model_member_list ::= model_member model_member_list
+model_member ::= "type" IDENT "=" type
 model_member ::= "fun" identifier "=" term
 model_member ::= "theorem" IDENT "=" proof
 ```
@@ -2767,7 +2855,7 @@ is a proof of the formula `P1 and ... and Pn`. The formulas
 
 ```deduce-grammar
 statement ::= visibility "recfun" identifier type_params_opt "(" variable_list ")" "->" type "measure" term "of" type "{" term "}" "terminates" proof
-statement ::= visibility "recfun" identifier "<" identifier_list ">" "where" "{" concept_ref_list "}" "(" variable_list ")" "->" type "measure" term "of" type "{" term "}" "terminates" proof
+statement ::= visibility "recfun" identifier "<" identifier_list ">" "where" "{" where_constraints "}" "(" variable_list ")" "->" type "measure" term "of" type "{" term "}" "terminates" proof
 ```
 
 The `recfun` statement defines a function by general recursion: the
@@ -2851,7 +2939,7 @@ so the proof can use the concepts' operations and theorems.
 
 ```deduce-grammar
 statement ::= visibility "recursive" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}"
-statement ::= visibility "recursive" identifier "<" identifier_list ">" "where" "{" concept_ref_list "}" "(" type_list ")" "->" type "{" fun_case_list "}"
+statement ::= visibility "recursive" identifier "<" identifier_list ">" "where" "{" where_constraints "}" "(" type_list ")" "->" type "{" fun_case_list "}"
 fun_case ::= identifier "(" pattern_list ")" "=" term
 fun_case_list ::= fun_case
 fun_case_list ::= fun_case fun_case_list
@@ -3552,9 +3640,10 @@ type ::= identifier                                    // type of a union or typ
 type ::= identifier "<" type_list ">"                  // type of a generic union or type alias
 type ::= "[" type "]"                                  // type of an array
 type ::= "[" type "]" "!"                              // experimental mutable-array type
+type ::= "@" IDENT "<" type_list ">" FIELDACCESS       // associated type of a concept instance
 type ::= "fn" type_params_opt type_list "->" type      // type of a function 
 type ::= "fn" type_params_opt "(" type "," type_list ")" "->" type   // parenthesized multi-arg form
-type ::= "fn" "<" identifier_list ">" "where" "{" concept_ref_list "}" type_list "->" type  // with a where clause
+type ::= "fn" "<" identifier_list ">" "where" "{" where_constraints "}" type_list "->" type  // with a where clause
 type ::= "(" type ")"
 ```
 
@@ -3830,8 +3919,44 @@ used outside of the current module.
 ## Where Clause
 
 ```deduce-grammar
-concept_ref_list ::= concept_ref
-concept_ref_list ::= concept_ref "," concept_ref_list
+where_constraints ::= where_constraint
+where_constraints ::= where_constraint "," where_constraints
+where_constraint ::= concept_ref
+where_constraint ::= type "=" type
+```
+
+A constraint `σ = τ` is a same-type constraint. It makes two types the
+same in the scope of the where clause:
+
+```
+theorem transfer: all C:type, D:type
+    where { Container<C>, Container<D>,
+            @Container<C>.Elem = @Container<D>.Elem }.
+  all c:C. get(@Container<D>.put(get(c))) = get(c)
+```
+
+Here an element taken out of a `C` can be put into a `D`. A constraint
+can relate the `all`'s own type variables and the associated types of
+the where clause's instances, to each other or to other types
+(`T = S`, `@Container<C>.Elem = bool`). Type equality is a congruence,
+so `S = T` also makes `Container<S>` and `Container<T>` one instance,
+with one `Elem`. Types bound outside the `all` are fixed: in
+`all S:type. all T:type where { S = bool }. P`, the constraint is an
+error. `arbitrary` must repeat the constraints, and using the formula
+checks them: `transfer<A, B>` needs the models of `Container<A>` and
+`Container<B>` to give `Elem` the same type.
+
+Functions and parameterized models can have same-type constraints too.
+A call computes a type parameter that a constraint determines from the
+others, and checks the constraints at the models it finds:
+
+```
+fun move<C, D> where { Container<C>, Container<D>,
+                       @Container<C>.Elem = @Container<D>.Elem } (c:C) {
+  @Container<D>.put(get(c))
+}
+
+define moved : List<bool> = move(pair(true, false))
 ```
 
 A where clause on an `all` formula over types restricts the types to

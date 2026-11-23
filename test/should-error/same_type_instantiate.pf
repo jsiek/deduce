@@ -1,0 +1,37 @@
+// Instantiating a where formula checks its same-type constraints
+// (#1321): here the two models have different element types.
+
+import ConceptContainer
+import Pair
+
+model Container<bool> {
+  type Elem = bool
+  fun get = fun b:bool { b }
+  fun put = fun b:bool { b }
+  theorem get_put = { arbitrary x:bool  evaluate }
+}
+
+model Container<Pair<bool,bool>> {
+  type Elem = Pair<bool,bool>
+  fun get = fun p:Pair<bool,bool> { p }
+  fun put = fun p:Pair<bool,bool> { p }
+  theorem get_put = { arbitrary x:Pair<bool,bool>  evaluate }
+}
+
+theorem transfer: all C:type, D:type
+    where { Container<C>, Container<D>,
+            @Container<C>.Elem = @Container<D>.Elem }.
+  all c:C. get(@Container<D>.put(get(c))) = get(c)
+proof
+  arbitrary C:type, D:type
+    where { Container<C>, Container<D>,
+            @Container<C>.Elem = @Container<D>.Elem }
+  arbitrary c:C
+  @Container<D>.get_put[get(c)]
+end
+
+theorem bad: true
+proof
+  have t: all b:bool. true by transfer<bool, Pair<bool,bool>>
+  .
+end

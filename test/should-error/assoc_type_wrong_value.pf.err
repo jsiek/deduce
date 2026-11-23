@@ -1,0 +1,5 @@
+./test/should-error/assoc_type_wrong_value.pf:8.48-8.64: expected type bool
+	but the call pair(true, true)
+	has return type Pair<T,U>
+
+	inferred type arguments: 

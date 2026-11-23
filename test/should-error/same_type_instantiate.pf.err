@@ -1,0 +1,1 @@
+./test/should-error/same_type_instantiate.pf:35.31-35.62: the same-type constraint @Container<bool>.Elem = @Container<Pair<bool,bool>>.Elem does not hold: bool ≠ Pair<bool,bool>

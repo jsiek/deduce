@@ -1,0 +1,19 @@
+// An opaque parameterized model with a where clause on a concept with an
+// associated type (#1321): other modules see its Elem, not its operations.
+
+import ConceptContainer
+
+union Box<T> {
+  box(T)
+}
+
+opaque model <C> where { Container<C> } Container<Box<C>> {
+  type Elem = @Container<C>.Elem
+  fun get = fun b:Box<C> { switch b { case box(c) { get(c) } } }
+  fun put = fun x:@Container<C>.Elem { box(put(x)) }
+  theorem get_put = {
+    arbitrary x:@Container<C>.Elem
+    suffices get(put(x)) = x by evaluate
+    get_put[x]
+  }
+}

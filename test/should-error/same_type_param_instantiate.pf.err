@@ -1,0 +1,1 @@
+./test/should-error/same_type_param_instantiate.pf:17.8-17.41: the same-type constraint bool = Pair<bool,bool> does not hold

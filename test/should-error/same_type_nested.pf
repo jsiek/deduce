@@ -1,0 +1,12 @@
+// An inner where clause can't constrain the associated types of an outer
+// one (#1321): inside the proof, the outer @Container<C>.Elem is fixed.
+
+import ConceptContainer
+
+theorem bad: all C:type where { Container<C> }. true
+proof
+  arbitrary C:type where { Container<C> }
+  have inner: all D:type where { Container<D>, @Container<C>.Elem = bool }. true
+    by sorry
+  .
+end

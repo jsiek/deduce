@@ -80,6 +80,54 @@ class ConceptRef(AST):
 
 
 @dataclass
+class AssocType(Type):
+  """`@C<τ>.Elem`: the associated type ``Elem`` of the instance ``C<τ>``
+  (#1321). The checker replaces it with the type of the model in scope
+  (recorded in ``models``), so checked types never contain one."""
+  ref: ConceptRef
+  name: str
+  models: List[str] = field(default_factory=list, kw_only=True)
+
+  def __str__(self) -> str:
+    return '@' + str(self.ref) + '.' + name2str(self.name)
+
+  def __eq__(self, other: object) -> bool:
+    return isinstance(other, AssocType) and self.ref == other.ref \
+      and self.name == other.name
+
+  def free_vars(self) -> Set[str]:
+    return set().union(*[t.free_vars() for t in self.ref.type_args])
+
+  def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> Type:  # type: ignore[override]
+    return _projection(self.location, self.ref.uniquify(env, ctx), self.name,
+                       env)
+
+
+def _projection(loc: Meta, ref: ConceptRef, name: str,
+                env: UniquifyEnv) -> Type:
+  """The (uniquified) projection of the associated type ``name`` of
+  ``ref``: the proxy of a where clause's instance, or else the
+  projection for the checker to resolve. An associated type of a
+  refined concept is that concept's (G): `@Seq<C>.Elem` is
+  `@Container<C>.Elem`."""
+  decl = concept_decls[ref.concept]
+  names = [t for t in decl.types if base_name(t) == name]
+  if not names:
+    sub: dict[str, Type] = dict(zip(decl.type_params, ref.type_args)) \
+        | {u: _projection(loc, ref, base_name(u), env) for u in decl.types}
+    for (i, t, p) in decl.refines.assoc:
+      sub[p] = _projection(loc, i.substitute(sub), base_name(t), env)
+      if base_name(t) == name:
+        return sub[p]
+    static_error(loc, base_name(ref.concept) + ' has no associated type '
+                 + name)
+  for (i, t, p) in env.get(WHERE_ASSOC_KEY, []):
+    if i == ref and t == names[0]:
+      return cast(Type, ResolvedVar(loc, None, p))
+  return AssocType(loc, ref, names[0], models=env.get(MODELS_KEY, []))
+
+
+@dataclass
 class WhereMember:
   """One member of one concept instance in a where clause's refinement
   closure: the concept member ``member`` of ``instance`` is bound by
@@ -99,14 +147,39 @@ class WhereClause(AST):
   # Set by the checker once the body of the ``all`` has been expanded to
   # ``all ops. if axioms then P``.
   expanded: bool = False
+  # The same-type constraints `σ = τ` (#1321).
+  equations: List[Tuple[Type, Type]] = field(default_factory=list, kw_only=True)
+  # For each associated type of each instance of the refinement closure,
+  # (instance, associated type, proxy): the proxy is the type variable
+  # that stands for the associated type in the clause's scope (F^G §5:
+  # associated types become extra type parameters). Filled in by `bind`.
+  assoc: List[Tuple[ConceptRef, str, str]] = field(default_factory=list,
+                                                   kw_only=True)
+  # The type variables and proxies that the same-type constraints
+  # determine, and their types. Filled in by the checker, which also
+  # types the constraints (a projection becomes its proxy) and puts the
+  # instances in terms of the solution.
+  solution: dict[str, Type] = field(default_factory=dict, kw_only=True)
 
   def __str__(self) -> str:
-    return 'where { ' + ', '.join(str(c) for c in self.constraints) + ' }'
+    (constraints, equations) = self._written()
+    return 'where { ' + ', '.join([str(c) for c in constraints]
+                                  + [str(s) + ' = ' + str(t)
+                                     for (s, t) in equations]) + ' }'
 
   def __eq__(self, other: object) -> bool:
-    return isinstance(other, WhereClause) \
-      and len(self.constraints) == len(other.constraints) \
-      and all(a == b for a, b in zip(self.constraints, other.constraints))
+    return isinstance(other, WhereClause) and self._written() == other._written()
+
+  def _written(self) -> Tuple[List[ConceptRef], List[Tuple[Type, Type]]]:
+    """The constraints and same-type constraints, with projections for the
+    proxies (#1321)."""
+    sub = {p: AssocType(self.location, i, t) for (i, t, p) in self.assoc}
+    return ([c.substitute(sub) for c in self.constraints],
+            [(s.substitute(sub), t.substitute(sub)) for (s, t) in self.equations])
+
+  def equation_str(self, s: Type, t: Type) -> str:
+    sub = {p: AssocType(self.location, i, n) for (i, n, p) in self.assoc}
+    return str(s.substitute(sub)) + ' = ' + str(t.substitute(sub))
 
   def bind(self, env: UniquifyEnv, ctx: UniquifyContext) -> WhereClause:
     """Uniquify the constraints and bind a fresh name for every member
@@ -114,10 +187,34 @@ class WhereClause(AST):
     copied for the scope of the where clause). Operations overload their
     base names, so ``x + y`` with ``x : T`` resolves to the binder by type;
     theorems shadow theirs."""
-    constraints = [c.uniquify(env, ctx) for c in self.constraints]
+    # The constraints in order (G's introduce_assumptions): a later one may
+    # mention an associated type of an earlier one's instance, which is
+    # that instance's proxy, and a concept's requirements on its
+    # associated types are on the proxies (#1321).
+    assoc: List[Tuple[ConceptRef, str, str]] = []
+    def proxies(inst: ConceptRef) -> dict[str, Type]:
+      if not any(i == inst for (i, _, _) in assoc):
+        for t in concept_decls[inst.concept].types:
+          p = generate_name(base_name(t), ctx)
+          proxy_projections[p] = str(AssocType(self.location, inst, t))
+          assoc.append((inst, t, p))
+      return {t: cast(Type, ResolvedVar(self.location, None, p))
+              for (i, t, p) in assoc if i == inst}
+    outer = env.get(WHERE_ASSOC_KEY)
+    env[WHERE_ASSOC_KEY] = assoc
+    constraints: List[ConceptRef] = []
+    closure: List[ConceptRef] = []
+    for c in self.constraints:
+      constraints.append(c.uniquify(env, ctx))
+      closure += [i for i in concept_closure([constraints[-1]], proxies)
+                  if i not in closure]
+    if outer is None:
+      del env[WHERE_ASSOC_KEY]
+    else:
+      env[WHERE_ASSOC_KEY] = outer
     members = []
     labels: dict[str, list[str]] = {}
-    for inst in concept_closure(constraints):
+    for inst in closure:
       decl = concept_decls[inst.concept]
       for (m, _) in decl.funs:
         binder = generate_name(m, ctx)
@@ -135,16 +232,12 @@ class WhereClause(AST):
       env[name] = binders + [n for n in env.get(name, []) if n not in binders]
       if len(env[name]) > 1:
         overloaded.add(name)
-    # Innermost first, so an inner clause binding the same instance as an
-    # outer one takes precedence; the clause is identified by its first
-    # binder.
-    clause = members[0].binder if members else ''
-    env[WHERE_MEMBERS_KEY] = \
-        [(wm.instance, base_name(wm.member), wm.binder, wm.is_theorem, clause)
-         for wm in members] + env.get(WHERE_MEMBERS_KEY, [])
     if overloaded:
       env[OVERLOADED_PROOFS_KEY] = env.get(OVERLOADED_PROOFS_KEY, set()) | overloaded
-    return WhereClause(self.location, constraints, members)
+    equations = [(s.uniquify(env, ctx), t.uniquify(env, ctx))
+                 for (s, t) in self.equations]
+    return WhereClause(self.location, constraints, members,
+                       equations=equations, assoc=assoc)
 
   def substitute(self, sub: Mapping[str, Term | Type | RecFun | GenRecFun]) -> WhereClause:
     return WhereClause(self.location,
@@ -152,13 +245,53 @@ class WhereClause(AST):
                        [WhereMember(m.instance.substitute(sub), m.member,
                                     m.binder, m.is_theorem)
                         for m in self.members],
-                       self.expanded)
+                       self.expanded,
+                       equations=[(s.substitute(sub), t.substitute(sub))
+                                  for (s, t) in self.equations],
+                       assoc=[(i.substitute(sub), t, p)
+                              for (i, t, p) in self.assoc],
+                       solution=_substitute_solution(self.solution, sub))
+
+  def proxies(self) -> List[str]:
+    """The proxies that the same-type constraints leave undetermined."""
+    return [p for (_, _, p) in self.assoc if p not in self.solution]
+
+  def assoc_types(self, inst: ConceptRef) -> dict[str, Type]:
+    """The associated types of ``inst``: their proxies, or the types that
+    the same-type constraints give them; and those of the concepts that
+    ``inst``'s concept refines, under the names its refines clause gives
+    them."""
+    types = {t: self.solution.get(p, cast(Type, ResolvedVar(self.location, None, p)))
+             for (i, t, p) in self.assoc if i == inst}
+    decl = concept_decls.get(inst.concept)
+    if decl is not None:
+      psub = dict(zip(decl.type_params, inst.type_args)) | types
+      for (i, t, p) in decl.refines.assoc:
+        refined = self.assoc_types(i.substitute(psub))
+        if t in refined:
+          types[p] = refined[t]
+    return types
 
   def operations(self) -> List[WhereMember]:
     return [m for m in self.members if not m.is_theorem]
 
   def theorems(self) -> List[WhereMember]:
     return [m for m in self.members if m.is_theorem]
+
+
+def _substitute_solution(solution: dict[str, Type],
+                         sub: Mapping[str, Term | Type | RecFun | GenRecFun]
+                         ) -> dict[str, Type]:
+  """The solution of a where clause's same-type constraints after
+  ``sub``: a determined type variable that ``sub`` renames keeps its
+  type under the new name; one that ``sub`` replaces with a type is no
+  longer a variable, and the instantiation check covers it."""
+  out = {}
+  for (x, ty) in solution.items():
+    y = sub.get(x)
+    if y is None or isinstance(y, VarRef):
+      out[y.get_name() if y is not None else x] = ty.substitute(sub)
+  return out
 
 
 def where_body(frm: All) -> Formula:
@@ -168,23 +301,13 @@ def where_body(frm: All) -> Formula:
   body = frm.body
   if frm.where is None or not frm.where.expanded:
     return body
-  for _ in frm.where.operations():
+  for _ in frm.where.proxies() + frm.where.operations():
     if not isinstance(body, All):
       return body
     body = body.body
   if frm.where.theorems() and isinstance(body, IfThen):
     return body.conclusion
   return body
-
-
-def _where_binders(ref: ConceptRef, member: str, is_theorem: bool,
-                   env: UniquifyEnv) -> List[str]:
-  """The binders of ``member`` of the instance ``ref`` in the innermost
-  where clause in scope that binds that instance."""
-  found = [(binder, clause)
-           for (inst, m, binder, thm, clause) in env.get(WHERE_MEMBERS_KEY, [])
-           if inst == ref and m == member and thm == is_theorem]
-  return [binder for (binder, clause) in found if clause == found[0][1]]
 
 
 def _check_member(ref: ConceptRef, member: str, is_theorem: bool,
@@ -198,10 +321,12 @@ def _check_member(ref: ConceptRef, member: str, is_theorem: bool,
 
 @dataclass
 class ConceptMember(Term):
-  """`@C<τ>.m`: the operation ``m`` of the instance ``C<τ>``. Uniquify
-  turns it into the where clause's binder when a where clause in scope
-  binds the instance; otherwise the checker takes it from the model in
-  scope (recorded in ``models``)."""
+  """`@C<τ>.m`: the operation ``m`` of the instance ``C<τ>``, which the
+  checker takes from the model in scope: a where clause's (whose
+  operations are its binders), a local one, or one of ``models``. The
+  checker finds a where clause's model after solving its same-type
+  constraints, so `@Container<T>.get` with `where { Container<S>,
+  Container<T>, S = T }` is the merged instance's (#1321)."""
   ref: ConceptRef
   member: str
   models: List[str] = field(default_factory=list, kw_only=True)
@@ -212,9 +337,6 @@ class ConceptMember(Term):
   def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> Term:  # type: ignore[override]
     ref = self.ref.uniquify(env, ctx)
     _check_member(ref, self.member, False, self.location)
-    binders = _where_binders(ref, self.member, False, env)
-    if binders:
-      return OverloadedVar(self.location, None, binders)
     return ConceptMember(self.location, None, ref, self.member,
                          models=env.get(MODELS_KEY, []))
 
@@ -236,9 +358,6 @@ class ConceptMemberProof(Proof):
   def uniquify(self, env: UniquifyEnv, ctx: UniquifyContext) -> Proof:  # type: ignore[override]
     ref = self.ref.uniquify(env, ctx)
     _check_member(ref, self.member, True, self.location)
-    binders = _where_binders(ref, self.member, True, env)
-    if binders:
-      return PVar(self.location, binders[0])
     return ConceptMemberProof(self.location, ref, self.member,
                               models=env.get(MODELS_KEY, []))
 
@@ -252,25 +371,37 @@ def where_params(where: WhereClause) -> List[Tuple[str, Type]]:
   for wm in where.operations():
     decl = concept_decls[wm.instance.concept]
     sub = {p: t for (p, t) in zip(decl.type_params, wm.instance.type_args)}
-    params.append((wm.binder, dict(decl.funs)[wm.member].substitute(sub)))
+    params.append((wm.binder, dict(decl.funs)[wm.member].substitute(
+        sub | where.assoc_types(wm.instance))))
   return params
+
+
+def where_proxies(where: Optional[WhereClause]) -> List[str]:
+  """The proxies of a function's where clause, which are type parameters
+  of the function at run time (#1321)."""
+  return where.proxies() if where else []
 
 
 def member_str(name: str) -> str:
   return ('operator ' if is_operator_name(name) else '') + name2str(name)
 
 
-def concept_closure(refs: List[ConceptRef]) -> List[ConceptRef]:
+def concept_closure(refs: List[ConceptRef],
+                    assoc: Optional[Callable[[ConceptRef], Mapping[str, Type]]]
+                    = None) -> List[ConceptRef]:
   """The concept instances that ``refs`` require, refined concepts first,
   each instance once (F^G de-duplicates only associated types; Deduce
   also de-duplicates members, since duplicates would show up in
-  formulas)."""
+  formulas). A concept's requirements on its associated types (`require
+  Eq<Elem>`) are on ``assoc``'s types for the instance (#1321)."""
   result: List[ConceptRef] = []
   def visit(ref: ConceptRef) -> None:
     if ref in result:
       return
     decl = concept_decls[ref.concept]
-    sub = {p: t for (p, t) in zip(decl.type_params, ref.type_args)}
+    sub: dict[str, Type] = {p: t for (p, t) in zip(decl.type_params, ref.type_args)}
+    if assoc is not None:
+      sub.update(assoc(ref))
     for r in decl.refines.constraints:
       visit(r.substitute(sub))
     result.append(ref)
@@ -287,11 +418,22 @@ class ConceptDecl(Declaration):
   refines: WhereClause
   funs: List[Tuple[str, Type]]
   theorems: List[Tuple[str, Formula]]
+  # The associated types (#1321), bound in the members like type
+  # parameters.
+  types: List[str] = field(default_factory=list, kw_only=True)
+  # The constraints of `refines` written as `require` (G's nested
+  # requirements, usually on associated types). They mean the same as
+  # `refines`; this list only keeps the keyword for printing.
+  requires: List[ConceptRef] = field(default_factory=list, kw_only=True)
 
   def __str__(self) -> str:
     lines = [self.visibility_prefix() + 'concept ' + name2str(self.name)
              + '<' + ', '.join(name2str(p) for p in self.type_params) + '> {']
-    lines += ['  refines ' + str(r) for r in self.refines.constraints]
+    lines += ['  type ' + name2str(t) for t in self.types]
+    lines += [('  require ' if r in self.requires else '  refines ') + str(r)
+              for r in self.refines.constraints]
+    lines += ['  ' + self.refines.equation_str(s, t)
+              for (s, t) in self.refines.equations]
     lines += ['  fun ' + member_str(f) + ' : ' + str(t) for (f, t) in self.funs]
     lines += ['  theorem ' + name2str(n) + ': ' + str(frm)
               for (n, frm) in self.theorems]
@@ -302,7 +444,24 @@ class ConceptDecl(Declaration):
     ctx = cast(UniquifyContext, ctx)
     body_env, type_params = uniquify_type_params(
         env, self.type_params, ctx, self.location, overwrite)
-    refines = self.refines.bind(body_env, ctx)
+    body_env, types = uniquify_type_params(
+        body_env, self.types, ctx, self.location, overwrite)
+    requires = [r.uniquify(body_env, ctx) for r in self.requires]
+    refines = WhereClause(self.location, self.refines.constraints) \
+        .bind(body_env, ctx)
+    # Refinement brings the refined concepts' associated types into scope
+    # directly (G, Siek's thesis §5.2.3): inside `concept Seq<C> { refines
+    # Container<C> ... }`, Elem is Container<C>'s.
+    own = {base_name(t) for t in types}
+    for (_, name, p) in refines.assoc:
+      if base_name(name) not in own:
+        overwrite(body_env, base_name(name), p, self.location)
+    # The same-type requirements (G's `type == type;`), which may name the
+    # associated types of the required instances.
+    body_env[WHERE_ASSOC_KEY] = refines.assoc
+    refines.equations = [(s.uniquify(body_env, ctx), t.uniquify(body_env, ctx))
+                         for (s, t) in self.refines.equations]
+    del body_env[WHERE_ASSOC_KEY]
     funs = []
     for (f, t) in self.funs:
       new_f = generate_name(f, ctx)
@@ -314,7 +473,8 @@ class ConceptDecl(Declaration):
     overwrite(env, self.name, new_name, self.location)
     env['no overload'][self.name] = 'concept'
     decl = ConceptDecl(self.location, new_name, type_params, refines, funs,
-                       theorems, visibility=self.visibility)
+                       theorems, visibility=self.visibility, types=types,
+                       requires=requires)
     concept_decls[new_name] = decl
     return decl
 
@@ -337,6 +497,21 @@ class ModelDecl(Declaration):
   # of its type parameters and of its where clause's binders.
   type_params: List[str] = field(default_factory=list, kw_only=True)
   where: Optional[WhereClause] = field(default=None, kw_only=True)
+  # (associated type of the concept, its definition), `type Elem = σ`
+  # (#1321). The checker adds the associated types of the refined
+  # concepts, under the names of the concept's refines clause.
+  types: List[Tuple[str, Type]] = field(default_factory=list, kw_only=True)
+
+  def type_members(self) -> List[str]:
+    return ['  type ' + name2str(t) + ' = ' + str(ty)
+            for (t, ty) in self.written_types()]
+
+  def written_types(self) -> List[Tuple[str, Type]]:
+    """The `type` members, without the associated types of the refined
+    concepts, which the checker adds to ``types`` (#1321)."""
+    decl = concept_decls.get(self.concept.concept)
+    return [(t, ty) for (t, ty) in self.types
+            if decl is None or t in decl.types]
 
   def head(self) -> str:
     params = ('<' + ', '.join(name2str(p) for p in self.type_params) + '> '
@@ -348,7 +523,8 @@ class ModelDecl(Declaration):
     """The hidden definition of an operation whose body is ``body``. For
     a parameterized model it is generic over the type parameters and
     takes the operations of the where clause (F^G's function from
-    dictionaries to a dictionary)."""
+    dictionaries to a dictionary). The where clause's proxies are type
+    parameters too (#1321)."""
     if not self.type_params:
       return body
     loc = self.location
@@ -356,18 +532,21 @@ class ModelDecl(Declaration):
     params = where_params(self.where) if self.where else []
     fun = Lambda(loc, FunctionType(loc, [], [t for (_, t) in params], ty),
                  cast(Any, params), body)
-    return Generic(loc, self.definition_type(ty), self.type_params, fun)
+    return Generic(loc, self.definition_type(ty),
+                   self.type_params + where_proxies(self.where), fun)
 
   def definition_type(self, ty: Type) -> Type:
     """The type of the hidden definition of an operation of type ``ty``."""
     if not self.type_params:
       return ty
     params = where_params(self.where) if self.where else []
-    return FunctionType(self.location, self.type_params,
+    return FunctionType(self.location,
+                        self.type_params + where_proxies(self.where),
                         [t for (_, t) in params], ty)
 
   def __str__(self) -> str:
     lines = [self.visibility_prefix() + self.head() + ' {']
+    lines += self.type_members()
     lines += ['  fun ' + member_str(m) + ' = ' + str(body)
               for (m, _, body) in self.funs]
     lines += ['  theorem ' + name2str(m) + ' = ' + str(pf)
@@ -375,16 +554,21 @@ class ModelDecl(Declaration):
     return '\n'.join(lines) + '\n}\n'
 
   def opaque_signature(self) -> str | None:
-    return 'opaque ' + self.head() + '\n'
+    # An opaque model still exports its associated types (#1321).
+    if not self.written_types():
+      return 'opaque ' + self.head() + '\n'
+    return 'opaque ' + self.head() + ' {\n' \
+      + ''.join(line + '\n' for line in self.type_members()) + '}\n'
 
   def print_theorems_statement(self, f: TextIO) -> None:
-    # A model's interface is its operations; its proofs are not.
+    # A model's interface is its types and operations; its proofs are not.
     if self.visibility == 'private':
       return
     if self.visibility == 'opaque':
       print(self.opaque_signature(), file=f)
       return
     print(self.head() + ' {\n'
+          + ''.join(line + '\n' for line in self.type_members())
           + ''.join('  fun ' + member_str(m) + ' = ' + str(body) + '\n'
                     for (m, _, body) in self.funs)
           + '}\n', file=f)
@@ -401,11 +585,23 @@ class ModelDecl(Declaration):
     decl = concept_decls[concept.concept]
     given_funs = {f: body for (f, _, body) in self.funs}
     given_thms = {n: pf for (n, pf) in self.theorems}
+    given_types = {t: ty for (t, ty) in self.types}
     members = {base_name(m) for (m, _) in decl.funs + decl.theorems}
     for name in list(given_funs) + list(given_thms):
       if name not in members:
         static_error(self.location, name + ' is not a member of concept '
                      + base_name(decl.name))
+    for name in given_types:
+      if name not in map(base_name, decl.types):
+        static_error(self.location, name + ' is not an associated type of '
+                     + 'concept ' + base_name(decl.name))
+    types = []
+    for t in decl.types:
+      ty = given_types.get(base_name(t))
+      if ty is None:
+        static_error(self.location, 'model ' + str(self.concept)
+                     + ' is missing type ' + base_name(t))
+      types.append((t, ty.uniquify(body_env, ctx)))
     funs = []
     for (m, _) in decl.funs:
       body = given_funs.get(base_name(m)) \
@@ -425,7 +621,7 @@ class ModelDecl(Declaration):
     env[MODELS_KEY] = models + [new_name]
     return ModelDecl(self.location, new_name, concept, funs, theorems,
                      visibility=self.visibility, models=models,
-                     type_params=type_params, where=where)
+                     type_params=type_params, where=where, types=types)
 
   def collect_exports(self, export_env: UniquifyEnv, importing_module: str) -> None:
     # A model has no name; it is exported into the scope of models,

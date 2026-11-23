@@ -1,0 +1,12 @@
+// An opaque model with an associated type (#1321): other modules see
+// its type, but not its operations.
+
+import ConceptContainer
+import Pair
+
+opaque model Container<Pair<bool, bool>> {
+  type Elem = bool
+  fun get = fun p:Pair<bool,bool> { first(p) }
+  fun put = fun b:bool { pair(b, b) }
+  theorem get_put = { arbitrary x:bool  evaluate }
+}

@@ -1,0 +1,1 @@
+./test/should-error/assoc_require_no_model.pf:17.1-20.2: no model of Eq<bool> in scope

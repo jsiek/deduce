@@ -1,0 +1,13 @@
+// S = T makes Container<S> and Container<T> one instance (#1321), so
+// their element types must agree: here they can't.
+
+import ConceptContainer
+import Pair
+
+theorem bad: all S:type, T:type
+    where { Container<S>, Container<T>, @Container<S>.Elem = bool,
+            @Container<T>.Elem = Pair<bool,bool>, S = T }.
+  true
+proof
+  sorry
+end

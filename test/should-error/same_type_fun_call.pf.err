@@ -1,0 +1,1 @@
+./test/should-error/same_type_fun_call.pf:29.29-29.52: the same-type constraint @Container<Pair<bool,bool>>.Elem = @Container<List<bool>>.Elem does not hold: bool ≠ List<bool>

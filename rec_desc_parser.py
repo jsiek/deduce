@@ -28,7 +28,7 @@ from abstract_syntax import (
     RuleInversion, SepConj, SimplifyFact, SimplifyGoal, Some, SomeElim, SomeIntro,
     Statement, Suffices, Switch, SwitchCase, SwitchProof, SwitchProofCase,
     TAnnote, TLet, Term, TermInst,
-    Theorem, Trace, Type, TypeAlias, TypeInst, TypeType, Union, Var, ViewDecl, ConceptDecl, ConceptMember, ConceptMemberProof, ConceptRef, ModelDecl, PModel, WhereClause,
+    Theorem, Trace, Type, TypeAlias, TypeInst, TypeType, Union, Var, ViewDecl, AssocType, ConceptDecl, ConceptMember, ConceptMemberProof, ConceptRef, ModelDecl, PModel, WhereClause,
     build_equations_proof, list_of_and, list_of_or, extract_tuple,
     listToNodeList, mkIntLit, mkLitNat, mkUIntLit, remove_mark,
 )
@@ -1660,12 +1660,26 @@ def parse_where_clause_opt() -> WhereClause | None:
   start = current_token()
   advance()
   consume_token('LBRACE', '"{"', context='after "where"')
-  constraints = [parse_concept_ref()]
-  while current_token().type == 'COMMA':
+  constraints: list[ConceptRef] = []
+  equations: list[tuple[Type, Type]] = []
+  while True:
+    # A concept instance `C<τ>` or a same-type constraint `σ = τ` (#1321).
+    typ = parse_type()
+    if current_token().type == 'EQUAL':
+      advance()
+      equations.append((typ, parse_type()))
+    elif isinstance(typ, TypeInst) and isinstance(typ.typ, Var):
+      constraints.append(ConceptRef(typ.location, typ.typ.name, typ.arg_types))
+    else:
+      raise ParseError(typ.location, 'expected a concept instance `C<τ>` or '
+                       'a same-type constraint `σ = τ` in a where clause, not '
+                       + str(typ))
+    if current_token().type != 'COMMA':
+      break
     advance()
-    constraints.append(parse_concept_ref())
   consume_token('RBRACE', '"}"', context='after the constraints of a where clause')
-  return WhereClause(meta_from_tokens(start, previous_token()), constraints)
+  return WhereClause(meta_from_tokens(start, previous_token()), constraints,
+                     equations=equations)
 
 def parse_concept_decl(visibility: str) -> Statement:
   while_parsing = 'while parsing\n' \
@@ -1678,12 +1692,22 @@ def parse_concept_decl(visibility: str) -> Statement:
     consume_token('MORETHAN', '">"', context='after type parameters of a concept')
     consume_token('LBRACE', '"{"', context='after concept head')
     refines: list[ConceptRef] = []
+    requires: list[ConceptRef] = []
+    types: list[str] = []
     funs: list[tuple[str, Type]] = []
     theorems: list[tuple[str, Term]] = []
+    equations: list[tuple[Type, Type]] = []
     while current_token().type != 'RBRACE':
       if current_token().type == 'REFINES':
         advance()
         refines.append(parse_concept_ref())
+      elif current_token().type == 'REQUIRE':
+        advance()
+        requires.append(parse_concept_ref())
+        refines.append(requires[-1])
+      elif current_token().type == 'TYPE':
+        advance()
+        types.append(parse_identifier())
       elif current_token().type == 'FUN':
         advance()
         fun_name = parse_identifier()
@@ -1694,14 +1718,22 @@ def parse_concept_decl(visibility: str) -> Statement:
         thm_name = parse_identifier()
         consume_token('COLON', '":"', context='after name of a concept theorem')
         theorems.append((thm_name, parse_term()))
+      elif current_token().type in ('IDENT', 'AT', 'BOOL', 'FN', 'LSQB', 'LPAR'):
+        # A same-type requirement `σ = τ` (#1321; G's `type == type;`).
+        typ = parse_type()
+        consume_token('EQUAL', '"="', context='in a same-type requirement')
+        equations.append((typ, parse_type()))
       else:
         raise ParseError(meta_from_tokens(current_token(), current_token()),
-                         'expected "refines", "fun", "theorem", or "}" in concept, not '
+                         'expected "refines", "require", "type", "fun", "theorem", '
+                         'a same-type requirement, or "}" in concept, not '
                          + current_token().value)
     consume_token('RBRACE', '"}"', context='after concept members')
     meta = meta_from_tokens(start_token, previous_token())
-    return ConceptDecl(meta, name, type_params, WhereClause(meta, refines),
-                       funs, theorems, visibility=visibility)
+    return ConceptDecl(meta, name, type_params,
+                       WhereClause(meta, refines, equations=equations),
+                       funs, theorems, visibility=visibility, types=types,
+                       requires=requires)
 
 def parse_model_decl(visibility: str) -> ModelDecl:
   while_parsing = 'while parsing\n' \
@@ -1719,8 +1751,14 @@ def parse_model_decl(visibility: str) -> ModelDecl:
     consume_token('LBRACE', '"{"', context='after model head')
     funs: list[tuple[str, str, Term]] = []
     theorems: list[tuple[str, Proof]] = []
+    types: list[tuple[str, Type]] = []
     while current_token().type != 'RBRACE':
-      if current_token().type == 'FUN':
+      if current_token().type == 'TYPE':
+        advance()
+        type_name = parse_identifier()
+        consume_token('EQUAL', '"="', context='after name of a model type')
+        types.append((type_name, parse_type()))
+      elif current_token().type == 'FUN':
         advance()
         fun_name = parse_identifier()
         consume_token('EQUAL', '"="', context='after name of a model operation')
@@ -1732,12 +1770,12 @@ def parse_model_decl(visibility: str) -> ModelDecl:
         theorems.append((thm_name, parse_proof()))
       else:
         raise ParseError(meta_from_tokens(current_token(), current_token()),
-                         'expected "fun", "theorem", or "}" in model, not '
+                         'expected "type", "fun", "theorem", or "}" in model, not '
                          + current_token().value)
     consume_token('RBRACE', '"}"', context='after model members')
     return ModelDecl(meta_from_tokens(start_token, previous_token()), 'model',
                      concept, funs, theorems, visibility=visibility,
-                     type_params=type_params, where=where)
+                     type_params=type_params, where=where, types=types)
 
 def parse_view_decl(visibility: str) -> Statement:
   while_parsing = 'while parsing\n' \
@@ -2414,6 +2452,16 @@ def parse_type() -> Type:
     typ = parse_type()
     consume_token('RPAR', 'closing ")"')
     return typ
+  elif token.type == 'AT':
+    # `@C<τ>.Elem`: an associated type (#1321).
+    advance()
+    ref = parse_concept_ref()
+    if end_of_file() or current_token().type != 'FIELDACCESS':
+      raise ParseError(meta_from_tokens(token, previous_token()),
+                       'expected `.` and an associated type after ' + str(ref))
+    name = current_token().value[1:]
+    advance()
+    return AssocType(meta_from_tokens(token, previous_token()), ref, name)
   else:
     try:
       name = parse_identifier()

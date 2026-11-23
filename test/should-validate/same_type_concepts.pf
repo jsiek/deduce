@@ -1,0 +1,103 @@
+// Same-type requirements in concepts (#1321; G's `type == type;`, as in
+// the thesis's VertexListGraph: vertex_descriptor ==
+// InputIterator<vertex_iterator>.value).
+
+import List
+
+concept Iter<I> {
+  type Elem
+  fun deref : fn I -> Elem
+}
+
+concept Graph<G> {
+  type Vertex
+  fun some_vertex : fn G -> Vertex
+}
+
+concept VertexList<G> {
+  refines Graph<G>
+  type VIter
+  require Iter<VIter>
+  @Iter<VIter>.Elem = Vertex
+  fun vertices : fn G -> VIter
+  // deref(vertices(g)) is an Elem, some_vertex(g) a Vertex: they are one
+  // type by the requirement.
+  theorem first_vertex: all g:G. deref(vertices(g)) = some_vertex(g)
+}
+
+model Graph<bool> {
+  type Vertex = bool
+  fun some_vertex = fun g:bool { g }
+}
+
+model Iter<List<bool>> {
+  type Elem = bool
+  fun deref = fun xs:List<bool> { switch xs { case empty { false } case node(x, _) { x } } }
+}
+
+model VertexList<bool> {
+  type VIter = List<bool>
+  fun vertices = fun g:bool { [g] }
+  theorem first_vertex = { arbitrary g:bool  evaluate }
+}
+
+// A where clause on VertexList assumes the requirement.
+theorem deref_first: all G:type where { VertexList<G> }. all g:G.
+  some_vertex(g) = deref(vertices(g))
+proof
+  arbitrary G:type where { VertexList<G> }
+  arbitrary g:G
+  symmetric first_vertex[g]
+end
+
+theorem deref_first_bool: all g:bool.
+  @Graph<bool>.some_vertex(g) = @Iter<List<bool>>.deref(@VertexList<bool>.vertices(g))
+proof
+  deref_first<bool>
+end
+
+// A where function, whose operations' types use the requirement.
+fun first_two<G> where { VertexList<G> } (g:G) {
+  [some_vertex(g), deref(vertices(g))]
+}
+
+assert first_two(true) = [true, true]
+
+// A requirement that fixes an associated type.
+concept BoolBag<C> {
+  type Elem
+  Elem = bool
+  fun pick : fn C -> Elem
+}
+
+model BoolBag<List<bool>> {
+  type Elem = bool
+  fun pick = fun xs:List<bool> { switch xs { case empty { false } case node(x, _) { x } } }
+}
+
+fun pick_not<C> where { BoolBag<C> } (c:C) { not pick(c) }
+
+assert pick_not([true]) = false
+
+// A requirement that merges two required instances, used by a where
+// clause with no written same-type constraint.
+concept SameIter<X, Y> {
+  require Iter<X>
+  require Iter<Y>
+  X = Y
+}
+
+theorem same_iter_deref: all X:type, Y:type where { SameIter<X, Y> }. all x:X.
+  @Iter<X>.deref(x) = @Iter<Y>.deref(x)
+proof
+  arbitrary X:type, Y:type where { SameIter<X, Y> }
+  arbitrary x:X
+  .
+end
+
+// Requirements whose left side is not a name.
+concept Shapes<T> {
+  [T] = [bool]
+  fn T -> bool = fn bool -> bool
+  (T) = bool
+}

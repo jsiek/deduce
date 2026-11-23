@@ -1,0 +1,8 @@
+// A concept with an associated type (#1321), for tests.
+
+concept Container<C> {
+  type Elem
+  fun get : fn C -> Elem
+  fun put : fn Elem -> C
+  theorem get_put: all x:Elem. get(put(x)) = x
+}

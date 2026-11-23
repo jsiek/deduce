@@ -1,0 +1,2 @@
+./test/should-error/same_type_param_model.pf:30.19-30.50: the same-type constraint @Container<List<bool>>.Elem = bool does not hold: List<bool> ≠ bool
+(needed by model <C> where { Container<C>, @Container<C>.Elem = bool } Container<Box<C>> for Container<Box<List<bool>>>)

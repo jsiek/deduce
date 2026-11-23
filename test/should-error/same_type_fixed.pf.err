@@ -1,0 +1,1 @@
+./test/should-error/same_type_fixed.pf:9.58-9.59: the same-type constraint S = bool constrains S, which is fixed outside this where clause

@@ -27,7 +27,7 @@ If a name on this page is unfamiliar, follow the link in the Reference column fo
 | Form | Effect on the goal |
 | --- | --- |
 | `arbitrary x:T, y:T` | Introduce universal variables: `∀x:T,y:T. P` becomes `P`. |
-| `arbitrary T:type where { C<T> }` | Introduce a type with a [where clause](./Reference.md#where-clause): the operations of `C` (and the concepts it refines) are in scope at `T`, and its theorems are givens. Use the theorem at a type with `thm<Bool>`, which needs a model of `C<Bool>` in scope. |
+| `arbitrary T:type where { C<T> }` | Introduce a type with a [where clause](./Reference.md#where-clause): the operations of `C` (and the concepts it refines) are in scope at `T`, and its theorems are givens. Use the theorem at a type with `thm<Bool>`, which needs a model of `C<Bool>` in scope. The clause must repeat the goal's, including same-type constraints (`where { Container<C>, @Container<C>.Elem = bool }`). An associated type is written `@Container<C>.Elem` and is a type of its own unless a constraint says otherwise; `thm<τ>` checks the constraints at the models' types. |
 | `assume name: P`&nbsp;/&nbsp;`suppose name: P` | Discharge an antecedent: `if P then Q` becomes `Q`, with `name : P` in scope. The two keywords are synonyms. |
 | `have name: P by proof` | Add `name : P` to scope without changing the goal. |
 | `show P` | Restate the current goal verbatim (must already match — useful for documenting where you are). |

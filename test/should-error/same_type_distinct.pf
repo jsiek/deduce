@@ -1,0 +1,13 @@
+// Without a same-type constraint, two associated types are different
+// types (#1321; Siek's thesis §4.5).
+
+concept D<U> {
+  type bar
+  type zow
+}
+
+theorem bad: all T:type where { D<T> }.
+  all a:@D<T>.bar, f:fn @D<T>.zow -> T. f(a) = f(a)
+proof
+  sorry
+end

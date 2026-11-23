@@ -74,9 +74,16 @@ prefix_precedence = {'-': 9, 'not': 4}
 sugar_operators = {'≠'}
 recursion_depth = 0
 
+# The projection that each where clause's proxy stands for, by the
+# proxy's unique name (#1321): an `Elem` proxy prints as
+# `@Container<C>.Elem`.
+proxy_projections: dict[str, str] = {}
+
 def name2str(s: str) -> str:
     if get_unique_names():
         return s
+    if s in proxy_projections:
+        return proxy_projections[s]
     if not view_aliasing_suppressed():
         aliased = lookup_view_source_alias(s)
         if aliased is not None:
@@ -109,11 +116,11 @@ MODELS_KEY = ' models'
 # that name (#1264). A use of such a name is resolved by the checker.
 OVERLOADED_PROOFS_KEY = ' overloaded proofs'
 
-# The uniquify-environment key for the members a where clause binds, as
-# (concept instance, member base name, binder, is_theorem, clause),
-# innermost clause first: qualified access `@C<τ>.m` to an instance of a
-# where clause names its binder.
-WHERE_MEMBERS_KEY = ' where members'
+# The uniquify-environment key for the associated types of the instances
+# of the where clause being bound, as (instance, associated type, proxy):
+# in the clause's later constraints, `@C<τ>.Elem` on one of its instances
+# names the proxy (#1321).
+WHERE_ASSOC_KEY = ' where assoc'
 
 ############ AST Base Classes ###########
 

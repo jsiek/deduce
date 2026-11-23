@@ -1,0 +1,8 @@
+// `@Container<Pair<bool, bool>>.Elem` is bool (#1321), so a pair is not
+// one.
+
+import ConceptContainer
+import ConceptOpaqueContainerModel
+import Pair
+
+define t : @Container<Pair<bool, bool>>.Elem = pair(true, true)
