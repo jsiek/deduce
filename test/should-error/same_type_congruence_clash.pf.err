@@ -1,0 +1,1 @@
+./test/should-error/same_type_congruence_clash.pf:9.51-9.52: merging Container<S> and Container<T> is inconsistent: bool ≠ Pair<bool,bool>

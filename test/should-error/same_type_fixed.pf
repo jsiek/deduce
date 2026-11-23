@@ -1,11 +1,13 @@
-// A same-type constraint (#1321) may only constrain the associated types
-// of the where clause's own instances, not a type variable.
+// A same-type constraint (#1321) can't constrain a type variable bound
+// outside the where clause's own `all`: here S is fixed when the where
+// clause is entered.
 
 concept Semi<T> {
   fun op : fn (T, T) -> T
 }
 
-theorem op_bool: all T:type where { Semi<T>, T = bool }. all x:T. op(x, x) = op(x, x)
+theorem op_bool: all S:type. all T:type where { Semi<T>, S = bool }.
+  all x:T. op(x, x) = op(x, x)
 proof
   sorry
 end

@@ -76,3 +76,44 @@ proof
   arbitrary c:C
   @Container<D>.get_put[get(c)]
 end
+
+// The examples of Siek's thesis, §4.5. A constraint between type
+// parameters: inside the where clause, S is T.
+theorem apply_same: all T:type, S:type where { T = S }.
+  all f:fn T -> T, a:S. f(a) = f(a)
+proof
+  arbitrary T:type, S:type where { T = S }
+  arbitrary f:fn T -> T, a:S
+  .
+end
+
+theorem apply_same_bool: all f:fn bool -> bool, a:bool. f(a) = f(a)
+proof
+  apply_same<bool, bool>
+end
+
+// Type equality is transitive.
+theorem apply_trans: all R:type, S:type, T:type where { R = S, S = T }.
+  all f:fn T -> S, a:R. f(a) = f(a)
+proof
+  arbitrary R:type, S:type, T:type where { R = S, S = T }
+  arbitrary f:fn T -> S, a:R
+  .
+end
+
+// Congruence: if S = T then @Container<S>.Elem = @Container<T>.Elem, and
+// Container<S> and Container<T> are one instance, with one get and put.
+theorem congruence: all S:type, T:type where { Container<S>, Container<T>, S = T }.
+  all x:@Container<S>.Elem, y:@Container<T>.Elem. if x = y then get(put(y)) = x
+proof
+  arbitrary S:type, T:type where { Container<S>, Container<T>, S = T }
+  arbitrary x:@Container<S>.Elem, y:@Container<T>.Elem
+  assume eq: x = y
+  replace get_put[y] | eq.
+end
+
+theorem congruence_bool: all x:bool, y:bool.
+  if x = y then @Container<bool>.get(@Container<bool>.put(y)) = x
+proof
+  congruence<bool, bool>
+end

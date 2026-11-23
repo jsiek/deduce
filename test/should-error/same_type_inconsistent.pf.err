@@ -1,1 +1,1 @@
-./test/should-error/same_type_inconsistent.pf:9.13-9.31: the same-type constraints of the where clause are inconsistent: bool ≠ Pair<bool,bool>
+./test/should-error/same_type_inconsistent.pf:9.13-9.31: the same-type constraint @Container<C>.Elem = Pair<bool,bool> is inconsistent: bool ≠ Pair<bool,bool>

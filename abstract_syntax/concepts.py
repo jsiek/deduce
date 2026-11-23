@@ -137,20 +137,31 @@ class WhereClause(AST):
   # associated types become extra type parameters). Filled in by `bind`.
   assoc: List[Tuple[ConceptRef, str, str]] = field(default_factory=list,
                                                    kw_only=True)
-  # The proxies that the same-type constraints determine, and their types
-  # (in terms of the other proxies). Filled in by the checker.
+  # The type variables and proxies that the same-type constraints
+  # determine, and their types. Filled in by the checker, which also
+  # types the constraints (a projection becomes its proxy) and puts the
+  # instances in terms of the solution.
   solution: dict[str, Type] = field(default_factory=dict, kw_only=True)
 
   def __str__(self) -> str:
     return 'where { ' + ', '.join([str(c) for c in self.constraints]
-                                  + [str(s) + ' = ' + str(t)
+                                  + [self.equation_str(s, t)
                                      for (s, t) in self.equations]) + ' }'
 
   def __eq__(self, other: object) -> bool:
     return isinstance(other, WhereClause) \
       and len(self.constraints) == len(other.constraints) \
       and all(a == b for a, b in zip(self.constraints, other.constraints)) \
-      and self.equations == other.equations
+      and self._written() == other._written()
+
+  def _written(self) -> List[Tuple[Type, Type]]:
+    """The same-type constraints with projections for the proxies."""
+    sub = {p: AssocType(self.location, i, t) for (i, t, p) in self.assoc}
+    return [(s.substitute(sub), t.substitute(sub)) for (s, t) in self.equations]
+
+  def equation_str(self, s: Type, t: Type) -> str:
+    sub = {p: AssocType(self.location, i, n) for (i, n, p) in self.assoc}
+    return str(s.substitute(sub)) + ' = ' + str(t.substitute(sub))
 
   def bind(self, env: UniquifyEnv, ctx: UniquifyContext) -> WhereClause:
     """Uniquify the constraints and bind a fresh name for every member
@@ -207,8 +218,7 @@ class WhereClause(AST):
                                   for (s, t) in self.equations],
                        assoc=[(i.substitute(sub), t, p)
                               for (i, t, p) in self.assoc],
-                       solution={p: ty.substitute(sub)
-                                 for (p, ty) in self.solution.items()})
+                       solution=_substitute_solution(self.solution, sub))
 
   def proxies(self) -> List[str]:
     """The proxies that the same-type constraints leave undetermined."""
@@ -225,6 +235,21 @@ class WhereClause(AST):
 
   def theorems(self) -> List[WhereMember]:
     return [m for m in self.members if m.is_theorem]
+
+
+def _substitute_solution(solution: dict[str, Type],
+                         sub: Mapping[str, Term | Type | RecFun | GenRecFun]
+                         ) -> dict[str, Type]:
+  """The solution of a where clause's same-type constraints after
+  ``sub``: a determined type variable that ``sub`` renames keeps its
+  type under the new name; one that ``sub`` replaces with a type is no
+  longer a variable, and the instantiation check covers it."""
+  out = {}
+  for (x, ty) in solution.items():
+    y = sub.get(x)
+    if y is None or isinstance(y, VarRef):
+      out[y.get_name() if y is not None else x] = ty.substitute(sub)
+  return out
 
 
 def where_body(frm: All) -> Formula:
@@ -319,6 +344,10 @@ def where_params(where: WhereClause) -> List[Tuple[str, Type]]:
                  + ' parameterized models on concepts with associated types,'
                  + ' such as ' + str(where.assoc[0][0])
                  + ', are not supported yet (#1321)')
+  if where.equations:
+    static_error(where.equations[0][0].location, 'same-type constraints in'
+                 + ' where clauses of functions and of parameterized models'
+                 + ' are not supported yet (#1321)')
   params = []
   for wm in where.operations():
     decl = concept_decls[wm.instance.concept]

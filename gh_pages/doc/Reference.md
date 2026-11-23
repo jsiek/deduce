@@ -3861,11 +3861,15 @@ theorem transfer: all C:type, D:type
   all c:C. get(@Container<D>.put(get(c))) = get(c)
 ```
 
-Here an element taken out of a `C` can be put into a `D`. A same-type
-constraint may only constrain the associated types of the where
-clause's own instances (`@Container<C>.Elem = bool` is fine,
-`C = bool` is not), and `arbitrary` must repeat it. Using the formula
-checks it: `transfer<A, B>` needs the models of `Container<A>` and
+Here an element taken out of a `C` can be put into a `D`. A constraint
+can relate the `all`'s own type variables and the associated types of
+the where clause's instances, to each other or to other types
+(`T = S`, `@Container<C>.Elem = bool`). Type equality is a congruence,
+so `S = T` also makes `Container<S>` and `Container<T>` one instance,
+with one `Elem`. Types bound outside the `all` are fixed: in
+`all S:type. all T:type where { S = bool }. P`, the constraint is an
+error. `arbitrary` must repeat the constraints, and using the formula
+checks them: `transfer<A, B>` needs the models of `Container<A>` and
 `Container<B>` to give `Elem` the same type.
 
 A where clause on an `all` formula over types restricts the types to

@@ -95,11 +95,11 @@ equations:
    - `List<A> = Pair<B, C>` is an error ("the same-type constraints of the
      where clause are inconsistent");
    - `T = List<T>` is an error (occurs check).
-3. **Congruence:** after a merge, renormalize the instances. If two
-   instances become equal, that is an error (decided): with
-   `where { Container<C>, Container<D>, C = D }`, "the same-type
-   constraints make Container<C> and Container<D> the same instance; list
-   it once".
+3. **Congruence:** after a merge, renormalize the instances. Instances
+   that become equal are merged, as in G: with
+   `where { Container<C>, Container<D>, C = D }`, the two are one
+   instance with one `Elem` (decided, revising an earlier decision that
+   it should be an error).
 4. **Representative:** a constructor term if the class has one, else the
    variable bound outermost.
 
@@ -207,17 +207,24 @@ Each step lands with its fixtures under both parsers.
    congruence, the nested-scope rule, and the instantiation check. Fixtures:
    the `same_first` example, the inconsistent and occurs-check errors, the
    nested-scope error, and the failed instantiation.
-   Done, more simply than planned: only the clause's own proxies can be
-   determined, so the solver is unification that binds proxies
-   (`WhereClause.solution`, proxy to type), with decomposition, the
-   clash error and the occurs check. A constraint on a type variable
-   (`C = bool`) or on an outer clause's proxy is an error, which is the
-   nested-scope rule. Since the instances' type arguments never mention
-   proxies (a projection on the clause's own instance isn't allowed in its
-   constraints), binding proxies can't make two instances equal, so
-   congruence isn't needed yet; it returns with step 6. The expansion
-   binds only the undetermined proxies. Instantiation, and `arbitrary`
-   against the goal, check the determined ones (`_solution_mismatch`).
+   Done, following G (Siek's thesis §4.5, §5.2; the first attempt
+   allowed only proxies to be determined, which the thesis's examples
+   rule out). `_solve` unifies the typed sides (decomposition, clash,
+   occurs check); the variables it may determine are the `all`'s own
+   type variables and the clause's proxies, each by a type or by a
+   variable bound before it (`WhereClause.solution`). Congruence:
+   instances that become equal (`S = T` with `C<S>`, `C<T>`) are merged,
+   so their proxies are unified, and the first instance's members are
+   kept (G merges rather than reports, §5.2.3). Types of outer scopes are
+   fixed (the nested-scope rule). In the scope, a determined type
+   variable is an alias of its type. The expansion binds only the
+   undetermined proxies. Instantiation checks every written constraint
+   with the models' types (`_unsatisfied`, G's `satisfy_requirements`);
+   `arbitrary` must repeat the goal's constraints.
+   Still missing: constraints on projections of the clause's own
+   instances in its concept constraints (`where { Iterator<I>,
+   Less<@Iterator<I>.Elem> }`, the thesis's `merge`), and same-type
+   requirements inside concepts; both come with step 6.
 5. **Docs:** `Reference.md` (Concept, Model, where clauses) and
    `TacticsCheatSheet.md`.
 6. **`require` on associated types:** `require Regular<Elem>` in a

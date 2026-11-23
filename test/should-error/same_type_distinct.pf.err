@@ -1,0 +1,2 @@
+./test/should-error/same_type_distinct.pf:10.43-10.44: expected a term of type zow
+but got term a of type bar

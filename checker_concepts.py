@@ -32,7 +32,7 @@ from abstract_syntax import (
     All, AllElimTypes, And, ArrayType, AssocType, BoolType, Call, ConceptBinding, ConceptDecl,
     ConceptMember, ConceptMemberProof, ConceptRef, Env,
     Formula, IfThen, ModelBinding, MutableArrayType, ModelDecl, ModelInstance, Proof,
-    ResolvedVar, Term, TermInst, Type, FunctionType, TypeInst, TypeType, VarRef, WhereClause, WhereMember, base_name, concept_closure,
+    ResolvedVar, Term, TermBinding, TermInst, Type, TypeAlias, TypeBinding, FunctionType, TypeInst, TypeType, VarRef, WhereClause, WhereMember, base_name, concept_closure,
     where_body,
 )
 from checker_types import check_formula, check_type, type_check_term
@@ -130,10 +130,12 @@ def _binder_lookup(env: Env, where: WhereClause, loc: Meta) -> MemberLookup:
   return lookup
 
 
-def check_where(where: WhereClause, env: Env) -> WhereClause:
+def check_where(where: WhereClause, env: Env,
+                own: list[str] | None = None) -> WhereClause:
   """Type check the concept applications of a where clause (including
   its refinement closure) in ``env``, and solve its same-type
-  constraints."""
+  constraints, which may determine the type variables ``own`` that the
+  clause introduces."""
   def check_ref(ref: ConceptRef) -> ConceptRef:
     concept_of(env, ref.concept, ref.location)
     return ConceptRef(ref.location, ref.concept,
@@ -146,55 +148,108 @@ def check_where(where: WhereClause, env: Env) -> WhereClause:
                         where.expanded, equations=where.equations,
                         assoc=[(check_ref(i), t, p) for (i, t, p) in where.assoc])
   if where.equations:
-    checked.solution = _solve(checked, env)
+    _solve(checked, env, own or [])
   return checked
 
 
-def _solve(where: WhereClause, env: Env) -> dict[str, Type]:
-  """Solve the same-type constraints of ``where`` for its proxies, by
-  unification (#1321): `@Container<D>.Elem = @Container<C>.Elem` gives
-  D's proxy the type C's proxy, and `@Container<C>.Elem = List<T>` gives
-  C's proxy the type `List<T>`. Only the proxies of the where clause can
-  be determined: its type variables and the types of outer scopes are
-  fixed."""
+def _solve(where: WhereClause, env: Env, own: list[str]) -> None:
+  """Solve the same-type constraints of ``where`` (#1321), following the
+  congruence closure of G (Siek's thesis, §4.5 and §5.2): type the
+  constraints, unify their sides, and merge the instances that become
+  equal, which merges their associated types (if `S = T` then
+  `@C<S>.Elem = @C<T>.Elem`). Only the clause's own type variables
+  ``own`` and its proxies can be determined, each by a type or by a
+  variable bound before it; the types of outer scopes are fixed. Sets
+  the checked constraints, the solution, and the instances in terms of
+  the solution."""
   loc = where.location
   proxies = where.proxies()
-  projection = {p: '@' + str(i) + '.' + base_name(t) for (i, t, p) in where.assoc}
+  variables = own + proxies
   scope = add_where_models(loc, where, env.declare_type_vars(loc, proxies))
+  written = [(str(s) + ' = ' + str(t), s.location) for (s, t) in where.equations]
+  where.equations = [(check_type(s, scope), check_type(t, scope))
+                     for (s, t) in where.equations]
   sol: dict[str, Type] = {}
 
-  def unify(s: Type, t: Type, eq: str, eq_loc: Meta) -> None:
+  def describe(x: str) -> str:
+    return next(('@' + str(i) + '.' + str(base_name(t))
+                 for (i, t, p) in where.assoc if p == x),
+                None) or _outer_projection(x, env)
+
+  def unify(s: Type, t: Type, why: str, loc: Meta) -> None:
     s, t = s.substitute(sol), t.substitute(sol)
     if s == t:
       return
-    free = [x for x in (_var_name(s), _var_name(t)) if x is not None and x in proxies]
+    free = [x for u in (s, t) if (x := _var_name(u)) and x in variables]
     if free:
-      p = max(free, key=proxies.index)
-      other = t if _var_name(s) == p else s
-      if p in other.free_vars():
-        user_error(eq_loc, 'the same-type constraint ' + eq + ' makes '
-                   + projection[p] + ' part of itself')
+      x = max(free, key=variables.index)
+      other = t if _var_name(s) == x else s
+      if x in other.free_vars():
+        user_error(loc, why + ' makes ' + describe(x) + ' part of itself')
       for q in sol:
-        sol[q] = sol[q].substitute({p: other})
-      sol[p] = other
+        sol[q] = sol[q].substitute({x: other})
+      sol[x] = other
       return
     pairs = _decompose(s, t)
     if pairs is not None:
       for (a, b) in pairs:
-        unify(a, b, eq, eq_loc)
+        unify(a, b, why, loc)
       return
-    fixed = next((x for u in (s, t) if (x := _var_name(u)) is not None), None)
-    if fixed is not None:
-      user_error(eq_loc, 'the same-type constraint ' + eq + ' constrains '
-                 + _outer_projection(fixed, env) + ', but only the associated types of the'
-                 + " where clause's own instances can be constrained")
-    user_error(eq_loc, 'the same-type constraints of the where clause are'
-               + ' inconsistent: ' + str(s) + ' ≠ ' + str(t))
+    fixed = [x for u in (s, t) if (x := _var_name(u)) and _is_type_var(x, env)]
+    if fixed:
+      user_error(loc, why + ' constrains ' + describe(fixed[0])
+                 + ', which is fixed outside this where clause')
+    user_error(loc, why + ' is inconsistent: ' + str(s) + ' ≠ ' + str(t))
 
-  for (s, t) in where.equations:
-    unify(check_type(s, scope), check_type(t, scope),
-          str(s) + ' = ' + str(t), s.location)
-  return sol
+  pending = [(s, t, 'the same-type constraint ' + w, eq_loc)
+             for ((s, t), (w, eq_loc)) in zip(where.equations, written)]
+  while pending:
+    for (s, t, why, eq_loc) in pending:
+      unify(s, t, why, eq_loc)
+    # Congruence: instances that have become equal are one instance, so
+    # their associated types are equal.
+    pending = []
+    seen: list[tuple[ConceptRef, str, Type, ConceptRef]] = []
+    for (i, t, p) in where.assoc:
+      inst = i.substitute(sol)
+      proxy = cast(Type, ResolvedVar(loc, None, p)).substitute(sol)
+      same = next(((q, k) for (j, u, q, k) in seen if j == inst and u == t),
+                  None)
+      if same is None:
+        seen.append((inst, t, proxy, i))
+      elif same[0] != proxy:
+        pending.append((same[0], proxy, 'merging ' + str(same[1]) + ' and '
+                        + str(i), written[-1][1]))
+  where.solution = sol
+  # Instances that have become equal are one instance: keep the first's
+  # members (G, Siek's thesis §5.2.3).
+  members: list[WhereMember] = []
+  for wm in where.members:
+    m = WhereMember(wm.instance.substitute(sol), wm.member, wm.binder,
+                    wm.is_theorem)
+    if not any(o.instance == m.instance and o.member == m.member
+               for o in members):
+      members.append(m)
+  where.members = members
+  where.assoc = [(i.substitute(sol), t, p) for (i, t, p) in where.assoc]
+
+
+def _is_type_var(x: str, env: Env) -> bool:
+  b = env.dict.get(x)
+  return (isinstance(b, TermBinding) and isinstance(b.typ, TypeType)) \
+    or (isinstance(b, TypeBinding) and b.defn is None)
+
+
+def _group_vars(env: Env, n: int) -> list[str]:
+  """The ``n`` type variables declared last in ``env``: those bound by
+  the same `all` as a where clause's own variable, before it."""
+  names: list[str] = []
+  for (name, b) in reversed(list(env.dict.items())):
+    if len(names) == n or not (isinstance(b, TermBinding)
+                               and isinstance(b.typ, TypeType)):
+      break
+    names.insert(0, name)
+  return names
 
 
 def _outer_projection(x: str, env: Env) -> str:
@@ -216,7 +271,8 @@ def _var_name(t: Type) -> str | None:
 def _decompose(s: Type, t: Type) -> list[tuple[Type, Type]] | None:
   """The pairs of parts that must be equal for ``s`` and ``t``, built
   with the same type constructor, to be equal (``None`` if they are not
-  built with the same one)."""
+  built with the same one). Associated types are not constructors:
+  `@C<S>.Elem = @C<T>.Elem` doesn't make `S` and `T` equal."""
   if isinstance(s, TypeInst) and isinstance(t, TypeInst) \
      and s.typ == t.typ and len(s.arg_types) == len(t.arg_types):
     return list(zip(s.arg_types, t.arg_types))
@@ -230,21 +286,17 @@ def _decompose(s: Type, t: Type) -> list[tuple[Type, Type]] | None:
   return None
 
 
-def _solution_mismatch(where: WhereClause,
-                       lookup: MemberLookup) -> str | None:
+def _unsatisfied(where: WhereClause, lookup: MemberLookup) -> str | None:
   """Why ``lookup``'s associated types don't satisfy the same-type
-  constraints of ``where``, if they don't (#1321)."""
-  sub: dict[str, Term | Type] = \
-      {p: lookup(i, t) for (i, t, p) in where.assoc if p not in where.solution}
-  for (i, t, p) in where.assoc:
-    if p in where.solution:
-      expected = where.solution[p].substitute(sub)
-      actual = lookup(i, t)
-      if actual != expected:
-        return ('the same-type constraints ' + ', '.join(
-                    str(s) + ' = ' + str(u) for (s, u) in where.equations)
-                + ' do not hold: @' + str(i) + '.' + str(base_name(t)) + ' is '
-                + str(actual) + ', not ' + str(expected))
+  constraints of ``where`` (instantiated at the caller's types), if they
+  don't (#1321)."""
+  sub: dict[str, Term | Type] = {p: lookup(i, t) for (i, t, p) in where.assoc}
+  for (s, t) in where.equations:
+    a, b = s.substitute(sub), t.substitute(sub)
+    if a != b:
+      eq: str = where.equation_str(s, t)
+      return 'the same-type constraint ' + eq + ' does not hold' \
+        + ('' if eq == str(a) + ' = ' + str(b) else ': ' + str(a) + ' ≠ ' + str(b))
   return None
 
 
@@ -256,8 +308,13 @@ def _binder_type(env: Env, where: WhereClause, wm: WhereMember,
 
 def declare_where_operations(where: WhereClause, env: Env, loc: Meta) -> Env:
   """The proxies of the where clause's associated types, as type
-  variables, and the binders of its operations."""
+  variables, the type variables that its same-type constraints determine,
+  as aliases, and the binders of its operations."""
   env = env.declare_type_vars(loc, where.proxies())
+  proxies = [p for (_, _, p) in where.assoc]
+  for (x, ty) in where.solution.items():
+    if x not in proxies:
+      env = env.define_type(loc, x, TypeAlias(loc, x, [], ty))
   return env.declare_term_vars(
       loc, [(wm.binder, _binder_type(env, where, wm, loc))
             for wm in where.operations()])
@@ -275,7 +332,8 @@ def check_where_all(frm: All, env: Env,
                + base_name(x) + ':' + str(new_ty))
   body_env = env.declare_term_vars(loc, [(x, new_ty)])
   assert frm.where is not None
-  where = check_where(frm.where, body_env)
+  where = check_where(frm.where, body_env,
+                      _group_vars(env, frm.pos[1] - 1) + [x])
   body_env = declare_where_operations(where, body_env, loc)
   body = check_body(where_body(frm), add_where_models(loc, where, body_env))
   lookup = _binder_lookup(body_env, where, loc)
@@ -329,21 +387,22 @@ def intro_where(loc: Meta, goal: All, x: str, where: WhereClause,
   assert goal.where is not None
   goal_where = goal.where.substitute({goal.var[0]: ResolvedVar(loc, None, x)})
   body_env = env.declare_term_vars(loc, [(x, TypeType(loc))])
-  where = check_where(where, body_env)
+  # The proof repeats the goal's where clause, so its constraints
+  # determine the type variables that the goal's determine.
+  goal_proxies = [p for (_, _, p) in goal_where.assoc]
+  where = check_where(where, body_env, [v for v in goal_where.solution
+                                        if v not in goal_proxies])
   mismatch = 'arbitrary expects the where clause\n\t' + str(goal_where) \
       + '\nbut got\n\t' + str(where)
-  if goal_where.constraints != where.constraints:
+  rename: dict[str, Term | Type] = \
+      {gp: ResolvedVar(loc, None, p)
+       for ((_, _, gp), (_, _, p)) in zip(goal_where.assoc, where.assoc)}
+  if goal_where.constraints != where.constraints \
+     or [(s.substitute(rename), t.substitute(rename))
+         for (s, t) in goal_where.equations] != where.equations:
     user_error(loc, mismatch)
   body_env = declare_where_operations(where, body_env, loc)
   lookup = _binder_lookup(body_env, where, loc)
-  # The proof's same-type constraints must determine the same associated
-  # types as the goal's: the goal's undetermined ones must stay distinct
-  # and undetermined, and its determined ones must agree.
-  free = [_var_name(cast(Type, lookup(i, t)))
-          for (i, t, p) in goal_where.assoc if p not in goal_where.solution]
-  if not all(p in where.proxies() for p in free) or len(set(free)) < len(free) \
-     or _solution_mismatch(goal_where, lookup) is not None:
-    user_error(loc, mismatch)
   frm = goal.body.substitute({goal.var[0]: ResolvedVar(loc, None, x)})
   frm = _strip_operations(loc, frm, goal_where, lookup)
   frm = _discharge(loc, frm, _premise(body_env, where, lookup, loc))
@@ -594,7 +653,7 @@ def instantiate_where(loc: Meta, allfrm: All, type_arg: Type,
   where = allfrm.where.substitute(sub)
   models = _models_in_scope(loc, where.constraints, in_scope, env)
   lookup = _model_lookup(env, models, loc)
-  if (why := _solution_mismatch(where, lookup)) is not None:
+  if (why := _unsatisfied(where, lookup)) is not None:
     user_error(loc, why)
   frm = _strip_operations(loc, allfrm.body.substitute(sub), where, lookup)
   return _discharge(loc, frm, _premise(env, where, lookup, loc))
