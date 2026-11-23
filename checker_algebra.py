@@ -1,7 +1,7 @@
 """The `algebra` tactic: ring normalization (#1190) over the types that
-model ``CommSemiring`` or ``CommRing`` (lib/Algebra.pf, lib/Ring.pf),
-and linear arithmetic (#1189) over the types that model ``LinearArith``
-(lib/Linear.pf).
+model ``CommSemiring``, ``CommRing``, or ``Field`` (lib/Algebra.pf,
+lib/Ring.pf), and linear arithmetic (#1189) over the types that model
+``LinearArith`` (lib/Linear.pf).
 
 The tactic is untrusted search; the checker's own instantiation and
 reduction do the proof.
@@ -9,10 +9,14 @@ reduction do the proof.
 An equation whose sides are equal polynomials is proved by ring
 normalization: read each side as an ``RExpr`` over atoms (the maximal
 subterms that are not sums, products, constants, powers with a UInt
-literal exponent, or, in a ring, differences and negations), instantiate ``ring_prove`` (in a ring) or
-``semiring_prove`` at the goal's type, evaluate its premise, that the
-normal forms are equal, to ``true``, and reduce its conclusion to the
-goal, unfolding only the denotation of lib/Ring.pf.
+literal exponent, or, in a ring, differences and negations), instantiate
+``ring_prove`` (in a ring) or ``semiring_prove`` at the goal's type,
+evaluate its premise, that the normal forms are equal, to ``true``, and
+reduce its conclusion to the goal, unfolding only the denotation of
+lib/Ring.pf. In a field (#1322), an equation with inverses, quotients,
+or fraction constants is proved by ``field_prove`` instead, whose
+second premise, that the inverted factors are nonzero, reduces to side
+conditions proved from the givens.
 
 Otherwise, linear arithmetic:
 
@@ -149,11 +153,27 @@ def _ring_const(t: Term) -> Lin | None:
   return None
 
 
+def _frac_literal(n: Term, d: Term) -> Lin | None:
+  """The fraction constant ``frac(n, d)``, ``('frac', n, d)`` for Nat
+  values, possibly negated, if ``n`` and ``d`` are literals and ``d`` is
+  positive."""
+  a, b = _int_value(n), _int_value(d)
+  match _call(n):
+    case ('-', [u]) if (v := _int_value(u)) is not None:
+      a = -v
+  if a is None or b is None or b <= 0:
+    return None
+  return ('neg', ('frac', -a, b)) if a < 0 else ('frac', a, b)
+
+
 class _Reifier:
   """Reads terms as ``Lin`` or ``RExpr`` expressions, numbering the
   atoms."""
 
-  def __init__(self) -> None:
+  def __init__(self, subtract: bool = False, divide: bool = False) -> None:
+    # In ``ring``: whether differences and negations (in a ring), and
+    # inverses and quotients (in a field), are normalized.
+    self.subtract, self.divide = subtract, divide
     self.atoms: list[Term] = []
 
   def atom(self, t: Term) -> Lin:
@@ -178,27 +198,38 @@ class _Reifier:
         return ('scale', q, c if _is_rat(c) else None, self.lin(a))
     return self.atom(t)
 
-  def ring(self, t: Term, ring: bool) -> Lin:
+  def ring(self, t: Term) -> Lin:
     """``t`` as an ``RExpr`` of lib/Ring.pf: ('var', i), ('zero',),
     ('one',), ('const', n, lit), ('add', a, b), ('mul', a, b), ('pow', a,
-    k, lit) for the UInt literal ``lit`` of value ``k``, and in a ring
-    (not a semiring) ('sub', a, b) and ('neg', a). Sums and products may
-    be flattened by associativity."""
-    if (c := _ring_const(t)) is not None and (ring or c[0] != 'neg'):
+    k, lit) for the UInt literal ``lit`` of value ``k``, in a ring (not a
+    semiring) ('sub', a, b) and ('neg', a), and in a field ('inv', a) and
+    ('div', a, b). Sums and products may be flattened by
+    associativity."""
+    if (c := _ring_const(t)) is not None and (self.subtract or c[0] != 'neg'):
       return c
     match _call(t):
       case ("+" | "*" as op, [a, *bs]) if bs:
-        e = self.ring(a, ring)
+        e = self.ring(a)
         for b in bs:
-          e = ('add' if op == '+' else 'mul', e, self.ring(b, ring))
+          e = ('add' if op == '+' else 'mul', e, self.ring(b))
         return e
-      case ("-", [a, b]) if ring:
-        return ('sub', self.ring(a, ring), self.ring(b, ring))
-      case ("-", [a]) if ring:
-        return ('neg', self.ring(a, ring))
+      case ("-", [a, b]) if self.subtract:
+        return ('sub', self.ring(a), self.ring(b))
+      case ("-", [a]) if self.subtract:
+        return ('neg', self.ring(a))
+      case ('frac', [n, d]) if self.divide and (c := _frac_literal(n, d)):
+        return c
+      case ('real', [q]) if self.divide and (c := _call(q)) is not None \
+          and c[0] == 'frac' and (f := _frac_literal(*c[1])):
+        return f
+      case ("/", [a, b]) if self.divide:
+        return ('div', self.ring(a), self.ring(b))
+      case ("inv", [a]) if self.divide:
+        return ('inv', self.ring(a))
       case ("^", [a, k]) if isUInt(k) and uintToInt(k) <= _MAX_EXPONENT:
-        e = ('pow', self.ring(a, ring), uintToInt(k), k)
-        if max(_poly(e, True).values(), default=0) <= _MAX_COEFFICIENT:
+        e = ('pow', self.ring(a), uintToInt(k), k)
+        if all(max(_poly(p, True).values(), default=0) <= _MAX_COEFFICIENT
+               for p in _frac(e)):
           return e
     return self.atom(t)
 
@@ -251,6 +282,71 @@ def _times(p: Poly, q: Poly) -> Poly:
     mn = tuple(i + j for i, j in itertools.zip_longest(m, n, fillvalue=0))
     out = _plus(out, {mn: c * d}, 1)
   return out
+
+
+# The fraction of an expression, as `field_frac` of lib/Ring.pf computes
+# it (the checker passes the side conditions, which lib/Ring.pf compares
+# with `field_conds`, so the two must agree).
+_ONE: Lin = ('one',)
+
+
+def _fmul(a: Lin, b: Lin) -> Lin:
+  return b if a == _ONE else a if b == _ONE else ('mul', a, b)
+
+
+def _frac(e: Lin) -> tuple[Lin, Lin]:
+  match e:
+    case ('add' | 'sub' as op, a, b):
+      (na, da), (nb, db) = _frac(a), _frac(b)
+      return (op, _fmul(na, db), _fmul(nb, da)), _fmul(da, db)
+    case ('neg', a):
+      na, da = _frac(a)
+      return ('neg', na), da
+    case ('mul', a, b):
+      (na, da), (nb, db) = _frac(a), _frac(b)
+      return _fmul(na, nb), _fmul(da, db)
+    case ('pow', a, k, t):
+      na, da = _frac(a)
+      return ('pow', na, k, t), ('pow', da, k, t)
+    case ('inv', a):
+      na, da = _frac(a)
+      return da, na
+    case ('div', a, b):
+      (na, da), (nb, db) = _frac(a), _frac(b)
+      return _fmul(na, db), _fmul(da, nb)
+    case ('frac', n, d):
+      return ('const', n, None), ('const', d, None)
+  return e, _ONE
+
+
+def _factors(e: Lin) -> list[Lin]:
+  match e:
+    case ('mul', a, b):
+      return _factors(a) + _factors(b)
+    case ('pow', a, k, _):
+      return [] if k == 0 else _factors(a)
+    case ('neg', a):
+      return _factors(a)
+  return [] if e == _ONE else [e]
+
+
+def _conds(e: Lin) -> list[Lin]:
+  """The expressions that must be nonzero, as `field_conds`."""
+  match e:
+    case ('inv', a):
+      return _factors(_frac(a)[0]) + _conds(a)
+    case ('div', a, b):
+      return _factors(_frac(b)[0]) + _conds(a) + _conds(b)
+    case ('frac', _, d):
+      return [('const', d, None)]
+    case (_, *args):
+      return [c for a in args if isinstance(a, tuple) for c in _conds(a)]
+  raise ValueError(e)
+
+
+def _divides(e: Lin) -> bool:
+  return e[0] in ('inv', 'div', 'frac') or any(isinstance(a, tuple) and _divides(a)
+                                       for a in e[1:])
 
 
 def _show_poly(p: Poly, atoms: list[Term]) -> str:
@@ -420,6 +516,9 @@ class _Builder:
                          else self._resolve(mkLitNat(self.loc, n)))
       case ('pow', a, _, t):
         return self.call('rpow', self.rexpr(a), t)
+      case ('frac', n, d):
+        return self.call('rfrac', self._resolve(mkLitNat(self.loc, n)),
+                         self._resolve(mkLitNat(self.loc, d)))
       case (op, *args):
         return self.call('r' + op, *[self.rexpr(a) for a in args])
     raise ValueError(e)
@@ -574,8 +673,12 @@ def _check_ring(proof: AlgebraGoal, goal: Formula, env: Env,
     ring, theorem = False, 'semiring_prove'
   else:
     return ''
-  reifier = _Reifier()
-  a, b = reifier.ring(lhs, ring), reifier.ring(rhs, ring)
+  field = ring and 'field_prove' in proof.names \
+      and _has_model(proof, env, 'Field', ty)
+  reifier = _Reifier(ring, field)
+  a, b = reifier.ring(lhs), reifier.ring(rhs)
+  if _divides(a) or _divides(b):
+    return _check_field(proof, goal, env, check_proof, ty, reifier, a, b)
   pa, pb = _poly(a), _poly(b)
   if pa != pb:
     monus = not ring and any((c := _call(t)) is not None and c[0] in ('-', '∸')
@@ -591,16 +694,89 @@ def _check_ring(proof: AlgebraGoal, goal: Formula, env: Env,
                   [bld.list(reifier.atoms), bld.rexpr(a), bld.rexpr(b)],
                   env, check_proof)
   assert isinstance(frm, IfThen)
-  # The premise, that the normal forms are equal, is about closed
-  # expressions, so it evaluates (fast) to `true`.
-  premise = full_reduce(frm.premise, env)
+  _check_closed(loc, frm.premise, env)
+  _check_conclusion(proof, frm.conclusion, goal, env)
+  return None
+
+
+def _check_field(proof: AlgebraGoal, goal: Formula, env: Env,
+                 check_proof: Callable[[Proof, Env], Formula], ty: Type,
+                 reifier: _Reifier, a: Lin, b: Lin) -> str | None:
+  """Prove ``goal``, an equation ``a = b`` with inverses or quotients, by
+  bringing each side to a fraction and comparing the cross products
+  (``field_prove``). The side conditions, that the inverted factors are
+  nonzero, must be givens or follow by `algebra`'s linear mode."""
+  (na, da), (nb, db) = _frac(a), _frac(b)
+  if _poly(('mul', na, db)) != _poly(('mul', nb, da)):
+    return ('as fractions, the two sides are\n\t'
+            + _show_frac(na, da, reifier.atoms) + '\nand\n\t'
+            + _show_frac(nb, db, reifier.atoms))
+  conds: list[Lin] = []
+  for c in _conds(a) + _conds(b):
+    if c not in conds:
+      conds.append(c)
+  loc = proof.location
+  bld = _Builder(loc, proof.names)
+  frm = _instance(proof, 'field_prove', ty,
+                  [bld.list(reifier.atoms), bld.rexpr(a), bld.rexpr(b),
+                   bld.list([bld.rexpr(c) for c in conds])],
+                  env, check_proof)
+  assert isinstance(frm, IfThen) and isinstance(frm.conclusion, IfThen)
+  _check_closed(loc, frm.premise, env)
+  side = _reduce(loc, frm.conclusion.premise, proof.names, RING_DEFS, [], env)
+  unproved = [p for p in _conjuncts(side)
+              if not (isinstance(p, Bool) and p.value is True)
+              and not _side_condition(proof, p, env, check_proof)]
+  if unproved:
+    user_error(loc, 'algebra needs the denominators to be nonzero, but could'
+               ' not prove\n\t' + '\n\t'.join(str(p) for p in unproved)
+               + '\nfrom the givens')
+  _check_conclusion(proof, frm.conclusion.conclusion, goal, env)
+  return None
+
+
+def _side_condition(proof: AlgebraGoal, p: Formula, env: Env,
+                    check_proof: Callable[[Proof, Env], Formula]) -> bool:
+  """Whether ``p`` is a given (or a `with` fact) or follows from them by
+  `algebra` (its linear mode, as for `not (y = real(+0))` from
+  `real(+0) < y`, or for a constant, `not (real(+2) = real(+0))`)."""
+  givens = env.local_proofs() + [check_proof(g, env) for g in proof.givens]
+  available = [f for g in givens for c in _conjuncts(g) for f in _forms(c, env)]
+  if p in available:
+    return True
+  # A given `not (b = a)`.
+  if (n := _negation(p)) is not None and (r := _relation(n)) is not None \
+     and any((m := _negation(c)) is not None and _relation(m) == ('eq', r[2], r[1])
+             for c in available):
+    return True
+  try:
+    check_algebra(proof, p, env, check_proof)
+    return True
+  except UserError:
+    return False
+
+
+def _check_closed(loc: Meta, premise: Formula, env: Env) -> None:
+  """The premise, that the normal forms are equal, is about closed
+  expressions, so it evaluates (fast) to `true`."""
+  premise = full_reduce(premise, env)
   if not (isinstance(premise, Bool) and premise.value is True):
     user_error(loc, 'algebra: the normal forms are not equal\n\t' + str(premise))
-  frm = _reduce(loc, frm.conclusion, proof.names, RING_DEFS, [], env)
+
+
+def _check_conclusion(proof: AlgebraGoal, frm: Formula, goal: Formula,
+                      env: Env) -> None:
+  frm = _reduce(proof.location, frm, proof.names, RING_DEFS, [], env)
   if frm not in _forms(goal, env):
-    user_error(loc, 'algebra proved\n\t' + str(frm)
+    user_error(proof.location, 'algebra proved\n\t' + str(frm)
                + '\ninstead of\n\t' + str(goal))
-  return None
+
+
+def _show_frac(n: Lin, d: Lin, atoms: list[Term]) -> str:
+  pn, pd = _show_poly(_poly(n), atoms), _show_poly(_poly(d), atoms)
+  if pd == '1':
+    return pn
+  return ' / '.join('(' + s + ')' if ' ' in s else s for s in (pn, pd))
 
 
 def _has_model(proof: AlgebraGoal, env: Env, concept: str, ty: Type) -> bool:

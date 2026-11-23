@@ -20,6 +20,13 @@ module Ring
   forms. In a ring, an expression is normalized to two such polynomials
   `P` and `N`, its value being `P - N`, and `a = b` holds when
   `P(a) + N(b)` and `P(b) + N(a)` have the same normal form.
+
+  In a field (#1322), an expression with inverses, quotients, and
+  fraction constants is brought to a fraction `n / d` of two ring
+  expressions (`field_frac`), and `a = b` holds when `n(a) * d(b)` and
+  `n(b) * d(a)` are equal in the ring, provided each factor that is
+  inverted is nonzero (`field_conds`). The checker passes those factors
+  to `field_prove` and proves that they are nonzero.
 */
 
 // The tactic builds expressions from lists and Nat indices, so their
@@ -41,6 +48,9 @@ union RExpr {
   rneg(RExpr)
   rmul(RExpr, RExpr)
   rpow(RExpr, UInt)
+  rinv(RExpr)
+  rdiv(RExpr, RExpr)
+  rfrac(Nat, Nat)
 }
 
 recursive ring_get<T> where { CommSemiring<T> } (List<T>, Nat) -> T {
@@ -53,8 +63,9 @@ fun ring_tail<T>(xs : List<T>) {
   switch xs { case empty { xs } case node(y, ys) { ys } }
 }
 
-// In a semiring, differences and negations are not normalized; the
-// tactic leaves them in atoms.
+// In a semiring, differences and negations are not normalized, and in
+// a semiring or ring, inverses and quotients; the tactic leaves them
+// in atoms.
 recursive ring_sdenote<T> where { CommSemiring<T> } (RExpr, List<T>) -> T {
   ring_sdenote(rvar(i), env) = ring_get(env, i)
   ring_sdenote(rzero, env) = zero
@@ -65,6 +76,9 @@ recursive ring_sdenote<T> where { CommSemiring<T> } (RExpr, List<T>) -> T {
   ring_sdenote(rneg(a), env) = zero
   ring_sdenote(rmul(a, b), env) = ring_sdenote(a, env) * ring_sdenote(b, env)
   ring_sdenote(rpow(a, k), env) = ring_sdenote(a, env) ^ k
+  ring_sdenote(rinv(a), env) = zero
+  ring_sdenote(rdiv(a, b), env) = zero
+  ring_sdenote(rfrac(n, d), env) = zero
 }
 
 recursive ring_denote<T> where { CommRing<T> } (RExpr, List<T>) -> T {
@@ -77,6 +91,9 @@ recursive ring_denote<T> where { CommRing<T> } (RExpr, List<T>) -> T {
   ring_denote(rneg(a), env) = - ring_denote(a, env)
   ring_denote(rmul(a, b), env) = ring_denote(a, env) * ring_denote(b, env)
   ring_denote(rpow(a, k), env) = ring_denote(a, env) ^ k
+  ring_denote(rinv(a), env) = zero
+  ring_denote(rdiv(a, b), env) = zero
+  ring_denote(rfrac(n, d), env) = zero
 }
 
 /********************** Normal forms **********************/
@@ -156,6 +173,9 @@ recursive ring_norm(RExpr) -> List<Mono> {
   ring_norm(rneg(a)) = []
   ring_norm(rmul(a, b)) = ring_mul(ring_norm(a), ring_norm(b))
   ring_norm(rpow(a, k)) = ring_npow(toNat(k), ring_norm(a))
+  ring_norm(rinv(a)) = []
+  ring_norm(rdiv(a, b)) = []
+  ring_norm(rfrac(n, d)) = []
 }
 
 recursive ring_pow<T> where { CommSemiring<T> } (Nat, T) -> T {
@@ -525,6 +545,18 @@ proof
     expand ring_norm | ring_sdenote
     replace ring_pdenote_npow<T> | IHa[env] | ring_pow_uint<T>[ring_sdenote(a, env), k].
   }
+  case rinv(a) assume IHa {
+    arbitrary env:List<T>
+    expand ring_norm | ring_sdenote | ring_pdenote.
+  }
+  case rdiv(a, b) assume IHa, IHb {
+    arbitrary env:List<T>
+    expand ring_norm | ring_sdenote | ring_pdenote.
+  }
+  case rfrac(n, d) {
+    arbitrary env:List<T>
+    expand ring_norm | ring_sdenote | ring_pdenote.
+  }
 end
 
 theorem semiring_prove: all T:type where { CommSemiring<T> }.
@@ -573,6 +605,9 @@ recursive ring_pn(RExpr) -> PN {
   ring_pn(rneg(a)) = pn_swap(ring_pn(a))
   ring_pn(rmul(a, b)) = pn_mul(ring_pn(a), ring_pn(b))
   ring_pn(rpow(a, k)) = pn_npow(toNat(k), ring_pn(a))
+  ring_pn(rinv(a)) = pn([], [])
+  ring_pn(rdiv(a, b)) = pn([], [])
+  ring_pn(rfrac(n, d)) = pn([], [])
 }
 
 // `a - b` is `(P(a) - N(a)) - (P(b) - N(b))`, which is zero when
@@ -746,6 +781,27 @@ proof
     replace ring_pow_uint<T>[ring_denote(a, env), k]
     apply pn_npow_sound<T>[toNat(k)][ring_denote(a, env), ring_pn(a), env] to IHa[env]
   }
+  case rinv(a) assume IHa {
+    arbitrary env:List<T>
+    expand ring_pn
+    replace pn_pos_pn | pn_neg_pn
+    expand ring_denote | ring_pdenote
+    add_zero
+  }
+  case rdiv(a, b) assume IHa, IHb {
+    arbitrary env:List<T>
+    expand ring_pn
+    replace pn_pos_pn | pn_neg_pn
+    expand ring_denote | ring_pdenote
+    add_zero
+  }
+  case rfrac(n, d) {
+    arbitrary env:List<T>
+    expand ring_pn
+    replace pn_pos_pn | pn_neg_pn
+    expand ring_denote | ring_pdenote
+    add_zero
+  }
 end
 
 theorem ring_prove: all T:type where { CommRing<T> }.
@@ -761,3 +817,745 @@ proof
     by replace symmetric ring_pdenote_add<T> | (expand ring_pn_eq in h).
   apply ring_pn_cancel<T> to ring_pn_sound<T>[a, env], ring_pn_sound<T>[b, env], e
 end
+
+/********************** Soundness in a field **********************/
+
+recursive field_denote<T> where { Field<T> } (RExpr, List<T>) -> T {
+  field_denote(rvar(i), env) = ring_get(env, i)
+  field_denote(rzero, env) = zero
+  field_denote(rone, env) = one
+  field_denote(rconst(n), env) = from_nat(n)
+  field_denote(radd(a, b), env) = field_denote(a, env) + field_denote(b, env)
+  field_denote(rsub(a, b), env) = field_denote(a, env) - field_denote(b, env)
+  field_denote(rneg(a), env) = - field_denote(a, env)
+  field_denote(rmul(a, b), env) = field_denote(a, env) * field_denote(b, env)
+  field_denote(rpow(a, k), env) = field_denote(a, env) ^ k
+  field_denote(rinv(a), env) = inv(field_denote(a, env))
+  field_denote(rdiv(a, b), env) = field_denote(a, env) / field_denote(b, env)
+  field_denote(rfrac(n, d), env) = from_frac(n, d)
+}
+
+// A fraction: a numerator and a denominator, both ring expressions.
+union FP { fp(RExpr, RExpr) }
+
+fun fp_num(x : FP) { switch x { case fp(n, d) { n } } }
+fun fp_den(x : FP) { switch x { case fp(n, d) { d } } }
+
+// The product, without the factor `rone`, so that side conditions read
+// as the user wrote them.
+fun field_mul(a : RExpr, b : RExpr) {
+  if a = rone then b else if b = rone then a else rmul(a, b)
+}
+
+fun fp_add(x : FP, y : FP) {
+  fp(radd(field_mul(fp_num(x), fp_den(y)), field_mul(fp_num(y), fp_den(x))),
+     field_mul(fp_den(x), fp_den(y)))
+}
+
+fun fp_sub(x : FP, y : FP) {
+  fp(rsub(field_mul(fp_num(x), fp_den(y)), field_mul(fp_num(y), fp_den(x))),
+     field_mul(fp_den(x), fp_den(y)))
+}
+
+fun fp_neg(x : FP) { fp(rneg(fp_num(x)), fp_den(x)) }
+
+fun fp_mul(x : FP, y : FP) {
+  fp(field_mul(fp_num(x), fp_num(y)), field_mul(fp_den(x), fp_den(y)))
+}
+
+fun fp_pow(x : FP, k : UInt) { fp(rpow(fp_num(x), k), rpow(fp_den(x), k)) }
+
+fun fp_inv(x : FP) { fp(fp_den(x), fp_num(x)) }
+
+// An expression as a single fraction.
+recursive field_frac(RExpr) -> FP {
+  field_frac(rvar(i)) = fp(rvar(i), rone)
+  field_frac(rzero) = fp(rzero, rone)
+  field_frac(rone) = fp(rone, rone)
+  field_frac(rconst(n)) = fp(rconst(n), rone)
+  field_frac(radd(a, b)) = fp_add(field_frac(a), field_frac(b))
+  field_frac(rsub(a, b)) = fp_sub(field_frac(a), field_frac(b))
+  field_frac(rneg(a)) = fp_neg(field_frac(a))
+  field_frac(rmul(a, b)) = fp_mul(field_frac(a), field_frac(b))
+  field_frac(rpow(a, k)) = fp_pow(field_frac(a), k)
+  field_frac(rinv(a)) = fp_inv(field_frac(a))
+  field_frac(rdiv(a, b)) = fp_mul(field_frac(a), fp_inv(field_frac(b)))
+  field_frac(rfrac(n, d)) = fp(rconst(n), rconst(d))
+}
+
+// The factors of a product, each of which must be nonzero for the
+// product to be.
+recursive field_factors(RExpr) -> List<RExpr> {
+  field_factors(rvar(i)) = [rvar(i)]
+  field_factors(rzero) = [rzero]
+  field_factors(rone) = []
+  field_factors(rconst(n)) = [rconst(n)]
+  field_factors(radd(a, b)) = [radd(a, b)]
+  field_factors(rsub(a, b)) = [rsub(a, b)]
+  field_factors(rneg(a)) = field_factors(a)
+  field_factors(rmul(a, b)) = field_factors(a) ++ field_factors(b)
+  field_factors(rpow(a, k)) = if k = 0 then [] else field_factors(a)
+  field_factors(rinv(a)) = [rinv(a)]
+  field_factors(rdiv(a, b)) = [rdiv(a, b)]
+  field_factors(rfrac(n, d)) = [rfrac(n, d)]
+}
+
+// The side conditions: the factors of each inverted numerator.
+recursive field_conds(RExpr) -> List<RExpr> {
+  field_conds(rvar(i)) = []
+  field_conds(rzero) = []
+  field_conds(rone) = []
+  field_conds(rconst(n)) = []
+  field_conds(radd(a, b)) = field_conds(a) ++ field_conds(b)
+  field_conds(rsub(a, b)) = field_conds(a) ++ field_conds(b)
+  field_conds(rneg(a)) = field_conds(a)
+  field_conds(rmul(a, b)) = field_conds(a) ++ field_conds(b)
+  field_conds(rpow(a, k)) = field_conds(a)
+  field_conds(rinv(a)) = field_factors(fp_num(field_frac(a))) ++ field_conds(a)
+  field_conds(rdiv(a, b)) =
+    field_factors(fp_num(field_frac(b))) ++ (field_conds(a) ++ field_conds(b))
+  field_conds(rfrac(n, d)) = [rconst(d)]
+}
+
+recursive field_nonzero<T> where { Field<T> } (List<RExpr>, List<T>) -> bool {
+  field_nonzero(empty, env) = true
+  field_nonzero(node(c, cs), env) =
+    not (ring_denote(c, env) = zero) and field_nonzero(cs, env)
+}
+
+recursive field_in(List<RExpr>, RExpr) -> bool {
+  field_in(empty, c) = false
+  field_in(node(d, ds), c) = if c = d then true else field_in(ds, c)
+}
+
+recursive field_covers(List<RExpr>, List<RExpr>) -> bool {
+  field_covers(empty, cs) = true
+  field_covers(node(x, xs), cs) = field_in(cs, x) and field_covers(xs, cs)
+}
+
+// The cross products of the two fractions are equal.
+fun field_frac_eq(a : RExpr, b : RExpr) {
+  ring_pn_eq(rmul(fp_num(field_frac(a)), fp_den(field_frac(b))),
+             rmul(fp_num(field_frac(b)), fp_den(field_frac(a))))
+}
+
+// `x` is the fraction `X`, whose denominator is nonzero.
+fun fp_holds<T> where { Field<T> } (x : T, X : FP, env : List<T>) {
+  x * ring_denote(fp_den(X), env) = ring_denote(fp_num(X), env)
+  and not (ring_denote(fp_den(X), env) = zero)
+}
+
+lemma fp_num_fp: all n:RExpr, d:RExpr. fp_num(fp(n, d)) = n
+proof
+  arbitrary n:RExpr, d:RExpr
+  expand fp_num.
+end
+
+lemma fp_den_fp: all n:RExpr, d:RExpr. fp_den(fp(n, d)) = d
+proof
+  arbitrary n:RExpr, d:RExpr
+  expand fp_den.
+end
+
+lemma field_mult_cancel: all T:type where { Field<T> }.
+  all x:T, y:T, z:T. if not (z = zero) and x * z = y * z then x = y
+proof
+  arbitrary T:type where { Field<T> }
+  arbitrary x:T, y:T, z:T
+  assume h
+  have zi: z * inv(z) = one by apply mult_inv to conjunct 0 of h
+  equations
+        x = #x * (z * inv(z))#   by replace zi | mult_one.
+      ... = (x * z) * inv(z)     by symmetric mult_assoc
+      ... = (y * z) * inv(z)     by replace conjunct 1 of h.
+      ... = y * (z * inv(z))     by mult_assoc
+      ... = y                    by replace zi | mult_one.
+end
+
+lemma field_mult_nonzero: all T:type where { Field<T> }.
+  all x:T, y:T. if not (x = zero) and not (y = zero) then not (x * y = zero)
+proof
+  arbitrary T:type where { Field<T> }
+  arbitrary x:T, y:T
+  assume h
+  assume xy
+  have xy2: x * y = zero * y by replace xy | ring_zero_mult<T>.
+  have x0: x = zero by apply field_mult_cancel<T>[x, zero, y] to (conjunct 1 of h), xy2
+  apply (conjunct 0 of h) to x0
+end
+
+lemma field_neg_nonzero: all T:type where { Field<T> }.
+  all x:T. if not (x = zero) then not (- x = zero)
+proof
+  arbitrary T:type where { Field<T> }
+  arbitrary x:T
+  assume h
+  assume nx
+  have x0: x = zero by
+    equations
+          x = #x + zero#  by replace add_zero.
+        ... = #x + - x#   by replace nx.
+        ... = zero        by add_inverse
+  apply h to x0
+end
+
+lemma field_ring_pow_nonzero: all T:type where { Field<T> }.
+  all n:Nat. all x:T. if not (x = zero) then not (ring_pow(n, x) = zero)
+proof
+  arbitrary T:type where { Field<T> }
+  induction Nat
+  case zero {
+    arbitrary x:T
+    assume h
+    expand ring_pow
+    one_nonzero
+  }
+  case suc(n) assume IH {
+    arbitrary x:T
+    assume h
+    expand ring_pow
+    apply field_mult_nonzero<T> to h, (apply IH[x] to h)
+  }
+end
+
+lemma field_pow_nonzero: all T:type where { Field<T> }.
+  all x:T, k:UInt. if not (x = zero) then not (x ^ k = zero)
+proof
+  arbitrary T:type where { Field<T> }
+  arbitrary x:T, k:UInt
+  assume h
+  replace ring_pow_uint<T>[x, k]
+  apply field_ring_pow_nonzero<T>[toNat(k)] to h
+end
+
+lemma ring_pow_mult: all T:type where { CommSemiring<T> }.
+  all n:Nat. all x:T, y:T. ring_pow(n, x * y) = ring_pow(n, x) * ring_pow(n, y)
+proof
+  arbitrary T:type where { CommSemiring<T> }
+  induction Nat
+  case zero {
+    arbitrary x:T, y:T
+    expand ring_pow
+    symmetric mult_one
+  }
+  case suc(n) assume IH {
+    arbitrary x:T, y:T
+    expand ring_pow
+    replace IH[x, y]
+    ring_mult_shuffle<T>
+  }
+end
+
+lemma field_nonzero_append: all T:type where { Field<T> }.
+  all xs:List<RExpr>. all ys:List<RExpr>, env:List<T>.
+  if field_nonzero(xs ++ ys, env)
+  then field_nonzero(xs, env) and field_nonzero(ys, env)
+proof
+  arbitrary T:type where { Field<T> }
+  induction List<RExpr>
+  case empty {
+    arbitrary ys:List<RExpr>, env:List<T>
+    assume h
+    expand field_nonzero
+    expand operator++ in h
+  }
+  case node(x, xs) assume IH {
+    arbitrary ys:List<RExpr>, env:List<T>
+    assume h
+    have h2: not (ring_denote(x, env) = zero) and field_nonzero(xs ++ ys, env)
+      by expand operator++ | field_nonzero in h
+    have rest: field_nonzero(xs, env) and field_nonzero(ys, env)
+      by apply IH[ys, env] to conjunct 1 of h2
+    expand field_nonzero
+    (conjunct 0 of h2), (conjunct 0 of rest), (conjunct 1 of rest)
+  }
+end
+
+lemma field_in_nonzero: all T:type where { Field<T> }.
+  all cs:List<RExpr>. all c:RExpr, env:List<T>.
+  if field_in(cs, c) and field_nonzero(cs, env)
+  then not (ring_denote(c, env) = zero)
+proof
+  arbitrary T:type where { Field<T> }
+  induction List<RExpr>
+  case empty {
+    arbitrary c:RExpr, env:List<T>
+    assume h
+    conclude false by expand field_in in conjunct 0 of h
+  }
+  case node(d, ds) assume IH {
+    arbitrary c:RExpr, env:List<T>
+    assume h
+    have nz: not (ring_denote(d, env) = zero) and field_nonzero(ds, env)
+      by expand field_nonzero in conjunct 1 of h
+    switch c = d {
+      case true assume cd {
+        replace cd
+        conjunct 0 of nz
+      }
+      case false assume cd {
+        have rest: field_in(ds, c) by
+          simplify with cd in (expand field_in in (conjunct 0 of h))
+        apply IH[c, env] to rest, (conjunct 1 of nz)
+      }
+    }
+  }
+end
+
+lemma field_covers_nonzero: all T:type where { Field<T> }.
+  all xs:List<RExpr>. all cs:List<RExpr>, env:List<T>.
+  if field_covers(xs, cs) and field_nonzero(cs, env)
+  then field_nonzero(xs, env)
+proof
+  arbitrary T:type where { Field<T> }
+  induction List<RExpr>
+  case empty {
+    arbitrary cs:List<RExpr>, env:List<T>
+    assume h
+    expand field_nonzero.
+  }
+  case node(x, xs) assume IH {
+    arbitrary cs:List<RExpr>, env:List<T>
+    assume h
+    have cov: field_in(cs, x) and field_covers(xs, cs)
+      by expand field_covers in conjunct 0 of h
+    expand field_nonzero
+    (apply field_in_nonzero<T>[cs, x, env] to (conjunct 0 of cov), (conjunct 1 of h)),
+    (apply IH[cs, env] to (conjunct 1 of cov), (conjunct 1 of h))
+  }
+end
+
+// A product is nonzero when its factors are.
+lemma field_factors_nonzero: all T:type where { Field<T> }.
+  all e:RExpr. all env:List<T>.
+  if field_nonzero(field_factors(e), env) then not (ring_denote(e, env) = zero)
+proof
+  arbitrary T:type where { Field<T> }
+  induction RExpr
+  case rvar(i) {
+    arbitrary env:List<T>
+    assume h
+    conjunct 0 of (expand field_factors | field_nonzero in h)
+  }
+  case rzero {
+    arbitrary env:List<T>
+    assume h
+    conjunct 0 of (expand field_factors | field_nonzero in h)
+  }
+  case rone {
+    arbitrary env:List<T>
+    assume h
+    expand ring_denote
+    one_nonzero
+  }
+  case rconst(n) {
+    arbitrary env:List<T>
+    assume h
+    conjunct 0 of (expand field_factors | field_nonzero in h)
+  }
+  case radd(a, b) assume IHa, IHb {
+    arbitrary env:List<T>
+    assume h
+    conjunct 0 of (expand field_factors | field_nonzero in h)
+  }
+  case rsub(a, b) assume IHa, IHb {
+    arbitrary env:List<T>
+    assume h
+    conjunct 0 of (expand field_factors | field_nonzero in h)
+  }
+  case rneg(a) assume IHa {
+    arbitrary env:List<T>
+    assume h
+    expand ring_denote
+    apply field_neg_nonzero<T>[ring_denote(a, env)] to (apply IHa[env] to (expand field_factors in h))
+  }
+  case rmul(a, b) assume IHa, IHb {
+    arbitrary env:List<T>
+    assume h
+    have both: field_nonzero(field_factors(a), env) and field_nonzero(field_factors(b), env)
+      by apply field_nonzero_append<T> to (expand field_factors in h)
+    expand ring_denote
+    apply field_mult_nonzero<T> to (apply IHa[env] to conjunct 0 of both),
+                                   (apply IHb[env] to (conjunct 1 of both))
+  }
+  case rpow(a, k) assume IHa {
+    arbitrary env:List<T>
+    assume h
+    expand ring_denote
+    switch k = 0 {
+      case true assume k0 {
+        replace k0 | pow_zero
+        one_nonzero
+      }
+      case false assume kn0 {
+        have ha: field_nonzero(field_factors(a), env) by simplify with kn0 in expand field_factors in h
+        apply field_pow_nonzero<T>[ring_denote(a, env), k] to (apply IHa[env] to ha)
+      }
+    }
+  }
+  case rinv(a) assume IHa {
+    arbitrary env:List<T>
+    assume h
+    conjunct 0 of (expand field_factors | field_nonzero in h)
+  }
+  case rdiv(a, b) assume IHa, IHb {
+    arbitrary env:List<T>
+    assume h
+    conjunct 0 of (expand field_factors | field_nonzero in h)
+  }
+  case rfrac(n, d) {
+    arbitrary env:List<T>
+    assume h
+    conjunct 0 of (expand field_factors | field_nonzero in h)
+  }
+end
+
+lemma field_mul_denote: all T:type where { Field<T> }.
+  all a:RExpr, b:RExpr, env:List<T>.
+  ring_denote(field_mul(a, b), env) = ring_denote(a, env) * ring_denote(b, env)
+proof
+  arbitrary T:type where { Field<T> }
+  arbitrary a:RExpr, b:RExpr, env:List<T>
+  expand field_mul
+  switch a = rone {
+    case true assume ea {
+      replace ea
+      expand ring_denote
+      symmetric ring_one_mult<T>
+    }
+    case false {
+      switch b = rone {
+        case true assume eb {
+          replace eb
+          expand ring_denote
+          symmetric mult_one
+        }
+        case false {
+          expand ring_denote.
+        }
+      }
+    }
+  }
+end
+
+lemma fp_add_sound: all T:type where { Field<T> }.
+  all x:T, y:T, X:FP, Y:FP, env:List<T>.
+  if fp_holds(x, X, env) and fp_holds(y, Y, env)
+  then fp_holds(x + y, fp_add(X, Y), env)
+proof
+  arbitrary T:type where { Field<T> }
+  arbitrary x:T, y:T, X:FP, Y:FP, env:List<T>
+  assume h
+  have hx: x * ring_denote(fp_den(X), env) = ring_denote(fp_num(X), env)
+           and not (ring_denote(fp_den(X), env) = zero)
+    by expand fp_holds in conjunct 0 of h
+  have hy: y * ring_denote(fp_den(Y), env) = ring_denote(fp_num(Y), env)
+           and not (ring_denote(fp_den(Y), env) = zero)
+    by expand fp_holds in conjunct 1 of h
+  expand fp_holds | fp_add
+  replace fp_num_fp | fp_den_fp
+  expand ring_denote
+  replace field_mul_denote<T>
+        | symmetric conjunct 0 of hx | symmetric conjunct 0 of hy
+  have eq: (x + y) * (ring_denote(fp_den(X), env) * ring_denote(fp_den(Y), env))
+         = (x * ring_denote(fp_den(X), env)) * ring_denote(fp_den(Y), env)
+           + (y * ring_denote(fp_den(Y), env)) * ring_denote(fp_den(X), env)
+    by algebra
+  eq, (apply field_mult_nonzero<T> to (conjunct 1 of hx), (conjunct 1 of hy))
+end
+
+lemma fp_sub_sound: all T:type where { Field<T> }.
+  all x:T, y:T, X:FP, Y:FP, env:List<T>.
+  if fp_holds(x, X, env) and fp_holds(y, Y, env)
+  then fp_holds(x - y, fp_sub(X, Y), env)
+proof
+  arbitrary T:type where { Field<T> }
+  arbitrary x:T, y:T, X:FP, Y:FP, env:List<T>
+  assume h
+  have hx: x * ring_denote(fp_den(X), env) = ring_denote(fp_num(X), env)
+           and not (ring_denote(fp_den(X), env) = zero)
+    by expand fp_holds in conjunct 0 of h
+  have hy: y * ring_denote(fp_den(Y), env) = ring_denote(fp_num(Y), env)
+           and not (ring_denote(fp_den(Y), env) = zero)
+    by expand fp_holds in conjunct 1 of h
+  expand fp_holds | fp_sub
+  replace fp_num_fp | fp_den_fp
+  expand ring_denote
+  replace field_mul_denote<T>
+        | symmetric conjunct 0 of hx | symmetric conjunct 0 of hy
+  have eq: (x - y) * (ring_denote(fp_den(X), env) * ring_denote(fp_den(Y), env))
+         = (x * ring_denote(fp_den(X), env)) * ring_denote(fp_den(Y), env)
+           - (y * ring_denote(fp_den(Y), env)) * ring_denote(fp_den(X), env)
+    by algebra
+  eq, (apply field_mult_nonzero<T> to (conjunct 1 of hx), (conjunct 1 of hy))
+end
+
+lemma fp_neg_sound: all T:type where { Field<T> }.
+  all x:T, X:FP, env:List<T>.
+  if fp_holds(x, X, env) then fp_holds(- x, fp_neg(X), env)
+proof
+  arbitrary T:type where { Field<T> }
+  arbitrary x:T, X:FP, env:List<T>
+  assume h
+  have hx: x * ring_denote(fp_den(X), env) = ring_denote(fp_num(X), env)
+           and not (ring_denote(fp_den(X), env) = zero)
+    by expand fp_holds in h
+  expand fp_holds | fp_neg
+  replace fp_num_fp | fp_den_fp
+  expand ring_denote
+  replace symmetric conjunct 0 of hx
+  have eq: (- x) * ring_denote(fp_den(X), env) = - (x * ring_denote(fp_den(X), env))
+    by algebra
+  eq, (conjunct 1 of hx)
+end
+
+lemma fp_mul_sound: all T:type where { Field<T> }.
+  all x:T, y:T, X:FP, Y:FP, env:List<T>.
+  if fp_holds(x, X, env) and fp_holds(y, Y, env)
+  then fp_holds(x * y, fp_mul(X, Y), env)
+proof
+  arbitrary T:type where { Field<T> }
+  arbitrary x:T, y:T, X:FP, Y:FP, env:List<T>
+  assume h
+  have hx: x * ring_denote(fp_den(X), env) = ring_denote(fp_num(X), env)
+           and not (ring_denote(fp_den(X), env) = zero)
+    by expand fp_holds in conjunct 0 of h
+  have hy: y * ring_denote(fp_den(Y), env) = ring_denote(fp_num(Y), env)
+           and not (ring_denote(fp_den(Y), env) = zero)
+    by expand fp_holds in conjunct 1 of h
+  expand fp_holds | fp_mul
+  replace fp_num_fp | fp_den_fp | field_mul_denote<T>
+        | symmetric conjunct 0 of hx | symmetric conjunct 0 of hy
+  have eq: (x * y) * (ring_denote(fp_den(X), env) * ring_denote(fp_den(Y), env))
+         = (x * ring_denote(fp_den(X), env)) * (y * ring_denote(fp_den(Y), env))
+    by algebra
+  eq, (apply field_mult_nonzero<T> to (conjunct 1 of hx), (conjunct 1 of hy))
+end
+
+lemma fp_pow_sound: all T:type where { Field<T> }.
+  all x:T, k:UInt, X:FP, env:List<T>.
+  if fp_holds(x, X, env) then fp_holds(x ^ k, fp_pow(X, k), env)
+proof
+  arbitrary T:type where { Field<T> }
+  arbitrary x:T, k:UInt, X:FP, env:List<T>
+  assume h
+  have hx: x * ring_denote(fp_den(X), env) = ring_denote(fp_num(X), env)
+           and not (ring_denote(fp_den(X), env) = zero)
+    by expand fp_holds in h
+  have nz: not (ring_denote(fp_den(X), env) ^ k = zero)
+    by apply field_pow_nonzero<T>[ring_denote(fp_den(X), env), k] to (conjunct 1 of hx)
+  expand fp_holds | fp_pow
+  replace fp_num_fp | fp_den_fp
+  expand ring_denote
+  replace symmetric conjunct 0 of hx
+  have eq: x ^ k * ring_denote(fp_den(X), env) ^ k
+         = (x * ring_denote(fp_den(X), env)) ^ k
+    by replace ring_pow_uint<T> | ring_pow_mult<T>.
+  eq, nz
+end
+
+lemma fp_inv_sound: all T:type where { Field<T> }.
+  all x:T, X:FP, env:List<T>.
+  if fp_holds(x, X, env) and not (ring_denote(fp_num(X), env) = zero)
+  then fp_holds(inv(x), fp_inv(X), env)
+proof
+  arbitrary T:type where { Field<T> }
+  arbitrary x:T, X:FP, env:List<T>
+  assume h
+  have hx: x * ring_denote(fp_den(X), env) = ring_denote(fp_num(X), env)
+           and not (ring_denote(fp_den(X), env) = zero)
+    by expand fp_holds in conjunct 0 of h
+  have xnz: not (x = zero) by {
+    assume x0
+    have n0: ring_denote(fp_num(X), env) = zero by
+      replace symmetric (conjunct 0 of hx) | x0 | ring_zero_mult<T>.
+    apply (conjunct 1 of h) to n0
+  }
+  have xi: x * inv(x) = one by apply mult_inv to xnz
+  expand fp_holds | fp_inv
+  replace fp_num_fp | fp_den_fp
+  have eq: inv(x) * ring_denote(fp_num(X), env) = ring_denote(fp_den(X), env) by
+    equations
+          inv(x) * ring_denote(fp_num(X), env)
+        = inv(x) * (x * ring_denote(fp_den(X), env))   by replace symmetric conjunct 0 of hx.
+      ... = (x * inv(x)) * ring_denote(fp_den(X), env)
+            by replace symmetric mult_assoc[inv(x), x, ring_denote(fp_den(X), env)]
+                     | mult_commute[inv(x), x].
+      ... = ring_denote(fp_den(X), env)                by replace xi | ring_one_mult<T>.
+  eq, (conjunct 1 of h)
+end
+
+lemma fp_leaf: all T:type where { Field<T> }.
+  all e:RExpr, env:List<T>. fp_holds(ring_denote(e, env), fp(e, rone), env)
+proof
+  arbitrary T:type where { Field<T> }
+  arbitrary e:RExpr, env:List<T>
+  expand fp_holds
+  replace fp_num_fp | fp_den_fp
+  expand ring_denote
+  replace mult_one
+  one_nonzero
+end
+
+// Under the side conditions, an expression is its fraction.
+lemma field_frac_sound: all T:type where { Field<T> }.
+  all e:RExpr. all env:List<T>.
+  if field_nonzero(field_conds(e), env)
+  then fp_holds(field_denote(e, env), field_frac(e), env)
+proof
+  arbitrary T:type where { Field<T> }
+  induction RExpr
+  case rvar(i) {
+    arbitrary env:List<T>
+    assume h
+    expand field_frac | field_denote
+    expand ring_denote in fp_leaf<T>[rvar(i), env]
+  }
+  case rzero {
+    arbitrary env:List<T>
+    assume h
+    expand field_frac | field_denote
+    expand ring_denote in fp_leaf<T>[rzero, env]
+  }
+  case rone {
+    arbitrary env:List<T>
+    assume h
+    expand field_frac | field_denote
+    expand ring_denote in fp_leaf<T>[rone, env]
+  }
+  case rconst(n) {
+    arbitrary env:List<T>
+    assume h
+    expand field_frac | field_denote
+    expand ring_denote in fp_leaf<T>[rconst(n), env]
+  }
+  case radd(a, b) assume IHa, IHb {
+    arbitrary env:List<T>
+    assume h
+    have both: field_nonzero(field_conds(a), env) and field_nonzero(field_conds(b), env)
+      by apply field_nonzero_append<T> to (expand field_conds in h)
+    expand field_frac | field_denote
+    apply fp_add_sound<T> to (apply IHa[env] to (conjunct 0 of both)),
+                             (apply IHb[env] to (conjunct 1 of both))
+  }
+  case rsub(a, b) assume IHa, IHb {
+    arbitrary env:List<T>
+    assume h
+    have both: field_nonzero(field_conds(a), env) and field_nonzero(field_conds(b), env)
+      by apply field_nonzero_append<T> to (expand field_conds in h)
+    expand field_frac | field_denote
+    apply fp_sub_sound<T> to (apply IHa[env] to (conjunct 0 of both)),
+                             (apply IHb[env] to (conjunct 1 of both))
+  }
+  case rneg(a) assume IHa {
+    arbitrary env:List<T>
+    assume h
+    expand field_frac | field_denote
+    apply fp_neg_sound<T> to (apply IHa[env] to (expand field_conds in h))
+  }
+  case rmul(a, b) assume IHa, IHb {
+    arbitrary env:List<T>
+    assume h
+    have both: field_nonzero(field_conds(a), env) and field_nonzero(field_conds(b), env)
+      by apply field_nonzero_append<T> to (expand field_conds in h)
+    expand field_frac | field_denote
+    apply fp_mul_sound<T> to (apply IHa[env] to (conjunct 0 of both)),
+                             (apply IHb[env] to (conjunct 1 of both))
+  }
+  case rpow(a, k) assume IHa {
+    arbitrary env:List<T>
+    assume h
+    expand field_frac | field_denote
+    apply fp_pow_sound<T>[field_denote(a, env), k, field_frac(a), env]
+      to (apply IHa[env] to (expand field_conds in h))
+  }
+  case rinv(a) assume IHa {
+    arbitrary env:List<T>
+    assume h
+    have both: field_nonzero(field_factors(fp_num(field_frac(a))), env)
+               and field_nonzero(field_conds(a), env)
+      by apply field_nonzero_append<T> to (expand field_conds in h)
+    expand field_frac | field_denote
+    apply fp_inv_sound<T> to (apply IHa[env] to (conjunct 1 of both)),
+      (apply field_factors_nonzero<T> to (conjunct 0 of both))
+  }
+  case rdiv(a, b) assume IHa, IHb {
+    arbitrary env:List<T>
+    assume h
+    have h1: field_nonzero(field_factors(fp_num(field_frac(b))), env)
+             and field_nonzero(field_conds(a) ++ field_conds(b), env)
+      by apply field_nonzero_append<T> to (expand field_conds in h)
+    have both: field_nonzero(field_conds(a), env) and field_nonzero(field_conds(b), env)
+      by apply field_nonzero_append<T> to (conjunct 1 of h1)
+    have hb: fp_holds(inv(field_denote(b, env)), fp_inv(field_frac(b)), env)
+      by apply fp_inv_sound<T> to (apply IHb[env] to (conjunct 1 of both)),
+           (apply field_factors_nonzero<T> to (conjunct 0 of h1))
+    expand field_frac | field_denote
+    replace div_def
+    apply fp_mul_sound<T> to (apply IHa[env] to (conjunct 0 of both)), hb
+  }
+  case rfrac(n, d) {
+    arbitrary env:List<T>
+    assume h
+    have dnz: not (from_nat(d) = zero)
+      by conjunct 0 of (expand field_conds | field_nonzero | ring_denote in h)
+    expand field_frac | field_denote | fp_holds
+    replace fp_num_fp | fp_den_fp
+    expand ring_denote
+    (apply from_frac_mult[n, d] to dnz), dnz
+  }
+end
+
+// If x = nx / dx and y = ny / dy, and the cross products are equal,
+// then x = y.
+lemma field_cross_cancel: all T:type where { Field<T> }.
+  all x:T, y:T, nx:T, ny:T, dx:T, dy:T.
+  if x * dx = nx and y * dy = ny and nx * dy = ny * dx
+     and not (dx = zero) and not (dy = zero)
+  then x = y
+proof
+  arbitrary T:type where { Field<T> }
+  arbitrary x:T, y:T, nx:T, ny:T, dx:T, dy:T
+  assume h
+  have e: x * (dx * dy) = y * (dx * dy) by
+    equations
+          x * (dx * dy) = (x * dx) * dy   by algebra
+        ... = nx * dy                     by replace conjunct 0 of h.
+        ... = ny * dx                     by conjunct 2 of h
+        ... = (y * dy) * dx               by replace symmetric conjunct 1 of h.
+        ... = y * (dx * dy)               by algebra
+  apply field_mult_cancel<T>[x, y, dx * dy]
+    to (apply field_mult_nonzero<T> to (conjunct 3 of h), (conjunct 4 of h)), e
+end
+
+theorem field_prove: all T:type where { Field<T> }.
+  all env:List<T>, a:RExpr, b:RExpr, cs:List<RExpr>.
+  if field_frac_eq(a, b) and field_covers(field_conds(a) ++ field_conds(b), cs)
+  then if field_nonzero(cs, env)
+  then field_denote(a, env) = field_denote(b, env)
+proof
+  arbitrary T:type where { Field<T> }
+  arbitrary env:List<T>, a:RExpr, b:RExpr, cs:List<RExpr>
+  assume h
+  assume nz
+  have conds: field_nonzero(field_conds(a), env) and field_nonzero(field_conds(b), env)
+    by apply field_nonzero_append<T>
+         to (apply field_covers_nonzero<T> to (conjunct 1 of h), nz)
+  have ha: field_denote(a, env) * ring_denote(fp_den(field_frac(a)), env)
+           = ring_denote(fp_num(field_frac(a)), env)
+           and not (ring_denote(fp_den(field_frac(a)), env) = zero)
+    by expand fp_holds in (apply field_frac_sound<T> to (conjunct 0 of conds))
+  have hb: field_denote(b, env) * ring_denote(fp_den(field_frac(b)), env)
+           = ring_denote(fp_num(field_frac(b)), env)
+           and not (ring_denote(fp_den(field_frac(b)), env) = zero)
+    by expand fp_holds in (apply field_frac_sound<T> to (conjunct 1 of conds))
+  have cross: ring_denote(fp_num(field_frac(a)), env) * ring_denote(fp_den(field_frac(b)), env)
+            = ring_denote(fp_num(field_frac(b)), env) * ring_denote(fp_den(field_frac(a)), env)
+    by expand ring_denote in
+         (apply ring_prove<T>[env, rmul(fp_num(field_frac(a)), fp_den(field_frac(b))),
+                                   rmul(fp_num(field_frac(b)), fp_den(field_frac(a)))]
+          to (expand field_frac_eq in (conjunct 0 of h)))
+  apply field_cross_cancel<T> to (conjunct 0 of ha), (conjunct 0 of hb), cross,
+                                 (conjunct 1 of ha), (conjunct 1 of hb)
+end
+
