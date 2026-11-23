@@ -319,7 +319,7 @@ class TheoremFilePrinting(Protocol):
 ################ Miscellaneous Functions #####################
 
 def copy_dict[T](d: dict[str, T]) -> dict[str, T]:
-  return {k: v for k, v in d.items()}
+  return d.copy()
 
 
 def maybe_str(o: Proof | str | None, default: str = '') -> str:

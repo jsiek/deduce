@@ -638,20 +638,21 @@ def check_algebra(proof: AlgebraGoal, goal: Formula, env: Env,
                                    b.list([b.rat(c) for c in cs])]
   frm = _instance(proof, theorem, ty, [b.list(reifier.atoms)] + args, env,
                   check_proof)
-  frm = _reduce(loc, frm, proof.names, LINEAR_DEFS, _scale_op(frm), env)
-  if frm in _forms(goal, env):
-    return  # no facts were needed, so the premise reduced away
-  if not isinstance(frm, IfThen):
-    user_error(loc, 'algebra: unexpected instance\n\t' + str(frm))
-  # The premises are the certificate's check, which reduces to `true`,
-  # and the facts, which are givens (up to unfolding ≥ and >).
+  # The premise is the certificate's check, which is closed, so it
+  # evaluates, and the facts, which must be givens (up to unfolding ≥
+  # and >).
+  assert isinstance(frm, IfThen) and isinstance(frm.premise, And)
+  check, hold = frm.premise.args
+  _check_closed(loc, check, env)
+  ops = _scale_op(frm)
   facts = [f for c in available for f in _forms(c, env)]
-  for p in _conjuncts(frm.premise):
+  for p in _conjuncts(_reduce(loc, hold, proof.names, LINEAR_DEFS, ops, env)):
     if not (isinstance(p, Bool) and p.value is True) and p not in facts:
       user_error(loc, 'algebra: the certificate needs\n\t' + str(p)
                  + '\nwhich is not a given')
-  if frm.conclusion not in _forms(goal, env):
-    user_error(loc, 'algebra proved\n\t' + str(frm.conclusion)
+  concl = _reduce(loc, frm.conclusion, proof.names, LINEAR_DEFS, ops, env)
+  if concl not in _forms(goal, env):
+    user_error(loc, 'algebra proved\n\t' + str(concl)
                + '\ninstead of\n\t' + str(goal))
 
 
@@ -757,11 +758,13 @@ def _side_condition(proof: AlgebraGoal, p: Formula, env: Env,
 
 
 def _check_closed(loc: Meta, premise: Formula, env: Env) -> None:
-  """The premise, that the normal forms are equal, is about closed
-  expressions, so it evaluates (fast) to `true`."""
+  """The premise, that the normal forms are equal (or that the linear
+  certificate checks), is about closed expressions, so it evaluates
+  (fast) to `true`."""
   premise = full_reduce(premise, env)
   if not (isinstance(premise, Bool) and premise.value is True):
-    user_error(loc, 'algebra: the normal forms are not equal\n\t' + str(premise))
+    user_error(loc, 'algebra: the check did not evaluate to true\n\t'
+               + str(premise))
 
 
 def _check_conclusion(proof: AlgebraGoal, frm: Formula, goal: Formula,
