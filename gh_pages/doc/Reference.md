@@ -807,7 +807,8 @@ theorem get_put_twice: all C:type where { Container<C> }.
 ```
 
 `@Container<C>.Elem` is a type that nothing more is known about, and
-using the theorem at `Pair<bool, bool>` makes it `bool`. Where clauses
+using the theorem at `Pair<bool, bool>` makes it `bool`. A
+[same-type constraint](#where-clause) can say more. Where clauses
 of functions and of parameterized models on such concepts, refining
 such a concept, and `require` on an associated type are not supported
 yet (#1321).
@@ -3850,9 +3851,22 @@ where_constraint ::= concept_ref
 where_constraint ::= type "=" type
 ```
 
-A constraint `σ = τ` is a same-type constraint, as in
-`where { Container<C>, Container<D>, @Container<C>.Elem = @Container<D>.Elem }`.
-Same-type constraints are parsed but not yet checked (#1321).
+A constraint `σ = τ` is a same-type constraint. It makes two types the
+same in the scope of the where clause:
+
+```
+theorem transfer: all C:type, D:type
+    where { Container<C>, Container<D>,
+            @Container<C>.Elem = @Container<D>.Elem }.
+  all c:C. get(@Container<D>.put(get(c))) = get(c)
+```
+
+Here an element taken out of a `C` can be put into a `D`. A same-type
+constraint may only constrain the associated types of the where
+clause's own instances (`@Container<C>.Elem = bool` is fine,
+`C = bool` is not), and `arbitrary` must repeat it. Using the formula
+checks it: `transfer<A, B>` needs the models of `Container<A>` and
+`Container<B>` to give `Elem` the same type.
 
 A where clause on an `all` formula over types restricts the types to
 those that satisfy some [concepts](#concept-statement):

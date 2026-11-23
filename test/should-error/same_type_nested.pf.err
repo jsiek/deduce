@@ -1,0 +1,1 @@
+./test/should-error/same_type_nested.pf:9.48-9.66: the same-type constraint @Container<C>.Elem = bool constrains @Container<C>.Elem, but only the associated types of the where clause's own instances can be constrained

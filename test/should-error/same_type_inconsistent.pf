@@ -1,0 +1,13 @@
+// Same-type constraints (#1321) that give an associated type two
+// different types are inconsistent.
+
+import ConceptContainer
+import Pair
+
+theorem bad: all C:type
+    where { Container<C>, @Container<C>.Elem = bool,
+            @Container<C>.Elem = Pair<bool, bool> }.
+  true
+proof
+  sorry
+end

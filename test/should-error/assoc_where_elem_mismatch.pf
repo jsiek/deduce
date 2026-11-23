@@ -1,5 +1,5 @@
-// Inside a where clause, @Container<C>.Elem is a type variable of its own
-// (#1321): an element of C is not one.
+// Inside a where clause, C and @Container<C>.Elem are different types
+// (#1321), so put(c) with c:C is ill-typed: put expects an Elem.
 
 import ConceptContainer
 

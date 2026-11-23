@@ -1,0 +1,1 @@
+./test/should-error/same_type_fixed.pf:8.46-8.47: the same-type constraint T = bool constrains T, but only the associated types of the where clause's own instances can be constrained

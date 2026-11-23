@@ -207,6 +207,17 @@ Each step lands with its fixtures under both parsers.
    congruence, the nested-scope rule, and the instantiation check. Fixtures:
    the `same_first` example, the inconsistent and occurs-check errors, the
    nested-scope error, and the failed instantiation.
+   Done, more simply than planned: only the clause's own proxies can be
+   determined, so the solver is unification that binds proxies
+   (`WhereClause.solution`, proxy to type), with decomposition, the
+   clash error and the occurs check. A constraint on a type variable
+   (`C = bool`) or on an outer clause's proxy is an error, which is the
+   nested-scope rule. Since the instances' type arguments never mention
+   proxies (a projection on the clause's own instance isn't allowed in its
+   constraints), binding proxies can't make two instances equal, so
+   congruence isn't needed yet; it returns with step 6. The expansion
+   binds only the undetermined proxies. Instantiation, and `arbitrary`
+   against the goal, check the determined ones (`_solution_mismatch`).
 5. **Docs:** `Reference.md` (Concept, Model, where clauses) and
    `TacticsCheatSheet.md`.
 6. **`require` on associated types:** `require Regular<Elem>` in a

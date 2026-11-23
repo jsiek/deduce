@@ -1,5 +1,5 @@
-// Same-type constraints (#1321) parse, but the checker does not support
-// them yet.
+// A same-type constraint (#1321) may only constrain the associated types
+// of the where clause's own instances, not a type variable.
 
 concept Semi<T> {
   fun op : fn (T, T) -> T

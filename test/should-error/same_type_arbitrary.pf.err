@@ -1,0 +1,4 @@
+./test/should-error/same_type_arbitrary.pf:10.3-10.64: arbitrary expects the where clause
+	where { Container<C>, Container<D>, @Container<C>.Elem = @Container<D>.Elem }
+but got
+	where { Container<C>, Container<D> }

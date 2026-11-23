@@ -1,0 +1,1 @@
+./test/should-error/same_type_occurs.pf:8.27-8.45: the same-type constraint @Container<C>.Elem = Pair<@Container<C>.Elem,bool> makes @Container<C>.Elem part of itself

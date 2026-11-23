@@ -1,0 +1,12 @@
+// `arbitrary` must repeat the goal's same-type constraints (#1321).
+
+import ConceptContainer
+
+theorem transfer: all C:type, D:type
+    where { Container<C>, Container<D>,
+            @Container<C>.Elem = @Container<D>.Elem }.
+  all c:C. get(@Container<D>.put(get(c))) = get(c)
+proof
+  arbitrary C:type, D:type where { Container<C>, Container<D> }
+  sorry
+end

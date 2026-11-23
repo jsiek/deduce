@@ -137,6 +137,9 @@ class WhereClause(AST):
   # associated types become extra type parameters). Filled in by `bind`.
   assoc: List[Tuple[ConceptRef, str, str]] = field(default_factory=list,
                                                    kw_only=True)
+  # The proxies that the same-type constraints determine, and their types
+  # (in terms of the other proxies). Filled in by the checker.
+  solution: dict[str, Type] = field(default_factory=dict, kw_only=True)
 
   def __str__(self) -> str:
     return 'where { ' + ', '.join([str(c) for c in self.constraints]
@@ -203,14 +206,18 @@ class WhereClause(AST):
                        equations=[(s.substitute(sub), t.substitute(sub))
                                   for (s, t) in self.equations],
                        assoc=[(i.substitute(sub), t, p)
-                              for (i, t, p) in self.assoc])
+                              for (i, t, p) in self.assoc],
+                       solution={p: ty.substitute(sub)
+                                 for (p, ty) in self.solution.items()})
 
   def proxies(self) -> List[str]:
-    return [p for (_, _, p) in self.assoc]
+    """The proxies that the same-type constraints leave undetermined."""
+    return [p for (_, _, p) in self.assoc if p not in self.solution]
 
   def assoc_types(self, inst: ConceptRef) -> dict[str, Type]:
-    """The proxies of the associated types of ``inst``."""
-    return {t: cast(Type, ResolvedVar(self.location, None, p))
+    """The associated types of ``inst``: their proxies, or the types that
+    the same-type constraints give them."""
+    return {t: self.solution.get(p, cast(Type, ResolvedVar(self.location, None, p)))
             for (i, t, p) in self.assoc if i == inst}
 
   def operations(self) -> List[WhereMember]:
