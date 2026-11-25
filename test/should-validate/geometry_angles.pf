@@ -1,0 +1,222 @@
+// lib/AngleMeasure.pf and the sides of a line of lib/Line.pf from a
+// client's view: only their public names.
+
+import AngleMeasure
+import Linear
+
+define O = point(real(+0), real(+0))
+define X = point(real(+1), real(+0))
+define Y = point(real(+0), real(+1))
+define D = point(real(+1), real(+1))
+define W = point(real(-1), real(+0))
+define Z = point(real(+0), real(-1))
+
+theorem X_ne_O: not (X = O)
+proof
+  assume e
+  have x: xcoord(X) = xcoord(O) by { replace e. }
+  expand X | O in x
+end
+
+theorem Y_ne_O: not (Y = O)
+proof
+  assume e
+  have y: ycoord(Y) = ycoord(O) by { replace e. }
+  expand Y | O in y
+end
+
+theorem O_ne_X: not (O = X)
+proof
+  assume e
+  apply X_ne_O to symmetric e
+end
+
+theorem O_ne_Y: not (O = Y)
+proof
+  assume e
+  apply Y_ne_O to symmetric e
+end
+
+// The axes are perpendicular, so angle XOY is right.
+theorem XOY_right: right_angle(X, O, Y)
+proof
+  replace apply angle_right_dot[X, O, Y] to X_ne_O, Y_ne_O
+  expand dot | X | O | Y.
+end
+
+theorem XOY_perpendicular: perpendicular(line(O, X), line(O, Y))
+proof
+  replace symmetric apply angle_right_perpendicular[X, O, Y] to X_ne_O, Y_ne_O
+  XOY_right
+end
+
+// D = (1, 1) is in the interior of angle XOY.
+theorem D_interior: angle_interior(D, X, O, Y)
+proof
+  expand angle_interior
+  replace apply line_same_side_cross[O, X, D, Y] to O_ne_X
+        | apply line_same_side_cross[O, Y, D, X] to O_ne_Y
+  expand cross | O | X | Y | D.
+end
+
+theorem XOD_not_collinear: not collinear(X, O, D)
+proof
+  expand collinear | cross | X | O | D.
+end
+
+theorem DOY_not_collinear: not collinear(D, O, Y)
+proof
+  expand collinear | cross | D | O | Y.
+end
+
+// Angles XOD and DOY have the same measure, by their coordinates ...
+theorem XOD_DOY: m_angle(X, O, D) = m_angle(D, O, Y)
+proof
+  replace apply angle_measure_eq[X, O, D, D, O, Y] to XOD_not_collinear, DOY_not_collinear
+  expand dot | cross | X | O | D | Y.
+end
+
+// ... so by the Angle Addition Postulate each is 45°.
+theorem XOD_45: m_angle(X, O, D) = deg(+45)
+proof
+  have add: m_angle(X, O, D) + m_angle(D, O, Y) = m_angle(X, O, Y)
+    by apply angle_add[X, O, Y, D] to D_interior
+  have r: m_angle(X, O, Y) = deg(+90) by expand right_angle in XOY_right
+  algebra with add | r | XOD_DOY
+end
+
+theorem XOD_DOY_complementary: complementary(m_angle(X, O, D), m_angle(D, O, Y))
+proof
+  expand complementary
+  replace XOD_45 | symmetric XOD_DOY | XOD_45.
+end
+
+theorem WOX_between: between(W, O, X)
+proof
+  expand between | collinear | cross | dot | W | O | X
+  evaluate
+end
+
+theorem WOX_straight: m_angle(W, O, X) = deg(+180)
+proof
+  apply angle_measure_straight to WOX_between
+end
+
+theorem WOY_not_collinear: not collinear(W, O, Y)
+proof
+  expand collinear | cross | W | O | Y.
+end
+
+// Linear pair: WOY and YOX are supplementary, so WOY is right too.
+theorem WOY_right: right_angle(W, O, Y)
+proof
+  have lp: m_angle(W, O, Y) + m_angle(Y, O, X) = deg(+180)
+    by apply angle_linear_pair[W, O, X, Y] to WOX_between, WOY_not_collinear
+  have s: m_angle(Y, O, X) = m_angle(X, O, Y) by angle_measure_symmetric[Y, O, X]
+  have r: m_angle(X, O, Y) = deg(+90) by expand right_angle in XOY_right
+  expand right_angle
+  algebra with lp | s | r
+end
+
+theorem WOY_YOX_supplementary: supplementary(m_angle(W, O, Y), m_angle(Y, O, X))
+proof
+  expand supplementary
+  apply angle_linear_pair[W, O, X, Y] to WOX_between, WOY_not_collinear
+end
+
+// Every measure is between 0° and 180°.
+theorem range: all A:Point, B:Point, C:Point.
+  deg(+0) ≤ m_angle(A, B, C) and m_angle(A, B, C) ≤ deg(+180)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  angle_measure_range[A, B, C]
+end
+
+theorem XOX_zero: m_angle(X, O, X) = deg(+0)
+proof
+  apply angle_measure_zero[X, O, X] to (expand on_ray | on_segment.)
+end
+
+// Plane separation: Y and Z are on opposite sides of the x-axis, so
+// segment YZ meets it.
+theorem Y_off: not on_line(Y, line(O, X))
+proof
+  replace apply line_on_collinear[O, X, Y] to O_ne_X
+  expand collinear | cross | O | X | Y.
+end
+
+theorem Z_off: not on_line(Z, line(O, X))
+proof
+  replace apply line_on_collinear[O, X, Z] to O_ne_X
+  expand collinear | cross | O | X | Z.
+end
+
+theorem YZ_opposite: opposite_sides(Y, Z, line(O, X))
+proof
+  replace apply line_opposite_sides_cross[O, X, Y, Z] to O_ne_X
+  expand cross | O | X | Y | Z.
+end
+
+theorem YZ_meets: some P:Point. on_line(P, line(O, X)) and between(Y, P, Z)
+proof
+  replace symmetric apply line_opposite_sides_between[Y, Z, line(O, X)] to Y_off, Z_off
+  YZ_opposite
+end
+
+theorem YZ_not_same: not same_side(Y, Z, line(O, X))
+proof
+  assume s
+  have sep: not (same_side(Y, Z, line(O, X)) and opposite_sides(Y, Z, line(O, X)))
+    by conjunct 1 of apply line_plane_separation[Y, Z, line(O, X)] to Y_off, Z_off
+  apply sep to s, YZ_opposite
+end
+
+theorem DY_same: same_side(D, Y, line(O, X))
+proof
+  replace apply line_same_side_cross[O, X, D, Y] to O_ne_X
+  expand cross | O | X | D | Y.
+end
+
+theorem DZ_opposite: opposite_sides(D, Z, line(O, X))
+proof
+  apply line_same_opposite_sides[D, Y, Z, line(O, X)] to DY_same, YZ_opposite
+end
+
+// The protractor: there is a ray OC above the x-axis with m∠XOC = 30°,
+// and it is the only one.
+theorem protractor_30: some C:Point. same_side(C, Y, line(O, X)) and m_angle(X, O, C) = deg(+30)
+proof
+  apply angle_protractor[X, O, Y, deg(+30)] to X_ne_O, Y_off, ., .
+end
+
+theorem protractor_30_unique: all C:Point, C2:Point.
+  if same_side(C, Y, line(O, X)) and m_angle(X, O, C) = deg(+30)
+     and same_side(C2, Y, line(O, X)) and m_angle(X, O, C2) = deg(+30)
+  then on_ray(C2, O, C)
+proof
+  arbitrary C:Point, C2:Point
+  assume h
+  have s: same_side(C, C2, line(O, X)) by {
+    have s2: same_side(Y, C2, line(O, X))
+      by replace line_same_side_symmetric[C2, Y, line(O, X)] in conjunct 2 of h
+    apply line_same_side_trans[C, Y, C2, line(O, X)] to (conjunct 0 of h), s2
+  }
+  have m: m_angle(X, O, C) = m_angle(X, O, C2)
+    by { replace conjunct 1 of h | conjunct 3 of h. }
+  apply angle_protractor_unique[X, O, C, C2]
+    to X_ne_O, s, m
+end
+
+// Vertical angles at O: angles XOY and WOZ.
+theorem YOZ_between: between(Y, O, Z)
+proof
+  expand between | collinear | cross | dot | Y | O | Z
+  evaluate
+end
+
+theorem XOY_WOZ: m_angle(X, O, Y) = m_angle(W, O, Z)
+proof
+  have nc: not collinear(X, O, Y) by { expand collinear | cross | X | O | Y. }
+  have xow: between(X, O, W) by { replace between_symmetric[X, O, W]  WOX_between }
+  apply angle_vertical[X, Y, W, Z, O] to xow, YOZ_between, nc
+end

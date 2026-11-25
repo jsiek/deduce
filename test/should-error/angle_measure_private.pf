@@ -1,0 +1,9 @@
+// The postulated arg function of lib/AngleMeasure.pf is private.
+
+import AngleMeasure
+
+theorem peek: all A:Point, B:Point, C:Point.
+  m_angle(A, B, C) = arg(dot(B, A, C), cross(B, A, C))
+proof
+  ?
+end

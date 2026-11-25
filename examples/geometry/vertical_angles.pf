@@ -1,0 +1,64 @@
+// vertical_angles.pf
+//
+// The Vertical Angles Theorem of a high school geometry course:
+//
+//   Given: lines AC and BD intersect at E.
+//   Prove: ∠AEB ≅ ∠CED.
+//
+//      A               D
+//        \           /
+//          \       /
+//            \   /
+//              E
+//            /   \
+//          /       \
+//        /           \
+//      B               C
+//
+// The two-column proof:
+//
+//   Statements                             Reasons
+//   1. m∠AEB + m∠BEC = 180°                Linear Pair Postulate
+//   2. m∠BEC + m∠CED = 180°                Linear Pair Postulate
+//   3. m∠AEB + m∠BEC = m∠BEC + m∠CED       Substitution (1, 2)
+//   4. m∠AEB = m∠CED                       Subtraction (3)
+//   5. ∠AEB ≅ ∠CED                         Def. of congruent angles (4)
+//
+// "Lines AC and BD intersect at E" says that E is between A and C and
+// between B and D, and that the lines are different: B is not on line
+// AC. The Linear Pair Postulate in step 2 also needs C off line BD,
+// which the diagram shows; here it follows from the two lines being
+// different (`point_collinear_trans`).
+
+theorem vertical_angles: all A:Point, B:Point, C:Point, D:Point, E:Point.
+  if between(A, E, C) and between(B, E, D) and not collinear(A, E, B)
+  then angle_congruent(A, E, B, C, E, D)
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point, E:Point
+  assume given
+  have aec: between(A, E, C) by given
+  have bed: between(B, E, D) by given
+  have b_off: not collinear(A, E, B) by given
+  // C is not on line BD: otherwise B would be on line EC, which is line AC.
+  have c_off: not collinear(B, E, C) by {
+    assume bec
+    have eca: collinear(E, C, A)
+      by replace point_collinear_rotate[A, E, C] in apply between_collinear to aec
+    have ecb: collinear(E, C, B) by replace point_collinear_rotate[B, E, C] in bec
+    have ec: not (E = C) by conjunct 1 of apply between_distinct to aec
+    have eab: collinear(E, A, B) by apply point_collinear_trans[E, C, A, B] to ec, eca, ecb
+    conclude false
+      by apply b_off to replace symmetric point_collinear_swap[E, B, A]
+                              | symmetric point_collinear_rotate[A, E, B] in eab
+  }
+  have step1: m_angle(A, E, B) + m_angle(B, E, C) = deg(+180)
+    by apply angle_linear_pair[A, E, C, B] to aec, b_off       // Linear Pair Postulate
+  have step2: m_angle(B, E, C) + m_angle(C, E, D) = deg(+180)
+    by apply angle_linear_pair[B, E, D, C] to bed, c_off       // Linear Pair Postulate
+  have step3: m_angle(A, E, B) + m_angle(B, E, C) = m_angle(B, E, C) + m_angle(C, E, D)
+    by algebra with step1 | step2                             // Substitution
+  have step4: m_angle(A, E, B) = m_angle(C, E, D)
+    by algebra with step3                                     // Subtraction
+  conclude angle_congruent(A, E, B, C, E, D)
+    by { expand angle_congruent  step4 }                       // Def. of congruent angles
+end

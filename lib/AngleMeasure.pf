@@ -1,0 +1,1230 @@
+module AngleMeasure
+
+/*
+  Angle measure, for coordinate geometry (#1191).
+
+  * `m_angle(A, B, C)`: the measure of angle ABC, an `Angle` (lib/Angle.pf)
+    between deg(+0) and deg(+180) (`angle_measure_range`). It is
+    symmetric in A and C (`angle_measure_symmetric`), does not change
+    when A moves along ray BA (`angle_measure_ray`), is strictly
+    between 0° and 180° when A, B, C are not collinear
+    (`angle_measure_strict`), is 0° when C is on ray BA
+    (`angle_measure_zero`), and is 180° when B is between A and C
+    (`angle_measure_straight`). Two angles have equal measures exactly
+    when (BA · BC) |ED × EF| = |BA × BC| (ED · EF)
+    (`angle_measure_eq`), which compares cosines without square roots.
+  * `angle_interior(D, A, B, C)`: D is in the interior of angle ABC: D
+    is on the same side of line BA as C and on the same side of line
+    BC as A (`same_side`, lib/Line.pf).
+  * `right_angle(A, B, C)`, `angle_congruent(A, B, C, D, E, F)`,
+    `angle_bisects(D, A, B, C)` (ray BD bisects angle ABC), and
+    `complementary(a, b)` and `supplementary(a, b)` for measures.
+
+  The postulates of a geometry course are theorems here:
+
+  * Protractor Postulate: `angle_protractor` (for 0° < r < 180° there
+    is a ray BC on a given side of line BA with m∠ABC = r) and
+    `angle_protractor_unique` (there is only one such ray).
+  * Angle Addition Postulate: `angle_add`.
+  * Linear Pair Postulate: `angle_linear_pair`.
+  * Plane Separation Postulate: `line_plane_separation` and its
+    companions in lib/Line.pf, and `line_opposite_sides_between` here:
+    P and Q are on opposite sides of a line exactly when segment PQ
+    meets it.
+
+  Theorems include the Vertical Angles Theorem (`angle_vertical`) and
+  that an angle is right exactly when its sides are perpendicular
+  (`angle_right_perpendicular`).
+
+  The measure is computed from coordinates through `arg`, a private
+  function postulated below with four postulates. They are the only
+  assumptions of this file beyond those of Real (lib/RealAxioms.pf).
+*/
+
+import Base
+public import Between
+public import Angle
+import Linear
+import Ring
+
+/*
+  Postulates
+
+  arg(x, y) is the angle from the positive x-axis to the vector (x, y),
+  for y > 0, in degrees: atan2(y, x) · 180/π. The degree measure of an
+  angle given by coordinates is transcendental, so arg is postulated,
+  and these four postulates are everything assumed about it. The real
+  arg satisfies them, so they are consistent with the real numbers.
+*/
+
+private postulate fun arg : fn (Real, Real) -> Angle
+
+// The order of angles is the counterclockwise order of the vectors:
+// arg(u) < arg(v) exactly when the cross product u × v is positive.
+private postulate arg_less: all x1:Real, y1:Real, x2:Real, y2:Real.
+  if real(+0) < y1 and real(+0) < y2
+  then (arg(x1, y1) < arg(x2, y2)) = (real(+0) < x1 * y2 - y1 * x2)
+
+// Adding angles multiplies the vectors as complex numbers, as long as
+// the sum is less than 180°.
+private postulate arg_add: all x1:Real, y1:Real, x2:Real, y2:Real.
+  if real(+0) < y1 and real(+0) < y2 and real(+0) < x1 * y2 + y1 * x2
+  then arg(x1, y1) + arg(x2, y2) = arg(x1 * x2 - y1 * y2, x1 * y2 + y1 * x2)
+
+// The angles of (x, y) and (-x, y) are supplementary.
+private postulate arg_supplement: all x:Real, y:Real.
+  if real(+0) < y then arg(x, y) + arg(- x, y) = deg(+180)
+
+// Every angle strictly between 0° and 180° is the angle of a vector.
+private postulate arg_onto: all r:Angle.
+  if deg(+0) < r and r < deg(+180)
+  then some x:Real, y:Real. real(+0) < y and arg(x, y) = r
+
+/*
+  Facts about arg
+*/
+
+lemma angle_eq_of_not_less: all a:Angle, b:Angle.
+  if not (a < b) and not (b < a) then a = b
+proof
+  arbitrary a:Angle, b:Angle
+  assume h
+  switch a = b {
+    case true assume e { e }
+    case false assume ne {
+      cases angle_less_equal_total[a, b]
+      case ab {
+        have lt: a < b by { replace angle_less_def[a, b]  (ab, ne) }
+        conclude false by apply (conjunct 0 of h) to lt
+      }
+      case ba {
+        have nba: not (b = a) by { assume e  apply ne to symmetric e }
+        have lt: b < a by { replace angle_less_def[b, a]  (ba, nba) }
+        conclude false by apply (conjunct 1 of h) to lt
+      }
+    }
+  }
+end
+
+lemma angle_less_irrefl: all a:Angle. not (a < a)
+proof
+  arbitrary a:Angle
+  replace angle_less_def.
+end
+
+// Vectors in the same direction have the same angle.
+lemma arg_eq: all x1:Real, y1:Real, x2:Real, y2:Real.
+  if real(+0) < y1 and real(+0) < y2 and x1 * y2 = y1 * x2
+  then arg(x1, y1) = arg(x2, y2)
+proof
+  arbitrary x1:Real, y1:Real, x2:Real, y2:Real
+  assume h
+  have c: x2 * y1 - y2 * x1 = - (x1 * y2 - y1 * x2) by algebra
+  have z: x1 * y2 - y1 * x2 = real(+0) by algebra with conjunct 2 of h
+  have n1: not (arg(x1, y1) < arg(x2, y2)) by {
+    replace apply arg_less[x1, y1, x2, y2] to (conjunct 0 of h), (conjunct 1 of h) | z.
+  }
+  have n2: not (arg(x2, y2) < arg(x1, y1)) by {
+    replace apply arg_less[x2, y2, x1, y1] to (conjunct 1 of h), (conjunct 0 of h) | c | z.
+  }
+  apply angle_eq_of_not_less to n1, n2
+end
+
+lemma arg_eq_iff: all x1:Real, y1:Real, x2:Real, y2:Real.
+  if real(+0) < y1 and real(+0) < y2
+  then (arg(x1, y1) = arg(x2, y2)) = (x1 * y2 = y1 * x2)
+proof
+  arbitrary x1:Real, y1:Real, x2:Real, y2:Real
+  assume h
+  have fwd: if arg(x1, y1) = arg(x2, y2) then x1 * y2 = y1 * x2 by {
+    assume e
+    have c: x2 * y1 - y2 * x1 = - (x1 * y2 - y1 * x2) by algebra
+    cases real_trichotomy[x1 * y2 - y1 * x2, real(+0)]
+    case lt0 {
+      have lt: arg(x2, y2) < arg(x1, y1) by {
+        replace apply arg_less[x2, y2, x1, y1] to (conjunct 1 of h), (conjunct 0 of h) | c
+        algebra
+      }
+      conclude false by apply angle_less_irrefl[arg(x1, y1)] to replace symmetric e in lt
+    }
+    case eq0 { algebra }
+    case gt0 {
+      have lt: arg(x1, y1) < arg(x2, y2)
+        by replace symmetric apply arg_less[x1, y1, x2, y2] to h in gt0
+      conclude false by apply angle_less_irrefl[arg(x2, y2)] to replace e in lt
+    }
+  }
+  have bwd: if x1 * y2 = y1 * x2 then arg(x1, y1) = arg(x2, y2) by {
+    assume e
+    apply arg_eq to (conjunct 0 of h), (conjunct 1 of h), e
+  }
+  apply iff_equal to fwd, bwd
+end
+
+lemma arg_right: all y:Real. if real(+0) < y then arg(real(+0), y) = deg(+90)
+proof
+  arbitrary y:Real
+  assume ypos
+  have s: arg(real(+0), y) + arg(real(+0), y) = deg(+180)
+    by apply arg_supplement[real(+0), y] to ypos
+  algebra with s
+end
+
+lemma arg_pos: all x:Real, y:Real. if real(+0) < y then deg(+0) < arg(x, y)
+proof
+  arbitrary x:Real, y:Real
+  assume ypos
+  have r: arg(real(+0), real(+1)) = deg(+90) by apply arg_right to real_zero_less_one
+  cases real_trichotomy[x, real(+0)]
+  case lt0 {
+    // (x, y) is counterclockwise from (0, 1).
+    have l: arg(real(+0), real(+1)) < arg(x, y) by {
+      replace apply arg_less[real(+0), real(+1), x, y] to real_zero_less_one, ypos
+      algebra
+    }
+    algebra with r | l
+  }
+  case eq0 {
+    replace eq0
+    have a: arg(real(+0), y) = deg(+90) by apply arg_right to ypos
+    algebra with a
+  }
+  case p {
+    // Turning (x, y) by 90° gives (-y, x), which is counterclockwise
+    // from (0, 1).
+    have s: arg(real(+0), real(+1)) + arg(x, y) = arg(- y, x)
+      by apply arg_add[real(+0), real(+1), x, y] to ypos, p
+    have l: arg(real(+0), real(+1)) < arg(- y, x) by {
+      replace apply arg_less[real(+0), real(+1), - y, x] to p
+      algebra
+    }
+    algebra with r | s | l
+  }
+end
+
+lemma arg_less_180: all x:Real, y:Real. if real(+0) < y then arg(x, y) < deg(+180)
+proof
+  arbitrary x:Real, y:Real
+  assume ypos
+  algebra with apply arg_supplement[x, y] to ypos | apply arg_pos[- x, y] to ypos
+end
+
+/*
+  The measure of the angle between two vectors u and v, from their dot
+  product x = u · v and cross product y = u × v.
+*/
+
+private fun meas(x : Real, y : Real) {
+  if y = real(+0) then (if x < real(+0) then deg(+180) else deg(+0))
+  else arg(x, abs(y))
+}
+
+lemma abs_pos: all y:Real. if not (y = real(+0)) then real(+0) < abs(y)
+proof
+  arbitrary y:Real
+  assume nz
+  cases real_dichotomy[real(+0), y]
+  case nn {
+    replace apply real_abs_nonneg_eq to nn | real_less_def
+    have nz2: not (real(+0) = y) by { assume e  apply nz to symmetric e }
+    (nn, nz2)
+  }
+  case lt0 {
+    replace apply real_abs_nonpos_eq to (apply real_less_implies_less_equal to lt0)
+    algebra
+  }
+end
+
+lemma meas_arg: all x:Real, y:Real.
+  if not (y = real(+0)) then meas(x, y) = arg(x, abs(y))
+proof
+  arbitrary x:Real, y:Real
+  assume nz
+  expand meas
+  replace apply eq_false to nz.
+end
+
+lemma neg_eq_zero: all y:Real. (- y = real(+0)) = (y = real(+0))
+proof
+  arbitrary y:Real
+  have fwd: if - y = real(+0) then y = real(+0) by { assume e  algebra }
+  have bwd: if y = real(+0) then - y = real(+0) by { assume e  algebra }
+  apply iff_equal to fwd, bwd
+end
+
+lemma meas_neg: all x:Real, y:Real. meas(x, - y) = meas(x, y)
+proof
+  arbitrary x:Real, y:Real
+  expand meas
+  replace neg_eq_zero[y] | real_abs_neg[y].
+end
+
+lemma meas_range: all x:Real, y:Real. deg(+0) ≤ meas(x, y) and meas(x, y) ≤ deg(+180)
+proof
+  arbitrary x:Real, y:Real
+  switch y = real(+0) {
+    case true assume z {
+      expand meas
+      replace apply eq_true to z
+      switch x < real(+0) { case true { . } case false { . } }
+    }
+    case false assume nz {
+      replace apply meas_arg[x, y] to nz
+      have p: real(+0) < abs(y) by apply abs_pos to nz
+      have a: deg(+0) < arg(x, abs(y)) by apply arg_pos[x, abs(y)] to p
+      have b: arg(x, abs(y)) < deg(+180) by apply arg_less_180[x, abs(y)] to p
+      have a2: deg(+0) ≤ arg(x, abs(y)) by algebra with a
+      have b2: arg(x, abs(y)) ≤ deg(+180) by algebra with b
+      (a2, b2)
+    }
+  }
+end
+
+lemma meas_strict: all x:Real, y:Real.
+  if not (y = real(+0)) then deg(+0) < meas(x, y) and meas(x, y) < deg(+180)
+proof
+  arbitrary x:Real, y:Real
+  assume nz
+  replace apply meas_arg[x, y] to nz
+  have p: real(+0) < abs(y) by apply abs_pos to nz
+  ((apply arg_pos[x, abs(y)] to p), (apply arg_less_180[x, abs(y)] to p))
+end
+
+lemma meas_supplement: all x:Real, y:Real.
+  if not (y = real(+0)) then meas(x, y) + meas(- x, y) = deg(+180)
+proof
+  arbitrary x:Real, y:Real
+  assume nz
+  replace apply meas_arg[x, y] to nz | apply meas_arg[- x, y] to nz
+  apply arg_supplement[x, abs(y)] to apply abs_pos to nz
+end
+
+// For K, t > 0: (a < 0) = (b < 0) when K a = t b.
+lemma neg_scale: all K:Real, t:Real, a:Real, b:Real.
+  if real(+0) < K and real(+0) < t and K * a = t * b then (a < real(+0)) = (b < real(+0))
+proof
+  arbitrary K:Real, t:Real, a:Real, b:Real
+  assume h
+  have ea: (a * K < real(+0) * K) = (a < real(+0))
+    by apply real_pos_mult_less_iff[K, a, real(+0)] to conjunct 0 of h
+  have eb: (b * t < real(+0) * t) = (b < real(+0))
+    by apply real_pos_mult_less_iff[t, b, real(+0)] to conjunct 1 of h
+  have c1: a * K = K * a by algebra
+  have c2: b * t = t * b by algebra
+  replace symmetric ea | symmetric eb | c1 | c2 | conjunct 2 of h.
+end
+
+// From K (p2, q2) = t (p1, q1) with K ≠ 0: p2 q1 = q2 p1.
+lemma cross_scale: all K:Real, t:Real, p1:Real, q1:Real, p2:Real, q2:Real.
+  if not (K = real(+0)) and K * p2 = t * p1 and K * q2 = t * q1 then p2 * q1 = q2 * p1
+proof
+  arbitrary K:Real, t:Real, p1:Real, q1:Real, p2:Real, q2:Real
+  assume h
+  have i: K * (p2 * q1 - q2 * p1) = (K * p2) * q1 - (K * q2) * p1 by algebra
+  have a: (K * p2) * q1 = (t * p1) * q1 by replace conjunct 1 of h.
+  have b: (K * q2) * p1 = (t * q1) * p1 by replace conjunct 2 of h.
+  have c: (t * p1) * q1 = (t * q1) * p1 by algebra
+  have z: K * (p2 * q1 - q2 * p1) = real(+0) by algebra with i | a | b | c
+  have z2: p2 * q1 - q2 * p1 = real(+0)
+    by replace apply real_mult_zero_iff[K, p2 * q1 - q2 * p1] to conjunct 0 of h in z
+  replace real_sub_eq_zero_iff in z2
+end
+
+// Scaling both vectors by positive factors does not change the measure.
+lemma meas_scale: all K:Real, t:Real, x1:Real, y1:Real, x2:Real, y2:Real.
+  if real(+0) < K and real(+0) < t and K * x2 = t * x1 and K * y2 = t * y1
+  then meas(x2, y2) = meas(x1, y1)
+proof
+  arbitrary K:Real, t:Real, x1:Real, y1:Real, x2:Real, y2:Real
+  assume h
+  have kp: real(+0) < K by conjunct 0 of h
+  have tp: real(+0) < t by conjunct 1 of h
+  have kz: not (K = real(+0)) by { assume z  replace z in kp }
+  have tz: not (t = real(+0)) by { assume z  replace z in tp }
+  have yy: (y2 = real(+0)) = (y1 = real(+0)) by {
+    have e: (K * y2 = real(+0)) = (t * y1 = real(+0)) by replace conjunct 3 of h.
+    replace apply real_mult_zero_iff[K, y2] to kz | apply real_mult_zero_iff[t, y1] to tz in e
+  }
+  switch y1 = real(+0) {
+    case true assume z1 {
+      have z2: y2 = real(+0) by { replace yy  z1 }
+      have xx: (x2 < real(+0)) = (x1 < real(+0))
+        by apply neg_scale[K, t, x2, x1] to kp, tp, conjunct 2 of h
+      expand meas
+      replace apply eq_true to z1 | apply eq_true to z2 | xx.
+    }
+    case false assume nz1 {
+      have nz2: not (y2 = real(+0)) by { replace yy  nz1 }
+      replace apply meas_arg[x2, y2] to nz2 | apply meas_arg[x1, y1] to nz1
+      have ka: abs(K) = K by apply real_abs_nonneg_eq to apply real_less_implies_less_equal to kp
+      have ta: abs(t) = t by apply real_abs_nonneg_eq to apply real_less_implies_less_equal to tp
+      have ay: K * abs(y2) = t * abs(y1) by {
+        replace symmetric ka | symmetric ta | symmetric real_abs_mult[K, y2]
+              | symmetric real_abs_mult[t, y1] | conjunct 3 of h.
+      }
+      apply arg_eq[x2, abs(y2), x1, abs(y1)]
+        to (apply abs_pos to nz2), (apply abs_pos to nz1),
+           (apply cross_scale[K, t, x1, abs(y1), x2, abs(y2)] to kz, (conjunct 2 of h), ay)
+    }
+  }
+end
+
+// For positive cross products: the angle from u to v plus the angle
+// from v to w is the angle from u to w, where K = |v|², (d1, c1),
+// (d2, c2), and (d, c) are the dot and cross products of u and v, of
+// v and w, and of u and w.
+lemma meas_add_pos: all K:Real, d1:Real, c1:Real, d2:Real, c2:Real, d:Real, c:Real.
+  if real(+0) < c1 and real(+0) < c2 and real(+0) < c and real(+0) < K
+     and d1 * d2 - c1 * c2 = K * d and d1 * c2 + c1 * d2 = K * c
+  then meas(d1, c1) + meas(d2, c2) = meas(d, c)
+proof
+  arbitrary K:Real, d1:Real, c1:Real, d2:Real, c2:Real, d:Real, c:Real
+  assume h
+  have p1: real(+0) < c1 by conjunct 0 of h
+  have p2: real(+0) < c2 by conjunct 1 of h
+  have p: real(+0) < c by conjunct 2 of h
+  have k: real(+0) < K by conjunct 3 of h
+  have nz: all y:Real. if real(+0) < y then not (y = real(+0)) by {
+    arbitrary y:Real  assume yp  assume z  replace z in yp
+  }
+  have ab: all y:Real. if real(+0) < y then abs(y) = y by {
+    arbitrary y:Real  assume yp
+    apply real_abs_nonneg_eq to apply real_less_implies_less_equal to yp
+  }
+  have kc: real(+0) < K * c by apply real_mult_pos to k, p
+  have im: real(+0) < d1 * c2 + c1 * d2 by { replace conjunct 5 of h  kc }
+  replace apply meas_arg[d1, c1] to apply nz to p1 | apply meas_arg[d2, c2] to apply nz to p2
+        | apply meas_arg[d, c] to apply nz to p
+        | apply ab to p1 | apply ab to p2 | apply ab to p
+  replace apply arg_add[d1, c1, d2, c2] to p1, p2, im | conjunct 4 of h | conjunct 5 of h
+  apply arg_eq[K * d, K * c, d, c] to kc, p, (algebra)
+end
+
+lemma pos_factor: all x:Real, c:Real. if real(+0) < x * c and real(+0) < c then real(+0) < x
+proof
+  arbitrary x:Real, c:Real
+  assume h
+  have e: (real(+0) * c < x * c) = (real(+0) < x)
+    by apply real_pos_mult_less_iff[c, real(+0), x] to conjunct 1 of h
+  replace symmetric e
+  conjunct 0 of h
+end
+
+lemma meas_add: all K:Real, d1:Real, c1:Real, d2:Real, c2:Real, d:Real, c:Real.
+  if real(+0) < c1 * c and real(+0) < c2 * c and real(+0) < K
+     and d1 * d2 - c1 * c2 = K * d and d1 * c2 + c1 * d2 = K * c
+  then meas(d1, c1) + meas(d2, c2) = meas(d, c)
+proof
+  arbitrary K:Real, d1:Real, c1:Real, d2:Real, c2:Real, d:Real, c:Real
+  assume h
+  cases real_trichotomy[real(+0), c]
+  case p {
+    apply meas_add_pos[K, d1, c1, d2, c2, d, c]
+      to (apply pos_factor[c1, c] to (conjunct 0 of h), p),
+         (apply pos_factor[c2, c] to (conjunct 1 of h), p), p,
+         (conjunct 2 of h), (conjunct 3 of h), (conjunct 4 of h)
+  }
+  case z { conclude false by { replace symmetric z in conjunct 0 of h } }
+  case n {
+    // Flip the signs of the cross products.
+    have np: real(+0) < - c by algebra
+    have e1: (- c1) * (- c) = c1 * c by algebra
+    have e2: (- c2) * (- c) = c2 * c by algebra
+    have q1: real(+0) < - c1
+      by apply pos_factor[- c1, - c] to (replace e1  conjunct 0 of h), np
+    have q2: real(+0) < - c2
+      by apply pos_factor[- c2, - c] to (replace e2  conjunct 1 of h), np
+    have i1: d1 * d2 - (- c1) * (- c2) = d1 * d2 - c1 * c2 by algebra
+    have i2: d1 * (- c2) + (- c1) * d2 = - (d1 * c2 + c1 * d2) by algebra
+    have i3: K * (- c) = - (K * c) by algebra
+    have s: meas(d1, - c1) + meas(d2, - c2) = meas(d, - c)
+      by apply meas_add_pos[K, d1, - c1, d2, - c2, d, - c]
+         to q1, q2, np, (conjunct 2 of h),
+            (replace i1  conjunct 3 of h),
+            (replace i2 | i3 | conjunct 4 of h.)
+    replace meas_neg in s
+  }
+end
+
+/*
+  Plane separation: opposite sides and segments
+*/
+
+// dot(B, A, C) and cross(B, A, C) when A and C trade places.
+lemma dot_swap: all B:Point, A:Point, C:Point. dot(B, C, A) = dot(B, A, C)
+proof
+  arbitrary B:Point, A:Point, C:Point
+  expand dot
+  algebra
+end
+
+lemma cross_swap: all B:Point, A:Point, C:Point. cross(B, C, A) = - cross(B, A, C)
+proof
+  arbitrary B:Point, A:Point, C:Point
+  expand cross
+  algebra
+end
+
+lemma dot_self: all B:Point, P:Point. dot(B, P, P) = dist2(B, P)
+proof
+  arbitrary B:Point, P:Point
+  expand dot | dist2
+  algebra
+end
+
+// The vertex form of collinearity: A, B, C are collinear exactly when
+// the cross product of BA and BC is zero.
+lemma collinear_vertex: all A:Point, B:Point, C:Point.
+  collinear(A, B, C) = (cross(B, A, C) = real(+0))
+proof
+  arbitrary A:Point, B:Point, C:Point
+  replace point_collinear_rotate[A, B, C] | point_collinear_swap[B, C, A]
+  expand collinear.
+end
+
+lemma on_line_cross: all A:Point, B:Point, P:Point.
+  if not (A = B) then on_line(P, line(A, B)) = (cross(A, B, P) = real(+0))
+proof
+  arbitrary A:Point, B:Point, P:Point
+  assume ne
+  replace apply line_on_collinear[A, B, P] to ne
+  expand collinear.
+end
+
+lemma dist2_ne: all A:Point, B:Point. if not (A = B) then not (dist2(A, B) = real(+0))
+proof
+  arbitrary A:Point, B:Point
+  assume ne
+  replace point_dist2_zero[A, B]
+  ne
+end
+
+// A point on segment PQ, as an affine combination: f is affine along
+// the line through P and Q.
+lemma affine_cross: all A:Point, B:Point, P:Point, Q:Point, t:Real.
+  cross(A, B, point(xcoord(P) + t * (xcoord(Q) - xcoord(P)), ycoord(P) + t * (ycoord(Q) - ycoord(P))))
+  = cross(A, B, P) + t * (cross(A, B, Q) - cross(A, B, P))
+proof
+  arbitrary A:Point, B:Point, P:Point, Q:Point, t:Real
+  expand cross
+  algebra
+end
+
+lemma affine_dot: all P:Point, Q:Point, t:Real.
+  dot(point(xcoord(P) + t * (xcoord(Q) - xcoord(P)), ycoord(P) + t * (ycoord(Q) - ycoord(P))), P, Q)
+  = - ((t * (real(+1) - t)) * dist2(P, Q))
+proof
+  arbitrary P:Point, Q:Point, t:Real
+  expand dot | dist2
+  algebra
+end
+
+lemma affine_collinear: all P:Point, Q:Point, t:Real.
+  collinear(P, point(xcoord(P) + t * (xcoord(Q) - xcoord(P)), ycoord(P) + t * (ycoord(Q) - ycoord(P))), Q)
+proof
+  arbitrary P:Point, Q:Point, t:Real
+  expand collinear | cross
+  algebra
+end
+
+lemma frac_zero: all a:Real, b:Real.
+  if not (a - b = real(+0)) then a + (a / (a - b)) * (b - a) = real(+0)
+proof
+  arbitrary a:Real, b:Real
+  assume nz
+  algebra
+end
+
+lemma frac_square: all a:Real, b:Real.
+  if not (a - b = real(+0))
+  then ((a / (a - b)) * (real(+1) - a / (a - b))) * ((a - b) * (a - b)) = - (a * b)
+proof
+  arbitrary a:Real, b:Real
+  assume nz
+  algebra
+end
+
+// For w = (w1, w2), u = (u1, u2), v = (v1, v2):
+// |u|² (w × v) = (u · v)(w × u) + (u × v)(w · u).
+lemma vec_split: all w1:Real, w2:Real, u1:Real, u2:Real, v1:Real, v2:Real.
+  (u1 * u1 + u2 * u2) * (w1 * v2 - w2 * v1)
+  = (u1 * v1 + u2 * v2) * (w1 * u2 - w2 * u1) + (u1 * v2 - u2 * v1) * (w1 * u1 + w2 * u2)
+proof
+  arbitrary w1:Real, w2:Real, u1:Real, u2:Real, v1:Real, v2:Real
+  algebra
+end
+
+// With w = AB, u = PQ, v = PX.
+lemma seg_cross_split: all A:Point, B:Point, P:Point, Q:Point, X:Point.
+  dist2(P, Q) * seg_cross(A, B, P, X)
+  = dot(P, Q, X) * seg_cross(A, B, P, Q) + cross(P, Q, X) * seg_dot(A, B, P, Q)
+proof
+  arbitrary A:Point, B:Point, P:Point, Q:Point, X:Point
+  replace point_dist2_symmetric[P, Q]
+  expand dist2 | cross | dot | seg_cross | seg_dot
+  vec_split[xcoord(B) - xcoord(A), ycoord(B) - ycoord(A), xcoord(Q) - xcoord(P),
+            ycoord(Q) - ycoord(P), xcoord(X) - xcoord(P), ycoord(X) - ycoord(P)]
+end
+
+lemma seg_cross_diff: all A:Point, B:Point, P:Point, Y:Point.
+  seg_cross(A, B, P, Y) = cross(A, B, Y) - cross(A, B, P)
+proof
+  arbitrary A:Point, B:Point, P:Point, Y:Point
+  expand seg_cross | cross
+  algebra
+end
+
+lemma dot_sum_vertex: all P:Point, Q:Point, X:Point.
+  dot(P, X, Q) + dot(Q, X, P) = dist2(P, Q)
+proof
+  arbitrary P:Point, Q:Point, X:Point
+  expand dot | dist2
+  algebra
+end
+
+lemma weights_of_split: all D:Real, a:Real, b:Real, p:Real, q:Real.
+  if D * (real(+0) - p) = a * (q - p) and a + b = D then b * p + a * q = real(+0)
+proof
+  arbitrary D:Real, a:Real, b:Real, p:Real, q:Real
+  assume h
+  have bb: b = D - a by algebra
+  have i: (D - a) * p + a * q = a * (q - p) - D * (real(+0) - p) by algebra
+  replace bb
+  algebra with i | conjunct 0 of h
+end
+
+lemma dot_add_vertex: all P:Point, X:Point, Q:Point.
+  dot(P, X, Q) = dist2(P, X) - dot(X, P, Q)
+proof
+  arbitrary P:Point, X:Point, Q:Point
+  expand dot | dist2
+  algebra
+end
+
+lemma square_pos: all q:Real. if not (q = real(+0)) then real(+0) < q * q
+proof
+  arbitrary q:Real
+  assume nz
+  replace real_less_def
+  have nz2: not (real(+0) = q * q) by {
+    assume e
+    apply nz to replace apply real_mult_zero_iff[q, q] to nz in symmetric e
+  }
+  (real_square_nonneg[q], nz2)
+end
+
+lemma opposite_of_weights: all a:Real, b:Real, p:Real, q:Real.
+  if real(+0) < a and real(+0) < b and b * p + a * q = real(+0) and not (q = real(+0))
+  then p * q < real(+0)
+proof
+  arbitrary a:Real, b:Real, p:Real, q:Real
+  assume h
+  have i: b * (p * q) + a * (q * q) = (b * p + a * q) * q by algebra
+  have z: b * (p * q) + a * (q * q) = real(+0) by { replace i | conjunct 2 of h. }
+  have qq: real(+0) < q * q by apply square_pos to conjunct 3 of h
+  have aq: real(+0) < a * (q * q) by apply real_mult_pos to (conjunct 0 of h), qq
+  have bn: b * (p * q) < real(+0) by algebra with z | aq
+  have c: (p * q) * b = b * (p * q) by algebra
+  have e: ((p * q) * b < real(+0) * b) = (p * q < real(+0))
+    by apply real_pos_mult_less_iff[b, p * q, real(+0)] to conjunct 1 of h
+  replace symmetric e | c
+  bn
+end
+
+// The Plane Separation Postulate, part 2: P and Q are on opposite
+// sides of L exactly when segment PQ meets L.
+theorem line_opposite_sides_between: all P:Point, Q:Point, L:Line.
+  if not on_line(P, L) and not on_line(Q, L)
+  then opposite_sides(P, Q, L) = (some X:Point. on_line(X, L) and between(P, X, Q))
+proof
+  arbitrary P:Point, Q:Point, L:Line
+  assume off
+  obtain A, B where ab from line_points[L]
+  have ne: not (A = B) by conjunct 0 of ab
+  have l: L = line(A, B) by conjunct 1 of ab
+  have f_p: not (cross(A, B, P) = real(+0))
+    by replace l | apply on_line_cross[A, B, P] to ne in conjunct 0 of off
+  have f_q: not (cross(A, B, Q) = real(+0))
+    by replace l | apply on_line_cross[A, B, Q] to ne in conjunct 1 of off
+  replace l | apply line_opposite_sides_cross[A, B, P, Q] to ne
+  have fwd: if cross(A, B, P) * cross(A, B, Q) < real(+0)
+            then some X:Point. on_line(X, line(A, B)) and between(P, X, Q) by {
+    assume opp
+    define a = cross(A, B, P)
+    define b = cross(A, B, Q)
+    have nab: not (a - b = real(+0)) by {
+      assume z
+      have e: a = b by replace real_sub_eq_zero_iff in z
+      have sq: real(+0) ≤ a * b by { replace symmetric e  real_square_nonneg[a] }
+      conclude false by algebra with sq | opp
+    }
+    define t = a / (a - b)
+    define X = point(xcoord(P) + t * (xcoord(Q) - xcoord(P)), ycoord(P) + t * (ycoord(Q) - ycoord(P)))
+    choose X
+    have on: on_line(X, line(A, B)) by {
+      replace apply on_line_cross[A, B, X] to ne
+      expand X
+      replace affine_cross[A, B, P, Q, t]
+      expand t | a | b
+      apply frac_zero[cross(A, B, P), cross(A, B, Q)] to (expand a | b in nab)
+    }
+    have pq: not (P = Q) by {
+      assume e
+      have sq: real(+0) ≤ a * b by { expand a | b  replace e  real_square_nonneg[cross(A, B, Q)] }
+      conclude false by algebra with sq | opp
+    }
+    have tt: real(+0) < t * (real(+1) - t) by {
+      have e: (t * (real(+1) - t)) * ((a - b) * (a - b)) = - (a * b)
+        by { expand t  apply frac_square[a, b] to nab }
+      have n: real(+0) < - (a * b) by algebra with opp
+      have s: (real(+0) * ((a - b) * (a - b)) < (t * (real(+1) - t)) * ((a - b) * (a - b)))
+              = (real(+0) < t * (real(+1) - t))
+        by apply real_pos_mult_less_iff[(a - b) * (a - b), real(+0), t * (real(+1) - t)]
+           to apply square_pos to nab
+      replace symmetric s | e
+      n
+    }
+    have btw: between(P, X, Q) by {
+      expand between
+      have d: dot(X, P, Q) = - ((t * (real(+1) - t)) * dist2(P, Q)) by { expand X  affine_dot[P, Q, t] }
+      have dp: real(+0) < (t * (real(+1) - t)) * dist2(P, Q)
+        by apply real_mult_pos to tt, (apply point_dist2_pos[P, Q] to pq)
+      have c: collinear(P, X, Q) by { expand X  affine_collinear[P, Q, t] }
+      have n: dot(X, P, Q) < real(+0) by algebra with d | dp
+      (c, n)
+    }
+    (on, btw)
+  }
+  have bwd: if (some X:Point. on_line(X, line(A, B)) and between(P, X, Q))
+            then cross(A, B, P) * cross(A, B, Q) < real(+0) by {
+    assume ex
+    obtain X where hx from ex
+    have fx: cross(A, B, X) = real(+0)
+      by replace apply on_line_cross[A, B, X] to ne in conjunct 0 of hx
+    have bt: collinear(P, X, Q) and dot(X, P, Q) < real(+0) by expand between in conjunct 1 of hx
+    have cz: cross(P, Q, X) = real(+0)
+      by expand collinear in replace point_collinear_swap[P, X, Q] in conjunct 0 of bt
+    have a: real(+0) < dot(P, X, Q)
+      by algebra with dot_add_vertex[P, X, Q] | point_dist2_nonneg[P, X] | conjunct 1 of bt
+    have b: real(+0) < dot(Q, X, P)
+      by algebra with dot_add_vertex[Q, X, P] | point_dist2_nonneg[Q, X] | conjunct 1 of bt
+                    | dot_swap[X, P, Q]
+    have w: dot(Q, X, P) * cross(A, B, P) + dot(P, X, Q) * cross(A, B, Q) = real(+0) by {
+      have s: dist2(P, Q) * (real(+0) - cross(A, B, P))
+              = dot(P, X, Q) * (cross(A, B, Q) - cross(A, B, P))
+        by replace seg_cross_diff[A, B, P, X] | seg_cross_diff[A, B, P, Q] | fx | cz
+                 | dot_swap[P, X, Q] in seg_cross_split[A, B, P, Q, X]
+      apply weights_of_split[dist2(P, Q), dot(P, X, Q), dot(Q, X, P),
+                             cross(A, B, P), cross(A, B, Q)]
+        to s, dot_sum_vertex[P, Q, X]
+    }
+    apply opposite_of_weights[dot(P, X, Q), dot(Q, X, P), cross(A, B, P), cross(A, B, Q)]
+      to a, b, w, f_q
+  }
+  apply iff_equal to fwd, bwd
+end
+
+/*
+  Angle measure
+*/
+
+// The measure of angle ABC.
+opaque fun m_angle(A : Point, B : Point, C : Point) {
+  meas(dot(B, A, C), cross(B, A, C))
+}
+
+// D is in the interior of angle ABC.
+fun angle_interior(D : Point, A : Point, B : Point, C : Point) {
+  same_side(D, C, line(B, A)) and same_side(D, A, line(B, C))
+}
+
+// Angle ABC is a right angle.
+fun right_angle(A : Point, B : Point, C : Point) { m_angle(A, B, C) = deg(+90) }
+
+// Angles ABC and DEF are congruent.
+fun angle_congruent(A : Point, B : Point, C : Point, D : Point, E : Point, F : Point) {
+  m_angle(A, B, C) = m_angle(D, E, F)
+}
+
+// Ray BD bisects angle ABC.
+fun angle_bisects(D : Point, A : Point, B : Point, C : Point) {
+  angle_interior(D, A, B, C) and m_angle(A, B, D) = m_angle(D, B, C)
+}
+
+fun complementary(a : Angle, b : Angle) { a + b = deg(+90) }
+
+fun supplementary(a : Angle, b : Angle) { a + b = deg(+180) }
+
+theorem angle_measure_symmetric: all A:Point, B:Point, C:Point.
+  m_angle(A, B, C) = m_angle(C, B, A)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  expand m_angle
+  replace dot_swap[B, A, C] | cross_swap[B, A, C]
+  symmetric meas_neg[dot(B, A, C), cross(B, A, C)]
+end
+
+theorem angle_measure_range: all A:Point, B:Point, C:Point.
+  deg(+0) ≤ m_angle(A, B, C) and m_angle(A, B, C) ≤ deg(+180)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  expand m_angle
+  meas_range[dot(B, A, C), cross(B, A, C)]
+end
+
+theorem angle_measure_strict: all A:Point, B:Point, C:Point.
+  if not collinear(A, B, C)
+  then deg(+0) < m_angle(A, B, C) and m_angle(A, B, C) < deg(+180)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  replace collinear_vertex[A, B, C]
+  assume nz
+  expand m_angle
+  apply meas_strict[dot(B, A, C), cross(B, A, C)] to nz
+end
+
+// A straight angle measures 180°.
+theorem angle_measure_straight: all A:Point, B:Point, C:Point.
+  if between(A, B, C) then m_angle(A, B, C) = deg(+180)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  expand between
+  replace collinear_vertex[A, B, C]
+  assume h
+  expand m_angle | meas
+  replace apply eq_true to conjunct 0 of h | apply eq_true to conjunct 1 of h.
+end
+
+// If C is on ray BA, then angle ABC measures 0°.
+theorem angle_measure_zero: all A:Point, B:Point, C:Point.
+  if on_ray(C, B, A) then m_angle(A, B, C) = deg(+0)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  assume r
+  expand m_angle | meas
+  switch A = B {
+    case true assume e {
+      replace e
+      have c: cross(B, B, C) = real(+0) by { expand cross. }
+      have d: dot(B, B, C) = real(+0) by { expand dot. }
+      replace c | d.
+    }
+    case false assume ne {
+      have ba: not (B = A) by { assume e  apply ne to symmetric e }
+      have h: collinear(B, A, C) and real(+0) ≤ dot(B, A, C)
+        by replace apply ray_dot[B, A, C] to ba in r
+      have c: cross(B, A, C) = real(+0) by expand collinear in conjunct 0 of h
+      have d: not (dot(B, A, C) < real(+0)) by { assume n  algebra with conjunct 1 of h }
+      replace c | apply eq_false to d.
+    }
+  }
+end
+
+// Moving A along ray BA does not change the measure of angle ABC.
+theorem angle_measure_ray: all A:Point, B:Point, C:Point, P:Point.
+  if not (A = B) and not (P = B) and on_ray(P, B, A)
+  then m_angle(P, B, C) = m_angle(A, B, C)
+proof
+  arbitrary A:Point, B:Point, C:Point, P:Point
+  assume h
+  have ba: not (B = A) by { assume e  apply (conjunct 0 of h) to symmetric e }
+  have bp: not (B = P) by { assume e  apply (conjunct 1 of h) to symmetric e }
+  have r: collinear(B, A, P) and real(+0) ≤ dot(B, A, P)
+    by replace apply ray_dot[B, A, P] to ba in conjunct 2 of h
+  have c: cross(B, A, P) = real(+0) by expand collinear in conjunct 0 of r
+  have k: real(+0) < dist2(B, A) by apply point_dist2_pos to ba
+  have t: real(+0) < dot(B, A, P) by {
+    have f: dist2(B, A) * dist2(B, P) = dot(B, A, P) * dot(B, A, P) by {
+      replace symmetric dot_self[B, P] | point_dot_frame[B, A, P, P] | c.
+    }
+    have p: real(+0) < dist2(B, A) * dist2(B, P)
+      by apply real_mult_pos to k, (apply point_dist2_pos to bp)
+    have nz: not (real(+0) = dot(B, A, P)) by {
+      assume z
+      conclude false by { replace f | symmetric z in p }
+    }
+    replace real_less_def
+    ((conjunct 1 of r), nz)
+  }
+  have ed: dist2(B, A) * dot(B, P, C) = dot(B, A, P) * dot(B, A, C) by {
+    replace point_dot_frame[B, A, P, C] | c.
+  }
+  have ec: dist2(B, A) * cross(B, P, C) = dot(B, A, P) * cross(B, A, C) by {
+    replace point_cross_frame[B, A, P, C] | c.
+  }
+  expand m_angle
+  apply meas_scale[dist2(B, A), dot(B, A, P), dot(B, A, C), cross(B, A, C),
+                   dot(B, P, C), cross(B, P, C)] to k, t, ed, ec
+end
+
+// Two angles have equal measures exactly when their cosines are
+// equal, in coordinates: (BA · BC) |ED × EF| = |BA × BC| (ED · EF).
+theorem angle_measure_eq: all A:Point, B:Point, C:Point, D:Point, E:Point, F:Point.
+  if not collinear(A, B, C) and not collinear(D, E, F)
+  then (m_angle(A, B, C) = m_angle(D, E, F))
+     = (dot(B, A, C) * abs(cross(E, D, F)) = abs(cross(B, A, C)) * dot(E, D, F))
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point, E:Point, F:Point
+  replace collinear_vertex[A, B, C] | collinear_vertex[D, E, F]
+  assume h
+  expand m_angle
+  replace apply meas_arg[dot(B, A, C), cross(B, A, C)] to conjunct 0 of h
+        | apply meas_arg[dot(E, D, F), cross(E, D, F)] to conjunct 1 of h
+  apply arg_eq_iff[dot(B, A, C), abs(cross(B, A, C)), dot(E, D, F), abs(cross(E, D, F))]
+    to (apply abs_pos to conjunct 0 of h), (apply abs_pos to conjunct 1 of h)
+end
+
+/*
+  Angle addition and linear pairs
+*/
+
+lemma interior_ne: all D:Point, A:Point, B:Point, C:Point.
+  if angle_interior(D, A, B, C) then not (A = B) and not (C = B)
+proof
+  arbitrary D:Point, A:Point, B:Point, C:Point
+  expand angle_interior
+  assume h
+  have ab: not (A = B) by {
+    assume e
+    have s: same_side(D, B, line(B, C)) by replace e in conjunct 1 of h
+    conclude false by apply (conjunct 1 of apply line_same_side_off to s) to line_on_left[B, C]
+  }
+  have cb: not (C = B) by {
+    assume e
+    have s: same_side(D, B, line(B, A)) by replace e in conjunct 0 of h
+    conclude false by apply (conjunct 1 of apply line_same_side_off to s) to line_on_left[B, A]
+  }
+  (ab, cb)
+end
+
+// The Angle Addition Postulate: if D is in the interior of angle ABC,
+// then m∠ABD + m∠DBC = m∠ABC.
+theorem angle_add: all A:Point, B:Point, C:Point, D:Point.
+  if angle_interior(D, A, B, C)
+  then m_angle(A, B, D) + m_angle(D, B, C) = m_angle(A, B, C)
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point
+  assume h
+  have ne: not (A = B) and not (C = B) by apply interior_ne to h
+  have ba: not (B = A) by { assume e  apply (conjunct 0 of ne) to symmetric e }
+  have bc: not (B = C) by { assume e  apply (conjunct 1 of ne) to symmetric e }
+  have hi: same_side(D, C, line(B, A)) and same_side(D, A, line(B, C)) by expand angle_interior in h
+  have s1: real(+0) < cross(B, A, D) * cross(B, A, C)
+    by replace apply line_same_side_cross[B, A, D, C] to ba in conjunct 0 of hi
+  have s2: real(+0) < cross(B, D, C) * cross(B, A, C) by {
+    have s: real(+0) < cross(B, C, D) * cross(B, C, A)
+      by replace apply line_same_side_cross[B, C, D, A] to bc in conjunct 1 of hi
+    have e: cross(B, C, D) * cross(B, C, A) = cross(B, D, C) * cross(B, A, C)
+      by { replace cross_swap[B, D, C] | cross_swap[B, A, C]  algebra }
+    replace e in s
+  }
+  have bd: not (B = D) by {
+    assume e
+    have z: cross(B, A, D) = real(+0) by { replace symmetric e  expand cross. }
+    conclude false by { replace z in s1 }
+  }
+  have k: real(+0) < dist2(B, D) by apply point_dist2_pos to bd
+  // The dot and cross products of BA and BC, in the frame of BD.
+  have fd: dist2(B, D) * dot(B, A, C)
+           = dot(B, A, D) * dot(B, D, C) - cross(B, A, D) * cross(B, D, C) by {
+    replace point_dot_frame[B, D, A, C] | dot_swap[B, A, D] | cross_swap[B, A, D]
+    algebra
+  }
+  have fc: dist2(B, D) * cross(B, A, C)
+           = dot(B, A, D) * cross(B, D, C) + cross(B, A, D) * dot(B, D, C) by {
+    replace point_cross_frame[B, D, A, C] | dot_swap[B, A, D] | cross_swap[B, A, D]
+    algebra
+  }
+  expand m_angle
+  apply meas_add[dist2(B, D), dot(B, A, D), cross(B, A, D), dot(B, D, C), cross(B, D, C),
+                 dot(B, A, C), cross(B, A, C)]
+    to s1, s2, k, (symmetric fd), (symmetric fc)
+end
+
+// The Linear Pair Postulate: if B is between A and C and D is not on
+// line AC, then m∠ABD + m∠DBC = 180°.
+theorem angle_linear_pair: all A:Point, B:Point, C:Point, D:Point.
+  if between(A, B, C) and not collinear(A, B, D)
+  then m_angle(A, B, D) + m_angle(D, B, C) = deg(+180)
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point
+  assume h
+  have bt: collinear(A, B, C) and dot(B, A, C) < real(+0) by expand between in conjunct 0 of h
+  have c: cross(B, A, C) = real(+0) by replace collinear_vertex[A, B, C] in conjunct 0 of bt
+  have c1: not (cross(B, A, D) = real(+0)) by replace collinear_vertex[A, B, D] in conjunct 1 of h
+  have ba: not (B = A) by {
+    assume e
+    apply (conjunct 0 of apply between_distinct[A, B, C] to conjunct 0 of h) to symmetric e
+  }
+  have k: real(+0) < dist2(B, A) by apply point_dist2_pos to ba
+  have t: real(+0) < - dot(B, A, C) by algebra with conjunct 1 of bt
+  // In the frame of BA, BC = t BA with t < 0.
+  have ed: dist2(B, A) * dot(B, D, C) = (- dot(B, A, C)) * (- dot(B, A, D)) by {
+    replace point_dot_frame[B, A, D, C] | c
+    algebra
+  }
+  have ec: dist2(B, A) * cross(B, D, C) = (- dot(B, A, C)) * cross(B, A, D) by {
+    replace point_cross_frame[B, A, D, C] | c
+    algebra
+  }
+  have sc: meas(dot(B, D, C), cross(B, D, C)) = meas(- dot(B, A, D), cross(B, A, D))
+    by apply meas_scale[dist2(B, A), - dot(B, A, C), - dot(B, A, D), cross(B, A, D),
+                        dot(B, D, C), cross(B, D, C)] to k, t, ed, ec
+  expand m_angle
+  replace sc
+  apply meas_supplement[dot(B, A, D), cross(B, A, D)] to c1
+end
+
+// The Vertical Angles Theorem: if lines AC and BD cross at E, then
+// angles AEB and CED are congruent.
+theorem angle_vertical: all A:Point, B:Point, C:Point, D:Point, E:Point.
+  if between(A, E, C) and between(B, E, D) and not collinear(A, E, B)
+  then m_angle(A, E, B) = m_angle(C, E, D)
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point, E:Point
+  assume h
+  have aec: between(A, E, C) by h
+  have bed: between(B, E, D) by h
+  have nc: not collinear(B, E, C) by {
+    assume bec
+    have ec: not (E = C) by conjunct 1 of apply between_distinct to aec
+    have eca: collinear(E, C, A)
+      by replace point_collinear_rotate[A, E, C] in apply between_collinear to aec
+    have ecb: collinear(E, C, B) by replace point_collinear_rotate[B, E, C] in bec
+    have eab: collinear(E, A, B) by apply point_collinear_trans[E, C, A, B] to ec, eca, ecb
+    have aeb: collinear(A, E, B)
+      by { replace point_collinear_rotate[A, E, B] | point_collinear_swap[E, B, A]  eab }
+    conclude false by apply (conjunct 2 of h) to aeb
+  }
+  have lp1: m_angle(A, E, B) + m_angle(B, E, C) = deg(+180)
+    by apply angle_linear_pair[A, E, C, B] to aec, conjunct 2 of h
+  have lp2: m_angle(B, E, C) + m_angle(C, E, D) = deg(+180)
+    by apply angle_linear_pair[B, E, D, C] to bed, nc
+  algebra with lp1 | lp2
+end
+
+/*
+  Right angles
+*/
+
+theorem angle_right_dot: all A:Point, B:Point, C:Point.
+  if not (A = B) and not (C = B) then right_angle(A, B, C) = (dot(B, A, C) = real(+0))
+proof
+  arbitrary A:Point, B:Point, C:Point
+  assume h
+  have ba: not (B = A) by { assume e  apply (conjunct 0 of h) to symmetric e }
+  have bc: not (B = C) by { assume e  apply (conjunct 1 of h) to symmetric e }
+  expand right_angle | m_angle
+  switch cross(B, A, C) = real(+0) {
+    case true assume z {
+      // A straight or zero angle, and BA · BC ≠ 0.
+      have nd: not (dot(B, A, C) = real(+0)) by {
+        assume d
+        have f: dist2(B, A) * dist2(B, C) = real(+0) by {
+          replace symmetric dot_self[B, C] | point_dot_frame[B, A, C, C] | z | d.
+        }
+        have p: real(+0) < dist2(B, A) * dist2(B, C)
+          by apply real_mult_pos to (apply point_dist2_pos to ba), (apply point_dist2_pos to bc)
+        conclude false by { replace f in p }
+      }
+      expand meas
+      replace apply eq_true to z | apply eq_false to nd
+      switch dot(B, A, C) < real(+0) { case true { . } case false { . } }
+    }
+    case false assume nz {
+      have p: real(+0) < abs(cross(B, A, C)) by apply abs_pos to nz
+      replace apply meas_arg[dot(B, A, C), cross(B, A, C)] to nz
+            | symmetric apply arg_right to p
+            | apply arg_eq_iff[dot(B, A, C), abs(cross(B, A, C)), real(+0), abs(cross(B, A, C))] to p, p
+      have na: not (abs(cross(B, A, C)) = real(+0)) by { assume z  replace z in p }
+      have c: dot(B, A, C) * abs(cross(B, A, C)) = abs(cross(B, A, C)) * dot(B, A, C) by algebra
+      replace c
+      apply real_mult_zero_iff[abs(cross(B, A, C)), dot(B, A, C)] to na
+    }
+  }
+end
+
+// An angle is a right angle exactly when its sides are perpendicular.
+theorem angle_right_perpendicular: all A:Point, B:Point, C:Point.
+  if not (A = B) and not (C = B)
+  then right_angle(A, B, C) = perpendicular(line(B, A), line(B, C))
+proof
+  arbitrary A:Point, B:Point, C:Point
+  assume h
+  have ba: not (B = A) by { assume e  apply (conjunct 0 of h) to symmetric e }
+  have bc: not (B = C) by { assume e  apply (conjunct 1 of h) to symmetric e }
+  have sd: seg_dot(B, A, B, C) = dot(B, A, C) by { expand seg_dot | dot. }
+  replace apply angle_right_dot[A, B, C] to h
+        | apply line_perpendicular_seg_dot[B, A, B, C] to ba, bc | sd.
+end
+
+/*
+  The protractor
+*/
+
+lemma abs_mult3: all y:Real, h:Real, K:Real.
+  if real(+0) < y and real(+0) < K then abs((y * h) * K) = (y * abs(h)) * K
+proof
+  arbitrary y:Real, h:Real, K:Real
+  assume p
+  have ay: abs(y) = y by apply real_abs_nonneg_eq to apply real_less_implies_less_equal to conjunct 0 of p
+  have ak: abs(K) = K by apply real_abs_nonneg_eq to apply real_less_implies_less_equal to conjunct 1 of p
+  replace real_abs_mult[y * h, K] | real_abs_mult[y, h] | ay | ak.
+end
+
+// The Protractor Postulate, part 1: for A ≠ B, a point H not on line
+// BA, and 0° < r < 180°, there is a point C on the same side of line
+// BA as H with m∠ABC = r ...
+theorem angle_protractor: all A:Point, B:Point, H:Point, r:Angle.
+  if not (A = B) and not on_line(H, line(B, A)) and deg(+0) < r and r < deg(+180)
+  then some C:Point. same_side(C, H, line(B, A)) and m_angle(A, B, C) = r
+proof
+  arbitrary A:Point, B:Point, H:Point, r:Angle
+  assume prem
+  have ba: not (B = A) by { assume e  apply (conjunct 0 of prem) to symmetric e }
+  obtain x, y where xy from apply arg_onto[r] to (conjunct 2 of prem), (conjunct 3 of prem)
+  have yp: real(+0) < y by conjunct 0 of xy
+  define h = cross(B, A, H)
+  have hz: not (h = real(+0))
+    by { expand h  replace symmetric apply on_line_cross[B, A, H] to ba  conjunct 1 of prem }
+  have hp: real(+0) < abs(h) by apply abs_pos to hz
+  define ux = xcoord(A) - xcoord(B)
+  define uy = ycoord(A) - ycoord(B)
+  define C = point(xcoord(B) + (x * abs(h)) * ux - (y * h) * uy,
+                   ycoord(B) + (x * abs(h)) * uy + (y * h) * ux)
+  choose C
+  have k: real(+0) < dist2(B, A) by apply point_dist2_pos to ba
+  have dc: dot(B, A, C) = (x * abs(h)) * dist2(B, A) by { expand dot | dist2 | C | ux | uy  algebra }
+  have cc: cross(B, A, C) = (y * h) * dist2(B, A) by { expand cross | dist2 | C | ux | uy  algebra }
+  have yh: not ((y * h) * dist2(B, A) = real(+0)) by {
+    have nn: not (y * h = real(+0)) by {
+      replace apply real_mult_zero_iff[y, h] to (assume z  replace z in yp)
+      hz
+    }
+    assume z
+    have k0: not (dist2(B, A) = real(+0)) by { assume z2  replace z2 in k }
+    have z3: dist2(B, A) * (y * h) = real(+0) by { replace real_mult_commute[dist2(B, A), y * h]  z }
+    apply nn to replace apply real_mult_zero_iff[dist2(B, A), y * h] to k0 in z3
+  }
+  have side: same_side(C, H, line(B, A)) by {
+    replace apply line_same_side_cross[B, A, C, H] to ba | cc
+    have e: ((y * h) * dist2(B, A)) * cross(B, A, H) = (y * dist2(B, A)) * (h * h)
+      by { expand h  algebra }
+    have hh: real(+0) < h * h by apply square_pos to hz
+    replace e
+    apply real_mult_pos to (apply real_mult_pos to yp, k), hh
+  }
+  have m: m_angle(A, B, C) = r by {
+    expand m_angle
+    replace dc | cc | apply meas_arg[(x * abs(h)) * dist2(B, A), (y * h) * dist2(B, A)] to yh
+          | apply abs_mult3[y, h, dist2(B, A)] to yp, k
+    replace symmetric conjunct 1 of xy
+    apply arg_eq[(x * abs(h)) * dist2(B, A), (y * abs(h)) * dist2(B, A), x, y]
+      to (apply real_mult_pos to (apply real_mult_pos to yp, hp), k), yp, (algebra)
+  }
+  (side, m)
+end
+
+lemma same_sign_cross: all p:Real, q:Real, x:Real, y:Real.
+  if real(+0) < p * q and x * abs(q) = abs(p) * y then x * q = p * y
+proof
+  arbitrary p:Real, q:Real, x:Real, y:Real
+  assume h
+  cases real_trichotomy[real(+0), p]
+  case ppos {
+    have qp: real(+0) < q by {
+      have c: q * p = p * q by algebra
+      apply pos_factor[q, p] to (replace c  conjunct 0 of h), ppos
+    }
+    have aq: abs(q) = q by apply real_abs_nonneg_eq to apply real_less_implies_less_equal to qp
+    have ap: abs(p) = p by apply real_abs_nonneg_eq to apply real_less_implies_less_equal to ppos
+    replace aq | ap in conjunct 1 of h
+  }
+  case pzero { conclude false by { replace symmetric pzero in conjunct 0 of h } }
+  case pneg {
+    have np: real(+0) < - p by { replace real_zero_less_neg[p]  pneg }
+    have nq: real(+0) < - q by {
+      have c: (- q) * (- p) = p * q
+        by { replace real_neg_mult_neg[q, p]  real_mult_commute[q, p] }
+      apply pos_factor[- q, - p] to (replace c  conjunct 0 of h), np
+    }
+    have q_np: q ≤ real(+0)
+      by apply real_less_implies_less_equal to replace real_zero_less_neg[q] in nq
+    have aq: abs(q) = - q by apply real_abs_nonpos_eq to q_np
+    have ap: abs(p) = - p
+      by apply real_abs_nonpos_eq to apply real_less_implies_less_equal to pneg
+    have e: - (x * q) = - (p * y)
+      by replace aq | ap | real_mult_neg[x, q] | real_neg_mult[p, y] in conjunct 1 of h
+    apply real_neg_injective to e
+  }
+end
+
+lemma same_sign_dot: all p:Real, q:Real, x:Real, y:Real.
+  if real(+0) < p * q and x * q = p * y then real(+0) ≤ x * y
+proof
+  arbitrary p:Real, q:Real, x:Real, y:Real
+  assume h
+  have i: (x * y) * (p * q) = (x * q) * (p * y) by algebra
+  have sq: real(+0) ≤ (x * y) * (p * q) by {
+    replace i | conjunct 1 of h
+    real_square_nonneg[p * y]
+  }
+  have e: (real(+0) * (p * q) ≤ (x * y) * (p * q)) = (real(+0) ≤ x * y)
+    by apply real_pos_mult_le_iff[p * q, real(+0), x * y] to conjunct 0 of h
+  replace symmetric e
+  sq
+end
+
+// ... and only one ray: if C and D are on the same side of line BA and
+// m∠ABC = m∠ABD, then D is on ray BC.
+theorem angle_protractor_unique: all A:Point, B:Point, C:Point, D:Point.
+  if not (A = B) and same_side(C, D, line(B, A)) and m_angle(A, B, C) = m_angle(A, B, D)
+  then on_ray(D, B, C)
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point
+  assume h
+  have ba: not (B = A) by { assume e  apply (conjunct 0 of h) to symmetric e }
+  have s: real(+0) < cross(B, A, C) * cross(B, A, D)
+    by replace apply line_same_side_cross[B, A, C, D] to ba in conjunct 1 of h
+  have cz: not (cross(B, A, C) = real(+0)) by { assume z  replace z in s }
+  have dz: not (cross(B, A, D) = real(+0)) by { assume z  replace z in s }
+  have bc: not (B = C) by {
+    assume e
+    have z: cross(B, A, C) = real(+0) by { replace symmetric e  expand cross. }
+    apply cz to z
+  }
+  have eq: dot(B, A, C) * abs(cross(B, A, D)) = abs(cross(B, A, C)) * dot(B, A, D) by {
+    have m: meas(dot(B, A, C), cross(B, A, C)) = meas(dot(B, A, D), cross(B, A, D))
+      by expand m_angle in conjunct 2 of h
+    replace apply meas_arg[dot(B, A, C), cross(B, A, C)] to cz
+          | apply meas_arg[dot(B, A, D), cross(B, A, D)] to dz
+          | apply arg_eq_iff[dot(B, A, C), abs(cross(B, A, C)), dot(B, A, D), abs(cross(B, A, D))]
+            to (apply abs_pos to cz), (apply abs_pos to dz)
+    in m
+  }
+  have x: dot(B, A, C) * cross(B, A, D) = cross(B, A, C) * dot(B, A, D)
+    by apply same_sign_cross to s, eq
+  have k: real(+0) < dist2(B, A) by apply point_dist2_pos to ba
+  have k0: not (dist2(B, A) = real(+0)) by { assume z  replace z in k }
+  have col: collinear(B, C, D) by {
+    have f: dist2(B, A) * cross(B, C, D) = real(+0) by {
+      replace point_cross_frame[B, A, C, D] | x.
+    }
+    expand collinear
+    replace apply real_mult_zero_iff[dist2(B, A), cross(B, C, D)] to k0 in f
+  }
+  have dd: real(+0) ≤ dot(B, C, D) by {
+    have f: dist2(B, A) * dot(B, C, D)
+            = dot(B, A, C) * dot(B, A, D) + cross(B, A, C) * cross(B, A, D)
+      by point_dot_frame[B, A, C, D]
+    have nn: real(+0) ≤ dot(B, A, C) * dot(B, A, D) by apply same_sign_dot to s, x
+    have p: real(+0) ≤ dist2(B, A) * dot(B, C, D) by algebra with f | nn | s
+    have e: (real(+0) * dist2(B, A) ≤ dot(B, C, D) * dist2(B, A)) = (real(+0) ≤ dot(B, C, D))
+      by apply real_pos_mult_le_iff[dist2(B, A), real(+0), dot(B, C, D)] to k
+    have c: dot(B, C, D) * dist2(B, A) = dist2(B, A) * dot(B, C, D) by algebra
+    replace symmetric e | c
+    p
+  }
+  replace apply ray_dot[B, C, D] to bc
+  (col, dd)
+end

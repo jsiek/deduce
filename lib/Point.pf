@@ -362,6 +362,61 @@ proof
   expand collinear | cross.
 end
 
+// The vectors u = (a, b), v = (c, d), w = (e, f) in the frame of u:
+// |u|² (v · w) = (u · v)(u · w) + (u × v)(u × w) and
+// |u|² (v × w) = (u · v)(u × w) - (u × v)(u · w).
+lemma vec_dot_frame: all a:Real, b:Real, c:Real, d:Real, e:Real, f:Real.
+  (a * a + b * b) * (c * e + d * f)
+  = (a * c + b * d) * (a * e + b * f) + (a * d - b * c) * (a * f - b * e)
+proof
+  arbitrary a:Real, b:Real, c:Real, d:Real, e:Real, f:Real
+  algebra
+end
+
+lemma vec_cross_frame: all a:Real, b:Real, c:Real, d:Real, e:Real, f:Real.
+  (a * a + b * b) * (c * f - d * e)
+  = (a * c + b * d) * (a * f - b * e) - (a * d - b * c) * (a * e + b * f)
+proof
+  arbitrary a:Real, b:Real, c:Real, d:Real, e:Real, f:Real
+  algebra
+end
+
+// The dot and cross products of AC and AD, from those with AB.
+theorem point_dot_frame: all A:Point, B:Point, C:Point, D:Point.
+  dist2(A, B) * dot(A, C, D)
+  = dot(A, B, C) * dot(A, B, D) + cross(A, B, C) * cross(A, B, D)
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point
+  replace point_dist2_symmetric[A, B]
+  expand dist2 | dot | cross
+  vec_dot_frame[xcoord(B) - xcoord(A), ycoord(B) - ycoord(A), xcoord(C) - xcoord(A),
+                ycoord(C) - ycoord(A), xcoord(D) - xcoord(A), ycoord(D) - ycoord(A)]
+end
+
+theorem point_cross_frame: all A:Point, B:Point, C:Point, D:Point.
+  dist2(A, B) * cross(A, C, D)
+  = dot(A, B, C) * cross(A, B, D) - cross(A, B, C) * dot(A, B, D)
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point
+  replace point_dist2_symmetric[A, B]
+  expand dist2 | dot | cross
+  vec_cross_frame[xcoord(B) - xcoord(A), ycoord(B) - ycoord(A), xcoord(C) - xcoord(A),
+                  ycoord(C) - ycoord(A), xcoord(D) - xcoord(A), ycoord(D) - ycoord(A)]
+end
+
+// Points C and D of line AB (A ≠ B) are collinear with A.
+theorem point_collinear_trans: all A:Point, B:Point, C:Point, D:Point.
+  if not (A = B) and collinear(A, B, C) and collinear(A, B, D) then collinear(A, C, D)
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point
+  expand collinear
+  assume h
+  have e: dist2(A, B) * cross(A, C, D) = real(+0)
+    by { replace point_cross_frame[A, B, C, D] | conjunct 1 of h | conjunct 2 of h. }
+  have nz: not (dist2(A, B) = real(+0)) by { replace point_dist2_zero[A, B]  conjunct 0 of h }
+  replace apply real_mult_zero_iff[dist2(A, B), cross(A, C, D)] to nz in e
+end
+
 theorem point_midpoint_collinear: all A:Point, B:Point.
   collinear(A, midpoint(A, B), B)
 proof
