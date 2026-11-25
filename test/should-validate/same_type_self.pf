@@ -1,0 +1,59 @@
+// A same-type constraint that determines a type variable by an
+// associated type of its own instance: `X = List<Elem>` (#1344).
+
+import List
+
+// From a requirement of the concept.
+concept Wrapped<X> {
+  type Elem
+  X = List<Elem>
+  fun unwrap : fn X -> Elem
+}
+
+model Wrapped<List<bool>> {
+  type Elem = bool
+  fun unwrap = fun xs:List<bool> { switch xs { case empty { false } case node(x, _) { x } } }
+}
+
+theorem unwrap_one: all T:type where { Wrapped<T> }. all x:@Wrapped<T>.Elem.
+  unwrap([x]) = unwrap([x])
+proof
+  arbitrary T:type where { Wrapped<T> }
+  arbitrary x:@Wrapped<T>.Elem
+  .
+end
+
+theorem unwrap_one_bool: all x:bool.
+  @Wrapped<List<bool>>.unwrap([x]) = @Wrapped<List<bool>>.unwrap([x])
+proof
+  unwrap_one<List<bool>>
+end
+
+fun first<T> where { Wrapped<T> } (x:@Wrapped<T>.Elem) { unwrap([x]) }
+
+assert first(true) = true
+
+// From a constraint of the where clause.
+concept Wrap<X> {
+  type Elem
+  fun unwrap : fn X -> Elem
+}
+
+model Wrap<List<bool>> {
+  type Elem = bool
+  fun unwrap = fun xs:List<bool> { switch xs { case empty { false } case node(x, _) { x } } }
+}
+
+theorem wrap_one: all T:type where { Wrap<T>, T = List<@Wrap<T>.Elem> }. all x:@Wrap<T>.Elem.
+  unwrap([x]) = unwrap([x])
+proof
+  arbitrary T:type where { Wrap<T>, T = List<@Wrap<T>.Elem> }
+  arbitrary x:@Wrap<T>.Elem
+  .
+end
+
+theorem wrap_one_bool: all x:bool.
+  @Wrap<List<bool>>.unwrap([x]) = @Wrap<List<bool>>.unwrap([x])
+proof
+  wrap_one<List<bool>>
+end

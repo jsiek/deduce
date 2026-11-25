@@ -1,0 +1,29 @@
+// The model of Wrap<List<UInt>> has Elem = bool, so T = List<Elem> fails
+// at T := List<UInt> (#1344).
+
+import List
+import UInt
+
+concept Wrap<X> {
+  type Elem
+  fun unwrap : fn X -> Elem
+}
+
+model Wrap<List<UInt>> {
+  type Elem = bool
+  fun unwrap = fun xs:List<UInt> { true }
+}
+
+theorem wrap_one: all T:type where { Wrap<T>, T = List<@Wrap<T>.Elem> }. all x:@Wrap<T>.Elem.
+  unwrap([x]) = unwrap([x])
+proof
+  arbitrary T:type where { Wrap<T>, T = List<@Wrap<T>.Elem> }
+  arbitrary x:@Wrap<T>.Elem
+  .
+end
+
+theorem wrap_one_uint: all x:bool.
+  @Wrap<List<UInt>>.unwrap([]) = @Wrap<List<UInt>>.unwrap([])
+proof
+  wrap_one<List<UInt>>
+end

@@ -157,8 +157,8 @@ class WhereClause(AST):
                                                    kw_only=True)
   # The type variables and proxies that the same-type constraints
   # determine, and their types. Filled in by the checker, which also
-  # types the constraints (a projection becomes its proxy) and puts the
-  # instances in terms of the solution.
+  # types the constraints (a projection becomes its proxy). The instances
+  # stay as written: `solved` puts one in terms of the solution.
   solution: dict[str, Type] = field(default_factory=dict, kw_only=True)
 
   def __str__(self) -> str:
@@ -252,6 +252,14 @@ class WhereClause(AST):
                               for (i, t, p) in self.assoc],
                        solution=_substitute_solution(self.solution, sub))
 
+  def solved(self, inst: ConceptRef) -> ConceptRef:
+    """The instance ``inst`` in terms of the solution: instances that the
+    same-type constraints make equal are one instance. The instances
+    stay as written (`Wrapped<T>`, not `Wrapped<List<Elem>>` when the
+    clause's own `Elem` determines `T`), so substituting a type for a
+    determined variable still reaches them (#1344)."""
+    return inst.substitute(self.solution)
+
   def proxies(self) -> List[str]:
     """The proxies that the same-type constraints leave undetermined."""
     return [p for (_, _, p) in self.assoc if p not in self.solution]
@@ -262,7 +270,7 @@ class WhereClause(AST):
     ``inst``'s concept refines, under the names its refines clause gives
     them."""
     types = {t: self.solution.get(p, cast(Type, ResolvedVar(self.location, None, p)))
-             for (i, t, p) in self.assoc if i == inst}
+             for (i, t, p) in self.assoc if self.solved(i) == self.solved(inst)}
     decl = concept_decls.get(inst.concept)
     if decl is not None:
       psub = dict(zip(decl.type_params, inst.type_args)) | types
