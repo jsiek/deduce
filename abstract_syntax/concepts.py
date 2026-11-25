@@ -461,11 +461,14 @@ class ConceptDecl(Declaration):
     # directly (G, Siek's thesis §5.2.3): inside `concept Seq<C> { refines
     # Container<C> ... }`, Elem is Container<C>'s. The user didn't write
     # these names, so a later one replaces an earlier one without a
-    # warning (`require Iter<X>  require Iter<Y>` both bring Elem, #1346).
+    # warning (`require Iter<X>  require Iter<Y>` both bring Elem, #1346),
+    # but replacing a name the user wrote (a type parameter) warns.
     own = {base_name(t) for t in types}
+    brought: set[str] = set()
     for (_, name, p) in refines.assoc:
-      if base_name(name) not in own:
-        overwrite(body_env, base_name(name), p, self.location, warn=False)
+      if (b := base_name(name)) not in own:
+        overwrite(body_env, b, p, self.location, warn=b not in brought)
+        brought.add(b)
     # The same-type requirements (G's `type == type;`), which may name the
     # associated types of the required instances.
     body_env[WHERE_ASSOC_KEY] = refines.assoc
