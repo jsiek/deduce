@@ -1,0 +1,16 @@
+// Requiring two instances of one concept brings its associated type Elem
+// in twice; the user didn't write either name, so there is no warning
+// (#1346). Only the user's own shadowing of x warns.
+
+concept Iter<I> {
+  type Elem
+  fun deref : fn I -> Elem
+}
+
+concept SameIter<X, Y> {
+  require Iter<X>
+  require Iter<Y>
+  X = Y
+}
+
+define pick = fun x:bool { fun x:bool { x } }

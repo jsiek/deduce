@@ -459,11 +459,13 @@ class ConceptDecl(Declaration):
         .bind(body_env, ctx)
     # Refinement brings the refined concepts' associated types into scope
     # directly (G, Siek's thesis §5.2.3): inside `concept Seq<C> { refines
-    # Container<C> ... }`, Elem is Container<C>'s.
+    # Container<C> ... }`, Elem is Container<C>'s. The user didn't write
+    # these names, so a later one replaces an earlier one without a
+    # warning (`require Iter<X>  require Iter<Y>` both bring Elem, #1346).
     own = {base_name(t) for t in types}
     for (_, name, p) in refines.assoc:
       if base_name(name) not in own:
-        overwrite(body_env, base_name(name), p, self.location)
+        overwrite(body_env, base_name(name), p, self.location, warn=False)
     # The same-type requirements (G's `type == type;`), which may name the
     # associated types of the required instances.
     body_env[WHERE_ASSOC_KEY] = refines.assoc
