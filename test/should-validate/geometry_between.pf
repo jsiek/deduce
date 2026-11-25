@@ -1,0 +1,181 @@
+// lib/Between.pf and the distance of lib/Point.pf from a client's
+// view: only their public names.
+
+import Between
+import Linear
+
+define O = point(real(+0), real(+0))
+define M = point(real(+1), real(+0))
+define X = point(real(+2), real(+0))
+define W = point(real(-1), real(+0))
+
+theorem O_ne_X: not (O = X)
+proof
+  assume e
+  have x: xcoord(O) = xcoord(X) by { replace e. }
+  expand O | X in x
+end
+
+theorem O_ne_M: not (O = M)
+proof
+  assume e
+  have x: xcoord(O) = xcoord(M) by { replace e. }
+  expand O | M in x
+end
+
+// M is between O and X, by the coordinate definition.
+theorem OMX: between(O, M, X)
+proof
+  expand between | collinear | cross | dot | O | M | X
+  evaluate
+end
+
+// O is between W and X.
+theorem WOX: between(W, O, X)
+proof
+  expand between | collinear | cross | dot | O | W | X
+  evaluate
+end
+
+theorem between_facts: between(X, M, O) and not between(M, O, X) and not between(O, X, M)
+proof
+  have u: not between(M, O, X) and not between(O, X, M)
+    by apply between_unique[O, M, X] to OMX
+  (replace symmetric between_symmetric[O, M, X]  OMX, (conjunct 0 of u), (conjunct 1 of u))
+end
+
+theorem dist_OX: dist(O, X) = real(+2)
+proof
+  have sq: real(+2) * real(+2) = dist2(O, X) by { expand dist2 | O | X  evaluate }
+  apply point_dist_unique[O, X, real(+2)] to ., sq
+end
+
+theorem dist_OM: dist(O, M) = real(+1)
+proof
+  have sq: real(+1) * real(+1) = dist2(O, M) by { expand dist2 | O | M  evaluate }
+  apply point_dist_unique[O, M, real(+1)] to ., sq
+end
+
+// Segment addition: OM + MX = OX, so MX = 1.
+theorem dist_MX: dist(M, X) = real(+1)
+proof
+  have s: dist(O, M) + dist(M, X) = dist(O, X) by apply between_seg_add[O, M, X] to OMX
+  algebra with s | dist_OX | dist_OM
+end
+
+theorem segment_and_ray: on_segment(M, O, X) and on_ray(X, O, M) and on_ray(M, O, X)
+proof
+  have s: on_segment(M, O, X) by { expand on_segment  OMX }
+  have r: on_ray(X, O, M) by { expand on_ray  OMX }
+  (s, r, apply seg_on_ray[M, O, X] to s)
+end
+
+theorem endpoints: on_segment(O, O, X) and on_segment(X, O, X) and on_segment(M, X, O)
+proof
+  (seg_on_left[O, X], seg_on_right[O, X],
+   replace symmetric seg_symmetric[M, O, X]  conjunct 0 of segment_and_ray)
+end
+
+// The converse of segment addition.
+theorem converse_example: between(O, M, X)
+proof
+  have ne2: not (M = X) by {
+    assume e
+    have x: xcoord(M) = xcoord(X) by { replace e. }
+    expand M | X in x
+  }
+  have s: dist(O, M) + dist(M, X) = dist(O, X)
+    by { replace dist_OM | dist_MX | dist_OX. }
+  apply between_seg_add_converse[O, M, X] to O_ne_M, ne2, s
+end
+
+theorem seg_add_example: on_segment(M, O, X)
+proof
+  replace seg_add[O, M, X]
+  apply between_seg_add[O, M, X] to OMX
+end
+
+// The ruler on line OX: O is at 0, X at 2, and M at 1.
+theorem ruler_example: ruler(O, X, O) = real(+0) and ruler(O, X, X) = real(+2)
+  and ruler(O, X, M) = real(+1)
+proof
+  have m: ruler(O, X, M) = real(+1) by {
+    expand ruler
+    replace dist_OX
+    expand dot | O | X | M
+    evaluate
+  }
+  (ruler_left[O, X], (transitive (apply ruler_right[O, X] to O_ne_X) dist_OX), m)
+end
+
+theorem ruler_dist_example: all P:Point, Q:Point.
+  if on_line(P, line(O, X)) and on_line(Q, line(O, X))
+  then dist(P, Q) = abs(ruler(O, X, P) - ruler(O, X, Q))
+proof
+  arbitrary P:Point, Q:Point
+  assume h
+  apply ruler_dist[O, X, P, Q] to O_ne_X, (conjunct 0 of h), (conjunct 1 of h)
+end
+
+theorem ruler_onto_example: some P:Point. on_line(P, line(O, X)) and ruler(O, X, P) = real(+5)
+proof
+  apply ruler_onto[O, X, real(+5)] to O_ne_X
+end
+
+// Point plotting: there is exactly one point on ray OX at distance 3 from O.
+theorem plot_example: some P:Point. on_ray(P, O, X) and dist(O, P) = real(+3)
+proof
+  apply ray_point_plotting[O, X, real(+3)] to O_ne_X, .
+end
+
+theorem plot_unique: all P:Point, Q:Point.
+  if on_ray(P, O, X) and on_ray(Q, O, X) and dist(O, P) = real(+3) and dist(O, Q) = real(+3)
+  then P = Q
+proof
+  arbitrary P:Point, Q:Point
+  assume h
+  have e: dist(O, P) = dist(O, Q) by { replace conjunct 2 of h | conjunct 3 of h. }
+  apply ray_dist_unique[O, X, P, Q] to O_ne_X, (conjunct 0 of h), (conjunct 1 of h), e
+end
+
+// Rays OW and OX are opposite rays: together they make up line OW.
+theorem opposite_example: all P:Point.
+  (on_ray(P, O, W) or on_ray(P, O, X)) = on_line(P, line(O, W))
+proof
+  arbitrary P:Point
+  apply ray_opposite[O, W, X, P] to WOX
+end
+
+theorem trichotomy_example: all A:Point, B:Point, C:Point.
+  if collinear(A, B, C) and not (A = B) and not (B = C) and not (A = C)
+     and not between(B, A, C) and not between(A, C, B)
+  then between(A, B, C)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  assume h
+  cases apply between_trichotomy[A, B, C] to (conjunct 0 of h), (conjunct 1 of h),
+                                             (conjunct 2 of h), (conjunct 3 of h)
+  case bac { conclude false by apply (conjunct 4 of h) to bac }
+  case abc { abc }
+  case acb { conclude false by apply (conjunct 5 of h) to acb }
+end
+
+theorem distinct_example: all A:Point, B:Point, C:Point.
+  if between(A, B, C) then collinear(A, B, C) and not (A = C)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  assume h
+  ((apply between_collinear[A, B, C] to h), (conjunct 2 of apply between_distinct[A, B, C] to h))
+end
+
+// M is the midpoint of OX: it is on the segment and OM = MX.
+theorem midpoint_example: M = midpoint(O, X)
+proof
+  replace seg_midpoint_iff[O, X, M]
+  ((conjunct 0 of segment_and_ray), transitive dist_OM (symmetric dist_MX))
+end
+
+theorem midpoint_between_example: between(O, midpoint(O, X), X)
+proof
+  apply between_midpoint[O, X] to O_ne_X
+end

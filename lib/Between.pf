@@ -1,0 +1,902 @@
+module Between
+
+/*
+  Betweenness, segments, rays, the ruler, and segment addition, for
+  coordinate geometry (#1191).
+
+  * `between(A, B, C)`: B is strictly between A and C, so A, B, and C
+    are three distinct points of a line (`between_distinct`). In
+    coordinates, A, B, C are collinear and the vectors from B to A and
+    from B to C point in opposite directions: `dot(B, A, C) < 0`.
+  * `on_segment(P, A, B)`: P is on segment AB, that is, P is A, P is
+    B, or P is between A and B.
+  * `on_ray(P, A, B)`: P is on ray AB, that is, P is on segment AB or
+    B is between A and P. Rays AB and AC are opposite when A is
+    between B and C (`ray_opposite`).
+  * `ruler(A, B, P)`: the coordinate of P on the ruler that puts A at 0
+    and B at `dist(A, B)`. For points P and Q of line AB,
+    `dist(P, Q) = abs(ruler(A, B, P) - ruler(A, B, Q))` (`ruler_dist`),
+    and every real number is the coordinate of a point (`ruler_onto`):
+    the Ruler Postulate.
+
+  The Segment Addition Postulate is `between_seg_add`: if B is between
+  A and C then AB + BC = AC. Its converse `between_seg_add_converse`
+  holds for all points, collinear or not, and `seg_add` combines the
+  two: B is on segment AC exactly when AB + BC = AC.
+
+  Other theorems: of three distinct collinear points exactly one is
+  between the other two (`between_trichotomy`, `between_unique`);
+  point plotting, for r ≥ 0 there is exactly one point P on ray AB
+  with AP = r (`ray_point_plotting`, `ray_dist_unique`); and the
+  definition of midpoint, M is the midpoint of AB exactly when M is on
+  segment AB and AM = MB (`seg_midpoint_iff`).
+*/
+
+import Base
+public import Line
+import Linear
+import Ring
+
+// B is strictly between A and C.
+fun between(A : Point, B : Point, C : Point) {
+  collinear(A, B, C) and dot(B, A, C) < real(+0)
+}
+
+// P is on segment AB.
+fun on_segment(P : Point, A : Point, B : Point) {
+  P = A or P = B or between(A, P, B)
+}
+
+// P is on ray AB.
+fun on_ray(P : Point, A : Point, B : Point) {
+  on_segment(P, A, B) or between(A, B, P)
+}
+
+// The coordinate of P on the ruler with A at 0 and B at dist(A, B).
+fun ruler(A : Point, B : Point, P : Point) {
+  dot(A, B, P) / dist(A, B)
+}
+
+/*
+  Identities and sign facts
+*/
+
+lemma dot_swap: all A:Point, B:Point, C:Point. dot(A, B, C) = dot(A, C, B)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  expand dot
+  algebra
+end
+
+lemma dot_add: all A:Point, B:Point, C:Point.
+  dot(A, B, C) + dot(B, A, C) = dist2(A, B)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  expand dot | dist2
+  algebra
+end
+
+// Lagrange's identity for the vectors u = (a, b), v = (c, d), and
+// w = (e, f): |u|² (v · w) = (u · v)(u · w) + (u × v)(u × w).
+lemma vec_lagrange: all a:Real, b:Real, c:Real, d:Real, e:Real, f:Real.
+  (a * a + b * b) * (c * e + d * f)
+  = (a * c + b * d) * (a * e + b * f) + (a * d - b * c) * (a * f - b * e)
+proof
+  arbitrary a:Real, b:Real, c:Real, d:Real, e:Real, f:Real
+  algebra
+end
+
+lemma dot_cross: all A:Point, B:Point, C:Point, P:Point.
+  dist2(A, B) * dot(A, C, P) = dot(A, B, C) * dot(A, B, P) + cross(A, B, C) * cross(A, B, P)
+proof
+  arbitrary A:Point, B:Point, C:Point, P:Point
+  replace point_dist2_symmetric[A, B]
+  expand dist2 | dot | cross
+  vec_lagrange[xcoord(B) - xcoord(A), ycoord(B) - ycoord(A), xcoord(C) - xcoord(A),
+               ycoord(C) - ycoord(A), xcoord(P) - xcoord(A), ycoord(P) - ycoord(A)]
+end
+
+// |AB|² |AC|² = (AB · AC)² + (AB × AC)².
+lemma lagrange: all A:Point, B:Point, C:Point.
+  dist2(A, B) * dist2(A, C) = dot(A, B, C) * dot(A, B, C) + cross(A, B, C) * cross(A, B, C)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  replace point_dist2_symmetric[A, B] | point_dist2_symmetric[A, C]
+  expand dist2 | dot | cross
+  vec_lagrange[xcoord(B) - xcoord(A), ycoord(B) - ycoord(A), xcoord(C) - xcoord(A),
+               ycoord(C) - ycoord(A), xcoord(C) - xcoord(A), ycoord(C) - ycoord(A)]
+end
+
+// |AB|² |CD|² = (AB · CD)² + (AB × CD)².
+lemma seg_lagrange: all A:Point, B:Point, C:Point, D:Point.
+  dist2(A, B) * dist2(C, D)
+  = seg_dot(A, B, C, D) * seg_dot(A, B, C, D) + seg_cross(A, B, C, D) * seg_cross(A, B, C, D)
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point
+  replace point_dist2_symmetric[A, B] | point_dist2_symmetric[C, D]
+  expand dist2 | seg_dot | seg_cross
+  vec_lagrange[xcoord(B) - xcoord(A), ycoord(B) - ycoord(A), xcoord(D) - xcoord(C),
+               ycoord(D) - ycoord(C), xcoord(D) - xcoord(C), ycoord(D) - ycoord(C)]
+end
+
+lemma collinear_swap12: all A:Point, B:Point, C:Point.
+  collinear(A, B, C) = collinear(B, A, C)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  replace point_collinear_swap[B, A, C] | symmetric point_collinear_rotate[A, B, C].
+end
+
+lemma add_left_cancel: all x:Real, y:Real, z:Real. if x + y = x + z then y = z
+proof
+  arbitrary x:Real, y:Real, z:Real
+  assume h
+  algebra
+end
+
+// From x = a² + c² - 2d and x = (a + c)², d = -ac.
+lemma sum_square_cancel: all a:Real, c:Real, d:Real, x:Real.
+  if x = a * a + c * c - real(+2) * d and x = (a + c) * (a + c) then d = - (a * c)
+proof
+  arbitrary a:Real, c:Real, d:Real, x:Real
+  assume h
+  have r: (a + c) * (a + c) = a * a + c * c + real(+2) * (a * c) by algebra
+  algebra with r
+end
+
+// For k > 0 with k² = x: (s / k)² = s² / x.
+lemma div_square: all s:Real, k:Real, x:Real.
+  if real(+0) < k and k * k = x then (s / k) * (s / k) = (s * s) / x
+proof
+  arbitrary s:Real, k:Real, x:Real
+  assume h
+  replace symmetric (conjunct 1 of h)
+  algebra
+end
+
+lemma square_zero: all x:Real. if x * x = real(+0) then x = real(+0)
+proof
+  arbitrary x:Real
+  assume xx
+  cases apply real_mult_to_zero[x, x] to xx
+  case z { z }
+  case z { z }
+end
+
+lemma pos_of_nonneg: all x:Real. if real(+0) ≤ x and not (x = real(+0)) then real(+0) < x
+proof
+  arbitrary x:Real
+  assume h
+  replace real_less_def
+  have nn: real(+0) ≤ x by conjunct 0 of h
+  have nz: not (real(+0) = x) by { assume z  apply (conjunct 1 of h) to symmetric z }
+  (nn, nz)
+end
+
+lemma neg_mult_neg: all x:Real, y:Real.
+  if x < real(+0) and y < real(+0) then real(+0) < x * y
+proof
+  arbitrary x:Real, y:Real
+  assume h
+  have nx: real(+0) < - x by algebra
+  have ny: real(+0) < - y by algebra
+  have e: (- x) * (- y) = x * y by algebra
+  replace e in apply real_mult_pos[- x, - y] to nx, ny
+end
+
+lemma dist_pos: all A:Point, B:Point. if not (A = B) then real(+0) < dist(A, B)
+proof
+  arbitrary A:Point, B:Point
+  assume ne
+  have nz: not (dist(A, B) = real(+0)) by { replace point_dist_zero[A, B]  ne }
+  apply pos_of_nonneg[dist(A, B)] to point_dist_nonneg[A, B], nz
+end
+
+// For collinear A, B, C, |AB · AC| = AB · AC (lengths).
+lemma abs_dot: all A:Point, B:Point, C:Point.
+  if collinear(A, B, C) then abs(dot(A, B, C)) = dist(A, B) * dist(A, C)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  expand collinear
+  assume col
+  have sq: dot(A, B, C) * dot(A, B, C) = dist2(A, B) * dist2(A, C)
+    by { replace lagrange[A, B, C] | col. }
+  replace symmetric real_sqrt_abs_square[dot(A, B, C)] | sq
+  expand dist
+  apply real_sqrt_mult[dist2(A, B), dist2(A, C)] to point_dist2_nonneg[A, B], point_dist2_nonneg[A, C]
+end
+
+// For collinear A, B, C with B and C different from A, AB · AC ≠ 0.
+lemma dot_nonzero: all A:Point, B:Point, C:Point.
+  if collinear(A, B, C) and not (A = B) and not (A = C) then not (dot(A, B, C) = real(+0))
+proof
+  arbitrary A:Point, B:Point, C:Point
+  assume h
+  have prod_pos: real(+0) < dist(A, B) * dist(A, C)
+    by apply real_mult_pos[dist(A, B), dist(A, C)]
+       to (apply dist_pos[A, B] to conjunct 1 of h), (apply dist_pos[A, C] to conjunct 2 of h)
+  assume z
+  have a: abs(dot(A, B, C)) = real(+0) by {
+    replace z
+    apply real_abs_nonneg_eq[real(+0)] to real_less_equal_refl[real(+0)]
+  }
+  have a2: dist(A, B) * dist(A, C) = real(+0)
+    by replace apply abs_dot[A, B, C] to conjunct 0 of h in a
+  conclude false by algebra
+end
+
+/*
+  Betweenness
+*/
+
+theorem between_symmetric: all A:Point, B:Point, C:Point.
+  between(A, B, C) = between(C, B, A)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  expand between
+  replace point_collinear_rotate[C, B, A] | point_collinear_swap[B, A, C]
+        | symmetric point_collinear_rotate[A, B, C] | dot_swap[B, C, A].
+end
+
+theorem between_collinear: all A:Point, B:Point, C:Point.
+  if between(A, B, C) then collinear(A, B, C)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  expand between
+  assume h
+  conjunct 0 of h
+end
+
+theorem between_distinct: all A:Point, B:Point, C:Point.
+  if between(A, B, C) then not (A = B) and not (B = C) and not (A = C)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  expand between
+  assume h
+  have neg: dot(B, A, C) < real(+0) by conjunct 1 of h
+  have ab: not (A = B) by {
+    assume e
+    have z: dot(B, A, C) = real(+0) by { replace e  expand dot. }
+    conclude false by algebra
+  }
+  have bc: not (B = C) by {
+    assume e
+    have z: dot(B, A, C) = real(+0) by { replace symmetric e  expand dot. }
+    conclude false by algebra
+  }
+  have ac: not (A = C) by {
+    assume e
+    have z: dot(B, A, C) = dist2(B, A) by { replace symmetric e  expand dot | dist2  algebra }
+    conclude false by algebra with point_dist2_nonneg[B, A]
+  }
+  (ab, bc, ac)
+end
+
+// Of three points, at most one is between the other two.
+theorem between_unique: all A:Point, B:Point, C:Point.
+  if between(A, B, C) then not between(B, A, C) and not between(A, C, B)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  expand between
+  assume h
+  have q: dot(B, A, C) < real(+0) by conjunct 1 of h
+  have nb: not (collinear(B, A, C) and dot(A, B, C) < real(+0)) by {
+    assume h2
+    conclude false by algebra with dot_add[A, B, C] | point_dist2_nonneg[A, B]
+  }
+  have nc: not (collinear(A, C, B) and dot(C, A, B) < real(+0)) by {
+    assume h2
+    conclude false
+      by algebra with dot_add[B, C, A] | dot_swap[B, C, A] | dot_swap[C, B, A]
+                    | point_dist2_nonneg[B, C]
+  }
+  (nb, nc)
+end
+
+// With p = AB · AC, q = BA · BC, and r = CA · CB: pq + pr + qr = (AB × AC)².
+lemma dot_products: all A:Point, B:Point, C:Point.
+  dot(A, B, C) * dot(B, A, C) + dot(A, B, C) * dot(C, A, B) + dot(B, A, C) * dot(C, A, B)
+  = cross(A, B, C) * cross(A, B, C)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  // AB² = p + q and AC² = p + r, so Lagrange's identity is
+  // (p + q)(p + r) = p² + (AB × AC)².
+  have l: (dot(A, B, C) + dot(B, A, C)) * (dot(A, B, C) + dot(C, A, B))
+          = dot(A, B, C) * dot(A, B, C) + cross(A, B, C) * cross(A, B, C)
+    by replace symmetric dot_add[A, B, C] | symmetric dot_add[A, C, B]
+             | symmetric dot_swap[A, B, C] in lagrange[A, B, C]
+  have e: (dot(A, B, C) + dot(B, A, C)) * (dot(A, B, C) + dot(C, A, B))
+          = dot(A, B, C) * dot(A, B, C)
+            + (dot(A, B, C) * dot(B, A, C) + dot(A, B, C) * dot(C, A, B)
+               + dot(B, A, C) * dot(C, A, B))
+    by algebra
+  apply add_left_cancel[dot(A, B, C) * dot(A, B, C)] to transitive (symmetric e) l
+end
+
+// Of three distinct collinear points, one is between the other two.
+theorem between_trichotomy: all A:Point, B:Point, C:Point.
+  if collinear(A, B, C) and not (A = B) and not (B = C) and not (A = C)
+  then between(B, A, C) or between(A, B, C) or between(A, C, B)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  assume h
+  have abc: collinear(A, B, C) by conjunct 0 of h
+  have ab: not (A = B) by conjunct 1 of h
+  have bc: not (B = C) by conjunct 2 of h
+  have ac: not (A = C) by conjunct 3 of h
+  have bac: collinear(B, A, C) by replace symmetric collinear_swap12[A, B, C]  abc
+  have acb: collinear(A, C, B) by replace symmetric point_collinear_swap[A, B, C]  abc
+  have cab: collinear(C, A, B) by replace point_collinear_rotate[C, A, B]  abc
+  have p: not (dot(A, B, C) = real(+0)) by apply dot_nonzero[A, B, C] to abc, ab, ac
+  have q: not (dot(B, A, C) = real(+0)) by {
+    have ba: not (B = A) by { assume e  apply ab to symmetric e }
+    apply dot_nonzero[B, A, C] to bac, ba, bc
+  }
+  have r: not (dot(C, A, B) = real(+0)) by {
+    have ca: not (C = A) by { assume e  apply ac to symmetric e }
+    have cb: not (C = B) by { assume e  apply bc to symmetric e }
+    apply dot_nonzero[C, A, B] to cab, ca, cb
+  }
+  expand between
+  cases real_dichotomy[real(+0), dot(A, B, C)]
+  case p_nn {
+    cases real_dichotomy[real(+0), dot(B, A, C)]
+    case q_nn {
+      cases real_dichotomy[real(+0), dot(C, A, B)]
+      case r_nn {
+        have pp: real(+0) < dot(A, B, C) by apply pos_of_nonneg to p_nn, p
+        have qq: real(+0) < dot(B, A, C) by apply pos_of_nonneg to q_nn, q
+        have rr: real(+0) < dot(C, A, B) by apply pos_of_nonneg to r_nn, r
+        have cross_zero: cross(A, B, C) = real(+0) by expand collinear in abc
+        have dp: dot(A, B, C) * dot(B, A, C) + dot(A, B, C) * dot(C, A, B)
+                 + dot(B, A, C) * dot(C, A, B) = real(+0)
+          by { replace dot_products[A, B, C] | cross_zero. }
+        conclude false
+          by algebra with dp
+                        | apply real_mult_pos to pp, qq
+                        | apply real_mult_pos to pp, rr
+                        | apply real_mult_pos to qq, rr
+      }
+      case r_neg { (acb, r_neg) }
+    }
+    case q_neg { (abc, q_neg) }
+  }
+  case p_neg { (bac, p_neg) }
+end
+
+// The midpoint of a segment is between its endpoints.
+theorem between_midpoint: all A:Point, B:Point.
+  if not (A = B) then between(A, midpoint(A, B), B)
+proof
+  arbitrary A:Point, B:Point
+  assume ne
+  have e: real(+4) * dot(midpoint(A, B), A, B) = - dist2(A, B)
+    by { expand dot | midpoint | dist2  algebra }
+  expand between
+  (point_midpoint_collinear[A, B],
+   conclude dot(midpoint(A, B), A, B) < real(+0)
+     by algebra with apply point_dist2_pos[A, B] to ne)
+end
+
+/*
+  Segment addition
+*/
+
+// The Segment Addition Postulate: if B is between A and C,
+// then AB + BC = AC.
+theorem between_seg_add: all A:Point, B:Point, C:Point.
+  if between(A, B, C) then dist(A, B) + dist(B, C) = dist(A, C)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  assume btw
+  have h: collinear(A, B, C) and dot(B, A, C) < real(+0) by expand between in btw
+  have bac: collinear(B, A, C) by replace symmetric collinear_swap12[A, B, C]  conjunct 0 of h
+  // The vectors BA and BC point in opposite directions, so BA · BC = -(BA)(BC).
+  have d: dot(B, A, C) = - (dist(B, A) * dist(B, C)) by {
+    have a: abs(dot(B, A, C)) = - dot(B, A, C)
+      by apply real_abs_nonpos_eq to (apply real_less_implies_less_equal to conjunct 1 of h)
+    have a2: - dot(B, A, C) = dist(B, A) * dist(B, C)
+      by transitive (symmetric a) (apply abs_dot[B, A, C] to bac)
+    algebra with a2
+  }
+  have sq: dist2(A, C) = (dist(B, A) + dist(B, C)) * (dist(B, A) + dist(B, C)) by {
+    replace point_dist2_dot[B, A, C] | d
+          | symmetric point_dist_square[B, A] | symmetric point_dist_square[B, C]
+    algebra
+  }
+  have nn: real(+0) ≤ dist(B, A) + dist(B, C)
+    by algebra with point_dist_nonneg[B, A] | point_dist_nonneg[B, C]
+  replace point_dist_symmetric[A, B]
+  symmetric (apply point_dist_unique[A, C, dist(B, A) + dist(B, C)] to nn, symmetric sq)
+end
+
+// The converse holds for all points: if AB + BC = AC for B different
+// from A and C, then B is between A and C.
+theorem between_seg_add_converse: all A:Point, B:Point, C:Point.
+  if not (A = B) and not (B = C) and dist(A, B) + dist(B, C) = dist(A, C)
+  then between(A, B, C)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  assume h
+  have ba: not (B = A) by { assume e  apply (conjunct 0 of h) to symmetric e }
+  have sum: dist(B, A) + dist(B, C) = dist(A, C)
+    by { replace symmetric point_dist_symmetric[A, B]  conjunct 2 of h }
+  // Square both sides of AB + BC = AC.
+  have d: dot(B, A, C) = - (dist(B, A) * dist(B, C)) by {
+    have sq: dist2(A, C) = (dist(B, A) + dist(B, C)) * (dist(B, A) + dist(B, C))
+      by { replace sum  symmetric point_dist_square[A, C] }
+    have e: dist2(A, C) = dist(B, A) * dist(B, A) + dist(B, C) * dist(B, C)
+                          - real(+2) * dot(B, A, C)
+      by replace symmetric point_dist_square[B, A] | symmetric point_dist_square[B, C]
+         in point_dist2_dot[B, A, C]
+    apply sum_square_cancel[dist(B, A), dist(B, C), dot(B, A, C), dist2(A, C)] to e, sq
+  }
+  // So (BA · BC)² = BA² BC², and by Lagrange's identity BA × BC = 0.
+  have col: collinear(B, A, C) by {
+    have l: dist2(B, A) * dist2(B, C) = dot(B, A, C) * dot(B, A, C)
+                                       + cross(B, A, C) * cross(B, A, C)
+      by lagrange[B, A, C]
+    have e: dot(B, A, C) * dot(B, A, C) = dist2(B, A) * dist2(B, C) by {
+      replace d | symmetric point_dist_square[B, A] | symmetric point_dist_square[B, C]
+      algebra
+    }
+    have z: cross(B, A, C) * cross(B, A, C) = real(+0)
+      by apply add_left_cancel[dist2(B, A) * dist2(B, C)]
+         to transitive (symmetric (replace e in l)) (symmetric real_add_zero[dist2(B, A) * dist2(B, C)])
+    expand collinear
+    apply square_zero to z
+  }
+  expand between
+  (replace collinear_swap12[A, B, C]  col,
+   conclude dot(B, A, C) < real(+0) by {
+     have prod_pos: real(+0) < dist(B, A) * dist(B, C)
+       by apply real_mult_pos to (apply dist_pos[B, A] to ba), (apply dist_pos[B, C] to conjunct 1 of h)
+     algebra with d | prod_pos
+   })
+end
+
+// P is on segment AB exactly when AP + PB = AB.
+theorem seg_add: all A:Point, B:Point, C:Point.
+  on_segment(B, A, C) = (dist(A, B) + dist(B, C) = dist(A, C))
+proof
+  arbitrary A:Point, B:Point, C:Point
+  have fwd: if on_segment(B, A, C) then dist(A, B) + dist(B, C) = dist(A, C) by {
+    assume s
+    have s2: B = A or B = C or between(A, B, C) by expand on_segment in s
+    cases s2
+    case ba { replace ba  algebra with point_dist_self[A] }
+    case bc { replace bc  algebra with point_dist_self[C] }
+    case btw { apply between_seg_add[A, B, C] to btw }
+  }
+  have bwd: if dist(A, B) + dist(B, C) = dist(A, C) then on_segment(B, A, C) by {
+    assume sum
+    expand on_segment
+    switch B = A {
+      case true assume ba { ba }
+      case false assume ba {
+        switch B = C {
+          case true assume bc { bc }
+          case false assume bc {
+            have ab: not (A = B) by { assume e  apply ba to symmetric e }
+            apply between_seg_add_converse[A, B, C] to ab, bc, sum
+          }
+        }
+      }
+    }
+  }
+  apply iff_equal to fwd, bwd
+end
+
+/*
+  Segments and rays
+*/
+
+theorem seg_on_left: all A:Point, B:Point. on_segment(A, A, B)
+proof
+  arbitrary A:Point, B:Point
+  expand on_segment.
+end
+
+theorem seg_on_right: all A:Point, B:Point. on_segment(B, A, B)
+proof
+  arbitrary A:Point, B:Point
+  expand on_segment.
+end
+
+lemma seg_swap: all P:Point, A:Point, B:Point.
+  if on_segment(P, A, B) then on_segment(P, B, A)
+proof
+  arbitrary P:Point, A:Point, B:Point
+  expand on_segment
+  assume s
+  cases s
+  case pa { pa }
+  case pb { pb }
+  case btw { replace symmetric between_symmetric[A, P, B]  btw }
+end
+
+theorem seg_symmetric: all P:Point, A:Point, B:Point.
+  on_segment(P, A, B) = on_segment(P, B, A)
+proof
+  arbitrary P:Point, A:Point, B:Point
+  apply iff_equal to seg_swap[P, A, B], seg_swap[P, B, A]
+end
+
+// Ray AB contains segment AB.
+theorem seg_on_ray: all P:Point, A:Point, B:Point.
+  if on_segment(P, A, B) then on_ray(P, A, B)
+proof
+  arbitrary P:Point, A:Point, B:Point
+  assume s
+  expand on_ray
+  s
+end
+
+// For A ≠ B, P is on ray AB exactly when A, B, P are collinear and
+// AB · AP ≥ 0.
+theorem ray_dot: all A:Point, B:Point, P:Point.
+  if not (A = B)
+  then on_ray(P, A, B) = (collinear(A, B, P) and real(+0) ≤ dot(A, B, P))
+proof
+  arbitrary A:Point, B:Point, P:Point
+  assume ne
+  have fwd: if on_ray(P, A, B) then collinear(A, B, P) and real(+0) ≤ dot(A, B, P) by {
+    expand on_ray
+    assume r
+    cases r
+    case seg {
+      have s2: P = A or P = B or between(A, P, B) by expand on_segment in seg
+      cases s2
+      case pa {
+        replace pa
+        have c: cross(A, B, A) = real(+0) by { expand cross. }
+        have d: dot(A, B, A) = real(+0) by { expand dot. }
+        expand collinear
+        replace c | d.
+      }
+      case pb {
+        replace pb
+        have c: cross(A, B, B) = real(+0) by { expand cross  algebra }
+        have d: dot(A, B, B) = dist2(A, B) by { expand dot | dist2  algebra }
+        expand collinear
+        replace c | d
+        point_dist2_nonneg[A, B]
+      }
+      case btw {
+        have h: collinear(A, P, B) and dot(P, A, B) < real(+0) by expand between in btw
+        have c: collinear(A, B, P) by replace point_collinear_swap[A, B, P]  conjunct 0 of h
+        have d: real(+0) ≤ dot(A, B, P)
+          by algebra with dot_add[A, P, B] | dot_swap[A, B, P] | point_dist2_nonneg[A, P]
+        (c, d)
+      }
+    }
+    case beyond {
+      have h: collinear(A, B, P) and dot(B, A, P) < real(+0) by expand between in beyond
+      have c: collinear(A, B, P) by conjunct 0 of h
+      have d: real(+0) ≤ dot(A, B, P)
+        by algebra with dot_add[A, B, P] | point_dist2_nonneg[A, B]
+      (c, d)
+    }
+  }
+  have bwd: if collinear(A, B, P) and real(+0) ≤ dot(A, B, P) then on_ray(P, A, B) by {
+    assume h
+    expand on_ray | on_segment
+    switch P = A {
+      case true assume pa { pa }
+      case false assume pa {
+        switch P = B {
+          case true assume pb { pb }
+          case false assume pb {
+            have ap: not (A = P) by { assume e  apply pa to symmetric e }
+            have bp: not (B = P) by { assume e  apply pb to symmetric e }
+            cases apply between_trichotomy[A, B, P] to (conjunct 0 of h), ne, bp, ap
+            case bap {
+              have neg: dot(A, B, P) < real(+0) by conjunct 1 of (expand between in bap)
+              conclude false by algebra
+            }
+            case abp { abp }
+            case apb { apb }
+          }
+        }
+      }
+    }
+  }
+  apply iff_equal to fwd, bwd
+end
+
+theorem ray_on_line: all A:Point, B:Point, P:Point.
+  if not (A = B) and on_ray(P, A, B) then on_line(P, line(A, B))
+proof
+  arbitrary A:Point, B:Point, P:Point
+  assume h
+  have ne: not (A = B) by conjunct 0 of h
+  have r: collinear(A, B, P) and real(+0) ≤ dot(A, B, P)
+    by replace apply ray_dot[A, B, P] to ne in conjunct 1 of h
+  replace apply line_on_collinear[A, B, P] to ne
+  conjunct 0 of r
+end
+
+// If A is between B and C, then rays AB and AC are opposite rays:
+// together they make up line BC (which is line AB).
+theorem ray_opposite: all A:Point, B:Point, C:Point, P:Point.
+  if between(B, A, C)
+  then (on_ray(P, A, B) or on_ray(P, A, C)) = on_line(P, line(A, B))
+proof
+  arbitrary A:Point, B:Point, C:Point, P:Point
+  assume btw
+  have h: collinear(B, A, C) and dot(A, B, C) < real(+0) by expand between in btw
+  have d: not (B = A) and not (A = C) and not (B = C) by apply between_distinct[B, A, C] to btw
+  have ab: not (A = B) by { assume e  apply (conjunct 0 of d) to symmetric e }
+  have ac: not (A = C) by conjunct 1 of d
+  have abc: collinear(A, B, C) by replace collinear_swap12[A, B, C]  conjunct 0 of h
+  have oc: on_line(C, line(A, B)) by { replace apply line_on_collinear[A, B, C] to ab  abc }
+  have same: line(A, B) = line(A, C)
+    by apply line_unique[A, C, line(A, B)] to ac, line_on_left[A, B], oc
+  have fwd: if on_ray(P, A, B) or on_ray(P, A, C) then on_line(P, line(A, B)) by {
+    assume r
+    cases r
+    case rb { apply ray_on_line[A, B, P] to ab, rb }
+    case rc { replace same  apply ray_on_line[A, C, P] to ac, rc }
+  }
+  have bwd: if on_line(P, line(A, B)) then on_ray(P, A, B) or on_ray(P, A, C) by {
+    assume ol
+    have abp: collinear(A, B, P) by replace apply line_on_collinear[A, B, P] to ab in ol
+    have acp: collinear(A, C, P)
+      by replace apply line_on_collinear[A, C, P] to ac in (replace same in ol)
+    cases real_dichotomy[real(+0), dot(A, B, P)]
+    case nn_b {
+      conclude on_ray(P, A, B) by { replace apply ray_dot[A, B, P] to ab  (abp, nn_b) }
+    }
+    case neg_b {
+      cases real_dichotomy[real(+0), dot(A, C, P)]
+      case nn_c {
+        conclude on_ray(P, A, C) by { replace apply ray_dot[A, C, P] to ac  (acp, nn_c) }
+      }
+      case neg_c {
+        // AB² (AC · AP) = (AB · AC)(AB · AP), but the left side is
+        // negative and the right side positive.
+        have z: cross(A, B, C) = real(+0) by expand collinear in abc
+        have e: dist2(A, B) * dot(A, C, P) = dot(A, B, C) * dot(A, B, P)
+          by { replace dot_cross[A, B, C, P] | z. }
+        have rhs: real(+0) < dot(A, B, C) * dot(A, B, P)
+          by apply neg_mult_neg to (conjunct 1 of h), neg_b
+        have nc: real(+0) < - dot(A, C, P) by algebra
+        have lhs: real(+0) < dist2(A, B) * (- dot(A, C, P))
+          by apply real_mult_pos to (apply point_dist2_pos[A, B] to ab), nc
+        have m: dist2(A, B) * (- dot(A, C, P)) = - (dist2(A, B) * dot(A, C, P)) by algebra
+        conclude false by algebra with e | rhs | lhs | m
+      }
+    }
+  }
+  apply iff_equal to fwd, bwd
+end
+
+/*
+  The ruler
+*/
+
+theorem ruler_left: all A:Point, B:Point. ruler(A, B, A) = real(+0)
+proof
+  arbitrary A:Point, B:Point
+  have z: dot(A, B, A) = real(+0) by { expand dot. }
+  expand ruler
+  replace z.
+end
+
+theorem ruler_right: all A:Point, B:Point.
+  if not (A = B) then ruler(A, B, B) = dist(A, B)
+proof
+  arbitrary A:Point, B:Point
+  assume ne
+  have d: dot(A, B, B) = dist(A, B) * dist(A, B)
+    by { replace point_dist_square[A, B]  expand dot | dist2  algebra }
+  have k: real(+0) < dist(A, B) by apply dist_pos to ne
+  expand ruler
+  replace d
+  algebra
+end
+
+// The Ruler Postulate, part 1: the distance between two points of
+// line AB is the absolute value of the difference of their coordinates.
+theorem ruler_dist: all A:Point, B:Point, P:Point, Q:Point.
+  if not (A = B) and on_line(P, line(A, B)) and on_line(Q, line(A, B))
+  then dist(P, Q) = abs(ruler(A, B, P) - ruler(A, B, Q))
+proof
+  arbitrary A:Point, B:Point, P:Point, Q:Point
+  assume h
+  have ne: not (A = B) by conjunct 0 of h
+  have cp: cross(A, B, P) = real(+0)
+    by expand collinear in replace apply line_on_collinear[A, B, P] to ne in conjunct 1 of h
+  have cq: cross(A, B, Q) = real(+0)
+    by expand collinear in replace apply line_on_collinear[A, B, Q] to ne in conjunct 2 of h
+  have sc: seg_cross(A, B, Q, P) = cross(A, B, P) - cross(A, B, Q)
+    by { expand seg_cross | cross  algebra }
+  have z: seg_cross(A, B, Q, P) = real(+0) by algebra with sc | cp | cq
+  have sd: seg_dot(A, B, Q, P) = dot(A, B, P) - dot(A, B, Q)
+    by { expand seg_dot | dot  algebra }
+  have l: dist2(A, B) * dist2(Q, P) = seg_dot(A, B, Q, P) * seg_dot(A, B, Q, P)
+    by { replace seg_lagrange[A, B, Q, P] | z. }
+  have k: real(+0) < dist(A, B) by apply dist_pos to ne
+  have xe: ruler(A, B, P) - ruler(A, B, Q) = seg_dot(A, B, Q, P) / dist(A, B)
+    by { expand ruler  replace sd  algebra }
+  have xx: (ruler(A, B, P) - ruler(A, B, Q)) * (ruler(A, B, P) - ruler(A, B, Q)) = dist2(Q, P) by {
+    replace xe | apply div_square[seg_dot(A, B, Q, P), dist(A, B), dist2(A, B)] to k, point_dist_square[A, B]
+          | symmetric l | real_mult_commute[dist2(A, B), dist2(Q, P)]
+    have nz: not (dist2(A, B) = real(+0))
+      by { assume d0  apply ne to replace point_dist2_zero[A, B] in d0 }
+    apply real_mult_div_cancel[dist2(Q, P), dist2(A, B)] to nz
+  }
+  replace point_dist_symmetric[P, Q]
+        | symmetric real_sqrt_abs_square[ruler(A, B, P) - ruler(A, B, Q)] | xx
+  expand dist.
+end
+
+// The Ruler Postulate, part 2: every real number is the coordinate
+// of a point of line AB.
+theorem ruler_onto: all A:Point, B:Point, r:Real.
+  if not (A = B)
+  then some P:Point. on_line(P, line(A, B)) and ruler(A, B, P) = r
+proof
+  arbitrary A:Point, B:Point, r:Real
+  assume ne
+  have k: real(+0) < dist(A, B) by apply dist_pos to ne
+  define t = r / dist(A, B)
+  define P = point(xcoord(A) + t * (xcoord(B) - xcoord(A)),
+                   ycoord(A) + t * (ycoord(B) - ycoord(A)))
+  have c: collinear(A, B, P) by { expand collinear | cross | P  algebra }
+  have d: dot(A, B, P) = t * dist2(A, B) by { expand dot | dist2 | P  algebra }
+  choose P
+  have on: on_line(P, line(A, B)) by { replace apply line_on_collinear[A, B, P] to ne  c }
+  have rr: ruler(A, B, P) = r by {
+    expand ruler
+    replace d | symmetric point_dist_square[A, B]
+    expand t
+    algebra
+  }
+  (on, rr)
+end
+
+// For A ≠ B, ray AB is the part of line AB with coordinate ≥ 0.
+theorem ray_ruler: all A:Point, B:Point, P:Point.
+  if not (A = B)
+  then on_ray(P, A, B) = (on_line(P, line(A, B)) and real(+0) ≤ ruler(A, B, P))
+proof
+  arbitrary A:Point, B:Point, P:Point
+  assume ne
+  have k: real(+0) < dist(A, B) by apply dist_pos to ne
+  have n: ruler(A, B, P) * dist(A, B) = dot(A, B, P) by { expand ruler  algebra }
+  have e: (real(+0) ≤ ruler(A, B, P)) = (real(+0) ≤ dot(A, B, P)) by {
+    have fwd: if real(+0) ≤ ruler(A, B, P) then real(+0) ≤ dot(A, B, P) by {
+      assume r
+      replace symmetric n
+      apply real_mult_nonneg to r, (apply real_less_implies_less_equal to k)
+    }
+    have bwd: if real(+0) ≤ dot(A, B, P) then real(+0) ≤ ruler(A, B, P) by {
+      assume dp
+      expand ruler
+      replace real_div_def
+      apply real_mult_nonneg to dp,
+        (apply real_less_implies_less_equal to apply real_inv_pos to k)
+    }
+    apply iff_equal to fwd, bwd
+  }
+  replace apply ray_dot[A, B, P] to ne | apply line_on_collinear[A, B, P] to ne | e.
+end
+
+// On ray AB, the coordinate of P is the distance AP.
+theorem ray_ruler_dist: all A:Point, B:Point, P:Point.
+  if not (A = B) and on_ray(P, A, B) then dist(A, P) = ruler(A, B, P)
+proof
+  arbitrary A:Point, B:Point, P:Point
+  assume h
+  have ne: not (A = B) by conjunct 0 of h
+  have r: on_line(P, line(A, B)) and real(+0) ≤ ruler(A, B, P)
+    by replace apply ray_ruler[A, B, P] to ne in conjunct 1 of h
+  have op: on_line(P, line(A, B)) by conjunct 0 of r
+  have d: dist(A, P) = abs(ruler(A, B, A) - ruler(A, B, P))
+    by apply ruler_dist[A, B, A, P] to ne, line_on_left[A, B], op
+  have e: ruler(A, B, A) - ruler(A, B, P) = - ruler(A, B, P)
+    by algebra with ruler_left[A, B]
+  replace d | e | real_abs_neg
+  apply real_abs_nonneg_eq to conjunct 1 of r
+end
+
+// Point plotting: for A ≠ B and r ≥ 0, there is a point P on ray AB
+// with AP = r ...
+theorem ray_point_plotting: all A:Point, B:Point, r:Real.
+  if not (A = B) and real(+0) ≤ r
+  then some P:Point. on_ray(P, A, B) and dist(A, P) = r
+proof
+  arbitrary A:Point, B:Point, r:Real
+  assume h
+  have ne: not (A = B) by conjunct 0 of h
+  have nn: real(+0) ≤ r by conjunct 1 of h
+  obtain P where hp from apply ruler_onto[A, B, r] to ne
+  choose P
+  have op: on_line(P, line(A, B)) by conjunct 0 of hp
+  have rp: ruler(A, B, P) = r by conjunct 1 of hp
+  have ray: on_ray(P, A, B) by {
+    replace apply ray_ruler[A, B, P] to ne | rp
+    (op, nn)
+  }
+  have d: dist(A, P) = r by { replace apply ray_ruler_dist[A, B, P] to ne, ray | rp. }
+  (ray, d)
+end
+
+// ... and only one.
+theorem ray_dist_unique: all A:Point, B:Point, P:Point, Q:Point.
+  if not (A = B) and on_ray(P, A, B) and on_ray(Q, A, B) and dist(A, P) = dist(A, Q)
+  then P = Q
+proof
+  arbitrary A:Point, B:Point, P:Point, Q:Point
+  assume h
+  have ne: not (A = B) by conjunct 0 of h
+  have rp: on_ray(P, A, B) by conjunct 1 of h
+  have rq: on_ray(Q, A, B) by conjunct 2 of h
+  have dp: dist(A, P) = ruler(A, B, P) by apply ray_ruler_dist[A, B, P] to ne, rp
+  have dq: dist(A, Q) = ruler(A, B, Q) by apply ray_ruler_dist[A, B, Q] to ne, rq
+  have pq: dist(P, Q) = abs(ruler(A, B, P) - ruler(A, B, Q))
+    by apply ruler_dist[A, B, P, Q] to ne, (apply ray_on_line[A, B, P] to ne, rp),
+                                          (apply ray_on_line[A, B, Q] to ne, rq)
+  have e: ruler(A, B, P) - ruler(A, B, Q) = real(+0) by algebra with dp | dq
+  have z: dist(P, Q) = real(+0) by {
+    replace pq | e
+    apply real_abs_nonneg_eq[real(+0)] to real_less_equal_refl[real(+0)]
+  }
+  replace point_dist_zero[P, Q] in z
+end
+
+/*
+  Midpoint
+*/
+
+// Def. of midpoint: M is the midpoint of AB exactly when M is on
+// segment AB and AM = MB.
+theorem seg_midpoint_iff: all A:Point, B:Point, M:Point.
+  (M = midpoint(A, B)) = (on_segment(M, A, B) and dist(A, M) = dist(M, B))
+proof
+  arbitrary A:Point, B:Point, M:Point
+  have eq: dist(A, midpoint(A, B)) = dist(midpoint(A, B), B)
+    by { expand dist  replace point_midpoint_equidistant[A, B]. }
+  have fwd: if M = midpoint(A, B) then on_segment(M, A, B) and dist(A, M) = dist(M, B) by {
+    assume e
+    replace e
+    have s: on_segment(midpoint(A, B), A, B) by {
+      switch A = B {
+        case true assume ab { replace ab | point_midpoint_self[B]  seg_on_left[B, B] }
+        case false assume ab { expand on_segment  apply between_midpoint[A, B] to ab }
+      }
+    }
+    (s, eq)
+  }
+  have bwd: if on_segment(M, A, B) and dist(A, M) = dist(M, B) then M = midpoint(A, B) by {
+    assume h
+    have d: dist(A, M) = dist(M, B) by conjunct 1 of h
+    have s: M = A or M = B or between(A, M, B) by expand on_segment in conjunct 0 of h
+    cases s
+    case ma {
+      have d2: dist(A, A) = dist(A, B) by replace ma in d
+      have z: dist(A, B) = real(+0) by algebra with d2 | point_dist_self[A]
+      have ab: A = B by replace point_dist_zero[A, B] in z
+      replace ma | ab | point_midpoint_self[B].
+    }
+    case mb {
+      have d2: dist(A, B) = dist(B, B) by replace mb in d
+      have z: dist(A, B) = real(+0) by algebra with d2 | point_dist_self[B]
+      have ab: A = B by replace point_dist_zero[A, B] in z
+      replace mb | ab | point_midpoint_self[B].
+    }
+    case btw {
+      have ab: not (A = B) by conjunct 2 of apply between_distinct[A, M, B] to btw
+      have am: real(+2) * dist(A, M) = dist(A, B)
+        by algebra with d | apply between_seg_add[A, M, B] to btw
+      have bn: between(A, midpoint(A, B), B) by apply between_midpoint[A, B] to ab
+      have an: real(+2) * dist(A, midpoint(A, B)) = dist(A, B)
+        by algebra with eq | apply between_seg_add[A, midpoint(A, B), B] to bn
+      have rm: on_ray(M, A, B) by { expand on_ray | on_segment  btw }
+      have rn: on_ray(midpoint(A, B), A, B) by { expand on_ray | on_segment  bn }
+      have same: dist(A, M) = dist(A, midpoint(A, B)) by algebra with am | an
+      apply ray_dist_unique[A, B, M, midpoint(A, B)] to ab, rm, rn, same
+    }
+  }
+  apply iff_equal to fwd, bwd
+end

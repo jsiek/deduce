@@ -14,6 +14,8 @@ module Point
   * `dist2(A, B)`: the square of the distance from A to B. It avoids
     square roots, so segments AB and CD are congruent,
     `seg_congruent(A, B, C, D)`, when their squared lengths are equal.
+  * `dist(A, B)`: the distance from A to B, `sqrt(dist2(A, B))`.
+    `point_dist_square` turns it back into `dist2`.
   * `midpoint(A, B)`: ((x₁ + x₂) / 2, (y₁ + y₂) / 2).
   * `dot(O, A, B)`: the dot product of the vectors OA and OB, which is
     zero when the angle AOB is right.
@@ -50,6 +52,9 @@ fun dist2(A : Point, B : Point) {
   (xcoord(A) - xcoord(B)) * (xcoord(A) - xcoord(B))
   + (ycoord(A) - ycoord(B)) * (ycoord(A) - ycoord(B))
 }
+
+// The distance from A to B.
+fun dist(A : Point, B : Point) { sqrt(dist2(A, B)) }
 
 fun midpoint(A : Point, B : Point) {
   point(real(frac(+1, 2)) * (xcoord(A) + xcoord(B)),
@@ -198,6 +203,81 @@ proof
     apply ne to replace point_dist2_zero[A, B] in symmetric z
   }
   (point_dist2_nonneg[A, B], nz)
+end
+
+theorem point_dist_nonneg: all A:Point, B:Point. real(+0) ≤ dist(A, B)
+proof
+  arbitrary A:Point, B:Point
+  expand dist
+  apply real_sqrt_nonneg[dist2(A, B)] to point_dist2_nonneg[A, B]
+end
+
+theorem point_dist_square: all A:Point, B:Point. dist(A, B) * dist(A, B) = dist2(A, B)
+proof
+  arbitrary A:Point, B:Point
+  expand dist
+  apply real_sqrt_square[dist2(A, B)] to point_dist2_nonneg[A, B]
+end
+
+// The distance is the nonnegative number whose square is dist2.
+theorem point_dist_unique: all A:Point, B:Point, r:Real.
+  if real(+0) ≤ r and r * r = dist2(A, B) then dist(A, B) = r
+proof
+  arbitrary A:Point, B:Point, r:Real
+  assume h
+  expand dist
+  apply real_sqrt_unique[dist2(A, B), r] to h
+end
+
+theorem point_dist_symmetric: all A:Point, B:Point. dist(A, B) = dist(B, A)
+proof
+  arbitrary A:Point, B:Point
+  expand dist
+  replace point_dist2_symmetric[A, B].
+end
+
+theorem point_dist_self: all A:Point. dist(A, A) = real(+0)
+proof
+  arbitrary A:Point
+  expand dist
+  replace point_dist2_self[A]
+  real_sqrt_zero
+end
+
+theorem point_dist_zero: all A:Point, B:Point. (dist(A, B) = real(+0)) = (A = B)
+proof
+  arbitrary A:Point, B:Point
+  have fwd: if dist(A, B) = real(+0) then A = B by {
+    assume z
+    have d2: dist2(A, B) = real(+0)
+      by { replace symmetric point_dist_square[A, B] | z. }
+    replace symmetric point_dist2_zero[A, B]
+    d2
+  }
+  have bwd: if A = B then dist(A, B) = real(+0) by {
+    assume e
+    replace e
+    point_dist_self[B]
+  }
+  apply iff_equal to fwd, bwd
+end
+
+// Congruent segments are segments of equal length.
+theorem point_seg_congruent_dist: all A:Point, B:Point, C:Point, D:Point.
+  seg_congruent(A, B, C, D) = (dist(A, B) = dist(C, D))
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point
+  expand seg_congruent
+  have bwd: if dist(A, B) = dist(C, D) then dist2(A, B) = dist2(C, D) by {
+    assume e
+    replace symmetric point_dist_square[A, B] | symmetric point_dist_square[C, D] | e.
+  }
+  have fwd: if dist2(A, B) = dist2(C, D) then dist(A, B) = dist(C, D) by {
+    assume e
+    expand dist
+    replace e.
+  }
+  apply iff_equal to fwd, bwd
 end
 
 /*

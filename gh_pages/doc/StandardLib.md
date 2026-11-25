@@ -23,6 +23,21 @@ Only the top-level module files (such as `UInt.pf`) are listed below. Each modul
   [`algebra`](./Reference.md#algebra-proof) tactic proves linear facts
   about angles, such as that supplements of the same angle are equal.
 - ([`Base.thm`](../lib/Base.thm), [`Base.pf`](../lib/Base.pf)): Base proofs about propositional and predicate logic
+- ([`Between.thm`](../lib/Between.thm), [`Between.pf`](../lib/Between.pf)):
+  Betweenness, segments, rays, and the ruler, for coordinate geometry.
+  `between(A, B, C)` says that B is strictly between A and C (so the
+  three points are distinct and collinear), `on_segment(P, A, B)` that
+  P is A, B, or between them, and `on_ray(P, A, B)` that P is on
+  segment AB or B is between A and P. `ruler(A, B, P)` is the
+  coordinate of P on the ruler with A at 0 and B at `dist(A, B)`.
+  Theorems include the Segment Addition Postulate and its converse
+  (`between_seg_add`, `between_seg_add_converse`, and `seg_add`: B is
+  on segment AC exactly when AB + BC = AC), the Ruler Postulate
+  (`ruler_dist`, `ruler_onto`), point plotting (`ray_point_plotting`,
+  `ray_dist_unique`), that exactly one of three distinct collinear
+  points is between the other two (`between_trichotomy`,
+  `between_unique`), opposite rays (`ray_opposite`), and the
+  definition of midpoint (`seg_midpoint_iff`).
 - ([`BigO.thm`](../lib/BigO.thm), [`BigO.pf`](../lib/BigO.pf)): Big-O asymptotic analysis on `fn UInt -> UInt`
 - ([`Int.thm`](../lib/Int.thm), [`Int.pf`](../lib/Int.pf)): Integers
 - ([`Linear.thm`](../lib/Linear.thm), [`Linear.pf`](../lib/Linear.pf)): The
@@ -56,8 +71,9 @@ Only the top-level module files (such as `UInt.pf`) are listed below. Each modul
 - ([`Point.thm`](../lib/Point.thm), [`Point.pf`](../lib/Point.pf)): Points
   of the plane, for coordinate geometry. `point(x, y)` is the point
   with `Real` coordinates `x` and `y`, read back with `xcoord` and
-  `ycoord`; the representation is private. `dist2(A, B)` is the
-  squared distance, `midpoint(A, B)` the midpoint, `dot(O, A, B)` and
+  `ycoord`; the representation is private. `dist(A, B)` is the
+  distance, `sqrt(dist2(A, B))`, and `dist2(A, B)` the squared
+  distance, `midpoint(A, B)` the midpoint, `dot(O, A, B)` and
   `cross(O, A, B)` the dot and cross products of OA and OB,
   `collinear(A, B, C)` means `cross(A, B, C) = real(+0)`,
   `seg_congruent(A, B, C, D)` means `dist2(A, B) = dist2(C, D)`, and

@@ -1,0 +1,34 @@
+// segment_addition.pf
+//
+// A segment-addition exercise from a high school geometry course:
+//
+//   Given: B is between A and C, C is between B and D, and AB = CD.
+//   Prove: AC = BD.
+//
+//      A       B           C       D
+//      +-------+-----------+-------+
+//
+// The two-column proof:
+//
+//   Statements                       Reasons
+//   1. AB + BC = AC                  Segment Addition Postulate
+//   2. BC + CD = BD                  Segment Addition Postulate
+//   3. AB = CD                       Given
+//   4. AC = BD                       Substitution (1, 2, 3)
+
+theorem segment_addition: all A:Point, B:Point, C:Point, D:Point.
+  if between(A, B, C) and between(B, C, D) and dist(A, B) = dist(C, D)
+  then dist(A, C) = dist(B, D)
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point
+  assume given
+  have abc: between(A, B, C) by given
+  have bcd: between(B, C, D) by given
+  have step1: dist(A, B) + dist(B, C) = dist(A, C)
+    by apply between_seg_add[A, B, C] to abc     // Segment Addition Postulate
+  have step2: dist(B, C) + dist(C, D) = dist(B, D)
+    by apply between_seg_add[B, C, D] to bcd     // Segment Addition Postulate
+  have step3: dist(A, B) = dist(C, D) by given   // Given
+  conclude dist(A, C) = dist(B, D)
+    by algebra with step1 | step2 | step3        // Substitution
+end
