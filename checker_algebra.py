@@ -190,14 +190,22 @@ class _Reifier:
     if q is not None:
       return ('const', q, t if _is_rat(t) else None)
     match _call(t):
-      case ("+", [a, b]):
-        return ('add', self.lin(a), self.lin(b))
+      case ("+", [a, *bs]) if bs:
+        # A sum may be flattened by associativity (as `replace` leaves it).
+        e = self.lin(a)
+        for b in bs:
+          e = ('add', e, self.lin(b))
+        return e
       case ("-", [a, b]):
         return ('sub', self.lin(a), self.lin(b))
       case ("-", [a]):
         return ('neg', self.lin(a))
-      case ("*", [c, a]) if (q := _literal(c)) is not None:
-        return ('scale', q, c if _is_rat(c) else None, self.lin(a))
+      case ("*", [c, a, *bs]) if (q := _literal(c)) is not None:
+        # In a flattened product `c * a * b`, the factor after `c` is
+        # the product `a * b`.
+        rest = a if not bs else Call(t.location, t.typeof,
+                                     cast(Call, t).rator, [a, *bs])
+        return ('scale', q, c if _is_rat(c) else None, self.lin(rest))
     return self.atom(t)
 
   def ring(self, t: Term) -> Lin:
