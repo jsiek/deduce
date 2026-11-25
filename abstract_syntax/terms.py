@@ -1665,10 +1665,14 @@ class Numeral(Call):
 
   def reduce(self, env: Env) -> Term:
     # A chain of constructors is a value, unless an auto rule could
-    # rewrite part of it (none in the library can).
+    # rewrite part of it (none in the library can). If an overload of
+    # the literal's `suc` or `zero` is a function, the chain computes.
     from .literals import may_match_in_numeral
+    if any(not isinstance(env.get_value_of_term_var(c), (type(None), Union))
+           for c in (self.suc, self.zero)):
+      return super().reduce(env)
     if get_eval_all() or not any(
-        may_match_in_numeral(rule.lhs)
+        may_match_in_numeral(rule)
         for rule in env.get_auto_rewrites('suc') + env.get_auto_rewrites(None)):
       return self
     return super().reduce(env)

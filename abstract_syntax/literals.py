@@ -364,17 +364,24 @@ def intToNat(
   return mkNumeral(loc, ty, max(n, 0), _resolved_or_var(loc, None, str(sname)),
                    mkZero(loc, zname=zname, ty=ty))
 
-def may_match_in_numeral(lhs: Term) -> bool:
-  """Whether a rewrite rule with left side ``lhs`` might apply to a part
-  of a ``Numeral``, that is, to ``suc^k(zero)``: true unless ``lhs`` has
-  something other than ``suc``, a variable, or ``zero`` (#1025). For
-  example ``suc(n)`` might, ``suc(lit(n))`` can't."""
-  match lhs:
-    case VarRef() | Numeral():
-      return True
-    case Call(_, _, VarRef() as rator, [arg]) if base_name(rator.get_name()) == 'suc':
-      return may_match_in_numeral(arg)
-  return False
+def may_match_in_numeral(rule: AutoRewriteRule) -> bool:
+  """Whether ``rule`` might apply to a part of a ``Numeral``, that is, to
+  ``suc`` or ``suc^k(zero)``: true unless its left side has something
+  other than ``suc``, ``zero``, a pattern variable, or a numeral (#1025).
+  For example ``suc(n)`` might, but ``suc(lit(n))`` and ``i`` (in the
+  equation ``i = 0``) can't."""
+  def may(lhs: Term) -> bool:
+    match lhs:
+      case Numeral():
+        return True
+      case VarRef():
+        return lhs in rule.variables \
+          or base_name(lhs.get_name()) in ('suc', 'zero')
+      case Call(_, _, VarRef() as rator, [arg]) \
+          if base_name(rator.get_name()) == 'suc':
+        return may(arg)
+    return False
+  return may(rule.lhs)
 
 def isNat(t: Term) -> bool:
   # Value-type recognizer — see the comment on ``isUInt`` for why
@@ -673,6 +680,11 @@ def formulas_equal_modulo_numeric_literals(frm1: AST, frm2: AST) -> bool:
   if frm1 == frm2 or _same_numeric_literal(frm1, frm2):
     return True
   match (frm1, frm2):
+    case (Numeral() as n1, Numeral() as n2):
+      k = min(n1.value, n2.value)
+      return formulas_equal_modulo_numeric_literals(n1.suc, n2.suc) \
+          and formulas_equal_modulo_numeric_literals(_drop_sucs(n1, k),
+                                                     _drop_sucs(n2, k))
     case (Call(_, _, rator1, args1), Call(_, _, rator2, args2)) \
          if len(args1) == len(args2):
       return formulas_equal_modulo_numeric_literals(rator1, rator2) \
@@ -910,8 +922,16 @@ def constr_name(term: Term) -> str:
     case _:
       raise InternalError('constr_name unhandled ' + str(term))
     
+def _drop_sucs(n: Numeral, k: int) -> Term:
+  """``n`` with its outer ``k`` ``suc``s removed."""
+  return mkNumeral(n.location, n.typeof, n.value - k, n.suc, n.zero)
+
 def constructor_conflict(term1: Term, term2: Term, env: Env) -> bool:
   match (term1, term2):
+    case (Numeral() as n1, Numeral() as n2) if n1.suc == n2.suc:
+      # Remove the `suc`s they share at once, not one call per `suc`.
+      k = min(n1.value, n2.value)
+      return constructor_conflict(_drop_sucs(n1, k), _drop_sucs(n2, k), env)
     case (Call(_, _, rator1, rands1),
           Call(_, _, rator2, rands2)) if is_constr_term(rator1, env) and is_constr_term(rator2, env):
      if constr_name(rator1) != constr_name(rator2):

@@ -324,11 +324,12 @@ def get_num_rewrites() -> int:
     global num_rewrites
     return num_rewrites
 
-def _rule_lhs(equation: Formula | AutoRewriteRule, env: Env) -> Term:
+def _as_rule(loc: Meta, equation: Formula | AutoRewriteRule,
+             env: Env) -> AutoRewriteRule:
   if isinstance(equation, AutoRewriteRule):
-    return equation.lhs
-  lhs, _ = split_equation(equation.location, equation, env)
-  return lhs
+    return equation
+  lhs, rhs = split_equation(loc, equation, env)
+  return AutoRewriteRule(equation, equation_vars(equation), [], lhs, rhs)
 
 @overload
 def rewrite_aux(loc: Meta, formula: Formula, equation: Formula | AutoRewriteRule, env: Env,
@@ -361,7 +362,7 @@ def rewrite_aux(loc: Meta, formula: Term | SwitchCase, equation: Formula | AutoR
                       models=formula.models)
     case OverloadedVar() | ResolvedVar() | Var():
       return formula
-    case Numeral() if not may_match_in_numeral(_rule_lhs(equation, env)):
+    case Numeral() if not may_match_in_numeral(_as_rule(loc, equation, env)):
       return formula
     case Bool(loc2, tyof, _):
       return formula
@@ -390,7 +391,7 @@ def rewrite_aux(loc: Meta, formula: Term | SwitchCase, equation: Formula | AutoR
       if rewrite_debug and get_verbose():
           print('while trying to rewrite ' + str(formula) + '\n\twith equation ' + str(equation))
           print('new_args: ' + ', '.join([str(arg) for arg in new_args]))
-      lhs = _rule_lhs(equation, env)
+      lhs = _as_rule(loc, equation, env).lhs
       arity = call_arity(lhs)
       if get_verbose():
           print('lhs = ' + str(lhs) + '\n\tarity: ' + str(arity)) 
@@ -497,11 +498,7 @@ def try_rewrite(
     equation: Formula | AutoRewriteRule,
     env: Env,
 ) -> Term:
-  if isinstance(equation, AutoRewriteRule):
-    rule = equation
-  else:
-    lhs, rhs = split_equation(loc, equation, env)
-    rule = AutoRewriteRule(equation, equation_vars(equation), [], lhs, rhs)
+  rule = _as_rule(loc, equation, env)
   if rewrite_debug and get_verbose():
       print('try rewrite? ' + str(formula) + '\n\twith equation ' + str(rule.equation))
   matching: dict[str, Term] = {}

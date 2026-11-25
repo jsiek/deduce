@@ -1,0 +1,12 @@
+// A Nat literal is built from whatever `suc`, `zero`, and `lit` are in
+// scope. Here `suc` is a function, not a constructor, so `ℕ2` computes
+// `lit(suc(suc(zero)))` to `zero`, though literals are stored compactly
+// (#1025).
+
+union N { zero }
+
+fun suc(n : N) { zero }
+fun lit(n : N) { n }
+
+define x : N = ℕ2
+assert x = zero
