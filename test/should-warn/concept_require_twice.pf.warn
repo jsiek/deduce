@@ -1,0 +1,1 @@
+./test/should-warn/concept_require_twice.pf:17.1-19.2: WARNING: Elem is already defined
