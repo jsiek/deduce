@@ -139,7 +139,7 @@ sys.path.insert(0, str(REPO_ROOT))
 # regardless of how the script was invoked.
 sys.argv = [str(REPO_ROOT / "deduce.py")] + sys.argv[1:]
 
-from abstract_syntax import add_import_directory, init_import_directories
+from abstract_syntax import Numeral, add_import_directory, init_import_directories
 from flags import (
     RECURSION_LIMIT,
     set_experimental_imperative,
@@ -1057,6 +1057,10 @@ def _canonical_ast(
         return str(value)
     if field_name == "visibility" and value == "default":
         value = "private" if parent_class == "Import" else "public"
+    if isinstance(value, Numeral):
+        # Its `args` field would unfold it one `suc` per level (#1025).
+        return ("Numeral", value.value, _canonical_ast(value.suc),
+                _canonical_ast(value.zero))
     if is_dataclass(value):
         cls_name = type(value).__name__
         return (

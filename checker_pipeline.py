@@ -34,7 +34,7 @@ from abstract_syntax import (
     Formula, FunCase, FunctionType, GenRecFun, Generic, GenericUnknownInst,
     Hole, IfThen, ImpAlloc, ImpAssert, ImpAssign, ImpAssume, ImpCallExpr,
     ImpIf, ImpReturn, ImpStmt, ImpVar, ImpWhile, Import, Inductive, Lambda,
-    LValueField, LValueIndex, LValueVar, MakeArray, Module,
+    LValueField, LValueIndex, LValueVar, MakeArray, Module, Numeral,
     MutableArrayType, ObjectDecl,
     ObjectField, ObserverDecl, Omitted, Or, OverloadType, OverloadedVar, PSorry, PVar,
     PatternBool, PatternCons, Postulate, PostulateFun, PostulateType, Predicate, Print, ProcDecl, ProcParam,
@@ -2027,6 +2027,8 @@ def find_rec_calls(name: str, term: Term | RecFun | GenRecFun,
       return find_rec_calls(name, frm2, env)
     case Some(loc2, _, _, frm2):
       return find_rec_calls(name, frm2, env)
+    case Numeral() if callable_name(term.suc) != name:
+      return []
     case Call(loc2, _, rator, args):
       calls = find_rec_calls(name, rator, env) + \
           sum([find_rec_calls(name, arg, env) for arg in args], [])

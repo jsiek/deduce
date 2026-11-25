@@ -1,0 +1,96 @@
+// UInt and Int literals have no size limit: a literal is stored as its
+// number (#1025), so these check as fast as small ones. Before, a
+// literal at the old limit of 4000 already overflowed the stack (#1342).
+
+import Nat
+import UInt
+import Real
+import Ring
+import Linear
+
+assert 1000000 + 1 = 1000001
+assert 1000000 * 1000000 = 1000000000000
+assert 1000000000 / 7 = 142857142
+
+theorem uint_hyp_big: all x:UInt. if x = 1000000 then x = 1000000
+proof
+  arbitrary x:UInt
+  assume h
+  h
+end
+
+theorem uint_hyp_4000: all x:UInt. if x = 4000 then x = 4000
+proof
+  arbitrary x:UInt
+  assume h
+  h
+end
+
+theorem real_big_refl: all x:Real. real(+1000000) * x = real(+1000000) * x
+proof
+  arbitrary x:Real
+  .
+end
+
+theorem uint_big_le: (1000000:UInt) ≤ 1000001
+proof
+  .
+end
+
+theorem uint_big_algebra: all x:UInt. 1000000 * x + 1000000 * x = 2000000 * x
+proof
+  arbitrary x:UInt
+  algebra
+end
+
+theorem real_big_linear: all x:Real.
+  if x ≤ real(+1000000) then x ≤ real(+1000001)
+proof
+  arbitrary x:Real
+  assume h
+  algebra
+end
+
+recfun countdown(n : UInt) -> UInt
+  measure n of UInt
+{
+  if n = 0 then 1000000 else countdown(n ∸ 1)
+}
+terminates {
+  arbitrary n:UInt
+  assume nz: not (n = 0)
+  conclude n ∸ 1 < n by apply uint_monus_one_less[n] to nz
+}
+
+predicate big : fn UInt -> bool {
+  big_intro : all n:UInt. if (1000000 ≤ n) then big(n)
+}
+
+theorem big_million : big(1000000)
+proof
+  have le: (1000000:UInt) ≤ 1000000 by .
+  apply big_intro[1000000] to le
+end
+
+theorem replace_var_big: all i:UInt. if i = 0 then i + 1000000 = 1000000
+proof
+  arbitrary i:UInt
+  assume h: i = 0
+  replace h
+  .
+end
+
+theorem nat_lit_max: ℕ4000 = ℕ4000
+proof
+  .
+end
+
+fun nat_pred(n : Nat) {
+  switch n {
+    case zero { zero }
+    case suc(m) { m }
+  }
+}
+
+assert nat_pred(ℕ4000) = ℕ3999
+assert not (ℕ3999 = ℕ4000)

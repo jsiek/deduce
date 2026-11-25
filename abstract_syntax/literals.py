@@ -322,11 +322,10 @@ def _uint_double(loc: Meta, x: Term, env: Env) -> Term | None:
 # O(log n), via a direct odd/even decomposition:
 #   n odd  ->  inc_dub((n-1)/2)   [ 1 + 2k ]
 #   n even ->  dub_inc(n/2 - 1)   [ 2(1 + k) ]
-# NOTE: the parsers do *not* currently use this -- ``Binary``'s
-# constructors are ``private`` to the UInt module, so a user file
-# cannot name them and literals go through ``mkUIntLit`` (``fromNat``
-# of a unary ``Nat``) instead. Switching literals to this compact form
-# is the end-to-end fix tracked in issue #1021.
+# The parsers do not use this: a UInt literal stays ``fromNat(lit(n))``
+# (with ``n`` a ``Numeral``), the shape the library's rules about
+# literals are written against (#1025). Evaluation and `algebra` build
+# the binary form from the private constructors' unique names.
 def intToUInt(loc: Meta, n: int, bzero: str, dubinc: str, incdub: str,
               uint_ty: Type | None = None) -> Term:
     if n <= 0:
@@ -362,16 +361,34 @@ def intToNat(
     sname: str | bool = 'suc',
     ty: Type | None = None,
 ) -> Term:
-  if n <= 0:
-    return mkZero(loc, zname=zname, ty=ty)
-  else:
-    return mkSuc(loc, intToNat(loc, n - 1, zname=zname, sname=sname, ty=ty),
-                 sname=sname, ty=ty)
+  return mkNumeral(loc, ty, max(n, 0), _resolved_or_var(loc, None, str(sname)),
+                   mkZero(loc, zname=zname, ty=ty))
+
+def may_match_in_numeral(rule: AutoRewriteRule) -> bool:
+  """Whether ``rule`` might apply to a part of a ``Numeral``, that is, to
+  ``suc`` or ``suc^k(zero)``: true unless its left side has something
+  other than ``suc``, ``zero``, a pattern variable, or a numeral (#1025).
+  For example ``suc(n)`` might, but ``suc(lit(n))`` and ``i`` (in the
+  equation ``i = 0``) can't."""
+  def may(lhs: Term) -> bool:
+    match lhs:
+      case Numeral():
+        return True
+      case VarRef():
+        return lhs in rule.variables \
+          or base_name(lhs.get_name()) in ('suc', 'zero')
+      case Call(_, _, VarRef() as rator, [arg]) \
+          if base_name(rator.get_name()) == 'suc':
+        return may(arg)
+    return False
+  return may(rule.lhs)
 
 def isNat(t: Term) -> bool:
   # Value-type recognizer — see the comment on ``isUInt`` for why
   # plain ``Var`` is intentionally excluded.
   match t:
+    case Numeral(suc=s, zero=z):
+      return isinstance(s, (OverloadedVar, ResolvedVar)) and isNat(z)
     case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'zero':
       return True
     case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
@@ -390,6 +407,8 @@ def isRawNat(t: Term) -> bool:
   # surface form has an extra ``lit`` wrapper the pretty-printer
   # must preserve so the AST round-trips.
   match t:
+    case Numeral(zero=z):
+      return isRawNat(z)
     case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)) if base_name(n) == 'zero':
       return True
     case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)), [arg]) \
@@ -429,6 +448,8 @@ def isInt(t: Term) -> bool:
 
 def getZero(t: Term) -> str | bool:
   match t:
+    case Numeral(suc=s, zero=z) if isinstance(s, (OverloadedVar, ResolvedVar)):
+      return getZero(z)
     case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'zero':
       return n
     case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
@@ -439,6 +460,8 @@ def getZero(t: Term) -> str | bool:
 
 def getSuc(t: Term) -> str | bool:
   match t:
+    case Numeral(suc=s) if isinstance(s, (OverloadedVar, ResolvedVar)):
+      return s.get_name()
     case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'zero':
       return False
     case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [_]) \
@@ -449,6 +472,8 @@ def getSuc(t: Term) -> str | bool:
 
 def natToInt(t: Term) -> int:
   match t:
+    case Numeral(value=v, zero=z):
+      return v + natToInt(z)
     case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)) if base_name(n) == 'zero':
       return 0
     case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n) | Var(_, _, n)), [arg]) \
@@ -655,6 +680,11 @@ def formulas_equal_modulo_numeric_literals(frm1: AST, frm2: AST) -> bool:
   if frm1 == frm2 or _same_numeric_literal(frm1, frm2):
     return True
   match (frm1, frm2):
+    case (Numeral() as n1, Numeral() as n2):
+      k = min(n1.value, n2.value)
+      return formulas_equal_modulo_numeric_literals(n1.suc, n2.suc) \
+          and formulas_equal_modulo_numeric_literals(_drop_sucs(n1, k),
+                                                     _drop_sucs(n2, k))
     case (Call(_, _, rator1, args1), Call(_, _, rator2, args2)) \
          if len(args1) == len(args2):
       return formulas_equal_modulo_numeric_literals(rator1, rator2) \
@@ -694,31 +724,31 @@ def formulas_equal_modulo_numeric_literals(frm1: AST, frm2: AST) -> bool:
     case _:
       return False
 
-def check_literal_size(loc: Meta, num: int) -> None:
-    # Reject a literal whose value is so large its unary desugaring
-    # would overflow the recursion limit mid-check. Raising a located
-    # ``ParseError`` here turns an opaque "maximum recursion depth
-    # exceeded" crash into a beginner-friendly diagnostic (issue #1021).
-    from flags import MAX_LITERAL
+def check_nat_literal_size(loc: Meta, num: int) -> None:
+    # Reject a Nat literal so large that computing with it would overflow
+    # the recursion limit mid-check, with a located ``ParseError`` rather
+    # than an opaque "maximum recursion depth exceeded" (issue #1021).
+    from flags import MAX_NAT_LITERAL
     from error import ParseError
-    if abs(num) > MAX_LITERAL:
+    if num > MAX_NAT_LITERAL:
         raise ParseError(
             loc,
-            f'numeric literal {num} is too large: Deduce represents '
-            f'numbers as unary terms whose depth equals the value, so it '
-            f'only supports literals up to {MAX_LITERAL}.',
+            f'the Nat literal ℕ{num} is too large: Nat numbers are unary '
+            f'(zero and suc), so Deduce supports Nat literals up to '
+            f'ℕ{MAX_NAT_LITERAL}. For larger numbers, use UInt.',
         )
 
-def mkLitNat(loc: Meta, num: int) -> Term:
-    # The ``lit(ℕnum)`` surface form shared by the parsers' Nat literals
-    # and the Nat payload of a UInt literal (below). The size guard lives
-    # here so every literal path (Nat, UInt, and Int via mkUIntLit) is
-    # covered by one check.
-    check_literal_size(loc, num)
+def _lit(loc: Meta, num: int) -> Term:
+    # ``lit(ℕnum)``, the form of the parsers' Nat literals and the Nat
+    # inside a UInt literal (below).
     return Call(loc, None, Var(loc, None, 'lit'), [intToNat(loc, num)])
 
+def mkLitNat(loc: Meta, num: int) -> Term:
+    check_nat_literal_size(loc, num)
+    return _lit(loc, num)
+
 def mkUIntLit(loc: Meta, num: int) -> Term:
-    return Call(loc, None, Var(loc, None, 'fromNat'), [mkLitNat(loc, num)])
+    return Call(loc, None, Var(loc, None, 'fromNat'), [_lit(loc, num)])
   
 def mkPos(loc: Meta, arg: Term) -> Term:
   return Call(loc, None, Var(loc, None, 'pos'), [arg])
@@ -838,7 +868,7 @@ def first_non_value(term: Term, env: Env) -> Term | None:
   exactly when they are syntactically equal, which is what `assert` and
   `print` rely on."""
   match term:
-    case Bool():
+    case Bool() | Numeral():
       return None
     case TermInst(_, _, subject, _, _):
       return first_non_value(subject, env)
@@ -866,6 +896,8 @@ def hide_type_args(value: Term) -> Term:
       return dataclasses.replace(value, subject=hide_type_args(subject), inferred=True)
     case Array(_, _, elements):
       return dataclasses.replace(value, elements=[hide_type_args(e) for e in elements])
+    case Numeral():
+      return value
     case Call(_, _, rator, args):
       return dataclasses.replace(value, rator=hide_type_args(rator),
                      args=[hide_type_args(a) for a in args])
@@ -890,8 +922,16 @@ def constr_name(term: Term) -> str:
     case _:
       raise InternalError('constr_name unhandled ' + str(term))
     
+def _drop_sucs(n: Numeral, k: int) -> Term:
+  """``n`` with its outer ``k`` ``suc``s removed."""
+  return mkNumeral(n.location, n.typeof, n.value - k, n.suc, n.zero)
+
 def constructor_conflict(term1: Term, term2: Term, env: Env) -> bool:
   match (term1, term2):
+    case (Numeral() as n1, Numeral() as n2) if n1.suc == n2.suc:
+      # Remove the `suc`s they share at once, not one call per `suc`.
+      k = min(n1.value, n2.value)
+      return constructor_conflict(_drop_sucs(n1, k), _drop_sucs(n2, k), env)
     case (Call(_, _, rator1, rands1),
           Call(_, _, rator2, rands2)) if is_constr_term(rator1, env) and is_constr_term(rator2, env):
      if constr_name(rator1) != constr_name(rator2):

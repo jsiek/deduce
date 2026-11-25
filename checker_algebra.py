@@ -48,7 +48,7 @@ from abstract_syntax import (
     ConceptRef, Env, Formula, FunctionType, IfThen, OverloadedVar, PVar, Proof,
     ResolvedVar, Term, TermInst, Type, Var, VarRef, base_name, full_reduce,
     get_dont_reduce_opaque, get_reduce_only, intToNat, isNat, isUInt, mkIntLit,
-    mkUIntLit, natToInt, remove_mark, set_dont_reduce_opaque,
+    mkUIntLit, natToInt, Numeral, remove_mark, set_dont_reduce_opaque,
     set_reduce_only, uintToInt,
 )
 from abstract_syntax.literals import _mk_uint_from_int
@@ -486,8 +486,8 @@ class _Builder:
     if isinstance(t, (Var, ResolvedVar)) and t.get_name() in self.names:
       return self.var(t.get_name())
     if isinstance(t, Call):
-      return Call(t.location, None, self._resolve(t.rator),
-                  [self._resolve(a) for a in t.args])
+      # By `_map_children`, which keeps a `Numeral` (#1025) compact.
+      return t._map_children(self._resolve)
     return t
 
   def rat(self, q: Fraction) -> Term:
@@ -882,6 +882,8 @@ def _scale_op(frm: Term) -> list[Term]:
       ops = funty.where.operations()
       i = next(i for i, wm in enumerate(ops) if base_name(wm.member) == 'scale')
       return [dicts[i]] if isinstance(dicts[i], VarRef) else []
+    case Numeral():
+      return []
     case Call(_, _, rator, args):
       return [v for a in [rator] + args for v in _scale_op(a)][:1]
     case And(_, _, args):

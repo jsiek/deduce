@@ -223,6 +223,11 @@ length(ls)
 
 Used for union constructors, infix operators, and functions.
 
+#### Numeral
+`Numeral(location, typeof, value, suc, zero)`
+
+The `Nat` `suc(suc(…(zero)…))` with `value` `suc`s, stored as the number. The parsers build one for the `n` in every numeric literal: `4000` is `fromNat(lit(Numeral(4000)))`, `ℕ7` is `lit(Numeral(7))`. It is a `Call` whose `rator` is `suc` and whose `args` are `[Numeral(value - 1)]` (or `[zero]`), built when asked for, so code that takes terms apart (pattern matching, `auto` rules, `switch`) sees the chain. Comparing, printing, type checking, uniquify, substitute, and reduce take constant time instead of recursing `value` deep (#1025). (Reduce does walk the chain if the `suc` or `zero` in scope is a function rather than a constructor.) A pass that recurses into a term's `args` recurses `value` deep on a `Numeral`, and UInt literals have no size limit, so `1000000` exceeds the recursion limit. Give every such pass a `Numeral` case: return early if nothing it looks for can be inside a chain of `suc`s (as `find_rec_calls` and `_scale_op` do), map `suc` and `zero` with `_map_children` (as `_Builder._resolve` does), or remove the shared `suc`s of two numerals at once (as `constructor_conflict` does).
+
 ### Switch
 See also SwitchProf
 

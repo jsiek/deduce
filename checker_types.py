@@ -47,6 +47,7 @@ from abstract_syntax import (
     MakeArray,
     Mark,
     MutableArrayType,
+    Numeral,
     Omitted,
     Or,
     OverloadType,
@@ -169,6 +170,9 @@ def _length_of_array(
 
 def _nat_constructor_literal_value(term: Term) -> int | None:
   match term:
+    case Numeral(value=v, zero=z):
+      zero_value = _nat_constructor_literal_value(z)
+      return None if zero_value is None else v + zero_value
     case Mark(_, _, subject) | TAnnote(_, _, subject, _):
       return _nat_constructor_literal_value(subject)
     case _ if _var_ref_base_name(term) == 'zero':
@@ -1050,6 +1054,17 @@ def _generic_env(term: Generic, env: Env) -> Env:
   return function_where_scope(term.location, term.where, env,
                               term.type_params)[1]
 
+def _type_check_numeral(term: Numeral, typ: TypeExpr | None, env: Env) -> Term:
+  """``suc^n(zero)`` has the type of ``suc(zero)``, so check that instead
+  of the whole chain (#1025)."""
+  one = Call(term.location, None, term.suc, [term.zero])
+  checked = type_synth_term(one, env, None, []) if typ is None \
+    else type_check_term(one, typ, env, None, [])
+  match checked:
+    case Call(_, ty, VarRef() as suc, [VarRef() as zero]):
+      return Numeral(term.location, ty, term.value, suc, zero)
+  internal_error(term.location, 'unexpected type checking of ' + str(checked))
+
 def type_synth_term(
     term: Term, env: Env, recfun: RecursiveName, subterms: SubtermNames
 ) -> Term:
@@ -1057,10 +1072,13 @@ def type_synth_term(
     print('type_synth_term: ' + str(term) + '\n' \
           + '\tin ' + str(recfun))
   match term:
+    case Numeral():
+      return _type_check_numeral(term, None, env)
+
     case Mark(loc, _, subject):
       new_subject = type_synth_term(subject, env, recfun, subterms)
       ret = Mark(loc, new_subject.typeof, new_subject)
-  
+
     case OverloadedVar(loc, _, rs):
       try:
         ty = env.get_type_of_term_var(term)
@@ -1352,6 +1370,8 @@ def type_check_term(
   if get_verbose():
     print('\ntype_check_term: ' + str(term) + ' : ' + str(typ) + '?\n')
   match term:
+    case Numeral():
+      return _type_check_numeral(term, typ, env)
     case Mark(loc, _, subject):
       new_subject = type_check_term(subject, typ, env, recfun, subterms)
       return Mark(loc, new_subject.typeof, new_subject)

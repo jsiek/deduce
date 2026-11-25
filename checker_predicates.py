@@ -42,6 +42,7 @@ from abstract_syntax import (
     Induction,
     Lambda,
     ModusPonens,
+    Numeral,
     Or,
     OverloadedVar,
     PAndElim,
@@ -188,6 +189,8 @@ def _walk_pred_premise(
   `forbidden` flag flips on under 'not' / 'if/then' premises and stays on
   through subsequent nesting (sticky semantics, matching the union check)."""
   match formula:
+    case Numeral():
+      return
     case Call(loc, _, rator, args):
       ratname = None
       if isinstance(rator, VarRef):
