@@ -35,3 +35,28 @@ proof
   assume h
   algebra
 end
+
+// #1348: `replace` leaves a sum or product flattened into one n-ary
+// call, which linear mode reads term by term, not as one atom.
+postulate nary_sum: all p:Real, q:Real, r:Real, s:Real. p + q + r = s * s
+
+theorem algebra_replace_nary_sum: all p:Real, q:Real, r:Real, s:Real.
+  if s = real(+0) and real(+0) < p and real(+0) < q and real(+0) < r
+  then false
+proof
+  arbitrary p:Real, q:Real, r:Real, s:Real
+  assume h
+  have hs: s = real(+0) by conjunct 0 of h
+  algebra with replace hs in nary_sum[p, q, r, s]
+end
+
+postulate nary_product: all x:Real, y:Real, z:Real. real(+2) * x * y + z = real(+0)
+
+theorem algebra_replace_nary_product: all x:Real, y:Real, z:Real.
+  if real(+0) < x * y and z = real(+0) then false
+proof
+  arbitrary x:Real, y:Real, z:Real
+  assume h
+  have hz: z = real(+0) by conjunct 1 of h
+  algebra with replace hz in nary_product[x, y, z]
+end
