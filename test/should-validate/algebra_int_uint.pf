@@ -1,0 +1,25 @@
+// #1350: `algebra` on an Int goal whose constants are UInt literals in
+// Int positions. The goal's `x - 3` (`-` on Int and UInt) and `- 3`
+// (`-` on UInt) are by definition `x - pos(3)` and `- pos(3)`, the Int
+// operations on `+3` that `algebra`'s conclusion has.
+
+import Int
+import Ring
+
+theorem int_uint_sub: all x:Int. x + -3 = x - 3
+proof
+  arbitrary x:Int
+  algebra
+end
+
+theorem int_uint_left: all x:Int. 2 - x = - x + 2
+proof
+  arbitrary x:Int
+  algebra
+end
+
+theorem int_uint_scale: all x:Int. 3 * x - 1000000 = - 1000000 + x * 3
+proof
+  arbitrary x:Int
+  algebra
+end
