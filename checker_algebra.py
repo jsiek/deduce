@@ -809,14 +809,15 @@ def _check_conclusion(proof: AlgebraGoal, frm: Formula, goal: Formula,
   # Compare with the goal as written first: reducing it may compute
   # with its literals in unary. A goal may also reduce to `true` (as
   # `inv(x ^ 0) = real(+1)`).
+  if _same(frm, goal):
+    return
   forms = _forms(goal, env)
   if (mixed := _mixed_ops(goal)):
     # The goal's Int operations on a UInt, `x - 3` and `- 3`, unfold to
     # the conclusion's `x - pos(3)` and `- pos(3)` (that is, `-3`).
     forms.append(_with_reduce(mixed, goal, env, opaque=True))
-  if not _same(frm, goal) \
-     and not any(_same(frm, g) or (isinstance(g, Bool) and g.value is True)
-                 for g in forms):
+  if not any(_same(frm, g) or (isinstance(g, Bool) and g.value is True)
+             for g in forms):
     user_error(proof.location, 'algebra proved\n\t' + str(frm)
                + '\ninstead of\n\t' + str(goal))
 
