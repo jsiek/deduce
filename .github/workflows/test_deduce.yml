@@ -65,19 +65,25 @@ jobs:
             args: --parser
             requirements: core
           - name: lib-1
-            args: --lib --shard 1/3
+            args: --lib --shard 1/4
             requirements: core
           - name: lib-2
-            args: --lib --shard 2/3
+            args: --lib --shard 2/4
             requirements: core
           - name: lib-3
-            args: --lib --shard 3/3
+            args: --lib --shard 3/4
+            requirements: core
+          - name: lib-4
+            args: --lib --shard 4/4
             requirements: core
           - name: passable-1
-            args: --passable --cli --shard 1/2
+            args: --passable --cli --shard 1/3
             requirements: core
           - name: passable-2
-            args: --passable --shard 2/2
+            args: --passable --shard 2/3
+            requirements: core
+          - name: passable-3
+            args: --passable --shard 3/3
             requirements: core
           - name: prelude
             args: --prelude
@@ -102,12 +108,24 @@ jobs:
             requirements: core
           # The C back end: test/compile/run_*.py (`make tests-compile`),
           # split so each leg stays near the budget. run_e2e runs
-          # deduce.py twice per fixture, so it gets a leg of its own.
+          # deduce.py twice per fixture, so it is sharded too.
           - name: compile-1
-            compile: run_prelude_archive run_lower run_determinism run_headers run_separate
+            compile: run_prelude_archive
             requirements: core
           - name: compile-2
+            compile: run_lower run_determinism run_headers run_separate
+            requirements: core
+          - name: e2e-1
             compile: run_e2e
+            compile_args: --shard 1/3
+            requirements: core
+          - name: e2e-2
+            compile: run_e2e
+            compile_args: --shard 2/3
+            requirements: core
+          - name: e2e-3
+            compile: run_e2e
+            compile_args: --shard 3/3
             requirements: core
 
     steps:
@@ -146,5 +164,5 @@ jobs:
         run: |
           cc --version
           for t in ${{ matrix.compile }}; do
-            python test/compile/$t.py
+            python test/compile/$t.py ${{ matrix.compile_args }}
           done

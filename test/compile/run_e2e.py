@@ -173,7 +173,10 @@ def main() -> int:
     ap.add_argument("--filter", default=None)
     ap.add_argument("--keep-tmp", action="store_true",
                     help="don't delete the working directory; print its path")
+    ap.add_argument("--shard", default="1/1",
+                    help="i/n: run only every n-th fixture, starting at the i-th")
     args = ap.parse_args()
+    shard, shards = (int(k) for k in args.shard.split("/"))
 
     cc = find_cc()
     if cc is None:
@@ -196,6 +199,7 @@ def main() -> int:
             fixtures.append(p)
     if args.filter:
         fixtures = [f for f in fixtures if args.filter in f.name]
+    fixtures = fixtures[shard - 1::shards]
     if not fixtures:
         print("no fixtures found", file=sys.stderr)
         return 1
