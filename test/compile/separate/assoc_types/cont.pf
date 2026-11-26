@@ -1,0 +1,30 @@
+module cont
+
+// A concept with an associated type, and where functions with
+// same-type constraints (#1321), compiled in their own module: callers
+// in other modules pass the operations of their models.
+
+union Pair<A, B> { pair(A, B) }
+
+union L<T> { nil  cons(T, L<T>) }
+
+concept Container<C> {
+  type Elem
+  fun get : fn C -> Elem
+  fun put : fn Elem -> C
+}
+
+fun rtrip<C> where { Container<C> } (x : @Container<C>.Elem) {
+  get(@Container<C>.put(x))
+}
+
+fun move<C, D> where { Container<C>, Container<D>,
+                       @Container<C>.Elem = @Container<D>.Elem } (c:C) {
+  @Container<D>.put(get(c))
+}
+
+recursive gets<C> where { Container<C>, @Container<C>.Elem = bool }
+    (L<C>) -> L<bool> {
+  gets(nil) = nil
+  gets(cons(c, cs)) = cons(get(c), gets(cs))
+}

@@ -1,0 +1,22 @@
+module grp
+
+// Concepts that refine and require Monoid, and where functions that
+// use Monoid's operations through them.
+
+import mon
+
+concept Group<T> {
+  refines Monoid<T>
+  fun neg : fn T -> T
+}
+
+// Calls msum, a where function of another module: Group<T> gives the
+// Monoid<T> that msum needs.
+fun neg_sum<T> where { Group<T> } (xs : L<T>) { neg(msum(xs)) }
+
+concept Pointed<T> {
+  require Monoid<T>
+  fun pt : T
+}
+
+fun pt_plus<T> where { Pointed<T> } (x : T) { x + pt }

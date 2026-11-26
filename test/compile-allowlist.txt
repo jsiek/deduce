@@ -12,6 +12,7 @@
 # --- Tests that don't import the prelude ---
 
 test/should-validate/bintree.pf
+test/should-validate/concepts.pf
 test/should-validate/empty_file.pf
 test/should-validate/not_equal.pf
 test/should-validate/overload1.pf
@@ -30,6 +31,11 @@ test/should-validate/switch_term.pf
 # areas — arrays, integers, lists, generics, simplification, marks.
 # Adding more is a one-line change.
 
+test/should-validate/algebra_concepts.pf
+test/should-validate/algebra_field.pf
+test/should-validate/algebra_ring.pf
+test/should-validate/algebra_ring_pow.pf
+test/should-validate/algebra_semiring.pf
 test/should-validate/array1.pf
 test/should-validate/array3.pf
 test/should-validate/assoc_types.pf
@@ -62,3 +68,5 @@ test/should-validate/simplify1.pf
 test/should-validate/theorem_and.pf
 test/should-validate/theorem_or.pf
 test/should-validate/uint_arith.pf
+test/should-validate/where_functions.pf
+test/should-validate/where_functions_two_models.pf

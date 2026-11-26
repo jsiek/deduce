@@ -1,0 +1,20 @@
+module listm
+
+// A transparent model, and an opaque parameterized model with a
+// same-type constraint: its operations take those of Container<C>.
+
+import cont
+
+model Container<L<bool>> {
+  type Elem = bool
+  fun get = fun xs:L<bool> { switch xs { case nil { false } case cons(x, r) { x } } }
+  fun put = fun b:bool { cons(b, nil) }
+}
+
+union Box<T> { box(T) }
+
+opaque model <C> where { Container<C>, @Container<C>.Elem = bool } Container<Box<C>> {
+  type Elem = bool
+  fun get = fun b:Box<C> { switch b { case box(c) { get(c) } } }
+  fun put = fun x:bool { box(@Container<C>.put(x)) }
+}

@@ -1,0 +1,11 @@
+import cont
+import pairm
+import listm
+
+print @rtrip<Pair<bool,bool>>(true)
+print @rtrip<Box<L<bool>>>(true)
+define moved : L<bool> = move(pair(true, false))
+print moved
+define boxed : Box<Pair<bool,bool>> = move(cons(true, nil))
+print @Container<Box<Pair<bool,bool>>>.get(boxed)
+print gets(cons(box(pair(false, true)), cons(box(pair(true, true)), nil)))
