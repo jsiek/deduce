@@ -1,0 +1,950 @@
+module Triangle
+
+/*
+  Triangles and congruence, for coordinate geometry (#1191).
+
+  * `triangle(A, B, C)`: A, B, C are the vertices of a triangle, that
+    is, they are not collinear.
+  * `tri_congruent(A, B, C, D, E, F)`: triangles ABC and DEF are
+    congruent with the correspondence A ↔ D, B ↔ E, C ↔ F: the three
+    pairs of corresponding sides are congruent (AB ≅ DE, BC ≅ EF,
+    CA ≅ FD) and so are the three pairs of corresponding angles
+    (∠A ≅ ∠D, ∠B ≅ ∠E, ∠C ≅ ∠F, where ∠A is ∠CAB, ∠B is ∠ABC, and
+    ∠C is ∠BCA). "Corresponding parts of congruent triangles are
+    congruent" (CPCTC) is `tri_cpctc`, which unfolds the definition.
+
+  The congruence postulates and theorems of a geometry course are
+  theorems here: SAS (`tri_sas`), SSS (`tri_sss`), ASA (`tri_asa`),
+  AAS (`tri_aas`), and HL (`tri_hl`). Other theorems: the Isosceles
+  Triangle Theorem and its converse (`tri_isosceles`,
+  `tri_isosceles_converse`), the Triangle Angle Sum Theorem
+  (`tri_angle_sum`), the Exterior Angle Theorem
+  (`tri_exterior_angle`), the Triangle Inequality (`tri_inequality`,
+  `tri_inequality_strict`), and the Alternate Interior Angles Theorem
+  and its converse (`line_parallel_alt_interior`).
+
+  How they are proved: a triangle ABC is determined up to congruence
+  by AB², AC², and the dot product AB · AC (`congruent_of_dot`), since
+  the law of cosines gives BC², and the dot and cross products at each
+  vertex, which determine the angle there (`angle_measure_dot_cross`),
+  are computed from these three numbers. Congruent angles have equal
+  cosines (`angle_measure_eq`), which gives the dot product for SAS;
+  for SSS it comes from the law of cosines, and for ASA from the two
+  cosines and the common side. AAS follows from ASA and the angle sum,
+  and HL from SSS and the Pythagorean theorem.
+*/
+
+import Base
+public import AngleMeasure
+import Linear
+import Ring
+
+// A, B, C are the vertices of a triangle.
+fun triangle(A : Point, B : Point, C : Point) { not collinear(A, B, C) }
+
+// Triangles ABC and DEF are congruent, with A ↔ D, B ↔ E, C ↔ F.
+fun tri_congruent(A : Point, B : Point, C : Point, D : Point, E : Point, F : Point) {
+  seg_congruent(A, B, D, E) and seg_congruent(B, C, E, F) and seg_congruent(C, A, F, D)
+  and angle_congruent(C, A, B, F, D, E) and angle_congruent(A, B, C, D, E, F)
+  and angle_congruent(B, C, A, E, F, D)
+}
+
+/*
+  Facts about real numbers
+*/
+
+lemma abs_square: all x:Real. abs(x) * abs(x) = x * x
+proof
+  arbitrary x:Real
+  replace symmetric real_abs_mult[x, x]
+  apply real_abs_nonneg_eq to real_square_nonneg[x]
+end
+
+lemma abs_eq_of_square: all x:Real, y:Real. if x * x = y * y then abs(x) = abs(y)
+proof
+  arbitrary x:Real, y:Real
+  assume e
+  replace symmetric real_sqrt_abs_square[x] | symmetric real_sqrt_abs_square[y] | e.
+end
+
+lemma abs_pos: all y:Real. if not (y = real(+0)) then real(+0) < abs(y)
+proof
+  arbitrary y:Real
+  assume nz
+  cases real_dichotomy[real(+0), y]
+  case nn {
+    replace apply real_abs_nonneg_eq to nn | real_less_def
+    have nz2: not (real(+0) = y) by { assume e  apply nz to symmetric e }
+    (nn, nz2)
+  }
+  case lt0 {
+    replace apply real_abs_nonpos_eq to (apply real_less_implies_less_equal to lt0)
+    algebra
+  }
+end
+
+lemma square_pos: all q:Real. if not (q = real(+0)) then real(+0) < q * q
+proof
+  arbitrary q:Real
+  assume nz
+  replace real_less_def
+  have nz2: not (real(+0) = q * q) by {
+    assume e
+    apply nz to replace apply real_mult_zero_iff[q, q] to nz in symmetric e
+  }
+  (real_square_nonneg[q], nz2)
+end
+
+// Two vectors (p, a) and (p2, a2) with a, a2 > 0, of the same length
+// and in the same direction, are equal: (p, a) is determined by the
+// cosine p / sqrt(p² + a²) and the length.
+lemma cos_unique: all p:Real, a:Real, p2:Real, a2:Real.
+  if real(+0) < a and real(+0) < a2 and p * a2 = a * p2
+     and p * p + a * a = p2 * p2 + a2 * a2
+  then p = p2 and a = a2
+proof
+  arbitrary p:Real, a:Real, p2:Real, a2:Real
+  assume h
+  have ap: real(+0) < a by conjunct 0 of h
+  have a2p: real(+0) < a2 by conjunct 1 of h
+  have c: p * a2 = a * p2 by conjunct 2 of h
+  have k: p * p + a * a = p2 * p2 + a2 * a2 by conjunct 3 of h
+  have az: not (a = real(+0)) by { assume z  replace z in ap }
+  have kp: real(+0) < p * p + a * a
+    by algebra with real_square_nonneg[p] | apply square_pos to az
+  have kz: not (p * p + a * a = real(+0)) by { assume z  replace z in kp }
+  // a2² (p² + a²) = (p a2)² + a2² a² = (a p2)² + a² a2² = a² (p2² + a2²)
+  have i1: (a2 * a2) * (p * p + a * a) = (p * a2) * (p * a2) + (a2 * a2) * (a * a) by algebra
+  have i2: (a * p2) * (a * p2) + (a2 * a2) * (a * a) = (a * a) * (p2 * p2 + a2 * a2) by algebra
+  have e: (a2 * a2) * (p * p + a * a) = (a * a) * (p * p + a * a) by {
+    replace i1 | c | i2 | symmetric k.
+  }
+  have sq: a2 * a2 = a * a
+    by apply real_mult_right_cancel[p * p + a * a, a2 * a2, a * a] to kz, e
+  have aa: a = a2
+    by apply real_square_injective[a, a2]
+       to (apply real_less_implies_less_equal to ap), (apply real_less_implies_less_equal to a2p), symmetric sq
+  have c1: p * a = a * p2 by replace symmetric aa in c
+  have c2: a * p = a * p2 by replace real_mult_commute[p, a] in c1
+  have pp: p = p2 by apply real_mult_left_cancel[a, p, p2] to az, c2
+  (pp, aa)
+end
+
+// From p a2 = a p2 and (L - p) a2 = a (L - p2) with L > 0: a = a2.
+lemma two_cosines: all L:Real, p:Real, a:Real, p2:Real, a2:Real.
+  if real(+0) < L and p * a2 = a * p2 and (L - p) * a2 = a * (L - p2)
+  then a2 = a
+proof
+  arbitrary L:Real, p:Real, a:Real, p2:Real, a2:Real
+  assume h
+  have i: L * (a2 - a) = ((L - p) * a2 - a * (L - p2)) + (p * a2 - a * p2) by algebra
+  have z: L * (a2 - a) = real(+0) by {
+    replace i | conjunct 1 of h | conjunct 2 of h.
+  }
+  have lz: not (L = real(+0)) by { assume e  replace e in conjunct 0 of h }
+  replace real_sub_eq_zero_iff in (replace apply real_mult_zero_iff[L, a2 - a] to lz in z)
+end
+
+// For y ≥ 0: if x² ≤ y² then x ≤ y, and if x² < y² then x < y.
+lemma square_le: all x:Real, y:Real. if real(+0) ≤ y and x * x ≤ y * y then x ≤ y
+proof
+  arbitrary x:Real, y:Real
+  assume h
+  cases real_dichotomy[x, y]
+  case le { le }
+  case gt {
+    have l: y * y < x * x by apply real_square_less[y, x] to (conjunct 0 of h), gt
+    conclude false by algebra with l | conjunct 1 of h
+  }
+end
+
+lemma square_less: all x:Real, y:Real. if real(+0) ≤ y and x * x < y * y then x < y
+proof
+  arbitrary x:Real, y:Real
+  assume h
+  cases real_trichotomy[x, y]
+  case lt { lt }
+  case eq { conclude false by apply real_less_irreflexive[y * y] to replace eq in conjunct 1 of h }
+  case gt {
+    have l: y * y < x * x by apply real_square_less[y, x] to (conjunct 0 of h), gt
+    conclude false by algebra with l | conjunct 1 of h
+  }
+end
+
+/*
+  The dot and cross products at the three vertices of triangle ABC,
+  from p = AB · AC and q = AB × AC.
+*/
+
+lemma dot_a: all A:Point, B:Point, C:Point. dot(A, C, B) = dot(A, B, C)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  expand dot
+  algebra
+end
+
+lemma cross_a: all A:Point, B:Point, C:Point. cross(A, C, B) = - cross(A, B, C)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  expand cross
+  algebra
+end
+
+lemma dot_b: all A:Point, B:Point, C:Point. dot(B, A, C) = dist2(A, B) - dot(A, B, C)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  expand dot | dist2
+  algebra
+end
+
+lemma cross_b: all A:Point, B:Point, C:Point. cross(B, A, C) = - cross(A, B, C)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  expand cross
+  algebra
+end
+
+lemma dot_c: all A:Point, B:Point, C:Point. dot(C, B, A) = dist2(A, C) - dot(A, B, C)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  expand dot | dist2
+  algebra
+end
+
+lemma cross_c: all A:Point, B:Point, C:Point. cross(C, B, A) = - cross(A, B, C)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  expand cross
+  algebra
+end
+
+// Lagrange's identity: AB² AC² = (AB · AC)² + (AB × AC)².
+lemma lagrange: all A:Point, B:Point, C:Point.
+  dist2(A, B) * dist2(A, C) = dot(A, B, C) * dot(A, B, C) + cross(A, B, C) * cross(A, B, C)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  have d: dot(A, C, C) = dist2(A, C) by { expand dot | dist2  algebra }
+  replace symmetric d
+  point_dot_frame[A, B, C, C]
+end
+
+lemma triangle_cross: all A:Point, B:Point, C:Point.
+  triangle(A, B, C) = not (cross(A, B, C) = real(+0))
+proof
+  arbitrary A:Point, B:Point, C:Point
+  expand triangle | collinear.
+end
+
+/*
+  Triangles
+*/
+
+theorem triangle_rotate: all A:Point, B:Point, C:Point.
+  triangle(A, B, C) = triangle(B, C, A)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  expand triangle
+  replace point_collinear_rotate[A, B, C].
+end
+
+theorem triangle_swap: all A:Point, B:Point, C:Point.
+  triangle(A, B, C) = triangle(A, C, B)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  expand triangle
+  replace point_collinear_swap[A, B, C].
+end
+
+// The vertices of a triangle are distinct.
+theorem triangle_distinct: all A:Point, B:Point, C:Point.
+  if triangle(A, B, C) then not (A = B) and not (B = C) and not (A = C)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  expand triangle
+  assume nc
+  have ab: not (A = B) by {
+    assume e
+    apply (replace e in nc) to point_collinear_same[B, C]
+  }
+  have bc: not (B = C) by {
+    assume e
+    apply (replace point_collinear_rotate[A, C, C] in replace e in nc)
+      to point_collinear_same[C, A]
+  }
+  have ac: not (A = C) by {
+    assume e
+    apply (replace point_collinear_rotate[C, B, C] | point_collinear_rotate[B, C, C]
+           in replace e in nc)
+      to point_collinear_same[C, B]
+  }
+  (ab, bc, ac)
+end
+
+// The angles of a triangle measure strictly between 0° and 180°, so an
+// angle congruent to one of them is the angle of a triangle too.
+lemma triangle_of_angle: all A:Point, B:Point, C:Point, D:Point, E:Point, F:Point.
+  if not collinear(A, B, C) and m_angle(A, B, C) = m_angle(D, E, F)
+  then not collinear(D, E, F)
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point, E:Point, F:Point
+  assume h
+  have s: deg(+0) < m_angle(A, B, C) and m_angle(A, B, C) < deg(+180)
+    by apply angle_measure_strict to conjunct 0 of h
+  assume c
+  cases apply angle_measure_collinear[D, E, F] to c
+  case z { conclude false by algebra with s | z | conjunct 1 of h }
+  case st { conclude false by algebra with s | st | conjunct 1 of h }
+end
+
+/*
+  Congruent triangles
+*/
+
+// CPCTC: corresponding parts of congruent triangles are congruent.
+theorem tri_cpctc: all A:Point, B:Point, C:Point, D:Point, E:Point, F:Point.
+  if tri_congruent(A, B, C, D, E, F)
+  then seg_congruent(A, B, D, E) and seg_congruent(B, C, E, F) and seg_congruent(C, A, F, D)
+   and angle_congruent(C, A, B, F, D, E) and angle_congruent(A, B, C, D, E, F)
+   and angle_congruent(B, C, A, E, F, D)
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point, E:Point, F:Point
+  assume h
+  expand tri_congruent in h
+end
+
+// Listing the vertices from B instead of A.
+theorem tri_congruent_rotate: all A:Point, B:Point, C:Point, D:Point, E:Point, F:Point.
+  if tri_congruent(A, B, C, D, E, F) then tri_congruent(B, C, A, E, F, D)
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point, E:Point, F:Point
+  expand tri_congruent
+  assume h
+  ((conjunct 1 of h), (conjunct 2 of h), (conjunct 0 of h),
+   (conjunct 4 of h), (conjunct 5 of h), (conjunct 3 of h))
+end
+
+// A triangle is determined up to congruence by AB², AC², and AB · AC.
+lemma congruent_of_dot: all A:Point, B:Point, C:Point, D:Point, E:Point, F:Point.
+  if dist2(A, B) = dist2(D, E) and dist2(A, C) = dist2(D, F) and dot(A, B, C) = dot(D, E, F)
+  then tri_congruent(A, B, C, D, E, F)
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point, E:Point, F:Point
+  assume h
+  have l: dist2(A, B) = dist2(D, E) by conjunct 0 of h
+  have m: dist2(A, C) = dist2(D, F) by conjunct 1 of h
+  have p: dot(A, B, C) = dot(D, E, F) by conjunct 2 of h
+  have q: abs(cross(A, B, C)) = abs(cross(D, E, F)) by {
+    have e: dist2(D, E) * dist2(D, F)
+            = dot(D, E, F) * dot(D, E, F) + cross(A, B, C) * cross(A, B, C)
+      by replace l | m | p in lagrange[A, B, C]
+    have sq: cross(A, B, C) * cross(A, B, C) = cross(D, E, F) * cross(D, E, F)
+      by algebra with e | lagrange[D, E, F]
+    apply abs_eq_of_square to sq
+  }
+  expand tri_congruent | seg_congruent | angle_congruent
+  have bc: dist2(B, C) = dist2(E, F) by {
+    replace point_dist2_dot[A, B, C] | point_dist2_dot[D, E, F] | l | m | p.
+  }
+  have ca: dist2(C, A) = dist2(F, D) by {
+    replace point_dist2_symmetric[C, A] | point_dist2_symmetric[F, D]  m
+  }
+  have ang_a: m_angle(C, A, B) = m_angle(F, D, E) by {
+    apply angle_measure_dot_cross[C, A, B, F, D, E]
+      to (replace dot_a[A, B, C] | dot_a[D, E, F]  p),
+         (replace cross_a[A, B, C] | cross_a[D, E, F] | real_abs_neg  q)
+  }
+  have ang_b: m_angle(A, B, C) = m_angle(D, E, F) by {
+    apply angle_measure_dot_cross[A, B, C, D, E, F]
+      to (replace dot_b[A, B, C] | dot_b[D, E, F] | l | p.),
+         (replace cross_b[A, B, C] | cross_b[D, E, F] | real_abs_neg  q)
+  }
+  have ang_c: m_angle(B, C, A) = m_angle(E, F, D) by {
+    apply angle_measure_dot_cross[B, C, A, E, F, D]
+      to (replace dot_c[A, B, C] | dot_c[D, E, F] | m | p.),
+         (replace cross_c[A, B, C] | cross_c[D, E, F] | real_abs_neg  q)
+  }
+  (l, bc, ca, ang_a, ang_b, ang_c)
+end
+
+// The angle at A, in coordinates: congruent angles at A and D have
+// equal cosines.
+lemma angle_a_cos: all A:Point, B:Point, C:Point, D:Point, E:Point, F:Point.
+  if triangle(A, B, C) and angle_congruent(C, A, B, F, D, E)
+  then triangle(D, E, F)
+   and dot(A, B, C) * abs(cross(D, E, F)) = abs(cross(A, B, C)) * dot(D, E, F)
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point, E:Point, F:Point
+  assume h
+  have nc: not collinear(C, A, B)
+    by { replace point_collinear_rotate[C, A, B]  expand triangle in conjunct 0 of h }
+  have ang: m_angle(C, A, B) = m_angle(F, D, E) by expand angle_congruent in conjunct 1 of h
+  have nd: not collinear(F, D, E) by apply triangle_of_angle to nc, ang
+  have t: triangle(D, E, F) by { expand triangle  replace symmetric point_collinear_rotate[F, D, E]  nd }
+  have e: dot(A, C, B) * abs(cross(D, F, E)) = abs(cross(A, C, B)) * dot(D, F, E)
+    by replace apply angle_measure_eq[C, A, B, F, D, E] to nc, nd in ang
+  (t, replace dot_a[A, B, C] | dot_a[D, E, F] | cross_a[A, B, C] | cross_a[D, E, F]
+             | real_abs_neg in e)
+end
+
+// The Side-Angle-Side Postulate: if AB ≅ DE, ∠A ≅ ∠D, and AC ≅ DF,
+// then △ABC ≅ △DEF.
+theorem tri_sas: all A:Point, B:Point, C:Point, D:Point, E:Point, F:Point.
+  if triangle(A, B, C) and seg_congruent(A, B, D, E) and angle_congruent(C, A, B, F, D, E)
+     and seg_congruent(A, C, D, F)
+  then tri_congruent(A, B, C, D, E, F)
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point, E:Point, F:Point
+  assume h
+  have l: dist2(A, B) = dist2(D, E) by expand seg_congruent in conjunct 1 of h
+  have m: dist2(A, C) = dist2(D, F) by expand seg_congruent in conjunct 3 of h
+  have ac: triangle(D, E, F)
+           and dot(A, B, C) * abs(cross(D, E, F)) = abs(cross(A, B, C)) * dot(D, E, F)
+    by apply angle_a_cos to (conjunct 0 of h), (conjunct 2 of h)
+  have q1: real(+0) < abs(cross(A, B, C))
+    by apply abs_pos to replace triangle_cross in conjunct 0 of h
+  have q2: real(+0) < abs(cross(D, E, F))
+    by apply abs_pos to replace triangle_cross in conjunct 0 of ac
+  // The same lengths, by Lagrange's identity.
+  have len: dot(A, B, C) * dot(A, B, C) + abs(cross(A, B, C)) * abs(cross(A, B, C))
+          = dot(D, E, F) * dot(D, E, F) + abs(cross(D, E, F)) * abs(cross(D, E, F)) by {
+    replace abs_square[cross(A, B, C)] | abs_square[cross(D, E, F)]
+          | symmetric lagrange[A, B, C] | symmetric lagrange[D, E, F] | l | m.
+  }
+  have p: dot(A, B, C) = dot(D, E, F)
+    by conjunct 0 of apply cos_unique[dot(A, B, C), abs(cross(A, B, C)), dot(D, E, F),
+                                      abs(cross(D, E, F))] to q1, q2, (conjunct 1 of ac), len
+  apply congruent_of_dot to l, m, p
+end
+
+// The Side-Side-Side Postulate: if AB ≅ DE, BC ≅ EF, and CA ≅ FD,
+// then △ABC ≅ △DEF.
+theorem tri_sss: all A:Point, B:Point, C:Point, D:Point, E:Point, F:Point.
+  if seg_congruent(A, B, D, E) and seg_congruent(B, C, E, F) and seg_congruent(C, A, F, D)
+  then tri_congruent(A, B, C, D, E, F)
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point, E:Point, F:Point
+  expand seg_congruent
+  assume h
+  have l: dist2(A, B) = dist2(D, E) by conjunct 0 of h
+  have m: dist2(A, C) = dist2(D, F)
+    by { replace point_dist2_symmetric[A, C] | point_dist2_symmetric[D, F]  conjunct 2 of h }
+  // The law of cosines gives the dot products.
+  have p: dot(A, B, C) = dot(D, E, F)
+    by algebra with point_dist2_dot[A, B, C] | point_dist2_dot[D, E, F] | l | m | conjunct 1 of h
+  apply congruent_of_dot to l, m, p
+end
+
+// The Angle-Side-Angle Postulate: if ∠A ≅ ∠D, AB ≅ DE, and ∠B ≅ ∠E,
+// then △ABC ≅ △DEF.
+theorem tri_asa: all A:Point, B:Point, C:Point, D:Point, E:Point, F:Point.
+  if triangle(A, B, C) and angle_congruent(C, A, B, F, D, E) and seg_congruent(A, B, D, E)
+     and angle_congruent(A, B, C, D, E, F)
+  then tri_congruent(A, B, C, D, E, F)
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point, E:Point, F:Point
+  assume h
+  have t: triangle(A, B, C) by conjunct 0 of h
+  have l: dist2(A, B) = dist2(D, E) by expand seg_congruent in conjunct 2 of h
+  have ac: triangle(D, E, F)
+           and dot(A, B, C) * abs(cross(D, E, F)) = abs(cross(A, B, C)) * dot(D, E, F)
+    by apply angle_a_cos to t, conjunct 1 of h
+  have t2: triangle(D, E, F) by conjunct 0 of ac
+  // The angle at B, in coordinates.
+  have bc: (dist2(A, B) - dot(A, B, C)) * abs(cross(D, E, F))
+           = abs(cross(A, B, C)) * (dist2(A, B) - dot(D, E, F)) by {
+    have nb: not collinear(A, B, C) by expand triangle in t
+    have ne: not collinear(D, E, F) by expand triangle in t2
+    have e: dot(B, A, C) * abs(cross(E, D, F)) = abs(cross(B, A, C)) * dot(E, D, F)
+      by replace apply angle_measure_eq[A, B, C, D, E, F] to nb, ne
+         in expand angle_congruent in conjunct 3 of h
+    replace dot_b[A, B, C] | dot_b[D, E, F] | cross_b[A, B, C] | cross_b[D, E, F]
+          | real_abs_neg | symmetric l in e
+  }
+  have lp: real(+0) < dist2(A, B)
+    by apply point_dist2_pos to conjunct 0 of apply triangle_distinct to t
+  have q: abs(cross(D, E, F)) = abs(cross(A, B, C))
+    by apply two_cosines[dist2(A, B), dot(A, B, C), abs(cross(A, B, C)), dot(D, E, F),
+                         abs(cross(D, E, F))] to lp, (conjunct 1 of ac), bc
+  have q1: real(+0) < abs(cross(A, B, C))
+    by apply abs_pos to replace triangle_cross in t
+  have qz: not (abs(cross(A, B, C)) = real(+0)) by { assume z  replace z in q1 }
+  have p: dot(A, B, C) = dot(D, E, F) by {
+    have e0: dot(A, B, C) * abs(cross(A, B, C)) = abs(cross(A, B, C)) * dot(D, E, F)
+      by replace q in conjunct 1 of ac
+    have e: abs(cross(A, B, C)) * dot(A, B, C) = abs(cross(A, B, C)) * dot(D, E, F)
+      by algebra with e0
+    apply real_mult_left_cancel to qz, e
+  }
+  // Lagrange's identity gives AC.
+  have m: dist2(A, C) = dist2(D, F) by {
+    have lz: not (dist2(A, B) = real(+0)) by { assume z  replace z in lp }
+    have cc: cross(A, B, C) * cross(A, B, C) = cross(D, E, F) * cross(D, E, F)
+      by replace abs_square[cross(A, B, C)] in (replace q in abs_square[cross(D, E, F)])
+    have e: dist2(A, B) * dist2(A, C) = dist2(A, B) * dist2(D, F) by {
+      replace lagrange[A, B, C] | l | lagrange[D, E, F] | p | cc.
+    }
+    apply real_mult_left_cancel to lz, e
+  }
+  apply congruent_of_dot to l, m, p
+end
+
+/*
+  The angle sum
+*/
+
+// The Triangle Angle Sum Theorem: m∠A + m∠B + m∠C = 180°.
+theorem tri_angle_sum: all A:Point, B:Point, C:Point.
+  if triangle(A, B, C)
+  then m_angle(C, A, B) + m_angle(A, B, C) + m_angle(B, C, A) = deg(+180)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  assume t
+  have q: not (cross(A, B, C) = real(+0)) by replace triangle_cross in t
+  have ds: not (A = B) and not (B = C) and not (A = C) by apply triangle_distinct to t
+  // Through C, draw the line DE parallel to AB, with CD = AB and CE = BA.
+  define D = point(xcoord(C) + (xcoord(B) - xcoord(A)), ycoord(C) + (ycoord(B) - ycoord(A)))
+  define E = point(xcoord(C) - (xcoord(B) - xcoord(A)), ycoord(C) - (ycoord(B) - ycoord(A)))
+  // Alternate interior angles: ∠ECA ≅ ∠CAB and ∠BCD ≅ ∠ABC.
+  have alt1: m_angle(E, C, A) = m_angle(C, A, B) by {
+    have d: dot(C, E, A) = dot(A, C, B) by { expand E | dot  algebra }
+    have c: cross(C, E, A) = - cross(A, C, B) by { expand E | cross  algebra }
+    apply angle_measure_dot_cross[E, C, A, C, A, B] to d, (replace c | real_abs_neg.)
+  }
+  have alt2: m_angle(B, C, D) = m_angle(A, B, C) by {
+    have d: dot(C, B, D) = dot(B, A, C) by { expand D | dot  algebra }
+    have c: cross(C, B, D) = - cross(B, A, C) by { expand D | cross  algebra }
+    apply angle_measure_dot_cross[B, C, D, A, B, C] to d, (replace c | real_abs_neg.)
+  }
+  // B is in the interior of ∠ACD, so m∠ACB + m∠BCD = m∠ACD.
+  have ca: not (C = A) by { assume e  apply (conjunct 2 of ds) to symmetric e }
+  have cd: not (C = D) by {
+    have l: dist2(C, D) = dist2(A, B) by { expand D | dist2  algebra }
+    replace symmetric point_dist2_zero[C, D] | l | point_dist2_zero[A, B]
+    conjunct 0 of ds
+  }
+  have int: angle_interior(B, A, C, D) by {
+    have s1: cross(C, A, D) = cross(A, B, C) by { expand D | cross  algebra }
+    have s2: cross(C, A, B) = cross(A, B, C) by { expand cross  algebra }
+    have s3: cross(C, D, B) = - cross(A, B, C) by { expand D | cross  algebra }
+    have s4: cross(C, D, A) = - cross(A, B, C) by { expand D | cross  algebra }
+    expand angle_interior
+    replace apply line_same_side_cross[C, A, B, D] to ca
+          | apply line_same_side_cross[C, D, B, A] to cd
+          | s1 | s2 | s3 | s4 | real_neg_mult_neg
+    have qq: real(+0) < cross(A, B, C) * cross(A, B, C) by apply square_pos to q
+    (qq, qq)
+  }
+  have add: m_angle(A, C, B) + m_angle(B, C, D) = m_angle(A, C, D)
+    by apply angle_add[A, C, D, B] to int
+  // E, C, D are on a line, so ∠ECA and ∠ACD are a linear pair.
+  have btw: between(E, C, D) by {
+    have bc: cross(E, C, D) = real(+0) by { expand E | D | cross  algebra }
+    have bd: dot(C, E, D) = - dist2(A, B) by { expand E | D | dot | dist2  algebra }
+    have ab: real(+0) < dist2(A, B) by apply point_dist2_pos to conjunct 0 of ds
+    have neg: dot(C, E, D) < real(+0) by algebra with bd | ab
+    expand between | collinear
+    (bc, neg)
+  }
+  have ncol: not collinear(E, C, A) by {
+    have ce: cross(E, C, A) = - cross(A, B, C) by { expand E | cross  algebra }
+    expand collinear
+    replace ce
+    assume z
+    conclude false by apply q to (conclude cross(A, B, C) = real(+0) by algebra with z)
+  }
+  have lp: m_angle(E, C, A) + m_angle(A, C, D) = deg(+180)
+    by apply angle_linear_pair[E, C, D, A] to btw, ncol
+  algebra with alt1 | alt2 | add | lp | angle_measure_symmetric[B, C, A]
+end
+
+// The Exterior Angle Theorem: if D is on ray BC beyond C, then
+// m∠ACD = m∠A + m∠B.
+theorem tri_exterior_angle: all A:Point, B:Point, C:Point, D:Point.
+  if triangle(A, B, C) and between(B, C, D)
+  then m_angle(A, C, D) = m_angle(C, A, B) + m_angle(A, B, C)
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point
+  assume h
+  have nc: not collinear(B, C, A) by {
+    replace symmetric point_collinear_rotate[A, B, C]
+    expand triangle in conjunct 0 of h
+  }
+  have lp: m_angle(B, C, A) + m_angle(A, C, D) = deg(+180)
+    by apply angle_linear_pair[B, C, D, A] to (conjunct 1 of h), nc
+  algebra with lp | apply tri_angle_sum to conjunct 0 of h
+end
+
+/*
+  More congruence theorems
+*/
+
+// The Angle-Angle-Side Theorem: if ∠A ≅ ∠D, ∠B ≅ ∠E, and BC ≅ EF,
+// then △ABC ≅ △DEF.
+theorem tri_aas: all A:Point, B:Point, C:Point, D:Point, E:Point, F:Point.
+  if triangle(A, B, C) and angle_congruent(C, A, B, F, D, E) and angle_congruent(A, B, C, D, E, F)
+     and seg_congruent(B, C, E, F)
+  then tri_congruent(A, B, C, D, E, F)
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point, E:Point, F:Point
+  assume h
+  have t: triangle(A, B, C) by conjunct 0 of h
+  have t2: triangle(D, E, F) by conjunct 0 of apply angle_a_cos to t, (conjunct 1 of h)
+  // The third angles are congruent, by the angle sum.
+  have c: angle_congruent(B, C, A, E, F, D) by {
+    have a: m_angle(C, A, B) = m_angle(F, D, E) by expand angle_congruent in conjunct 1 of h
+    have b: m_angle(A, B, C) = m_angle(D, E, F) by expand angle_congruent in conjunct 2 of h
+    expand angle_congruent
+    algebra with a | b | apply tri_angle_sum to t | apply tri_angle_sum to t2
+  }
+  have r: tri_congruent(B, C, A, E, F, D)
+    by apply tri_asa[B, C, A, E, F, D]
+       to (replace triangle_rotate[A, B, C] in t), (conjunct 2 of h), (conjunct 3 of h), c
+  apply tri_congruent_rotate[C, A, B, F, D, E] to apply tri_congruent_rotate[B, C, A, E, F, D] to r
+end
+
+// A right angle is an angle of a triangle.
+theorem triangle_right: all A:Point, B:Point, C:Point.
+  if right_angle(A, B, C) then triangle(A, B, C)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  expand right_angle | triangle
+  assume r
+  assume c
+  cases apply angle_measure_collinear[A, B, C] to c
+  case z { conclude false by algebra with r | z }
+  case s { conclude false by algebra with r | s }
+end
+
+// The Hypotenuse-Leg Theorem: if ∠C and ∠F are right angles, AB ≅ DE,
+// and AC ≅ DF, then △ABC ≅ △DEF.
+theorem tri_hl: all A:Point, B:Point, C:Point, D:Point, E:Point, F:Point.
+  if right_angle(A, C, B) and right_angle(D, F, E) and seg_congruent(A, B, D, E)
+     and seg_congruent(A, C, D, F)
+  then tri_congruent(A, B, C, D, E, F)
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point, E:Point, F:Point
+  assume h
+  have r1: right_angle(A, C, B) by conjunct 0 of h
+  have r2: right_angle(D, F, E) by conjunct 1 of h
+  have ab: dist2(A, B) = dist2(D, E) by expand seg_congruent in conjunct 2 of h
+  have ac: dist2(A, C) = dist2(D, F) by expand seg_congruent in conjunct 3 of h
+  // The Pythagorean theorem gives the other legs.
+  have d1: not (A = C) and not (C = B) and not (A = B)
+    by apply triangle_distinct to apply triangle_right to r1
+  have d2: not (D = F) and not (F = E) and not (D = E)
+    by apply triangle_distinct to apply triangle_right to r2
+  have bc1: not (B = C) by { assume e  apply (conjunct 1 of d1) to symmetric e }
+  have bc2: not (E = F) by { assume e  apply (conjunct 1 of d2) to symmetric e }
+  have p1: dist2(A, B) = dist2(C, A) + dist2(C, B)
+    by apply point_pythagoras[C, A, B]
+       to replace apply angle_right_dot[A, C, B] to (conjunct 0 of d1), bc1 in r1
+  have p2: dist2(D, E) = dist2(F, D) + dist2(F, E)
+    by apply point_pythagoras[F, D, E]
+       to replace apply angle_right_dot[D, F, E] to (conjunct 0 of d2), bc2 in r2
+  have bc: seg_congruent(B, C, E, F) by {
+    expand seg_congruent
+    algebra with ab | ac | p1 | p2 | point_dist2_symmetric[C, A] | point_dist2_symmetric[F, D]
+                | point_dist2_symmetric[C, B] | point_dist2_symmetric[F, E]
+  }
+  have ca: seg_congruent(C, A, F, D) by {
+    expand seg_congruent
+    replace point_dist2_symmetric[C, A] | point_dist2_symmetric[F, D]
+    ac
+  }
+  apply tri_sss to (conjunct 2 of h), bc, ca
+end
+
+/*
+  Isosceles triangles
+*/
+
+// The Isosceles Triangle Theorem: if AB ≅ AC, then ∠B ≅ ∠C.
+theorem tri_isosceles: all A:Point, B:Point, C:Point.
+  if seg_congruent(A, B, A, C) then angle_congruent(A, B, C, A, C, B)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  assume h
+  have ca: seg_congruent(C, A, B, A) by {
+    expand seg_congruent
+    replace point_dist2_symmetric[C, A] | point_dist2_symmetric[B, A]
+    symmetric (expand seg_congruent in h)
+  }
+  have cong: tri_congruent(A, B, C, A, C, B)
+    by apply tri_sss[A, B, C, A, C, B] to h, point_seg_congruent_reverse[B, C], ca
+  conjunct 4 of apply tri_cpctc to cong
+end
+
+// Its converse: if ∠B ≅ ∠C, then AB ≅ AC.
+theorem tri_isosceles_converse: all A:Point, B:Point, C:Point.
+  if triangle(A, B, C) and angle_congruent(A, B, C, A, C, B) then seg_congruent(A, B, A, C)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  assume h
+  have c: angle_congruent(B, C, A, C, B, A) by {
+    expand angle_congruent
+    replace angle_measure_symmetric[B, C, A] | angle_measure_symmetric[C, B, A]
+    symmetric (expand angle_congruent in conjunct 1 of h)
+  }
+  have cong: tri_congruent(B, C, A, C, B, A)
+    by apply tri_asa[B, C, A, C, B, A]
+       to (replace triangle_rotate[A, B, C] in conjunct 0 of h), (conjunct 1 of h),
+          point_seg_congruent_reverse[B, C], c
+  have ca: seg_congruent(C, A, B, A) by conjunct 1 of apply tri_cpctc to cong
+  expand seg_congruent
+  replace point_dist2_symmetric[A, B] | point_dist2_symmetric[A, C]
+  symmetric (expand seg_congruent in ca)
+end
+
+/*
+  The triangle inequality
+*/
+
+// With a = BA, b = BC, c = AC, d = BA · BC, and k = (BA × BC)²: the law
+// of cosines c² = a² + b² - 2d and Lagrange's identity a²b² = d² + k.
+// Small linear steps, kept apart so that `algebra` sees few givens.
+lemma le_of_add: all x:Real, y:Real, k:Real. if x + k = y and real(+0) ≤ k then x ≤ y
+proof
+  arbitrary x:Real, y:Real, k:Real
+  assume h
+  algebra
+end
+
+lemma lt_of_add: all x:Real, y:Real, k:Real. if x + k = y and real(+0) < k then x < y
+proof
+  arbitrary x:Real, y:Real, k:Real
+  assume h
+  algebra
+end
+
+lemma cos_law_le: all c:Real, s:Real, d:Real, m:Real.
+  if c = s - real(+2) * d and - d ≤ m then c ≤ s + real(+2) * m
+proof
+  arbitrary c:Real, s:Real, d:Real, m:Real
+  assume h
+  algebra
+end
+
+lemma cos_law_lt: all c:Real, s:Real, d:Real, m:Real.
+  if c = s - real(+2) * d and - d < m then c < s + real(+2) * m
+proof
+  arbitrary c:Real, s:Real, d:Real, m:Real
+  assume h
+  algebra
+end
+
+lemma nonneg_add: all x:Real, y:Real. if real(+0) ≤ x and real(+0) ≤ y then real(+0) ≤ x + y
+proof
+  arbitrary x:Real, y:Real
+  assume h
+  algebra
+end
+
+// With a = BA, b = BC, c = AC, d = BA · BC, and k = (BA × BC)²: the law
+// of cosines c² = a² + b² - 2d and Lagrange's identity a²b² = d² + k.
+lemma ineq_real: all a:Real, b:Real, c:Real, d:Real, k:Real.
+  if real(+0) ≤ a and real(+0) ≤ b and c * c = a * a + b * b - real(+2) * d
+     and (a * a) * (b * b) = d * d + k
+  then (if real(+0) ≤ k then c ≤ a + b) and (if real(+0) < k then c < a + b)
+proof
+  arbitrary a:Real, b:Real, c:Real, d:Real, k:Real
+  assume h
+  have ab: real(+0) ≤ a * b by apply real_mult_nonneg to (conjunct 0 of h), (conjunct 1 of h)
+  have s: real(+0) ≤ a + b by apply nonneg_add to (conjunct 0 of h), (conjunct 1 of h)
+  have i1: (- d) * (- d) + k = (a * b) * (a * b) by {
+    have i: (- d) * (- d) = d * d by algebra
+    have j: (a * b) * (a * b) = (a * a) * (b * b) by algebra
+    replace i | j
+    symmetric conjunct 3 of h
+  }
+  have i2: (a + b) * (a + b) = a * a + b * b + real(+2) * (a * b) by algebra
+  have c2: c * c = a * a + b * b - real(+2) * d by conjunct 2 of h
+  have le: if real(+0) ≤ k then c ≤ a + b by {
+    assume kn
+    have nd: - d ≤ a * b
+      by apply square_le[- d, a * b] to ab, (apply le_of_add to i1, kn)
+    apply square_le[c, a + b] to s, (replace i2  apply cos_law_le to c2, nd)
+  }
+  have lt: if real(+0) < k then c < a + b by {
+    assume kp
+    have nd: - d < a * b
+      by apply square_less[- d, a * b] to ab, (apply lt_of_add to i1, kp)
+    apply square_less[c, a + b] to s, (replace i2  apply cos_law_lt to c2, nd)
+  }
+  (le, lt)
+end
+
+lemma ineq_points: all A:Point, B:Point, C:Point.
+  (if real(+0) ≤ cross(B, A, C) * cross(B, A, C) then dist(A, C) ≤ dist(A, B) + dist(B, C))
+  and (if real(+0) < cross(B, A, C) * cross(B, A, C) then dist(A, C) < dist(A, B) + dist(B, C))
+proof
+  arbitrary A:Point, B:Point, C:Point
+  have c: dist(A, C) * dist(A, C)
+          = dist(B, A) * dist(B, A) + dist(B, C) * dist(B, C) - real(+2) * dot(B, A, C) by {
+    replace point_dist_square[A, C] | point_dist_square[B, A] | point_dist_square[B, C]
+    point_dist2_dot[B, A, C]
+  }
+  have l: (dist(B, A) * dist(B, A)) * (dist(B, C) * dist(B, C))
+          = dot(B, A, C) * dot(B, A, C) + cross(B, A, C) * cross(B, A, C) by {
+    replace point_dist_square[B, A] | point_dist_square[B, C]
+    lagrange[B, A, C]
+  }
+  replace point_dist_symmetric[A, B]
+  apply ineq_real[dist(B, A), dist(B, C), dist(A, C), dot(B, A, C),
+                  cross(B, A, C) * cross(B, A, C)]
+    to point_dist_nonneg[B, A], point_dist_nonneg[B, C], c, l
+end
+
+// The Triangle Inequality: AC ≤ AB + BC ...
+theorem tri_inequality: all A:Point, B:Point, C:Point.
+  dist(A, C) ≤ dist(A, B) + dist(B, C)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  apply (conjunct 0 of ineq_points[A, B, C]) to real_square_nonneg[cross(B, A, C)]
+end
+
+// ... and AC < AB + BC when A, B, C are the vertices of a triangle.
+theorem tri_inequality_strict: all A:Point, B:Point, C:Point.
+  if triangle(A, B, C) then dist(A, C) < dist(A, B) + dist(B, C)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  assume t
+  have q: not (cross(B, A, C) = real(+0)) by {
+    replace cross_b[A, B, C]
+    assume z
+    apply (replace triangle_cross in t) to (conclude cross(A, B, C) = real(+0) by algebra with z)
+  }
+  apply (conjunct 1 of ineq_points[A, B, C]) to apply square_pos to q
+end
+
+/*
+  Parallel lines and a transversal
+*/
+
+// For y q > 0, comparing cosines with absolute values is comparing
+// them with signs.
+lemma same_sign_abs: all p:Real, q:Real, x:Real, y:Real.
+  if real(+0) < q * y then (p * abs(y) = abs(q) * x) = (p * y = q * x)
+proof
+  arbitrary p:Real, q:Real, x:Real, y:Real
+  assume qy
+  have i1: q * (- y) = - (q * y) by algebra
+  have i2: (- q) * y = - (q * y) by algebra
+  cases real_dichotomy[real(+0), q]
+  case qn {
+    cases real_dichotomy[real(+0), y]
+    case yn { replace apply real_abs_nonneg_eq to qn | apply real_abs_nonneg_eq to yn. }
+    case yneg {
+      have nn: real(+0) ≤ q * (- y)
+        by apply real_mult_nonneg to qn, (conclude real(+0) ≤ - y by algebra with yneg)
+      conclude false by algebra with nn | i1 | qy
+    }
+  }
+  case qneg {
+    cases real_dichotomy[real(+0), y]
+    case yn {
+      have nn: real(+0) ≤ (- q) * y
+        by apply real_mult_nonneg to (conclude real(+0) ≤ - q by algebra with qneg), yn
+      conclude false by algebra with nn | i2 | qy
+    }
+    case yneg {
+      replace apply real_abs_nonpos_eq to (apply real_less_implies_less_equal to qneg)
+            | apply real_abs_nonpos_eq to (apply real_less_implies_less_equal to yneg)
+      have fwd: if p * (- y) = (- q) * x then p * y = q * x by {
+        assume e
+        apply real_neg_injective to replace real_mult_neg[p, y] | real_neg_mult[q, x] in e
+      }
+      have bwd: if p * y = q * x then p * (- y) = (- q) * x by {
+        assume e
+        replace real_mult_neg[p, y] | real_neg_mult[q, x] | e.
+      }
+      apply iff_equal to fwd, bwd
+    }
+  }
+end
+
+// For u = (u1, u2), v = (v1, v2), w = (w1, w2):
+// (u · w)(w × v) + (u × w)(v · w) = |w|² (u × v).
+lemma vec_alt: all u1:Real, u2:Real, v1:Real, v2:Real, w1:Real, w2:Real.
+  (u1 * w1 + u2 * w2) * (w1 * v2 - w2 * v1) - (u1 * w2 - u2 * w1) * (- (v1 * w1 + v2 * w2))
+  = (w1 * w1 + w2 * w2) * (u1 * v2 - u2 * v1)
+proof
+  arbitrary u1:Real, u2:Real, v1:Real, v2:Real, w1:Real, w2:Real
+  algebra
+end
+
+// With u = AB, v = CD, w = AC: (AB · AC)(CD × CA) - (AB × AC)(CD · CA)
+// = AC² (AB × CD).
+lemma alt_identity: all A:Point, B:Point, C:Point, D:Point.
+  dot(A, B, C) * cross(C, D, A) - cross(A, B, C) * dot(C, D, A)
+  = dist2(A, C) * seg_cross(A, B, C, D)
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point
+  have e1: cross(C, D, A) = (xcoord(C) - xcoord(A)) * (ycoord(D) - ycoord(C))
+                            - (ycoord(C) - ycoord(A)) * (xcoord(D) - xcoord(C))
+    by { expand cross  algebra }
+  have e2: dot(C, D, A) = - ((xcoord(D) - xcoord(C)) * (xcoord(C) - xcoord(A))
+                             + (ycoord(D) - ycoord(C)) * (ycoord(C) - ycoord(A)))
+    by { expand dot  algebra }
+  have e3: dist2(A, C) = (xcoord(C) - xcoord(A)) * (xcoord(C) - xcoord(A))
+                         + (ycoord(C) - ycoord(A)) * (ycoord(C) - ycoord(A))
+    by { expand dist2  algebra }
+  replace e1 | e2 | e3
+  expand dot | cross | seg_cross
+  vec_alt[xcoord(B) - xcoord(A), ycoord(B) - ycoord(A), xcoord(D) - xcoord(C),
+          ycoord(D) - ycoord(C), xcoord(C) - xcoord(A), ycoord(C) - ycoord(A)]
+end
+
+// The Alternate Interior Angles Theorem and its converse: if B and D
+// are on opposite sides of line AC, then AB ∥ CD exactly when
+// ∠BAC ≅ ∠DCA.
+theorem line_parallel_alt_interior: all A:Point, B:Point, C:Point, D:Point.
+  if not (A = C) and opposite_sides(B, D, line(A, C))
+  then parallel(line(A, B), line(C, D)) = angle_congruent(B, A, C, D, C, A)
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point
+  assume h
+  have opp: cross(A, C, B) * cross(A, C, D) < real(+0)
+    by replace apply line_opposite_sides_cross[A, C, B, D] to conjunct 0 of h in conjunct 1 of h
+  // q = AB × AC and q2 = CD × CA have the same sign.
+  have r1: cross(A, C, B) = - cross(A, B, C) by cross_a[A, B, C]
+  have r2: cross(A, C, D) = cross(C, D, A) by { expand cross  algebra }
+  have same: real(+0) < cross(A, B, C) * cross(C, D, A) by {
+    have i: (- cross(A, B, C)) * cross(C, D, A) = - (cross(A, B, C) * cross(C, D, A)) by algebra
+    have o: (- cross(A, B, C)) * cross(C, D, A) < real(+0) by replace r1 | r2 in opp
+    algebra with i | o
+  }
+  have nq: not (cross(A, B, C) = real(+0)) by { assume z  replace z in same }
+  have nq2: not (cross(C, D, A) = real(+0)) by { assume z  replace z in same }
+  have ab: not (A = B) by {
+    assume e
+    have z: cross(A, B, C) = real(+0) by { replace symmetric e  expand cross. }
+    apply nq to z
+  }
+  have cd: not (C = D) by {
+    assume e
+    have z: cross(C, D, A) = real(+0) by { replace symmetric e  expand cross. }
+    apply nq2 to z
+  }
+  have n1: not collinear(B, A, C) by {
+    expand collinear
+    replace cross_b[A, B, C]
+    assume z
+    apply nq to (conclude cross(A, B, C) = real(+0) by algebra with z)
+  }
+  have n2: not collinear(D, C, A) by {
+    have e: cross(D, C, A) = cross(C, A, D) by { expand cross  algebra }
+    have f: cross(C, A, D) = - cross(C, D, A) by cross_a[C, D, A]
+    expand collinear
+    replace e | f
+    assume z
+    apply nq2 to (conclude cross(C, D, A) = real(+0) by algebra with z)
+  }
+  have nz: not (dist2(A, C) = real(+0)) by { replace point_dist2_zero[A, C]  conjunct 0 of h }
+  expand angle_congruent
+  replace apply angle_measure_eq[B, A, C, D, C, A] to n1, n2
+        | apply same_sign_abs[dot(A, B, C), cross(A, B, C), dot(C, D, A), cross(C, D, A)] to same
+        | apply line_parallel_seg_cross[A, B, C, D] to ab, cd
+        | symmetric real_sub_eq_zero_iff[dot(A, B, C) * cross(C, D, A), cross(A, B, C) * dot(C, D, A)]
+        | alt_identity[A, B, C, D]
+        | apply real_mult_zero_iff[dist2(A, C), seg_cross(A, B, C, D)] to nz.
+end

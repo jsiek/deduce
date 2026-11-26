@@ -8,11 +8,14 @@ module AngleMeasure
     symmetric in A and C (`angle_measure_symmetric`), does not change
     when A moves along ray BA (`angle_measure_ray`), is strictly
     between 0° and 180° when A, B, C are not collinear
-    (`angle_measure_strict`), is 0° when C is on ray BA
+    (`angle_measure_strict`), is 0° or 180° when they are
+    (`angle_measure_collinear`), is 0° when C is on ray BA
     (`angle_measure_zero`), and is 180° when B is between A and C
     (`angle_measure_straight`). Two angles have equal measures exactly
     when (BA · BC) |ED × EF| = |BA × BC| (ED · EF)
-    (`angle_measure_eq`), which compares cosines without square roots.
+    (`angle_measure_eq`), which compares cosines without square roots,
+    and they are equal when BA · BC = ED · EF and |BA × BC| = |ED × EF|
+    (`angle_measure_dot_cross`).
   * `angle_interior(D, A, B, C)`: D is in the interior of angle ABC: D
     is on the same side of line BA as C and on the same side of line
     BC as A (`same_side`, lib/Line.pf).
@@ -853,6 +856,43 @@ proof
   expand m_angle
   apply meas_scale[dist2(B, A), dot(B, A, P), dot(B, A, C), cross(B, A, C),
                    dot(B, P, C), cross(B, P, C)] to k, t, ed, ec
+end
+
+// A degenerate angle measures 0° or 180°.
+theorem angle_measure_collinear: all A:Point, B:Point, C:Point.
+  if collinear(A, B, C) then m_angle(A, B, C) = deg(+0) or m_angle(A, B, C) = deg(+180)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  replace collinear_vertex[A, B, C]
+  assume z
+  expand m_angle | meas
+  replace apply eq_true to z
+  switch dot(B, A, C) < real(+0) { case true { . } case false { . } }
+end
+
+lemma meas_abs: all x:Real, y:Real. meas(x, abs(y)) = meas(x, y)
+proof
+  arbitrary x:Real, y:Real
+  cases real_dichotomy[real(+0), y]
+  case nn { replace apply real_abs_nonneg_eq to nn. }
+  case neg {
+    replace apply real_abs_nonpos_eq to apply real_less_implies_less_equal to neg
+    meas_neg[x, y]
+  }
+end
+
+// Angles whose sides have the same dot product, and cross products of
+// the same absolute value, have equal measures.
+theorem angle_measure_dot_cross: all A:Point, B:Point, C:Point, D:Point, E:Point, F:Point.
+  if dot(B, A, C) = dot(E, D, F) and abs(cross(B, A, C)) = abs(cross(E, D, F))
+  then m_angle(A, B, C) = m_angle(D, E, F)
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point, E:Point, F:Point
+  assume h
+  expand m_angle
+  replace symmetric meas_abs[dot(B, A, C), cross(B, A, C)]
+        | symmetric meas_abs[dot(E, D, F), cross(E, D, F)]
+        | conjunct 0 of h | conjunct 1 of h.
 end
 
 // Two angles have equal measures exactly when their cosines are

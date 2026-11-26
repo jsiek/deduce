@@ -1,0 +1,84 @@
+// sas_midpoints.pf
+//
+// A congruent-triangles exercise from a high school geometry course:
+//
+//   Given: M is the midpoint of AD and of BC.
+//   Prove: AB ≅ DC.
+//
+//      A               C
+//        \           /
+//          \       /
+//            \   /
+//              M
+//            /   \
+//          /       \
+//        /           \
+//      B               D
+//
+// The two-column proof:
+//
+//   Statements                    Reasons
+//   1. AM ≅ MD                    Def. of midpoint
+//   2. BM ≅ MC                    Def. of midpoint
+//   3. ∠AMB ≅ ∠DMC                Vertical Angles Theorem
+//   4. △AMB ≅ △DMC                SAS (1, 3, 2)
+//   5. AB ≅ DC                    CPCTC (4)
+//
+// As in the diagram, the segments AD and BC are not on one line: A, M,
+// and B are not collinear. The Vertical Angles Theorem also needs M to
+// be between A and D and between B and C, which follows from the
+// midpoints.
+
+theorem sas_midpoints: all A:Point, B:Point, C:Point, D:Point, M:Point.
+  if M = midpoint(A, D) and M = midpoint(B, C) and not collinear(A, M, B)
+  then seg_congruent(A, B, D, C)
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point, M:Point
+  assume given
+  have m_ad: M = midpoint(A, D) by given
+  have m_bc: M = midpoint(B, C) by given
+  have amb: not collinear(A, M, B) by given
+  // M is between A and D, and between B and C.
+  have a_ne_d: not (A = D) by {
+    assume e
+    have ma: M = A by { replace m_ad | e  point_midpoint_self[D] }
+    apply (replace ma in amb) to point_collinear_same[A, B]
+  }
+  have b_ne_c: not (B = C) by {
+    assume e
+    have mb: M = B by { replace m_bc | e  point_midpoint_self[C] }
+    apply (replace point_collinear_rotate[A, B, B] in replace mb in amb)
+      to point_collinear_same[B, A]
+  }
+  have amd: between(A, M, D) by { replace m_ad  apply between_midpoint to a_ne_d }
+  have bmc: between(B, M, C) by { replace m_bc  apply between_midpoint to b_ne_c }
+  have step1: seg_congruent(M, A, M, D) by {
+    // Def. of midpoint
+    replace m_ad
+    apply point_seg_congruent_trans
+      to point_seg_congruent_reverse[midpoint(A, D), A], point_midpoint_seg_congruent[A, D]
+  }
+  have step2: seg_congruent(M, B, M, C) by {
+    // Def. of midpoint
+    replace m_bc
+    apply point_seg_congruent_trans
+      to point_seg_congruent_reverse[midpoint(B, C), B], point_midpoint_seg_congruent[B, C]
+  }
+  have step3: angle_congruent(A, M, B, D, M, C) by {
+    // Vertical Angles Theorem
+    expand angle_congruent
+    apply angle_vertical[A, B, D, C, M] to amd, bmc, amb
+  }
+  have step4: tri_congruent(A, M, B, D, M, C) by {
+    // SAS, with the angle at M
+    have mba: triangle(M, B, A) by { expand triangle  replace symmetric point_collinear_rotate[A, M, B]  amb }
+    have sas: tri_congruent(M, B, A, M, C, D) by apply tri_sas to mba, step2, step3, step1
+    apply tri_congruent_rotate to apply tri_congruent_rotate to sas
+  }
+  have step5: seg_congruent(B, A, C, D) by conjunct 2 of apply tri_cpctc to step4   // CPCTC
+  conclude seg_congruent(A, B, D, C) by {
+    expand seg_congruent
+    replace point_dist2_symmetric[A, B] | point_dist2_symmetric[D, C]
+    expand seg_congruent in step5
+  }
+end

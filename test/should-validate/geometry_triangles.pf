@@ -1,0 +1,178 @@
+// lib/Triangle.pf from a client's view: only its public names.
+
+import Triangle
+import Linear
+
+define O = point(real(+0), real(+0))
+define X = point(real(+1), real(+0))
+define Y = point(real(+0), real(+1))
+define P = point(real(+3), real(+0))
+define Q = point(real(+3), real(+1))
+define R = point(real(+2), real(+0))
+
+theorem OXY_triangle: triangle(O, X, Y)
+proof
+  expand triangle | collinear | cross | O | X | Y.
+end
+
+theorem X_ne_O: not (X = O)
+proof
+  assume e
+  have x: xcoord(X) = xcoord(O) by { replace e. }
+  expand X | O in x
+end
+
+theorem Y_ne_O: not (Y = O)
+proof
+  assume e
+  have y: ycoord(Y) = ycoord(O) by { replace e. }
+  expand Y | O in y
+end
+
+theorem XOY_right: right_angle(X, O, Y)
+proof
+  replace apply angle_right_dot[X, O, Y] to X_ne_O, Y_ne_O
+  expand dot | X | O | Y.
+end
+
+// Triangle OXY is isosceles with OX ≅ OY, so its base angles are
+// congruent, and by the angle sum each is 45°.
+theorem OXY_isosceles: seg_congruent(O, X, O, Y)
+proof
+  expand seg_congruent | dist2 | O | X | Y.
+end
+
+theorem OXY_base_angles: m_angle(O, X, Y) = deg(+45)
+proof
+  have b: angle_congruent(O, X, Y, O, Y, X) by apply tri_isosceles to OXY_isosceles
+  have s: m_angle(Y, O, X) + m_angle(O, X, Y) + m_angle(X, Y, O) = deg(+180)
+    by apply tri_angle_sum to OXY_triangle
+  have r: m_angle(X, O, Y) = deg(+90) by expand right_angle in XOY_right
+  algebra with expand angle_congruent in b | s | r | angle_measure_symmetric[Y, O, X]
+             | angle_measure_symmetric[X, Y, O]
+end
+
+// The converse of the Isosceles Triangle Theorem gives the sides back.
+theorem OXY_converse: seg_congruent(O, X, O, Y)
+proof
+  have b: angle_congruent(O, X, Y, O, Y, X) by apply tri_isosceles to OXY_isosceles
+  apply tri_isosceles_converse to OXY_triangle, b
+end
+
+// Triangle PRQ, with P = (3, 0), R = (2, 0), Q = (3, 1), is a mirror
+// image of OXY: SAS at the right angle, with legs of length 1.
+theorem PRQ_triangle: triangle(P, R, Q)
+proof
+  expand triangle | collinear | cross | P | R | Q.
+end
+
+theorem congruent_sas: tri_congruent(O, X, Y, P, R, Q)
+proof
+  have ox: seg_congruent(O, X, P, R) by { expand seg_congruent | dist2 | O | X | P | R. }
+  have oy: seg_congruent(O, Y, P, Q) by { expand seg_congruent | dist2 | O | Y | P | Q. }
+  have a: angle_congruent(Y, O, X, Q, P, R) by {
+    expand angle_congruent
+    replace apply angle_measure_eq[Y, O, X, Q, P, R]
+            to (expand collinear | cross | Y | O | X.), (expand collinear | cross | Q | P | R.)
+    expand dot | cross | O | X | Y | P | Q | R.
+  }
+  apply tri_sas to OXY_triangle, ox, a, oy
+end
+
+// SSS, ASA, and AAS give the same congruence.
+theorem congruent_sss: tri_congruent(O, X, Y, P, R, Q)
+proof
+  have c: seg_congruent(O, X, P, R) and seg_congruent(X, Y, R, Q) and seg_congruent(Y, O, Q, P)
+    by { expand seg_congruent | dist2 | O | X | Y | P | Q | R. }
+  apply tri_sss to c
+end
+
+theorem congruent_asa: tri_congruent(O, X, Y, P, R, Q)
+proof
+  apply tri_asa to OXY_triangle, (conjunct 3 of apply tri_cpctc to congruent_sss),
+                   (conjunct 0 of apply tri_cpctc to congruent_sss),
+                   (conjunct 4 of apply tri_cpctc to congruent_sss)
+end
+
+theorem congruent_aas: tri_congruent(O, X, Y, P, R, Q)
+proof
+  apply tri_aas to OXY_triangle, (conjunct 3 of apply tri_cpctc to congruent_sss),
+                   (conjunct 4 of apply tri_cpctc to congruent_sss),
+                   (conjunct 1 of apply tri_cpctc to congruent_sss)
+end
+
+// HL, with the right angles at O and P.
+theorem congruent_hl: tri_congruent(X, Y, O, R, Q, P)
+proof
+  have a: m_angle(Y, O, X) = m_angle(Q, P, R)
+    by expand angle_congruent in conjunct 3 of apply tri_cpctc to congruent_sss
+  have r2: right_angle(R, P, Q) by {
+    expand right_angle
+    replace angle_measure_symmetric[R, P, Q] | symmetric a | angle_measure_symmetric[Y, O, X]
+    expand right_angle in XOY_right
+  }
+  have hyp: seg_congruent(X, Y, R, Q) by conjunct 1 of apply tri_cpctc to congruent_sss
+  have leg: seg_congruent(X, O, R, P) by {
+    expand seg_congruent | dist2 | O | X | P | R.
+  }
+  apply tri_hl to XOY_right, r2, hyp, leg
+end
+
+// The Exterior Angle Theorem: with W = (-1, 0), O is between W and X,
+// and the exterior angle YOW at O is m∠X + m∠Y = 90°.
+define W = point(real(-1), real(+0))
+
+theorem WOX_between: between(X, O, W)
+proof
+  expand between | collinear | cross | dot | X | O | W.
+end
+
+theorem exterior: m_angle(Y, O, W) = deg(+90)
+proof
+  have e: m_angle(Y, O, W) = m_angle(O, Y, X) + m_angle(Y, X, O)
+    by apply tri_exterior_angle[Y, X, O, W]
+       to (replace triangle_rotate[O, X, Y] | triangle_rotate[X, Y, O] | triangle_swap[Y, O, X]
+           in OXY_triangle), WOX_between
+  have b: m_angle(O, X, Y) = deg(+45) by OXY_base_angles
+  have b2: m_angle(O, Y, X) = m_angle(O, X, Y)
+    by symmetric (expand angle_congruent in apply tri_isosceles to OXY_isosceles)
+  algebra with e | b | b2 | angle_measure_symmetric[Y, X, O]
+end
+
+// The Triangle Inequality: XY < XO + OY.
+theorem inequality: dist(X, Y) < dist(X, O) + dist(O, Y)
+proof
+  apply tri_inequality_strict
+    to replace triangle_swap[O, X, Y] | triangle_rotate[O, Y, X] | triangle_rotate[Y, X, O]
+       in OXY_triangle
+end
+
+// Alternate interior angles: with Y2 = (-3, 1), lines OX and QY2
+// (y = 0 and y = 1) are parallel, and X and Y2 are on opposite sides
+// of the transversal OQ, so angles XOQ and Y2QO are congruent.
+define Y2 = point(real(-3), real(+1))
+
+theorem alt_interior: angle_congruent(X, O, Q, Y2, Q, O)
+proof
+  have oq: not (O = Q) by {
+    assume e
+    have x: xcoord(O) = xcoord(Q) by { replace e. }
+    expand O | Q in x
+  }
+  have opp: opposite_sides(X, Y2, line(O, Q)) by {
+    replace apply line_opposite_sides_cross[O, Q, X, Y2] to oq
+    expand cross | O | Q | X | Y2.
+  }
+  have par: parallel(line(O, X), line(Q, Y2)) by {
+    have ox: not (O = X) by { assume e  apply X_ne_O to symmetric e }
+    have qy: not (Q = Y2) by {
+      assume e
+      have x: xcoord(Q) = xcoord(Y2) by { replace e. }
+      expand Q | Y2 in x
+    }
+    replace apply line_parallel_seg_cross[O, X, Q, Y2] to ox, qy
+    expand seg_cross | O | X | Q | Y2.
+  }
+  replace symmetric apply line_parallel_alt_interior[O, X, Q, Y2] to oq, opp
+  par
+end

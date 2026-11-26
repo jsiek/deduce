@@ -1,0 +1,69 @@
+// isosceles_triangle.pf
+//
+// The Isosceles Triangle Theorem of a high school geometry course:
+//
+//   Given: △ABC with AB ≅ AC.
+//   Prove: ∠B ≅ ∠C.
+//
+//              A
+//             / \
+//            /   \
+//           /     \
+//          /       \
+//         B----M----C
+//
+// The two-column proof:
+//
+//   Statements                    Reasons
+//   1. Let M be the midpoint of BC.
+//   2. BM ≅ CM                    Def. of midpoint
+//   3. AM ≅ AM                    Reflexive Property of ≅
+//   4. △ABM ≅ △ACM                SSS (given, 2, 3)
+//   5. ∠ABM ≅ ∠ACM                CPCTC (4)
+//   6. ∠ABC ≅ ∠ACB                M is on rays BC and CB (5)
+//
+// The library proves the theorem too, as `tri_isosceles`; this is the
+// textbook's proof of it.
+
+theorem isosceles_triangle: all A:Point, B:Point, C:Point.
+  if triangle(A, B, C) and seg_congruent(A, B, A, C)
+  then angle_congruent(A, B, C, A, C, B)
+proof
+  arbitrary A:Point, B:Point, C:Point
+  assume given
+  have b_ne_c: not (B = C) by conjunct 1 of apply triangle_distinct to conjunct 0 of given
+  define M = midpoint(B, C)                                          // 1.
+  have bmc: between(B, M, C) by { expand M  apply between_midpoint to b_ne_c }
+  have step2: seg_congruent(B, M, C, M) by {
+    // Def. of midpoint
+    expand M
+    apply point_seg_congruent_trans
+      to point_midpoint_seg_congruent[B, C], point_seg_congruent_reverse[midpoint(B, C), C]
+  }
+  have step3: seg_congruent(M, A, M, A) by point_seg_congruent_refl[M, A]   // Reflexive
+  have step4: tri_congruent(A, B, M, A, C, M)
+    by apply tri_sss to (conjunct 1 of given), step2, step3               // SSS
+  have step5: angle_congruent(A, B, M, A, C, M)
+    by conjunct 4 of apply tri_cpctc to step4                           // CPCTC
+  // M is on ray BC and on ray CB, so ∠ABM is ∠ABC and ∠ACM is ∠ACB.
+  have m_ne_b: not (M = B) by {
+    assume e
+    apply (conjunct 0 of apply between_distinct to bmc) to symmetric e
+  }
+  have m_ne_c: not (M = C) by conjunct 1 of apply between_distinct to bmc
+  have c_ne_b: not (C = B) by { assume e  apply b_ne_c to symmetric e }
+  have ray_b: m_angle(M, B, A) = m_angle(C, B, A) by {
+    have r: on_ray(M, B, C) by { expand on_ray | on_segment  bmc }
+    apply angle_measure_ray[C, B, A, M] to c_ne_b, m_ne_b, r
+  }
+  have ray_c: m_angle(M, C, A) = m_angle(B, C, A) by {
+    have r: on_ray(M, C, B) by { expand on_ray | on_segment  replace symmetric between_symmetric[B, M, C]  bmc }
+    apply angle_measure_ray[B, C, A, M] to b_ne_c, m_ne_c, r
+  }
+  conclude angle_congruent(A, B, C, A, C, B) by {
+    expand angle_congruent
+    replace angle_measure_symmetric[A, B, C] | symmetric ray_b | angle_measure_symmetric[M, B, A]
+          | angle_measure_symmetric[A, C, B] | symmetric ray_c | angle_measure_symmetric[M, C, A]
+    expand angle_congruent in step5
+  }
+end
