@@ -44,7 +44,7 @@ from math import gcd, lcm
 from typing import Any, Callable, cast
 
 from abstract_syntax import (
-    LINEAR_DEFS, RING_DEFS, AlgebraGoal, AllElim, AllElimTypes, And, Bool, Call,
+    LINEAR_DEFS, RING_DEFS, AST, AlgebraGoal, AllElim, AllElimTypes, And, Bool, Call,
     ConceptRef, Env, Formula, FunctionType, IfThen, OverloadedVar, PVar, Proof,
     ResolvedVar, Term, TermInst, Type, Var, VarRef, base_name, full_reduce,
     get_dont_reduce_opaque, get_reduce_only, intToNat, isNat, isUInt, mkIntLit,
@@ -809,11 +809,33 @@ def _check_conclusion(proof: AlgebraGoal, frm: Formula, goal: Formula,
   # Compare with the goal as written first: reducing it may compute
   # with its literals in unary. A goal may also reduce to `true` (as
   # `inv(x ^ 0) = real(+1)`).
-  if not _same(frm, goal) \
-     and not any(_same(frm, g) or (isinstance(g, Bool) and g.value is True)
-                 for g in _forms(goal, env)):
+  if _same(frm, goal):
+    return
+  forms = _forms(goal, env)
+  if (mixed := _mixed_ops(goal)):
+    # The goal's Int operations on a UInt, `x - 3` and `- 3`, unfold to
+    # the conclusion's `x - pos(3)` and `- pos(3)` (that is, `-3`).
+    forms.append(_with_reduce(mixed, goal, env, opaque=True))
+  if not any(_same(frm, g) or (isinstance(g, Bool) and g.value is True)
+             for g in forms):
     user_error(proof.location, 'algebra proved\n\t' + str(frm)
                + '\ninstead of\n\t' + str(goal))
+
+
+def _mixed_ops(t: AST) -> list[Term]:
+  """The arithmetic operators in ``t`` whose parameters' types differ
+  from their result's, such as lib/IntDefs.pf's `-` on (Int, UInt),
+  defined as the Int operation on `pos(m)`."""
+  ops: list[Term] = []
+  if isinstance(t, Call) and isinstance(t.rator, ResolvedVar) \
+     and base_name(t.rator.name) in ('+', '-', '*') \
+     and isinstance(ty := t.rator.typeof, FunctionType) \
+     and any(p != ty.return_type for p in ty.param_types) \
+     and t.rator not in ops:
+    ops.append(t.rator)
+  for c in t._children():
+    ops += [op for op in _mixed_ops(c) if op not in ops]
+  return ops
 
 
 def _same(a: Term, b: Term) -> bool:
@@ -911,10 +933,13 @@ def _forms(frm: Formula, env: Env) -> list[Formula]:
   return forms
 
 
-def _with_reduce(defs: list[Term], frm: Formula, env: Env) -> Formula:
+def _with_reduce(defs: list[Term], frm: Formula, env: Env,
+                 opaque: bool = False) -> Formula:
+  """``frm`` with ``defs`` unfolded, and if ``opaque``, even those that
+  are opaque."""
   old_defs, old_opaque = get_reduce_only(), get_dont_reduce_opaque()
   set_reduce_only(old_defs + defs)
-  set_dont_reduce_opaque(True)
+  set_dont_reduce_opaque(not opaque)
   try:
     return frm.reduce(env)
   finally:
