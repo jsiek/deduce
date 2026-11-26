@@ -17,6 +17,14 @@ module Line
     (`line_parallel_slope`, `line_perpendicular_slope`).
   * `seg_cross(A, B, C, D)` and `seg_dot(A, B, C, D)` are the cross
     and dot products of the vectors from A to B and from C to D.
+  * `same_side(P, Q, L)` and `opposite_sides(P, Q, L)`: P and Q are
+    not on L and are on the same side, or on opposite sides, of L. The
+    Plane Separation Postulate is `line_plane_separation` (two points
+    off L are on the same side or on opposite sides, not both) with
+    `line_same_side_trans`, `line_opposite_sides_trans`, and
+    `line_same_opposite_sides`; for line AB they are the signs of
+    `cross(A, B, P) * cross(A, B, Q)` (`line_same_side_cross`,
+    `line_opposite_sides_cross`).
 
   The representation of `Line` is private. A line is stored in a
   canonical form, as `x = c` (vertical) or as `y = m x + b`, so `=`
@@ -81,6 +89,16 @@ opaque fun line(A : Point, B : Point) {
 }
 
 opaque fun on_line(P : Point, L : Line) { resid(P, L) = real(+0) }
+
+// P and Q are on the same side of L (so neither is on L).
+opaque fun same_side(P : Point, Q : Point, L : Line) {
+  real(+0) < resid(P, L) * resid(Q, L)
+}
+
+// P and Q are on opposite sides of L (so neither is on L).
+opaque fun opposite_sides(P : Point, Q : Point, L : Line) {
+  resid(P, L) * resid(Q, L) < real(+0)
+}
 
 opaque fun parallel(L : Line, M : Line) { dx(L) * dy(M) = dy(L) * dx(M) }
 
@@ -248,6 +266,278 @@ proof
                  to ne, line_on_right[B, A], line_on_left[B, A])
     }
   }
+end
+
+// Every line is the line through two distinct points.
+theorem line_points: all L:Line. some A:Point, B:Point. not (A = B) and L = line(A, B)
+proof
+  arbitrary L:Line
+  switch L {
+    case vertical(c) {
+      choose point(c, real(+0)), point(c, real(+1))
+      have ne: not (point(c, real(+0)) = point(c, real(+1))) by {
+        assume e
+        have d: dist2(point(c, real(+0)), point(c, real(+1))) = real(+0)
+          by { replace e  point_dist2_self[point(c, real(+1))] }
+        conclude false by expand dist2 in d
+      }
+      expand line
+      ne
+    }
+    case sloped(m, b) {
+      define A = point(real(+0), b)
+      define B = point(real(+1), m + b)
+      choose A, B
+      have nx: not (xcoord(A) = xcoord(B)) by { expand A | B. }
+      have ne: not (A = B) by { assume e  apply nx to replace e. }
+      have s: slope(A, B) = m by { expand slope | A | B  algebra }
+      have yb: ycoord(A) - m * xcoord(A) = b by { expand A. }
+      expand line
+      replace apply eq_false to nx | s | yb
+      ne
+    }
+  }
+end
+
+/*
+  The two sides of a line: plane separation
+*/
+
+lemma pos_mult_square: all k:Real, x:Real.
+  if not (k = real(+0)) then (real(+0) < (k * k) * x) = (real(+0) < x)
+proof
+  arbitrary k:Real, x:Real
+  assume nz
+  have kk: real(+0) < k * k by {
+    replace real_less_def
+    have z: not (real(+0) = k * k) by {
+      assume e
+      apply nz to replace apply real_mult_zero_iff[k, k] to nz in symmetric e
+    }
+    (real_square_nonneg[k], z)
+  }
+  replace real_mult_commute[k * k, x]
+  have e: (real(+0) * (k * k) < x * (k * k)) = (real(+0) < x)
+    by apply real_pos_mult_less_iff[k * k, real(+0), x] to kk
+  e
+end
+
+// For y ≠ 0 the sign of x z is that of (x y)(y z).
+lemma sign_of_product: all x:Real, y:Real, z:Real.
+  if not (y = real(+0)) then (real(+0) < x * z) = (real(+0) < (x * y) * (y * z))
+proof
+  arbitrary x:Real, y:Real, z:Real
+  assume nz
+  have e: (x * y) * (y * z) = (y * y) * (x * z) by algebra
+  replace e | apply pos_mult_square[y, x * z] to nz.
+end
+
+lemma nonzero_of_mult_pos: all x:Real, y:Real.
+  if real(+0) < x * y then not (x = real(+0)) and not (y = real(+0))
+proof
+  arbitrary x:Real, y:Real
+  assume p
+  have nx: not (x = real(+0)) by { assume z  replace z in p }
+  have ny: not (y = real(+0)) by { assume z  replace z in p }
+  (nx, ny)
+end
+
+lemma nonzero_of_mult_neg: all x:Real, y:Real.
+  if x * y < real(+0) then not (x = real(+0)) and not (y = real(+0))
+proof
+  arbitrary x:Real, y:Real
+  assume p
+  have nx: not (x = real(+0)) by { assume z  replace z in p }
+  have ny: not (y = real(+0)) by { assume z  replace z in p }
+  (nx, ny)
+end
+
+lemma sign_pos_pos: all x:Real, y:Real, z:Real.
+  if real(+0) < x * y and real(+0) < y * z then real(+0) < x * z
+proof
+  arbitrary x:Real, y:Real, z:Real
+  assume h
+  have nz: not (y = real(+0)) by conjunct 1 of apply nonzero_of_mult_pos to conjunct 0 of h
+  replace apply sign_of_product[x, y, z] to nz
+  apply real_mult_pos to h
+end
+
+lemma sign_neg_neg: all x:Real, y:Real, z:Real.
+  if x * y < real(+0) and y * z < real(+0) then real(+0) < x * z
+proof
+  arbitrary x:Real, y:Real, z:Real
+  assume h
+  have nz: not (y = real(+0)) by conjunct 1 of apply nonzero_of_mult_neg to conjunct 0 of h
+  have na: real(+0) < - (x * y) by algebra
+  have nb: real(+0) < - (y * z) by algebra
+  have e: (- (x * y)) * (- (y * z)) = (x * y) * (y * z) by algebra
+  replace apply sign_of_product[x, y, z] to nz
+  replace e in apply real_mult_pos to na, nb
+end
+
+lemma sign_pos_neg: all x:Real, y:Real, z:Real.
+  if real(+0) < x * y and y * z < real(+0) then x * z < real(+0)
+proof
+  arbitrary x:Real, y:Real, z:Real
+  assume h
+  have nz: not (y = real(+0)) by conjunct 1 of apply nonzero_of_mult_pos to conjunct 0 of h
+  have e1: y * (- z) = - (y * z) by algebra
+  have e2: x * (- z) = - (x * z) by algebra
+  have nb: real(+0) < y * (- z) by algebra with e1
+  have p: real(+0) < x * (- z)
+    by replace symmetric apply sign_of_product[x, y, - z] to nz in apply real_mult_pos to (conjunct 0 of h), nb
+  algebra with e2 | p
+end
+
+theorem line_same_side_symmetric: all P:Point, Q:Point, L:Line.
+  same_side(P, Q, L) = same_side(Q, P, L)
+proof
+  arbitrary P:Point, Q:Point, L:Line
+  expand same_side
+  replace real_mult_commute[resid(P, L), resid(Q, L)].
+end
+
+theorem line_opposite_sides_symmetric: all P:Point, Q:Point, L:Line.
+  opposite_sides(P, Q, L) = opposite_sides(Q, P, L)
+proof
+  arbitrary P:Point, Q:Point, L:Line
+  expand opposite_sides
+  replace real_mult_commute[resid(P, L), resid(Q, L)].
+end
+
+theorem line_same_side_refl: all P:Point, L:Line.
+  if not on_line(P, L) then same_side(P, P, L)
+proof
+  arbitrary P:Point, L:Line
+  expand on_line | same_side
+  assume nz
+  have p: (real(+0) < (resid(P, L) * resid(P, L)) * real(+1)) = (real(+0) < real(+1))
+    by apply pos_mult_square[resid(P, L), real(+1)] to nz
+  replace p.
+end
+
+// Points on the same side, or on opposite sides, are not on the line.
+theorem line_same_side_off: all P:Point, Q:Point, L:Line.
+  if same_side(P, Q, L) then not on_line(P, L) and not on_line(Q, L)
+proof
+  arbitrary P:Point, Q:Point, L:Line
+  expand same_side | on_line
+  nonzero_of_mult_pos[resid(P, L), resid(Q, L)]
+end
+
+theorem line_opposite_sides_off: all P:Point, Q:Point, L:Line.
+  if opposite_sides(P, Q, L) then not on_line(P, L) and not on_line(Q, L)
+proof
+  arbitrary P:Point, Q:Point, L:Line
+  expand opposite_sides | on_line
+  nonzero_of_mult_neg[resid(P, L), resid(Q, L)]
+end
+
+// The Plane Separation Postulate: a line L splits the points not on
+// it into two half-planes. Two such points are on the same side of L
+// or on opposite sides, but not both ...
+theorem line_plane_separation: all P:Point, Q:Point, L:Line.
+  if not on_line(P, L) and not on_line(Q, L)
+  then (same_side(P, Q, L) or opposite_sides(P, Q, L))
+   and not (same_side(P, Q, L) and opposite_sides(P, Q, L))
+proof
+  arbitrary P:Point, Q:Point, L:Line
+  expand on_line | same_side | opposite_sides
+  assume h
+  have nz: not (resid(P, L) * resid(Q, L) = real(+0)) by {
+    assume z
+    cases apply real_mult_to_zero to z
+    case p { apply (conjunct 0 of h) to p }
+    case q { apply (conjunct 1 of h) to q }
+  }
+  have one: real(+0) < resid(P, L) * resid(Q, L) or resid(P, L) * resid(Q, L) < real(+0) by {
+    cases real_trichotomy[real(+0), resid(P, L) * resid(Q, L)]
+    case lt { lt }
+    case eq { conclude false by apply nz to symmetric eq }
+    case gt { gt }
+  }
+  have two: not (real(+0) < resid(P, L) * resid(Q, L) and resid(P, L) * resid(Q, L) < real(+0)) by {
+    assume both
+    conclude false by algebra
+  }
+  (one, two)
+end
+
+// ... and being on the same side is transitive: if P and Q are on the
+// same side and Q and R are on the same side, so are P and R ...
+theorem line_same_side_trans: all P:Point, Q:Point, R:Point, L:Line.
+  if same_side(P, Q, L) and same_side(Q, R, L) then same_side(P, R, L)
+proof
+  arbitrary P:Point, Q:Point, R:Point, L:Line
+  expand same_side
+  assume h
+  apply sign_pos_pos[resid(P, L), resid(Q, L), resid(R, L)] to h
+end
+
+// ... two points on opposite sides of a third are on the same side ...
+theorem line_opposite_sides_trans: all P:Point, Q:Point, R:Point, L:Line.
+  if opposite_sides(P, Q, L) and opposite_sides(Q, R, L) then same_side(P, R, L)
+proof
+  arbitrary P:Point, Q:Point, R:Point, L:Line
+  expand opposite_sides | same_side
+  assume h
+  apply sign_neg_neg[resid(P, L), resid(Q, L), resid(R, L)] to h
+end
+
+// ... and a point on the same side as Q is on the opposite side from
+// any point on the opposite side from Q.
+theorem line_same_opposite_sides: all P:Point, Q:Point, R:Point, L:Line.
+  if same_side(P, Q, L) and opposite_sides(Q, R, L) then opposite_sides(P, R, L)
+proof
+  arbitrary P:Point, Q:Point, R:Point, L:Line
+  expand opposite_sides | same_side
+  assume h
+  apply sign_pos_neg[resid(P, L), resid(Q, L), resid(R, L)] to h
+end
+
+// For A ≠ B, P and Q are on the same side of line AB exactly when
+// cross(A, B, P) and cross(A, B, Q) have the same sign ...
+theorem line_same_side_cross: all A:Point, B:Point, P:Point, Q:Point.
+  if not (A = B)
+  then same_side(P, Q, line(A, B)) = (real(+0) < cross(A, B, P) * cross(A, B, Q))
+proof
+  arbitrary A:Point, B:Point, P:Point, Q:Point
+  assume ne
+  obtain k where h from apply line_through[A, B] to ne
+  define rp = resid(P, line(A, B))
+  define rq = resid(Q, line(A, B))
+  have e: cross(A, B, P) * cross(A, B, Q) = (k * k) * (rp * rq) by {
+    replace (conjunct 3 of h)[P] | (conjunct 3 of h)[Q]
+    expand rp | rq
+    algebra
+  }
+  expand same_side
+  replace e | apply pos_mult_square[k, rp * rq] to conjunct 0 of h
+  expand rp | rq.
+end
+
+// ... and on opposite sides exactly when the signs are opposite.
+theorem line_opposite_sides_cross: all A:Point, B:Point, P:Point, Q:Point.
+  if not (A = B)
+  then opposite_sides(P, Q, line(A, B)) = (cross(A, B, P) * cross(A, B, Q) < real(+0))
+proof
+  arbitrary A:Point, B:Point, P:Point, Q:Point
+  assume ne
+  obtain k where h from apply line_through[A, B] to ne
+  define rp = resid(P, line(A, B))
+  define rq = resid(Q, line(A, B))
+  have e: - (cross(A, B, P) * cross(A, B, Q)) = (k * k) * (- (rp * rq)) by {
+    replace (conjunct 3 of h)[P] | (conjunct 3 of h)[Q]
+    expand rp | rq
+    algebra
+  }
+  have l: (cross(A, B, P) * cross(A, B, Q) < real(+0))
+          = (real(+0) < - (cross(A, B, P) * cross(A, B, Q)))
+    by symmetric real_zero_less_neg[cross(A, B, P) * cross(A, B, Q)]
+  expand opposite_sides
+  replace l | e | apply pos_mult_square[k, - (rp * rq)] to conjunct 0 of h
+  expand rp | rq
+  symmetric real_zero_less_neg[resid(P, line(A, B)) * resid(Q, line(A, B))]
 end
 
 /*

@@ -1,0 +1,40 @@
+// angle_bisector.pf
+//
+// An angle-addition exercise from a high school geometry course:
+//
+//   Given: ray BD bisects ∠ABC, and m∠ABC = 70°.
+//   Prove: m∠ABD = 35°.
+//
+//      A
+//       \      D
+//        \   /
+//         \ /
+//          B ----------- C
+//
+// The two-column proof:
+//
+//   Statements                             Reasons
+//   1. D is in the interior of ∠ABC,       Def. of angle bisector
+//      and m∠ABD = m∠DBC
+//   2. m∠ABD + m∠DBC = m∠ABC               Angle Addition Postulate (1)
+//   3. m∠ABC = 70°                         Given
+//   4. m∠ABD + m∠ABD = 70°                 Substitution (1, 2, 3)
+//   5. m∠ABD = 35°                         Division (4)
+
+theorem bisected_70: all A:Point, B:Point, C:Point, D:Point.
+  if angle_bisects(D, A, B, C) and m_angle(A, B, C) = deg(+70)
+  then m_angle(A, B, D) = deg(+35)
+proof
+  arbitrary A:Point, B:Point, C:Point, D:Point
+  assume given
+  have step1: angle_interior(D, A, B, C) and m_angle(A, B, D) = m_angle(D, B, C)
+    by expand angle_bisects in conjunct 0 of given       // Def. of angle bisector
+  have step2: m_angle(A, B, D) + m_angle(D, B, C) = m_angle(A, B, C)
+    by apply angle_add[A, B, C, D] to conjunct 0 of step1  // Angle Addition Postulate
+  have step3: m_angle(A, B, C) = deg(+70) by conjunct 1 of given  // Given
+  have half: m_angle(A, B, D) = m_angle(D, B, C) by conjunct 1 of step1
+  have step4: m_angle(A, B, D) + m_angle(A, B, D) = deg(+70)
+    by algebra with step2 | step3 | half                 // Substitution
+  conclude m_angle(A, B, D) = deg(+35)
+    by algebra with step4                                // Division
+end

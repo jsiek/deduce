@@ -22,6 +22,21 @@ Only the top-level module files (such as `UInt.pf`) are listed below. Each modul
   `Angle` models `LinearArith`, so the
   [`algebra`](./Reference.md#algebra-proof) tactic proves linear facts
   about angles, such as that supplements of the same angle are equal.
+- ([`AngleMeasure.thm`](../lib/AngleMeasure.thm), [`AngleMeasure.pf`](../lib/AngleMeasure.pf)):
+  Angle measure, for coordinate geometry. `m_angle(A, B, C)` is the
+  measure of angle ABC, an `Angle` from `deg(+0)` to `deg(+180)`,
+  computed from the coordinates; `angle_interior(D, A, B, C)`,
+  `right_angle`, `angle_congruent`, `angle_bisects`, `complementary`,
+  and `supplementary` are defined from it. Theorems include the
+  Protractor Postulate (`angle_protractor`, `angle_protractor_unique`),
+  the Angle Addition Postulate (`angle_add`), the Linear Pair
+  Postulate (`angle_linear_pair`), the Vertical Angles Theorem
+  (`angle_vertical`), that an angle is right exactly when its sides
+  are perpendicular (`angle_right_perpendicular`), and that P and Q
+  are on opposite sides of a line exactly when segment PQ meets it
+  (`line_opposite_sides_between`). The measure rests on four
+  postulates about a private function `arg` (the angle of a vector),
+  listed at the top of the file.
 - ([`Base.thm`](../lib/Base.thm), [`Base.pf`](../lib/Base.pf)): Base proofs about propositional and predicate logic
 - ([`Between.thm`](../lib/Between.thm), [`Between.pf`](../lib/Between.pf)):
   Betweenness, segments, rays, and the ruler, for coordinate geometry.
@@ -59,6 +74,11 @@ Only the top-level module files (such as `UInt.pf`) are listed below. Each modul
   `line_perpendicular_seg_dot`), or, for lines that are not vertical,
   when the slopes are equal or have product -1
   (`line_parallel_slope`, `line_perpendicular_slope`).
+  `same_side(P, Q, L)` and `opposite_sides(P, Q, L)` give the Plane
+  Separation Postulate (`line_plane_separation`,
+  `line_same_side_trans`, `line_opposite_sides_trans`,
+  `line_same_opposite_sides`), and every line is `line(A, B)` for
+  some distinct A and B (`line_points`).
 - ([`List.thm`](../lib/List.thm), [`List.pf`](../lib/List.pf)): Lists.
   Higher-order list functions use collection-first order:
   `map(xs, f)`, `filter(xs, P)`, `foldr(xs, u, c)`, and
@@ -81,8 +101,9 @@ Only the top-level module files (such as `UInt.pf`) are listed below. Each modul
   xcoord(B)`). `expand` any of these for its coordinate formula.
   Theorems include the Pythagorean theorem and its converse
   (`point_pythagoras`), that the midpoint is equidistant from the
-  endpoints, and that A, B, C are collinear exactly when AB and AC
-  have the same slope (`point_slope_collinear`).
+  endpoints, that A, B, C are collinear exactly when AB and AC
+  have the same slope (`point_slope_collinear`), and that points C
+  and D of line AB are collinear with A (`point_collinear_trans`).
 - ([`Rat.thm`](../lib/Rat.thm), [`Rat.pf`](../lib/Rat.pf)): Rational numbers.
   Write `frac(n, d)` for the rational `n / d` (an `Int` over a `UInt`)
   and `rat(n)` for an integer, e.g. `frac(+3, 4) + rat(+1) = frac(+7, 4)`.
