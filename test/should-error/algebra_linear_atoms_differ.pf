@@ -1,0 +1,13 @@
+// #1357: `x * y` and `x * z` are different unknowns.
+
+import Real
+import Ring
+import Linear
+
+theorem atoms_differ: all x:Real, y:Real, z:Real, w:Real.
+  if x * y ≤ w then z * x ≤ w
+proof
+  arbitrary x:Real, y:Real, z:Real, w:Real
+  assume h
+  algebra
+end

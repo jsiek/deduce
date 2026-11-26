@@ -47,9 +47,9 @@ from abstract_syntax import (
     LINEAR_DEFS, RING_DEFS, AST, AlgebraGoal, AllElim, AllElimTypes, And, Bool, Call,
     ConceptRef, Env, Formula, FunctionType, IfThen, OverloadedVar, PVar, Proof,
     ResolvedVar, Term, TermInst, Type, Var, VarRef, base_name, full_reduce,
-    get_dont_reduce_opaque, get_reduce_only, intToNat, isNat, isUInt, mkIntLit,
-    mkUIntLit, natToInt, Numeral, remove_mark, set_dont_reduce_opaque,
-    set_reduce_only, uintToInt,
+    get_dont_reduce_opaque, get_reduce_only, intToNat, isNat, isUInt, mkEqual,
+    mkIntLit, mkUIntLit, natToInt, Numeral, remove_mark, rewrite_aux,
+    set_dont_reduce_opaque, set_reduce_only, uintToInt,
 )
 from abstract_syntax.literals import _mk_uint_from_int
 from checker_concepts import find_model
@@ -630,6 +630,18 @@ def check_algebra(proof: AlgebraGoal, goal: Formula, env: Env,
     user_error(loc, 'algebra works at the types that model ' + ring
                + 'LinearArith (such as Rat, Real, and Angle), not ' + str(ty))
 
+  sides = [s for (_, a, b) in ([target] if target else []) + relations
+           if a.typeof == ty for s in (a, b)]
+  if (eqs := _atom_equations(proof, sides, env, check_proof)):
+    # Rewrite the goal and the givens by the equations, as `replace`
+    # would, and read them again.
+    for eq in eqs:
+      goal = rewrite_aux(loc, goal, eq, env)
+      available = [rewrite_aux(loc, c, eq, env) for c in available]
+    negated = _negation(goal)
+    target = _relation(negated if negated is not None else goal)
+    relations = [r for c in available if (r := _relation(c)) is not None]
+
   reifier = _Reifier()
   hyps = [(rel, reifier.lin(a), reifier.lin(b))
           for (rel, a, b) in relations if a.typeof == ty]
@@ -686,6 +698,36 @@ def check_algebra(proof: AlgebraGoal, goal: Formula, env: Env,
   if concl not in _forms(goal, env):
     user_error(loc, 'algebra proved\n\t' + str(concl)
                + '\ninstead of\n\t' + str(goal))
+
+
+def _atom_equations(proof: AlgebraGoal, sides: list[Term], env: Env,
+                    check_proof: Callable[[Proof, Env], Formula]) -> list[Formula]:
+  """Equations ``t = r`` between the distinct atoms of ``sides`` (read
+  as ``Lin``) that are equal polynomials, such as `y * x = x * y`, each
+  proved by ring normalization, ``r`` the shortest of its class. The
+  longest ``t`` comes first, so that rewriting by one equation does not
+  change the ``t`` of a later one."""
+  lin = _Reifier()
+  for s in sides:
+    lin.lin(s)
+  if len(lin.atoms) < 2:
+    return []
+  ring = _Reifier(subtract=True)
+  classes: dict[frozenset[tuple[tuple[int, ...], Fraction]], list[Term]] = {}
+  for t in lin.atoms:
+    classes.setdefault(frozenset(_poly(ring.ring(t)).items()), []).append(t)
+  eqs = []
+  for ts in classes.values():
+    r = min(ts, key=lambda t: len(str(t)))
+    for t in ts:
+      if t is not r:
+        eq = mkEqual(proof.location, t, r)
+        try:
+          if _check_ring(proof, eq, env, check_proof) is None:
+            eqs.append(eq)
+        except UserError:
+          pass
+  return sorted(eqs, key=lambda eq: -len(str(cast(Call, eq).args[0])))
 
 
 def _check_ring(proof: AlgebraGoal, goal: Formula, env: Env,

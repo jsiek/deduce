@@ -289,8 +289,10 @@ and negation), constants (`rat(+180)`, `frac(+1, 2)`, `real(+2)`,
 `deg(+90)`), and
 multiplication by a constant on the left (`rat(+2) * x`). Any other
 subterm, such as `x * y` or `f(x)`, is treated as an unknown of its
-own. So `algebra` does not know that `x * y = y * x`, and it does not
-use facts about `≠`, `or`, or `all`.
+own. Two such subterms that are equal as polynomials, such as
+`x * y` and `y * x`, are the same unknown (at the types that model
+`CommRing`, such as `Rat` and `Real`), so `algebra` proves `y * x ≤ z` from
+`x * y ≤ z`. It does not use facts about `≠`, `or`, or `all`.
 
 `algebra` works at the types that model the concept `LinearArith`
 (lib/Linear.pf): `Rat`, `Real`, the angle measures `Angle`
