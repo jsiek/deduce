@@ -623,12 +623,10 @@ proof
   have z: b * (p * q) + a * (q * q) = real(+0) by { replace i | conjunct 2 of h. }
   have qq: real(+0) < q * q by apply square_pos to conjunct 3 of h
   have aq: real(+0) < a * (q * q) by apply real_mult_pos to (conjunct 0 of h), qq
-  have bn: b * (p * q) < real(+0) by algebra with z | aq
-  have c: (p * q) * b = b * (p * q) by algebra
   have e: ((p * q) * b < real(+0) * b) = (p * q < real(+0))
     by apply real_pos_mult_less_iff[b, p * q, real(+0)] to conjunct 1 of h
-  replace symmetric e | c
-  bn
+  replace symmetric e
+  algebra with z | aq
 end
 
 // The Plane Separation Postulate, part 2: P and Q are on opposite
@@ -1218,12 +1216,10 @@ proof
             = dot(B, A, C) * dot(B, A, D) + cross(B, A, C) * cross(B, A, D)
       by point_dot_frame[B, A, C, D]
     have nn: real(+0) ≤ dot(B, A, C) * dot(B, A, D) by apply same_sign_dot to s, x
-    have p: real(+0) ≤ dist2(B, A) * dot(B, C, D) by algebra with f | nn | s
     have e: (real(+0) * dist2(B, A) ≤ dot(B, C, D) * dist2(B, A)) = (real(+0) ≤ dot(B, C, D))
       by apply real_pos_mult_le_iff[dist2(B, A), real(+0), dot(B, C, D)] to k
-    have c: dot(B, C, D) * dist2(B, A) = dist2(B, A) * dot(B, C, D) by algebra
-    replace symmetric e | c
-    p
+    replace symmetric e
+    algebra with f | nn | s
   }
   replace apply ray_dot[B, C, D] to bc
   (col, dd)

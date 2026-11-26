@@ -1,0 +1,4 @@
+./test/should-error/algebra_linear_atoms_differ.pf:12.3-12.10: algebra could not prove
+	z * x ≤ w
+by a linear combination of the givens:
+	x * y ≤ w

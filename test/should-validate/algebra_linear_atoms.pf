@@ -1,0 +1,84 @@
+// #1357: in linear mode, `algebra` reads non-linear subterms that are
+// equal polynomials, such as `x * y` and `y * x`, as one unknown.
+
+import Real
+import Rat
+import Ring
+import Linear
+
+theorem atoms_swap: all x:Real, y:Real, z:Real.
+  if x * y ≤ z then y * x ≤ z
+proof
+  arbitrary x:Real, y:Real, z:Real
+  assume h
+  algebra
+end
+
+theorem atoms_swap_back: all x:Real, y:Real, z:Real.
+  if y * x ≤ z then x * y ≤ z
+proof
+  arbitrary x:Real, y:Real, z:Real
+  assume h
+  algebra
+end
+
+theorem atoms_three: all x:Real, y:Real, z:Real, w:Real.
+  if x * y * z = w then z * y * x = w
+proof
+  arbitrary x:Real, y:Real, z:Real, w:Real
+  assume h
+  algebra
+end
+
+theorem atoms_mixed: all x:Real, y:Real, z:Real.
+  if x * y ≤ z then real(+2) * (x * y) + y * x ≤ real(+3) * z
+proof
+  arbitrary x:Real, y:Real, z:Real
+  assume h
+  algebra
+end
+
+theorem atoms_nested: all x:Real, y:Real, z:Real, w:Real.
+  if x * y ≤ w and (x * y) * z ≤ w then z * (y * x) + y * x ≤ real(+2) * w
+proof
+  arbitrary x:Real, y:Real, z:Real, w:Real
+  assume h
+  algebra
+end
+
+theorem atoms_rat: all x:Rat, y:Rat, z:Rat.
+  if x * y < z then y * x < z
+proof
+  arbitrary x:Rat, y:Rat, z:Rat
+  assume h
+  algebra
+end
+
+theorem atoms_refute: all x:Real, y:Real.
+  if x * y < real(+0) and real(+0) < y * x then false
+proof
+  arbitrary x:Real, y:Real
+  assume h
+  algebra
+end
+
+theorem atoms_disprove: all x:Real, y:Real.
+  if x * y < real(+0) then not (real(+0) ≤ y * x)
+proof
+  arbitrary x:Real, y:Real
+  assume h
+  algebra
+end
+
+// Merging atoms with a quotient: the field mode proves
+// `y * (x / d) = (x / d) * y` with the side condition `not (d = 0)`,
+// which follows from `0 < d` in the linear mode without merging atoms
+// again (that recursed without end; Codex's review of #1360).
+theorem atoms_quotient: all x:Real, y:Real, d:Real.
+  if real(+0) < d and (x / d) * y < real(+0) and real(+0) < y * (x / d)
+  then false
+proof
+  arbitrary x:Real, y:Real, d:Real
+  assume h
+  algebra
+end
