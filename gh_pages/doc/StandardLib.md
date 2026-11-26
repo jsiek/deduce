@@ -32,7 +32,10 @@ Only the top-level module files (such as `UInt.pf`) are listed below. Each modul
   the Angle Addition Postulate (`angle_add`), the Linear Pair
   Postulate (`angle_linear_pair`), the Vertical Angles Theorem
   (`angle_vertical`), that an angle is right exactly when its sides
-  are perpendicular (`angle_right_perpendicular`), and that P and Q
+  are perpendicular (`angle_right_perpendicular`), that angles with
+  the same dot product and cross products of the same absolute value
+  have equal measures (`angle_measure_dot_cross`), that a degenerate
+  angle measures 0° or 180° (`angle_measure_collinear`), and that P and Q
   are on opposite sides of a line exactly when segment PQ meets it
   (`line_opposite_sides_between`). The measure rests on four
   postulates about a private function `arg` (the angle of a vector),
@@ -125,6 +128,21 @@ Only the top-level module files (such as `UInt.pf`) are listed below. Each modul
   any type that models `Field`, whose sides are equal as fractions when
   the denominators are nonzero, such as `x / y * y = x`.
 - ([`Set.thm`](../lib/Set.thm), [`Set.pf`](../lib/Set.pf)): Sets
+- ([`Triangle.thm`](../lib/Triangle.thm), [`Triangle.pf`](../lib/Triangle.pf)):
+  Triangles and congruence, for coordinate geometry.
+  `triangle(A, B, C)` says that A, B, C are not collinear, and
+  `tri_congruent(A, B, C, D, E, F)` that triangles ABC and DEF are
+  congruent with A ↔ D, B ↔ E, C ↔ F: their corresponding sides and
+  angles (∠CAB, ∠ABC, ∠BCA) are congruent, so CPCTC (`tri_cpctc`)
+  unfolds the definition. Theorems include SAS, SSS, ASA, AAS, and HL
+  (`tri_sas`, `tri_sss`, `tri_asa`, `tri_aas`, `tri_hl`), the
+  Isosceles Triangle Theorem and its converse (`tri_isosceles`,
+  `tri_isosceles_converse`), the Triangle Angle Sum Theorem
+  (`tri_angle_sum`), the Exterior Angle Theorem
+  (`tri_exterior_angle`), the Triangle Inequality (`tri_inequality`,
+  `tri_inequality_strict`), and the Alternate Interior Angles Theorem
+  and its converse (`line_parallel_alt_interior`). They are proved
+  from coordinates, with no new postulates.
 - ([`UInt.thm`](../lib/UInt.thm), [`UInt.pf`](../lib/UInt.pf)): Unsigned integers
 - ([`WellFounded.thm`](../lib/WellFounded.thm), [`WellFounded.pf`](../lib/WellFounded.pf)):
   The concept `WellFounded` of well-founded orders, whose `<` admits
