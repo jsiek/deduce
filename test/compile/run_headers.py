@@ -28,6 +28,7 @@ from abstract_syntax import (  # noqa: E402
     add_import_directory,
     init_import_directories,
 )
+from flags import set_check_imports  # noqa: E402
 from lsp.library import check_file  # noqa: E402
 
 LOWER_DIR = ROOT / "test" / "compile" / "lower"
@@ -39,6 +40,7 @@ def headers_for(path: Path) -> str:
     least one top-level decl in `path`'s post-prune IR. Modules are
     listed in alphabetical order so the output is reproducible."""
     sys.argv = [str(ROOT / "deduce.py")]
+    set_check_imports(False)  # the stdlib's proofs are checked by --lib
     init_import_directories()
     add_import_directory(str(ROOT / "lib"))
 

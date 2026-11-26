@@ -25,7 +25,7 @@ PRELUDE_DIR = ROOT / "test" / "compile" / "prelude"
 def compile_to_c(pf: Path, c_out: Path) -> None:
     cmd = [
         sys.executable, str(ROOT / "deduce.py"),
-        "--suppress-theorems", "--quiet", "--compile",
+        "--suppress-theorems", "--no-check-imports", "--quiet", "--compile",
         "-o", str(c_out), str(pf),
     ]
     # Mirror run_e2e's heuristic for `--no-stdlib`.

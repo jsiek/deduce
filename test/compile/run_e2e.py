@@ -81,7 +81,7 @@ def run_interpreter(pf: Path) -> str:
     `... is valid` line)."""
     cmd = [sys.executable, str(ROOT / "deduce.py"),
            "--dir", str(IMPORTS_DIR),
-           "--suppress-theorems", "--quiet", str(pf)]
+           "--suppress-theorems", "--no-check-imports", "--quiet", str(pf)]
     if not needs_prelude(pf):
         cmd.insert(2, "--no-stdlib")
     proc = subprocess.run(
@@ -101,7 +101,7 @@ def run_compiled(pf: Path, cc: str, tmp: Path) -> str:
     bin_path = tmp / pf.stem
     cmd = [sys.executable, str(ROOT / "deduce.py"),
            "--dir", str(IMPORTS_DIR),
-           "--suppress-theorems", "--quiet", "--compile",
+           "--suppress-theorems", "--no-check-imports", "--quiet", "--compile",
            "-o", str(c_path), str(pf)]
     if not needs_prelude(pf):
         cmd.insert(2, "--no-stdlib")

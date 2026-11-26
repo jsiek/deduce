@@ -1179,24 +1179,24 @@ def process_declaration_visibility(decl: Declaration, env: Env,
               dirty_files.add(name)
               downstream_needs_checking[0] = True
             
-          if needs_checking[0] and name not in checked_modules:
-              if get_quiet_mode() == False:
-                  print('> checking ' + name)
-              
+          # A module in `checked_modules` was processed earlier in this
+          # process, perhaps without checking its proofs (`check_imports`
+          # off), so only a module checked here gets its `.thm` file.
+          checking = needs_checking[0] and name not in checked_modules
+          if checking and get_quiet_mode() == False:
+              print('> checking ' + name)
+
           for s in ast3:
             module_env = collect_env(s, module_env)
-
-            # TODO: only check if the pf file is newer than the thm file
-            if name not in checked_modules and needs_checking[0]:
+            if checking:
               check_proofs(s, module_env)
 
-          if name not in checked_modules:
-            checked_modules.add(name)
+          checked_modules.add(name)
           imported_modules[name] = module_env
 
           set_verbose(old_verbose)
 
-          if needs_checking[0]:
+          if checking:
             print_theorems(filename, ast3)
 
           return Import(loc, name, ast3, visibility=decl.visibility), \

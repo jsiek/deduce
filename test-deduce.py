@@ -15,13 +15,13 @@ Per-category flags (combinable):
     --cli          One subprocess invocation of ``deduce.py`` on a tiny
                    no-stdlib proof to sanity-check the CLI entry point
                    itself.
-    --lib          ``lib/`` with both parsers, no shared cache.
+    --lib          ``lib/`` with both parsers, no shared cache. The only
+                   category that checks the stdlib's proofs; the others'
+                   bootstraps load the stdlib without them.
     --passable     ``test/should-validate`` + ``example.pf`` with both
-                   parsers (uses the cheap ``prewarm`` bootstrap).
-    --prelude      ``test/prelude`` with both parsers. Separate from
-                   ``--passable`` because it needs the full ``prelude=``
-                   bootstrap (checks the stdlib, ~100s cold on CI); keeping
-                   it its own leg lets should-validate shards stay cheap.
+                   parsers (uses the ``prewarm`` bootstrap).
+    --prelude      ``test/prelude`` with both parsers (uses the
+                   ``prelude=`` bootstrap).
     --errors       ``test/should-error`` (RD only, ``.err`` diff).
     --warns        ``test/should-warn`` (RD only, ``.warn`` diff): files
                    that must validate AND emit specific warning text.
@@ -102,7 +102,7 @@ from concurrent.futures import ProcessPoolExecutor
 from dataclasses import fields as dc_fields, is_dataclass
 from pathlib import Path
 from signal import signal, SIGINT
-from typing import Callable, Iterable, Optional, TypeVar, TypedDict, cast
+from typing import Callable, Iterable, Iterator, Optional, TypeVar, TypedDict, cast
 from lark import Token
 
 # Work around macOS sandbox profiles (notably Claude Code's seatbelt
@@ -142,6 +142,7 @@ sys.argv = [str(REPO_ROOT / "deduce.py")] + sys.argv[1:]
 from abstract_syntax import Numeral, add_import_directory, init_import_directories
 from flags import (
     RECURSION_LIMIT,
+    set_check_imports,
     set_experimental_imperative,
     set_quiet_mode,
     set_recursive_descent,
@@ -956,7 +957,8 @@ def bootstrap_prewarm(lib_modules: tuple[str, ...]) -> None:
     set_recursive_descent(True)
     # ``content=""`` runs the pipeline on an empty buffer -- cheapest
     # valid trigger for ``_prepare_state``'s bootstrap path.
-    check_file("__warmup__.pf", content="", prewarm_modules=lib_modules)
+    with imports_unchecked():
+        check_file("__warmup__.pf", content="", prewarm_modules=lib_modules)
 
 
 def bootstrap_prelude(lib_modules: tuple[str, ...]) -> None:
@@ -964,7 +966,22 @@ def bootstrap_prelude(lib_modules: tuple[str, ...]) -> None:
     global _WORKER_PRELUDE
     _WORKER_PRELUDE = lib_modules
     set_recursive_descent(True)
-    check_file("__warmup__.pf", content="", prelude=lib_modules)
+    with imports_unchecked():
+        check_file("__warmup__.pf", content="", prelude=lib_modules)
+
+
+@contextlib.contextmanager
+def imports_unchecked() -> Iterator[None]:
+    """Don't check the proofs of imported modules. ``--lib`` checks each
+    lib file's own proofs, so the bootstraps load the stdlib without its
+    proofs, and the files checked after a bootstrap see it as checked
+    (``checked_modules``). Modules outside lib are imported only after a
+    bootstrap, so their proofs are still checked."""
+    set_check_imports(False)
+    try:
+        yield
+    finally:
+        set_check_imports(True)
 
 
 def _map_or_serial(
@@ -987,7 +1004,9 @@ def _parser_workers(workers: int, task_count: int) -> int:
 
 def run_lib_parallel(workers: int) -> list[tuple[str, str, str]]:
     """``lib/*.pf`` × both parsers with no shared cache."""
-    files = list_pf(LIB_DIR)
+    # Largest first, so that the slowest files spread across the shards
+    # and start first in the pool.
+    files = sorted(list_pf(LIB_DIR), key=os.path.getsize, reverse=True)
     tasks = shard([(f, p) for f in files for p in (True, False)])
     failures: list[tuple[str, str, str]] = []
     for f, ok, label, msg in _map_or_serial(workers, _worker_lib, tasks, 2):
@@ -2239,19 +2258,17 @@ def main(argv: list[str]) -> int:
                                 run_imperative_regression)
         total_failures.extend(fails)
 
-    # Lib pool: clean state (no shared cache).
+    # Lib pool: clean state (no shared cache). Each lib file is one task,
+    # so checking only its own proofs checks every proof once per parser.
     if flags["lib"]:
         reset_prelude_cache()
         print("\n=== lib (both parsers, parallel) ===")
-        _, fails = time_section("lib × 2 parsers",
-                                lambda: run_lib_parallel(workers))
+        with imports_unchecked():
+            _, fails = time_section("lib × 2 parsers",
+                                    lambda: run_lib_parallel(workers))
         total_failures.extend(fails)
 
-    # Prelude pool: prelude-injection bootstrap. This is a separate leg from
-    # ``--passable`` because the ``prelude=`` bootstrap fully checks the stdlib
-    # (~100s cold on CI), whereas should-validate needs only the cheap
-    # ``prewarm`` bootstrap -- bundling them made every should-validate shard
-    # pay the expensive bootstrap. See issue #1049.
+    # Prelude pool: prelude-injection bootstrap.
     if flags["prelude"]:
         reset_prelude_cache()
         t0 = time.perf_counter()
