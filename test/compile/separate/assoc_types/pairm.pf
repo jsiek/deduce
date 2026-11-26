@@ -1,0 +1,11 @@
+module pairm
+
+// An opaque model whose associated type is bool.
+
+import cont
+
+opaque model Container<Pair<bool,bool>> {
+  type Elem = bool
+  fun get = fun p:Pair<bool,bool> { switch p { case pair(a, b) { a } } }
+  fun put = fun b:bool { pair(b, b) }
+}

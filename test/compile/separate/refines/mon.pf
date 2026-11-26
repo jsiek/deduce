@@ -1,0 +1,15 @@
+module mon
+
+// A concept and a where function, compiled in their own module.
+
+union L<T> { nil  cons(T, L<T>) }
+
+concept Monoid<T> {
+  fun operator+ : fn (T, T) -> T
+  fun zero : T
+}
+
+recursive msum<T> where { Monoid<T> } (L<T>) -> T {
+  msum(nil) = zero
+  msum(cons(x, xs)) = x + msum(xs)
+}

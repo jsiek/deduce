@@ -1,0 +1,8 @@
+import mon
+import grp
+import boolg
+
+print neg_sum(cons(true, cons(false, cons(true, nil))))
+print neg_sum(@nil<bool>)
+print pt_plus(false)
+print msum(cons(true, nil))

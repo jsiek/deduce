@@ -1,0 +1,21 @@
+module boolg
+
+// Opaque models of the three concepts at bool.
+
+import mon
+import grp
+
+fun bxor(a:bool, b:bool) { if a then not b else b }
+
+opaque model Monoid<bool> {
+  fun operator+ = bxor
+  fun zero = false
+}
+
+opaque model Group<bool> {
+  fun neg = fun b:bool { not b }
+}
+
+opaque model Pointed<bool> {
+  fun pt = true
+}
