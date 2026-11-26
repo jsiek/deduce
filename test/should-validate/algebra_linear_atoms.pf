@@ -69,3 +69,16 @@ proof
   assume h
   algebra
 end
+
+// Merging atoms with a quotient: the field mode proves
+// `y * (x / d) = (x / d) * y` with the side condition `not (d = 0)`,
+// which follows from `0 < d` in the linear mode without merging atoms
+// again (that recursed without end; Codex's review of #1360).
+theorem atoms_quotient: all x:Real, y:Real, d:Real.
+  if real(+0) < d and (x / d) * y < real(+0) and real(+0) < y * (x / d)
+  then false
+proof
+  arbitrary x:Real, y:Real, d:Real
+  assume h
+  algebra
+end

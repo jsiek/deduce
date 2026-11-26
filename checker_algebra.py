@@ -594,10 +594,13 @@ def _negation(frm: Formula) -> Formula | None:
 
 
 def check_algebra(proof: AlgebraGoal, goal: Formula, env: Env,
-                  check_proof: Callable[[Proof, Env], Formula]) -> None:
+                  check_proof: Callable[[Proof, Env], Formula],
+                  merge: bool = True) -> None:
+  """Prove ``goal``. If ``merge``, the linear mode first merges the atoms
+  that are equal polynomials (``_atom_equations``)."""
   loc = proof.location
   goal = remove_mark(goal)
-  ring_note = _check_ring(proof, goal, env, check_proof)
+  ring_note = _check_ring(proof, goal, env, check_proof, merge)
   if ring_note is None:
     return
   negated = _negation(goal)
@@ -632,7 +635,7 @@ def check_algebra(proof: AlgebraGoal, goal: Formula, env: Env,
 
   sides = [s for (_, a, b) in ([target] if target else []) + relations
            if a.typeof == ty for s in (a, b)]
-  if (eqs := _atom_equations(proof, sides, env, check_proof)):
+  if merge and (eqs := _atom_equations(proof, sides, env, check_proof)):
     # Rewrite the goal and the givens by the equations, as `replace`
     # would, and read them again.
     for eq in eqs:
@@ -706,7 +709,9 @@ def _atom_equations(proof: AlgebraGoal, sides: list[Term], env: Env,
   as ``Lin``) that are equal polynomials, such as `y * x = x * y`, each
   proved by ring normalization, ``r`` the shortest of its class. The
   longest ``t`` comes first, so that rewriting by one equation does not
-  change the ``t`` of a later one."""
+  change the ``t`` of a later one. Proving an equation does not merge
+  atoms again: with a quotient, its side conditions would find the same
+  atoms and try the same equation, without end."""
   lin = _Reifier()
   for s in sides:
     lin.lin(s)
@@ -723,7 +728,7 @@ def _atom_equations(proof: AlgebraGoal, sides: list[Term], env: Env,
       if t is not r:
         eq = mkEqual(proof.location, t, r)
         try:
-          if _check_ring(proof, eq, env, check_proof) is None:
+          if _check_ring(proof, eq, env, check_proof, merge=False) is None:
             eqs.append(eq)
         except UserError:
           pass
@@ -731,7 +736,8 @@ def _atom_equations(proof: AlgebraGoal, sides: list[Term], env: Env,
 
 
 def _check_ring(proof: AlgebraGoal, goal: Formula, env: Env,
-                check_proof: Callable[[Proof, Env], Formula]) -> str | None:
+                check_proof: Callable[[Proof, Env], Formula],
+                merge: bool) -> str | None:
   """Prove ``goal`` by ring normalization, returning None. If it is not
   an equation at a type that models CommRing or CommSemiring, return '';
   if the sides are different polynomials, return their normal forms."""
@@ -753,7 +759,7 @@ def _check_ring(proof: AlgebraGoal, goal: Formula, env: Env,
   reifier = _Reifier(ring, field)
   a, b = reifier.ring(lhs), reifier.ring(rhs)
   if _divides(a) or _divides(b):
-    return _check_field(proof, goal, env, check_proof, ty, reifier, a, b)
+    return _check_field(proof, goal, env, check_proof, ty, reifier, a, b, merge)
   pa, pb = _poly(a), _poly(b)
   if pa != pb:
     monus = not ring and any((c := _call(t)) is not None and c[0] in ('-', '∸')
@@ -776,7 +782,7 @@ def _check_ring(proof: AlgebraGoal, goal: Formula, env: Env,
 
 def _check_field(proof: AlgebraGoal, goal: Formula, env: Env,
                  check_proof: Callable[[Proof, Env], Formula], ty: Type,
-                 reifier: _Reifier, a: Lin, b: Lin) -> str | None:
+                 reifier: _Reifier, a: Lin, b: Lin, merge: bool) -> str | None:
   """Prove ``goal``, an equation ``a = b`` with inverses or quotients, by
   bringing each side to a fraction and comparing the cross products
   (``field_prove``). The side conditions, that the inverted factors are
@@ -801,7 +807,7 @@ def _check_field(proof: AlgebraGoal, goal: Formula, env: Env,
   side = _reduce(loc, frm.conclusion.premise, proof.names, RING_DEFS, [], env)
   unproved = [p for p in _conjuncts(side)
               if not (isinstance(p, Bool) and p.value is True)
-              and not _side_condition(proof, p, env, check_proof)]
+              and not _side_condition(proof, p, env, check_proof, merge)]
   if unproved:
     user_error(loc, 'algebra needs the denominators to be nonzero, but could'
                ' not prove\n\t' + '\n\t'.join(str(p) for p in unproved)
@@ -811,7 +817,8 @@ def _check_field(proof: AlgebraGoal, goal: Formula, env: Env,
 
 
 def _side_condition(proof: AlgebraGoal, p: Formula, env: Env,
-                    check_proof: Callable[[Proof, Env], Formula]) -> bool:
+                    check_proof: Callable[[Proof, Env], Formula],
+                    merge: bool) -> bool:
   """Whether ``p`` is a given (or a `with` fact), follows from them by
   `algebra` (its linear mode, as for `not (y = real(+0))` from
   `real(+0) < y`), or, for a constant, evaluates to `true` (as
@@ -829,7 +836,7 @@ def _side_condition(proof: AlgebraGoal, p: Formula, env: Env,
              for c in available):
     return True
   try:
-    check_algebra(proof, p, env, check_proof)
+    check_algebra(proof, p, env, check_proof, merge)
     return True
   except UserError:
     return False
