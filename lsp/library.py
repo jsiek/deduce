@@ -611,6 +611,7 @@ _SCOPED_STATE: tuple[_TrackedAttr, ...] = (
     (_abstract_syntax.terms, "reduce_all"),
     (_abstract_syntax.terms, "eval_all"),
     (_abstract_syntax.terms, "dont_reduce_opaque"),
+    (_abstract_syntax.terms, "unfold_depth"),
     (_abstract_syntax.terms, "recursion_depth"),
     (_abstract_syntax.terms, "shown_operations"),
     (_abstract_syntax.rewrite, "default_mark_LHS"),
