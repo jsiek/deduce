@@ -11,7 +11,8 @@ Coverage:
 
 (a) ``H: P and Q`` -> destructure with ``have ... by conjunct N of H``
 (b) ``H: P or Q``  -> ``cases H ...``
-(c) ``H: if P then Q`` -> ``have h: Q by apply H to ?\\n?``
+(c) ``H: if P then Q`` -> ``have h: Q by apply H to ?\\n?``, or
+    ``apply H to ?`` when ``Q`` is the goal
 (d) ``H: all x:T. P`` -> ``H[?]`` (term arg) or ``H<?>`` (type arg)
 (e) ``H: some x:T. P`` -> ``obtain ... where ... from H``
 (f) ``H: e1 = e2`` -> ``replace H\\n?``
@@ -148,6 +149,28 @@ CASES = [
         expected_range=Range(
             start=Position(line=6, column=3),
             end=Position(line=6, column=4),
+        ),
+    ),
+    EliminateCase(
+        name="ifthen_concludes_goal",
+        # When the conclusion is the goal, `apply' proves it outright,
+        # leaving only the premise to prove.
+        source=(
+            "theorem t: all P:bool, Q:bool.\n"
+            "  if (if P then Q) and P then Q\n"
+            "proof\n"
+            "  arbitrary P:bool, Q:bool\n"
+            "  assume H: (if P then Q) and P\n"
+            "  have H1: if P then Q by conjunct 0 of H\n"
+            "  ?\n"
+            "end\n"
+        ),
+        cursor=Position(line=7, column=3),
+        label="H1",
+        expected_text="apply H1 to ?",
+        expected_range=Range(
+            start=Position(line=7, column=3),
+            end=Position(line=7, column=4),
         ),
     ),
     EliminateCase(

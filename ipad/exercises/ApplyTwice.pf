@@ -1,0 +1,8 @@
+// A function that leaves every number alone leaves f(a) alone too.
+// The assumption holds for all x: tapping it asks which x you mean.
+
+theorem apply_twice: all f:fn Nat -> Nat, a:Nat.
+  if (all x:Nat. f(x) = x) then f(f(a)) = a
+proof
+  ?
+end

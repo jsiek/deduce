@@ -28,9 +28,13 @@ struct Textbook {
         static func < (a: Status, b: Status) -> Bool { a.rawValue < b.rawValue }
     }
 
+    /// A step's reason. Its short form (`summary`) is the givens it cites,
+    /// then the rest, e.g. "IH1; def. of ++, length".
     struct Reason {
-        /// Short form built from the step's uses, e.g. "IH; def. of ++, length".
-        let summary: String
+        /// The givens it cites, by label.
+        let givens: [String]
+        /// The lemmas and definitions it uses.
+        let others: [String]
         /// The reason as written in the source.
         let source: String
     }
@@ -59,11 +63,14 @@ struct Textbook {
 
     struct Arm {
         let range: Outline.Range
-        /// "Case node(t1, l2)." or, for `cases`, "Case h1: P."
+        /// "Case xs = node(t1, l2)." or, for `cases`, "Case P."
         let title: String
-        /// The hypotheses shown after the title ("Assume IH1."): those of
-        /// an `induction` or `switch` arm.
+        /// The hypotheses shown below the title ("Assume …"): those
+        /// of an `induction` or `switch` arm.
         let assumes: [String]
+        /// What each of `assumes` says, by label, when the steps inside
+        /// the arm show it.
+        let formulas: [String: String]
         /// The labels of the givens it introduces: its hypotheses, or the
         /// label in a `cases` arm's title.
         let introduces: [String]
@@ -124,13 +131,63 @@ struct Textbook {
     let notes: [Outline.Range: [Diagnostic]]
     /// Those that are in no theorem (a definition, an import, a parse error).
     let unplaced: [Diagnostic]
+    /// How givens are cited: by label, or by what they say.
+    struct Labels {
+        /// What each given says, by label, as displayed.
+        let formulas: [String: String]
+        /// Givens that say the same as another given in scope with them:
+        /// only their labels tell them apart.
+        let sameAsAnother: Set<String>
+
+        /// A formula this long or shorter is easy to compare by eye, so its
+        /// given is cited by what it says, and its label isn't shown.
+        static let shortFormula = 25
+
+        init(_ outline: Outline) {
+            var formulas: [String: String] = [:]
+            var same: Set<String> = []
+            for step in outline.steps {
+                let givens = step.givens.map { ($0.label, display($0.formula)) }
+                for (label, formula) in givens {
+                    formulas[label] = formula
+                    if givens.contains(where: { $0.1 == formula && $0.0 != label }) { same.insert(label) }
+                }
+            }
+            self.formulas = formulas
+            sameAsAnother = same
+        }
+
+        /// Whether the given `label` is cited by its label, which is then
+        /// shown beside it ("(IH1)"), rather than by what it says: when what
+        /// it says is long or unknown, or another given in scope says the same.
+        func shown(_ label: String) -> Bool {
+            guard let formula = formulas[label] else { return true }
+            return formula.count > Self.shortFormula || sameAsAnother.contains(label)
+        }
+
+        /// How `label` is cited: by itself when `shown`, else by what it says,
+        /// on one line (without the break after an `all x.`).
+        func cite(_ label: String) -> String {
+            guard !shown(label), let formula = formulas[label] else { return label }
+            return formula.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.joined(separator: " ")
+        }
+    }
+
+    let labels: Labels
+
+    /// `reason`'s short form: the givens it cites, each by its label when
+    /// `all` or `labels.shown`, else by what it says, then the rest.
+    func summary(_ reason: Reason, all: Bool) -> String {
+        (reason.givens.map { all ? $0 : labels.cite($0) } + reason.others).joined(separator: "; ")
+    }
 
     init(outline: Outline, source: String, diagnostics: [Diagnostic]) {
+        labels = Labels(outline)
         holes = outline.steps
             .filter { $0.kind == "PHole" }
             .compactMap { step in step.goal.map { Hole(range: step.range, goal: $0, givens: step.givens) } }
             .sorted { $0.range.start < $1.range.start }
-        let builder = Builder(source: source)
+        let builder = Builder(source: source, labels: labels)
         theorems = outline.theorems.map { theorem in
             let steps = outline.steps.filter { theorem.range.contains($0.range) }
             let roots = Node.forest(steps) { builder.slice($0.range) == "equations" }
@@ -216,6 +273,11 @@ struct Textbook {
             children.map(\.status).reduce(Status(step.status), max)
         }
 
+        /// Whether a `?` (or `sorry`) is nested anywhere in this step.
+        var hasHole: Bool {
+            children.contains { ["PHole", "PSorry"].contains($0.step.kind) || $0.hasHole }
+        }
+
         /// Nest `steps` by range containment; returns the outermost ones in
         /// source order.
         static func forest(_ steps: [Outline.Step], isChain: (Outline.Step) -> Bool) -> [Node] {
@@ -299,9 +361,11 @@ struct Textbook {
 
     private struct Builder {
         let lines: [[Unicode.Scalar]]
+        let labels: Labels
 
-        init(source: String) {
+        init(source: String, labels: Labels) {
             lines = source.scalarLines
+            self.labels = labels
         }
 
         func blocks(_ nodes: [Node]) -> [Block] {
@@ -316,15 +380,15 @@ struct Textbook {
                     blocks.append(line(node, letArbitrary(vars.map { ($0.name, display($0.type)) }) + ".", nil,
                                        variables: vars.map(\.name)))
                 case "ImpIntro":
-                    let label = detail.label ?? ""
-                    blocks.append(line(node, "Assume \(label)" + (detail.premise == nil ? "." : ":"),
-                                       detail.premise.map(display), introduces: [label]))
+                    // Its label, when shown, goes beside it ("(H1)").
+                    blocks.append(line(node, "Assume", detail.premise.map(display),
+                                       introduces: detail.label.map { [$0] } ?? []))
                 case "Induction", "SwitchProof", "Cases":
                     blocks.append(cases(node, rest: &rest))
                 case "PTransitive" where node.isChain:
                     blocks.append(chain(node, rest: &rest))
                 case "PLet":
-                    blocks.append(line(node, "\(detail.label ?? "") :", step.formula.map(display), reason: true,
+                    blocks.append(line(node, "We have", step.formula.map(display), reason: true,
                                        introduces: detail.label.map { [$0] } ?? []))
                 case "PAnnot":
                     blocks.append(line(node, "Hence", step.formula.map(display), reason: true))
@@ -348,19 +412,25 @@ struct Textbook {
                 case "ModusPonens":
                     blocks.append(modusPonens(node))
                 default:
-                    // A proof term that finishes the goal, e.g. `p2` or `.`.
-                    blocks.append(line(node, step.uses.isEmpty ? "This is immediate." : "This follows.",
-                                       nil, reason: true))
+                    // A proof term that finishes the goal, e.g. `h2` or `.`:
+                    // "Hence Q", with its reason to one side.
+                    if step.uses.isEmpty {
+                        blocks.append(line(node, "This is immediate.", nil, reason: true))
+                    } else {
+                        blocks.append(line(node, "Hence", (step.goal ?? step.formula).map(display), reason: true))
+                    }
                 }
             }
             return blocks
         }
 
         /// A line for `node`. With `reason`, its reason is either nested as a
-        /// sub-proof (when it has steps of its own) or summarized.
+        /// sub-proof (when it has steps of its own, or a `?` somewhere in
+        /// it, as in `apply H3 to ?`) or summarized.
         private func line(_ node: Node, _ prose: String, _ formula: String?, reason: Bool = false,
                           introduces: [String] = [], variables: [String] = []) -> Block {
-            let nested = reason && node.children.contains { $0.startsLine && Node.subproof.contains($0.step.kind) }
+            let nested = reason
+                && (node.hasHole || node.children.contains { $0.startsLine && Node.subproof.contains($0.step.kind) })
             return .line(Line(range: node.step.range, prose: prose, formula: formula,
                               reason: reason && !nested ? self.reason(node.step) : nil,
                               status: node.status,
@@ -368,21 +438,15 @@ struct Textbook {
                               introduces: introduces, variables: variables))
         }
 
-        /// `apply rule to args`: "By rule, using H2 and H3." Arguments that
-        /// are just a given's name are named there; the others (holes,
-        /// proofs of their own) are parts listed under it.
+        /// `apply rule to args`: "Hence Q", with the rule and the givens it's
+        /// applied to as the reason. Arguments that aren't just a given's
+        /// name (holes, proofs of their own) are parts listed under it.
         private func modusPonens(_ node: Node) -> Block {
-            // The rule's name, without its instantiation (`less_trans[a, b, d]`).
-            let rule = node.children.first.map { slice($0.step.range) } ?? ""
-            let name = rule.prefix { $0 != "[" && $0 != "<" }.trimmingCharacters(in: .whitespaces)
             let args = node.children.dropFirst().flatMap { $0.step.kind == "PTuple" ? $0.children : [$0] }
-            let groups = parts(args)
-            let isName = { (part: [Node]) in part.count == 1 && part[0].step.kind == "PVar" }
-            let named = groups.filter(isName).map { slice($0[0].step.range) }
-            let others = groups.filter { !isName($0) }
-            let using = named.isEmpty ? "" : ", using " + listed(named)
-            let end = others.isEmpty ? "." : named.isEmpty ? ", using:" : " and:"
-            return withParts(node, "By \(name)\(using)\(end)", others)
+            let others = parts(args).filter { !($0.count == 1 && $0[0].step.kind == "PVar") }
+            return .line(Line(range: node.step.range, prose: "Hence",
+                              formula: (node.step.goal ?? node.step.formula).map(display),
+                              reason: reason(node.step), status: node.status, subproof: others.map(part)))
         }
 
         /// A line of `prose` with `parts` under it, each a line of its own.
@@ -420,11 +484,6 @@ struct Textbook {
                               status: steps.map(\.status).max() ?? .ok, subproof: blocks(steps)))
         }
 
-        /// "H2", "H2 and H3", "H2, H3 and H4".
-        private func listed(_ names: [String]) -> String {
-            names.count < 2 ? names.joined() : names.dropLast().joined(separator: ", ") + " and " + names.last!
-        }
-
         /// `induction` / `switch` / `cases`: the steps of each arm are those
         /// inside its range, whether nested under the step or following it.
         private func cases(_ node: Node, rest: inout ArraySlice<Node>) -> Block {
@@ -434,19 +493,35 @@ struct Textbook {
             while let next = rest.first, arms.contains(where: { $0.range.contains(next.step.range) }) {
                 members.append(rest.removeFirst())
             }
+            // What the arms split: "Case xs = node(t1, l2)."
+            let subject = switch step.kind {
+            case "Induction": step.detail.variable
+            case "SwitchProof": step.detail.subject.map(display)
+            default: String?.none
+            }
+            // What `cases` splits: "By cases on P or Q.", with the given's
+            // label when it's cited by label ("By cases on IH1: …").
+            let split = [step.detail.label.flatMap { labels.shown($0) ? $0 : nil },
+                         step.detail.claim.map(display)].compactMap { $0 }
             let intro = switch step.kind {
-            case "Induction": "By induction on \(step.detail.variable ?? "it")."
-            case "SwitchProof": "By cases on \(step.detail.subject.map(display) ?? "it")."
-            default: "By cases."
+            case "Induction": "By induction on \(subject ?? "it")."
+            case "SwitchProof": "By cases on \(subject ?? "it")."
+            default: split.isEmpty ? "By cases." : "By cases on \(split.joined(separator: ": "))."
             }
             return .cases(range: step.range, intro: intro, arms: arms.map { arm in
-                let header = arm.pattern.map(display) ?? [arm.label, arm.formula.map(display)]
-                    .compactMap { $0 }.joined(separator: ": ")
+                // A `cases` arm's label, when shown, goes beside its title.
+                let header = arm.pattern.map { (subject.map { $0 + " = " } ?? "") + display($0) }
+                    ?? arm.formula.map(display) ?? arm.label ?? ""
                 let assumes = arm.hypotheses ?? []
-                return Arm(range: arm.range, title: "Case \(header).", assumes: assumes,
+                let inside = members.filter { arm.range.contains($0.step.range) }
+                // The hypotheses are given to every step inside the arm.
+                let givens = inside.min { $0.step.range.start < $1.step.range.start }?.step.givens ?? []
+                let formulas = Dictionary(givens.filter { assumes.contains($0.label) }
+                    .map { ($0.label, display($0.formula)) }, uniquingKeysWith: { _, inner in inner })
+                return Arm(range: arm.range, title: "Case \(header).", assumes: assumes, formulas: formulas,
                            introduces: arm.pattern == nil ? [arm.label].compactMap { $0 } : assumes,
                            variables: arm.pattern.map(Self.patternVariables) ?? [],
-                           blocks: blocks(members.filter { arm.range.contains($0.step.range) }))
+                           blocks: blocks(inside))
             })
         }
 
@@ -487,8 +562,6 @@ struct Textbook {
                 }
             }
             let definitions = names("definition")
-            let parts = names("given") + names("lemma")
-                + (definitions.isEmpty ? [] : ["def. of " + definitions.joined(separator: ", ")])
             var text = slice(step.range)
             if let by = text.range(of: " by ") {
                 text = String(text[by.upperBound...])
@@ -497,7 +570,8 @@ struct Textbook {
             if text.hasPrefix("{") && text.hasSuffix("}") {
                 text = String(text.dropFirst().dropLast())
             }
-            return Reason(summary: parts.joined(separator: "; "),
+            return Reason(givens: names("given"),
+                          others: names("lemma") + (definitions.isEmpty ? [] : ["def. of " + definitions.joined(separator: ", ")]),
                           source: text.split(whereSeparator: \.isWhitespace).joined(separator: " "))
         }
 

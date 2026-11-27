@@ -183,16 +183,22 @@ final class DeduceServer: ObservableObject {
     }
 
     /// Copy the bundled exercises that aren't in Documents yet, so a
-    /// student's work is never overwritten.
+    /// student's work is never overwritten, and drop the copies of
+    /// exercises the app no longer has.
     private func seedExercises() {
+        let files = FileManager.default
         let bundled = appDirectory.appendingPathComponent("exercises")
-        let names = (try? FileManager.default.contentsOfDirectory(atPath: bundled.path)) ?? []
-        try? FileManager.default.createDirectory(at: exercisesDirectory, withIntermediateDirectories: true)
+        let names = (try? files.contentsOfDirectory(atPath: bundled.path)) ?? []
+        try? files.createDirectory(at: exercisesDirectory, withIntermediateDirectories: true)
         for name in names where name.hasSuffix(".pf") {
             let target = exercisesDirectory.appendingPathComponent(name)
-            if !FileManager.default.fileExists(atPath: target.path) {
-                try? FileManager.default.copyItem(at: bundled.appendingPathComponent(name), to: target)
+            if !files.fileExists(atPath: target.path) {
+                try? files.copyItem(at: bundled.appendingPathComponent(name), to: target)
             }
+        }
+        for name in (try? files.contentsOfDirectory(atPath: exercisesDirectory.path)) ?? []
+        where name.hasSuffix(".pf") && !names.contains(name) {
+            try? files.removeItem(at: exercisesDirectory.appendingPathComponent(name))
         }
     }
 

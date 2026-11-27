@@ -661,7 +661,8 @@ def eliminate_at(
     - ``H: P and Q`` -> destructure with ``have h1: P by conjunct 1
       of H``, etc.
     - ``H: P or Q`` -> ``cases H ...``
-    - ``H: if P then Q`` -> ``have h: Q by apply H to ?``
+    - ``H: if P then Q`` -> ``have h: Q by apply H to ?``, or
+      ``apply H to ?`` when ``Q`` is the goal
     - ``H: all x:T. P`` -> ``H[?, ...]``
     - ``H: some x:T. P`` -> ``obtain ... where ... from H``
     - ``H: e1 = e2`` -> ``replace H``
