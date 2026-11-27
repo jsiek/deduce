@@ -326,8 +326,7 @@ proof
   have i: K * (p2 * q1 - q2 * p1) = (K * p2) * q1 - (K * q2) * p1 by algebra
   have a: (K * p2) * q1 = (t * p1) * q1 by replace conjunct 1 of h.
   have b: (K * q2) * p1 = (t * q1) * p1 by replace conjunct 2 of h.
-  have c: (t * p1) * q1 = (t * q1) * p1 by algebra
-  have z: K * (p2 * q1 - q2 * p1) = real(+0) by algebra with i | a | b | c
+  have z: K * (p2 * q1 - q2 * p1) = real(+0) by algebra with i | a | b
   have z2: p2 * q1 - q2 * p1 = real(+0)
     by replace apply real_mult_zero_iff[K, p2 * q1 - q2 * p1] to conjunct 0 of h in z
   replace real_sub_eq_zero_iff in z2
@@ -502,51 +501,6 @@ proof
   ne
 end
 
-// A point on segment PQ, as an affine combination: f is affine along
-// the line through P and Q.
-lemma affine_cross: all A:Point, B:Point, P:Point, Q:Point, t:Real.
-  cross(A, B, point(xcoord(P) + t * (xcoord(Q) - xcoord(P)), ycoord(P) + t * (ycoord(Q) - ycoord(P))))
-  = cross(A, B, P) + t * (cross(A, B, Q) - cross(A, B, P))
-proof
-  arbitrary A:Point, B:Point, P:Point, Q:Point, t:Real
-  expand cross
-  algebra
-end
-
-lemma affine_dot: all P:Point, Q:Point, t:Real.
-  dot(point(xcoord(P) + t * (xcoord(Q) - xcoord(P)), ycoord(P) + t * (ycoord(Q) - ycoord(P))), P, Q)
-  = - ((t * (real(+1) - t)) * dist2(P, Q))
-proof
-  arbitrary P:Point, Q:Point, t:Real
-  expand dot | dist2
-  algebra
-end
-
-lemma affine_collinear: all P:Point, Q:Point, t:Real.
-  collinear(P, point(xcoord(P) + t * (xcoord(Q) - xcoord(P)), ycoord(P) + t * (ycoord(Q) - ycoord(P))), Q)
-proof
-  arbitrary P:Point, Q:Point, t:Real
-  expand collinear | cross
-  algebra
-end
-
-lemma frac_zero: all a:Real, b:Real.
-  if not (a - b = real(+0)) then a + (a / (a - b)) * (b - a) = real(+0)
-proof
-  arbitrary a:Real, b:Real
-  assume nz
-  algebra
-end
-
-lemma frac_square: all a:Real, b:Real.
-  if not (a - b = real(+0))
-  then ((a / (a - b)) * (real(+1) - a / (a - b))) * ((a - b) * (a - b)) = - (a * b)
-proof
-  arbitrary a:Real, b:Real
-  assume nz
-  algebra
-end
-
 // For w = (w1, w2), u = (u1, u2), v = (v1, v2):
 // |u|² (w × v) = (u · v)(w × u) + (u × v)(w · u).
 lemma vec_split: all w1:Real, w2:Real, u1:Real, u2:Real, v1:Real, v2:Real.
@@ -664,10 +618,10 @@ proof
     choose X
     have on: on_line(X, line(A, B)) by {
       replace apply on_line_cross[A, B, X] to ne
-      expand X
-      replace affine_cross[A, B, P, Q, t]
-      expand t | a | b
-      apply frac_zero[cross(A, B, P), cross(A, B, Q)] to (expand a | b in nab)
+      have e: cross(A, B, X) = a + t * (b - a) by { expand X | a | b | cross  algebra }
+      replace e
+      expand t
+      algebra
     }
     have pq: not (P = Q) by {
       assume e
@@ -676,7 +630,7 @@ proof
     }
     have tt: real(+0) < t * (real(+1) - t) by {
       have e: (t * (real(+1) - t)) * ((a - b) * (a - b)) = - (a * b)
-        by { expand t  apply frac_square[a, b] to nab }
+        by { expand t  algebra }
       have n: real(+0) < - (a * b) by algebra with opp
       have s: (real(+0) * ((a - b) * (a - b)) < (t * (real(+1) - t)) * ((a - b) * (a - b)))
               = (real(+0) < t * (real(+1) - t))
@@ -687,10 +641,10 @@ proof
     }
     have btw: between(P, X, Q) by {
       expand between
-      have d: dot(X, P, Q) = - ((t * (real(+1) - t)) * dist2(P, Q)) by { expand X  affine_dot[P, Q, t] }
+      have d: dot(X, P, Q) = - ((t * (real(+1) - t)) * dist2(P, Q)) by { expand X | dot | dist2  algebra }
       have dp: real(+0) < (t * (real(+1) - t)) * dist2(P, Q)
         by apply real_mult_pos to tt, (apply point_dist2_pos[P, Q] to pq)
-      have c: collinear(P, X, Q) by { expand X  affine_collinear[P, Q, t] }
+      have c: collinear(P, X, Q) by { expand X | collinear | cross  algebra }
       have n: dot(X, P, Q) < real(+0) by algebra with d | dp
       (c, n)
     }
