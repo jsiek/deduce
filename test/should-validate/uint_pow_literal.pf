@@ -1,0 +1,17 @@
+// A power with a literal exponent stays a power (#1328): `uint_expt_suc`
+// is not an auto rule, so it no longer unrolls `x ^ 200` into 200 factors.
+import UInt
+
+theorem pow_literal_commute: all x:UInt, y:UInt. x ^ 200 * y = y * x ^ 200
+proof
+  arbitrary x:UInt, y:UInt
+  uint_mult_commute
+end
+
+// `n ^ 1 = n` is still automatic, and `replace uint_expt_suc` unfolds a
+// power one factor at a time.
+theorem pow_literal_unfold: all x:UInt. x ^ 3 = x * x * x
+proof
+  arbitrary x:UInt
+  replace uint_expt_suc | uint_expt_suc.
+end

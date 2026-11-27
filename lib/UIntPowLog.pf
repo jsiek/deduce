@@ -102,30 +102,31 @@ end
 auto uint_expt_zero
   
 // Unfolds a literal-exponent power by one step: `n^(suc m) = n * n^m`.
+// Not an `auto` rule: as one it unrolled `x ^ 200` into 200 factors in
+// every goal that mentioned it (#1328). Use `replace uint_expt_suc`.
 theorem uint_expt_suc: all n:UInt, m:Nat. n ^ fromNat(lit(suc(m))) = n * n ^ fromNat(lit(m))
 proof
   arbitrary n:UInt, m:Nat
   suffices toNat(n ^ fromNat(lit(suc(m)))) = toNat(n * n ^ fromNat(lit(m))) by uint_toNat_injective
   replace toNat_mult | toNat_expt | uint_toNat_fromNat.
 end
-auto uint_expt_suc
 
 // Any base raised to the first power is itself.
 theorem uint_expt_one: all n:UInt.
   n ^ 1 = n
 proof
   arbitrary n:UInt
-  suffices toNat(n^1) = toNat(n)   by uint_toNat_injective
-  .
+  replace uint_expt_suc.
 end
+
+auto uint_expt_one
 
 // Squaring is the second power.
 theorem uint_expt_two: all n:UInt.
   n ^ 2 = n * n
 proof
   arbitrary n:UInt
-  suffices toNat(n^2) = toNat(n * n) by uint_toNat_injective
-  .
+  replace uint_expt_suc.
 end
 
 // One raised to any exponent is one.
