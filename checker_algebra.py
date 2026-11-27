@@ -48,10 +48,10 @@ from abstract_syntax import (
     LINEAR_DEFS, RING_DEFS, AST, AlgebraGoal, AllElim, AllElimTypes, And, Bool, Call,
     ConceptRef, Env, Formula, FunctionType, IfThen, OverloadedVar, PVar, Proof,
     ResolvedVar, Term, TermInst, Type, Var, VarRef, base_name, full_reduce,
-    get_dont_reduce_opaque, get_reduce_only, get_unfold_recursively, intToNat,
+    get_dont_reduce_opaque, get_reduce_only, get_unfold_depth, intToNat,
     isNat, isUInt, mkEqual,
     mkIntLit, mkUIntLit, natToInt, Numeral, remove_mark, rewrite_aux,
-    set_dont_reduce_opaque, set_reduce_only, set_unfold_recursively, uintToInt,
+    set_dont_reduce_opaque, set_reduce_only, set_unfold_depth, uintToInt,
 )
 from abstract_syntax.literals import _mk_uint_from_int
 from checker_concepts import find_model
@@ -957,11 +957,11 @@ def _reduce(loc: Meta, frm: Formula, names: dict[str, list[str]],
   defs: list[Term] = [ResolvedVar(loc, None, n)
                       for name in def_names for n in names.get(name, [])]
   defs += ops
-  # Unfold the recursive functions to the end in one pass: one call per
-  # pass took a pass per fact and per atom, each over the whole instance
-  # (#1363). Repeat to a fixed point, for what a pass's result exposes.
-  old = get_unfold_recursively()
-  set_unfold_recursively(True)
+  # Unfold recursive calls up to _UNFOLD_DEPTH deep in a pass: one call
+  # per pass took a pass per fact and per atom, each over the whole
+  # instance (#1363). Repeat to a fixed point, for the deeper calls.
+  old = get_unfold_depth()
+  set_unfold_depth(_UNFOLD_DEPTH)
   try:
     while True:
       new_frm = _with_reduce(defs, frm, env)
@@ -969,7 +969,13 @@ def _reduce(loc: Meta, frm: Formula, names: dict[str, list[str]],
         return frm
       frm = new_frm
   finally:
-    set_unfold_recursively(old)
+    set_unfold_depth(old)
+
+
+# How many calls deep `_reduce` unfolds in a pass. Unbounded, a pass's
+# Python recursion grows with the facts and atoms, and 72 chained facts
+# went past the recursion limit.
+_UNFOLD_DEPTH = 16
 
 
 def _scale_op(frm: Term) -> list[Term]:

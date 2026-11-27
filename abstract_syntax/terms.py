@@ -930,18 +930,20 @@ def set_dont_reduce_opaque(b: bool) -> None:
   global dont_reduce_opaque
   dont_reduce_opaque = b
 
-# Whether a function of ``reduce_only`` stays in it while its body is
-# reduced, so that its recursive calls unfold too, rather than one call
-# per pass (as `expand` does). `algebra` reduces its certificates so:
-# their recursive functions recurse on the closed data it builds.
-unfold_recursively = False
+# How many calls deep a function of ``reduce_only`` stays in it while
+# its body is reduced, so that its recursive calls unfold too. At 0 (as
+# for `expand`), a pass unfolds one call. `algebra` reduces its
+# certificates with a budget: their recursive functions recurse on the
+# closed data it builds, and the budget bounds the Python stack a pass
+# uses, leaving deeper calls to the next pass.
+unfold_depth = 0
 
-def get_unfold_recursively() -> bool:
-  return unfold_recursively
+def get_unfold_depth() -> int:
+  return unfold_depth
 
-def set_unfold_recursively(b: bool) -> None:
-  global unfold_recursively
-  unfold_recursively = b
+def set_unfold_depth(n: int) -> None:
+  global unfold_depth
+  unfold_depth = n
 
 eval_all = False
 
@@ -1282,8 +1284,13 @@ def do_function_call(loc: Meta, name: str, type_params: list[str],
       new_fun_case_body = cast(Term, body.substitute(subst))
       old_defs = get_reduce_only()
       reduce_defs = [x for x in old_defs]
-      if ResolvedVar(loc, None, name) in reduce_defs and not unfold_recursively:
-        reduce_defs.remove(ResolvedVar(loc, None, name))
+      global unfold_depth
+      old_depth = unfold_depth
+      if ResolvedVar(loc, None, name) in reduce_defs:
+        if unfold_depth > 0:
+          unfold_depth -= 1
+        else:
+          reduce_defs.remove(ResolvedVar(loc, None, name))
       reduce_defs += [ResolvedVar(loc, None, x) for x in params]
       # Revisit the following -Jeremy  
       # reduce_defs += [ResolvedVar(loc, None, x) \
@@ -1295,6 +1302,7 @@ def do_function_call(loc: Meta, name: str, type_params: list[str],
       ret = new_fun_case_body.reduce(body_env)
 
       set_reduce_only(old_defs)
+      unfold_depth = old_depth
 
   add_reduced_def(name)
   if get_verbose():
