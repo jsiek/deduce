@@ -1,0 +1,38 @@
+// `algebra` builds its instance from only the givens its certificate
+// uses (#1363). Each theorem has givens it doesn't need, in each of
+// linear mode's three forms: prove (≤, and = with two certificates),
+// disprove, and refute.
+import Real
+import Linear
+
+theorem unused_le: all a:Real, b:Real, c:Real, d:Real, x:Real, y:Real.
+  if a * b ≤ c * d and a ≤ b and x ≤ y then x ≤ y + real(+1)
+proof
+  arbitrary a:Real, b:Real, c:Real, d:Real, x:Real, y:Real
+  assume h
+  algebra
+end
+
+theorem unused_eq: all a:Real, b:Real, x:Real, y:Real.
+  if a < b and x ≤ y and y ≤ x and a * a ≤ b then x = y
+proof
+  arbitrary a:Real, b:Real, x:Real, y:Real
+  assume h
+  algebra
+end
+
+theorem unused_disprove: all a:Real, b:Real, x:Real, y:Real.
+  if a ≤ b and x < y and b * b ≤ a then not (y ≤ x)
+proof
+  arbitrary a:Real, b:Real, x:Real, y:Real
+  assume h
+  algebra
+end
+
+theorem unused_refute: all a:Real, b:Real, x:Real, y:Real.
+  if a ≤ b and x < y and a * b ≤ a and y < x then false
+proof
+  arbitrary a:Real, b:Real, x:Real, y:Real
+  assume h
+  algebra
+end

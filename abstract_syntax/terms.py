@@ -930,6 +930,19 @@ def set_dont_reduce_opaque(b: bool) -> None:
   global dont_reduce_opaque
   dont_reduce_opaque = b
 
+# Whether a function of ``reduce_only`` stays in it while its body is
+# reduced, so that its recursive calls unfold too, rather than one call
+# per pass (as `expand` does). `algebra` reduces its certificates so:
+# their recursive functions recurse on the closed data it builds.
+unfold_recursively = False
+
+def get_unfold_recursively() -> bool:
+  return unfold_recursively
+
+def set_unfold_recursively(b: bool) -> None:
+  global unfold_recursively
+  unfold_recursively = b
+
 eval_all = False
 
 def get_eval_all() -> bool:
@@ -1269,10 +1282,8 @@ def do_function_call(loc: Meta, name: str, type_params: list[str],
       new_fun_case_body = cast(Term, body.substitute(subst))
       old_defs = get_reduce_only()
       reduce_defs = [x for x in old_defs]
-      if ResolvedVar(loc, None, name) in reduce_defs:
+      if ResolvedVar(loc, None, name) in reduce_defs and not unfold_recursively:
         reduce_defs.remove(ResolvedVar(loc, None, name))
-      else:
-        pass
       reduce_defs += [ResolvedVar(loc, None, x) for x in params]
       # Revisit the following -Jeremy  
       # reduce_defs += [ResolvedVar(loc, None, x) \

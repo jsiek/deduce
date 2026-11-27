@@ -29,8 +29,9 @@ Otherwise, linear arithmetic:
    the facts (and for ``0 < unit``, and the negated goal) whose
    combination is ``0 < 0``.
 3. Instantiate ``lin_prove``, ``lin_disprove``, or ``lin_refute`` at the
-   goal's type, the atoms, the facts, and the certificate, and reduce
-   it, unfolding only the definitions of lib/Linear.pf. The certificate
+   goal's type, the facts the certificate uses (and their atoms), and
+   the certificate, and reduce it, unfolding only the definitions of
+   lib/Linear.pf. The certificate
    check reduces to ``true``, and the facts and conclusion to the givens
    and the goal as the user wrote them; anything else is an error.
 """
@@ -47,9 +48,10 @@ from abstract_syntax import (
     LINEAR_DEFS, RING_DEFS, AST, AlgebraGoal, AllElim, AllElimTypes, And, Bool, Call,
     ConceptRef, Env, Formula, FunctionType, IfThen, OverloadedVar, PVar, Proof,
     ResolvedVar, Term, TermInst, Type, Var, VarRef, base_name, full_reduce,
-    get_dont_reduce_opaque, get_reduce_only, intToNat, isNat, isUInt, mkEqual,
+    get_dont_reduce_opaque, get_reduce_only, get_unfold_recursively, intToNat,
+    isNat, isUInt, mkEqual,
     mkIntLit, mkUIntLit, natToInt, Numeral, remove_mark, rewrite_aux,
-    set_dont_reduce_opaque, set_reduce_only, uintToInt,
+    set_dont_reduce_opaque, set_reduce_only, set_unfold_recursively, uintToInt,
 )
 from abstract_syntax.literals import _mk_uint_from_int
 from checker_concepts import find_model
@@ -645,44 +647,57 @@ def check_algebra(proof: AlgebraGoal, goal: Formula, env: Env,
     target = _relation(negated if negated is not None else goal)
     relations = [r for c in available if (r := _relation(c)) is not None]
 
-  reifier = _Reifier()
-  hyps = [(rel, reifier.lin(a), reifier.lin(b))
-          for (rel, a, b) in relations if a.typeof == ty]
   unit_fact = ('lt', ('zero',), ('const', Fraction(1), None))
 
-  def refute(extra: list[tuple[str, Lin, Lin]]) -> list[Fraction]:
-    cert = certificate([unit_fact] + extra + hyps)
-    if cert is None:
-      _fail(loc, target, hyps, reifier, ring_note)
-    assert cert is not None
-    return _integral(cert)
+  def certify(rels: list[tuple[str, Term, Term]]) \
+      -> tuple[_Reifier, list[tuple[str, Lin, Lin]], tuple[str, Lin, Lin] | None,
+               list[list[Fraction]]]:
+    """Reify ``rels`` and the target, and find the certificates: one for
+    each refutation, with a coefficient for the unit fact, then the
+    target's (if any), then each of ``rels``'."""
+    reifier = _Reifier()
+    hyps = [(rel, reifier.lin(a), reifier.lin(b)) for (rel, a, b) in rels]
+
+    def refute(extra: list[tuple[str, Lin, Lin]]) -> list[Fraction]:
+      cert = certificate([unit_fact] + extra + hyps)
+      if cert is None:
+        _fail(loc, target, hyps, reifier, ring_note)
+      assert cert is not None
+      return _integral(cert)
+
+    if target is None:
+      return reifier, hyps, None, [refute([])]
+    rel, x, y = target
+    g = (rel, reifier.lin(x), reifier.lin(y))
+    if negated is not None:
+      return reifier, hyps, g, [refute([g])]
+    if rel == 'le':
+      return reifier, hyps, g, [refute([('lt', g[2], g[1])])]
+    if rel == 'lt':
+      return reifier, hyps, g, [refute([('le', g[2], g[1])])]
+    return reifier, hyps, g, [refute([('lt', g[1], g[2])]),
+                              refute([('lt', g[2], g[1])])]
+
+  # Build the instance from only the givens the certificates use, and
+  # their atoms: reducing it costs per fact and per atom (#1363).
+  rels = [r for r in relations if r[1].typeof == ty]
+  reifier, hyps, g, certs = certify(rels)
+  k = 0 if target is None else 1
+  used = [r for i, r in enumerate(rels) if any(cs[1 + k + i] for cs in certs)]
+  if len(used) < len(rels):
+    reifier, hyps, g, certs = certify(used)
 
   b = _Builder(loc, proof.names, env)
-  if target is not None and negated is None:
-    rel, x, y = target
-    g = (rel, reifier.lin(x), reifier.lin(y))
-    cs2: list[Fraction] = []
-    if rel == 'le':
-      cs1 = refute([('lt', g[2], g[1])])
-    elif rel == 'lt':
-      cs1 = refute([('le', g[2], g[1])])
-    else:
-      cs1 = refute([('lt', g[1], g[2])])
-      cs2 = refute([('lt', g[2], g[1])])
-    theorem, args = 'lin_prove', [b.fact(g), b.list([b.fact(h) for h in hyps]),
-                                  b.list([b.rat(c) for c in cs1]),
-                                  b.list([b.rat(c) for c in cs2])]
-  elif target is not None:
-    rel, x, y = target
-    g = (rel, reifier.lin(x), reifier.lin(y))
-    cs = refute([g])
-    theorem, args = 'lin_disprove', [b.fact(g),
-                                     b.list([b.fact(h) for h in hyps]),
-                                     b.list([b.rat(c) for c in cs])]
+  facts_list = b.list([b.fact(h) for h in hyps])
+  cert_lists = [b.list([b.rat(c) for c in cs]) for cs in certs]
+  if g is None:
+    theorem, args = 'lin_refute', [facts_list] + cert_lists
+  elif negated is not None:
+    theorem, args = 'lin_disprove', [b.fact(g), facts_list] + cert_lists
   else:
-    cs = refute([])
-    theorem, args = 'lin_refute', [b.list([b.fact(h) for h in hyps]),
-                                   b.list([b.rat(c) for c in cs])]
+    if len(cert_lists) == 1:
+      cert_lists.append(b.list([]))
+    theorem, args = 'lin_prove', [b.fact(g), facts_list] + cert_lists
   frm = _instance(proof, theorem, ty, [b.list(reifier.atoms)] + args, env,
                   check_proof)
   # The premise is the certificate's check, which is closed, so it
@@ -942,12 +957,19 @@ def _reduce(loc: Meta, frm: Formula, names: dict[str, list[str]],
   defs: list[Term] = [ResolvedVar(loc, None, n)
                       for name in def_names for n in names.get(name, [])]
   defs += ops
-  # A pass unfolds each recursive call once, so repeat to a fixed point.
-  while True:
-    new_frm = _with_reduce(defs, frm, env)
-    if new_frm == frm:
-      return frm
-    frm = new_frm
+  # Unfold the recursive functions to the end in one pass: one call per
+  # pass took a pass per fact and per atom, each over the whole instance
+  # (#1363). Repeat to a fixed point, for what a pass's result exposes.
+  old = get_unfold_recursively()
+  set_unfold_recursively(True)
+  try:
+    while True:
+      new_frm = _with_reduce(defs, frm, env)
+      if new_frm == frm:
+        return frm
+      frm = new_frm
+  finally:
+    set_unfold_recursively(old)
 
 
 def _scale_op(frm: Term) -> list[Term]:
