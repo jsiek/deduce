@@ -457,7 +457,7 @@ def _check_file_impl(
         prev_warning_sink = set_active_warning_sink(warning_sink)
         try:
             typechecked_ast = check_deduce(
-                ast, module_name, True, error_sink=sink
+                ast, module_name, _flags.get_check_proofs(), error_sink=sink
             )
         finally:
             set_active_warning_sink(prev_warning_sink)

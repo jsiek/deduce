@@ -96,7 +96,7 @@ def main() -> int:
             sys.executable, str(ROOT / "deduce.py"),
             "--compile-module", "--no-stdlib",
             "--dir", str(LIB),
-            "--suppress-theorems", "--quiet",
+            "--suppress-theorems", "--no-check-imports", "--quiet",
             "-o", str(work / "app.c"),
             str(app_pf),
         ], cwd=str(ROOT), capture_output=True, text=True, check=True)

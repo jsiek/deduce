@@ -474,6 +474,12 @@ a return code of 255.
 
 Deduce will no longer check the proofs of imported files.
 
+`--no-check-proofs`
+
+Deduce will check no proofs at all, not even those of the given file,
+and writes no `.thm` file. Use it with `--compile-module` to compile a
+library whose proofs are checked elsewhere.
+
 `--compile`
 
 Translate the file to a self-contained C program instead of just

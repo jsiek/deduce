@@ -5,6 +5,7 @@ from flags import (
     get_postulate_report,
     init_import_directories,
     set_check_imports,
+    set_check_proofs,
     set_experimental_imperative,
     set_postulate_report,
     set_quiet_mode,
@@ -175,6 +176,9 @@ Options:
                             statement named NAME
   --error                   expect each file to error (exit 255 if not)
   --no-check-imports        do not check proofs of imported files
+  --no-check-proofs         do not check any proofs, not even the given
+                            file's (implies --no-check-imports and
+                            --suppress-theorems)
   --color / --no-color      force or disable ANSI color output
   --compile                 compile to a self-contained C program
   --compile-module          compile as a single module (.c + .h)
@@ -281,6 +285,10 @@ if __name__ == "__main__":
             exit(0)
         elif argument == '--no-check-imports':
             set_check_imports(False)
+        elif argument == '--no-check-proofs':
+            set_check_imports(False)
+            set_check_proofs(False)
+            suppress_theorems = True
         elif argument == '--compile':
             compile_target = '__pending__'
         elif argument == '--compile-module':

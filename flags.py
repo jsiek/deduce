@@ -178,6 +178,19 @@ def set_check_imports(b: bool) -> None:
   global check_imports
   check_imports = b
 
+# `deduce.py --no-check-proofs`: don't check the proofs of the given
+# file either, as when compiling a library whose proofs are checked
+# elsewhere.
+
+check_proofs: bool = True
+
+def get_check_proofs() -> bool:
+  return check_proofs
+
+def set_check_proofs(b: bool) -> None:
+  global check_proofs
+  check_proofs = b
+
 # flag for LSP-targeted hole queries: when set to (line, column), the
 # proof checker treats every `?` hole at a different location as a
 # successful proof of its goal, and only raises IncompleteProof at the

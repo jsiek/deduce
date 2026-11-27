@@ -54,10 +54,9 @@ jobs:
       matrix:
         # Long categories are fanned across parallel shards with ``--shard
         # i/n`` so no single leg dominates wall-clock; every item lands in
-        # exactly one shard, so coverage is unchanged. ``test/prelude`` is its
-        # own leg (``--prelude``) because it needs the expensive stdlib
-        # bootstrap that should-validate does not. Bump a shard count if a leg
-        # creeps back over budget. (See issue #1049.)
+        # exactly one shard, so coverage is unchanged. Only the lib legs check
+        # the stdlib's proofs; the others load it without them. Keep each leg
+        # under 5 minutes: bump a shard count if one creeps over.
         include:
           - name: site
             args: --site
@@ -66,19 +65,25 @@ jobs:
             args: --parser
             requirements: core
           - name: lib-1
-            args: --lib --shard 1/3
+            args: --lib --shard 1/4
             requirements: core
           - name: lib-2
-            args: --lib --shard 2/3
+            args: --lib --shard 2/4
             requirements: core
           - name: lib-3
-            args: --lib --shard 3/3
+            args: --lib --shard 3/4
+            requirements: core
+          - name: lib-4
+            args: --lib --shard 4/4
             requirements: core
           - name: passable-1
-            args: --passable --cli --shard 1/2
+            args: --passable --cli --shard 1/3
             requirements: core
           - name: passable-2
-            args: --passable --shard 2/2
+            args: --passable --shard 2/3
+            requirements: core
+          - name: passable-3
+            args: --passable --shard 3/3
             requirements: core
           - name: prelude
             args: --prelude
@@ -102,14 +107,25 @@ jobs:
             args: --examples
             requirements: core
           # The C back end: test/compile/run_*.py (`make tests-compile`),
-          # split so each leg stays near the budget. The prelude archive
-          # compiles every lib module, so it gets a leg of its own.
+          # split so each leg stays near the budget. run_e2e runs
+          # deduce.py twice per fixture, so it is sharded too.
           - name: compile-1
             compile: run_prelude_archive
             requirements: core
           - name: compile-2
-            compile: run_lower run_e2e run_determinism run_headers run_separate
-            warm_stdlib: true
+            compile: run_lower run_determinism run_headers run_separate
+            requirements: core
+          - name: e2e-1
+            compile: run_e2e
+            compile_args: --shard 1/3
+            requirements: core
+          - name: e2e-2
+            compile: run_e2e
+            compile_args: --shard 2/3
+            requirements: core
+          - name: e2e-3
+            compile: run_e2e
+            compile_args: --shard 3/3
             requirements: core
 
     steps:
@@ -140,18 +156,13 @@ jobs:
         run: python test-deduce.py ${{ matrix.args }}
 
       # The scripts skip when there is no C compiler; `cc --version`
-      # makes a missing one fail the leg instead. They run deduce.py with
-      # --suppress-theorems, so with `warm_stdlib` checking one stdlib
-      # program first writes lib/*.thm (gitignored), and run_e2e's many
-      # invocations don't each re-check the stdlib (4m46s -> 2m in CI,
-      # for 100s). It doesn't speed up run_prelude_archive.
+      # makes a missing one fail the leg instead. They don't check the
+      # stdlib's proofs (--no-check-imports, --no-check-proofs): the lib
+      # legs do.
       - name: Run compiler tests
         if: ${{ matrix.compile }}
         run: |
           cc --version
-          if [ "${{ matrix.warm_stdlib }}" = true ]; then
-            python deduce.py --quiet test/compile/prelude/hello_nat.pf
-          fi
           for t in ${{ matrix.compile }}; do
-            python test/compile/$t.py
+            python test/compile/$t.py ${{ matrix.compile_args }}
           done

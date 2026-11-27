@@ -102,7 +102,7 @@ def compile_pf_to_c(pf: Path) -> Path:
         sys.executable, str(ROOT / "deduce.py"),
         "--compile-module", "--no-main", "--no-stdlib",
         "--dir", str(LIB),
-        "--suppress-theorems", "--quiet",
+        "--no-check-proofs", "--quiet",
         "-o", str(out_c),
         str(pf),
     ])
