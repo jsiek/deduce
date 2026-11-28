@@ -86,16 +86,6 @@ proof
   algebra
 end
 
-lemma dot_cross: all A:Point, B:Point, C:Point, P:Point.
-  dist2(A, B) * dot(A, C, P) = dot(A, B, C) * dot(A, B, P) + cross(A, B, C) * cross(A, B, P)
-proof
-  arbitrary A:Point, B:Point, C:Point, P:Point
-  replace point_dist2_symmetric[A, B]
-  expand dist2 | dot | cross
-  vec_lagrange[xcoord(B) - xcoord(A), ycoord(B) - ycoord(A), xcoord(C) - xcoord(A),
-               ycoord(C) - ycoord(A), xcoord(P) - xcoord(A), ycoord(P) - ycoord(A)]
-end
-
 // |AB|² |AC|² = (AB · AC)² + (AB × AC)².
 lemma lagrange: all A:Point, B:Point, C:Point.
   dist2(A, B) * dist2(A, C) = dot(A, B, C) * dot(A, B, C) + cross(A, B, C) * cross(A, B, C)
@@ -131,16 +121,6 @@ proof
   arbitrary x:Real, y:Real, z:Real
   assume h
   algebra
-end
-
-// From x = a² + c² - 2d and x = (a + c)², d = -ac.
-lemma sum_square_cancel: all a:Real, c:Real, d:Real, x:Real.
-  if x = a * a + c * c - real(+2) * d and x = (a + c) * (a + c) then d = - (a * c)
-proof
-  arbitrary a:Real, c:Real, d:Real, x:Real
-  assume h
-  have r: (a + c) * (a + c) = a * a + c * c + real(+2) * (a * c) by algebra
-  algebra with r
 end
 
 // For k > 0 with k² = x: (s / k)² = s² / x.
@@ -428,7 +408,10 @@ proof
                           - real(+2) * dot(B, A, C)
       by replace symmetric point_dist_square[B, A] | symmetric point_dist_square[B, C]
          in point_dist2_dot[B, A, C]
-    apply sum_square_cancel[dist(B, A), dist(B, C), dot(B, A, C), dist2(A, C)] to e, sq
+    have r: (dist(B, A) + dist(B, C)) * (dist(B, A) + dist(B, C))
+            = dist(B, A) * dist(B, A) + dist(B, C) * dist(B, C) + real(+2) * (dist(B, A) * dist(B, C))
+      by algebra
+    algebra with e | sq | r
   }
   // So (BA · BC)² = BA² BC², and by Lagrange's identity BA × BC = 0.
   have col: collinear(B, A, C) by {
@@ -656,7 +639,7 @@ proof
         // negative and the right side positive.
         have z: cross(A, B, C) = real(+0) by expand collinear in abc
         have e: dist2(A, B) * dot(A, C, P) = dot(A, B, C) * dot(A, B, P)
-          by { replace dot_cross[A, B, C, P] | z. }
+          by { replace point_dot_frame[A, B, C, P] | z. }
         have rhs: real(+0) < dot(A, B, C) * dot(A, B, P)
           by apply neg_mult_neg to (conjunct 1 of h), neg_b
         have nc: real(+0) < - dot(A, C, P) by algebra
